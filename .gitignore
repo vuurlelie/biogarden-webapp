@@ -1,0 +1,167 @@
+# ======================================================
+# Biogarden WebApp - Fullstack (.NET Web API + React TS)
+# ======================================================
+
+# ---------------------------
+# .NET build output
+# ---------------------------
+**/bin/
+**/obj/
+**/publish/
+artifacts/
+out/
+
+# ---------------------------
+# IDE / Editor
+# ---------------------------
+.vs/
+.vscode/
+.idea/
+_ReSharper*/
+_ReSharper.Caches/
+*.sln.docstates
+*.DotSettings.user
+**/.localhistory/
+.vshistory/
+.history/
+
+# User-specific / machine-specific
+*.user
+*.rsuser
+*.suo
+*.userosscache
+*.userprefs
+
+# ---------------------------
+# Logs / caches
+# ---------------------------
+*.log
+*.pidb
+*.svclog
+*.cache
+*.pdb
+
+# ---------------------------
+# Test & coverage output
+# ---------------------------
+TestResults/
+**/TestResults/
+*.trx
+*.coverage
+*.coveragexml
+coverage*/
+.coverage
+coverage/
+.nyc_output/
+*.lcov
+BenchmarkDotNet.Artifacts/
+
+# ---------------------------
+# NuGet
+# ---------------------------
+*.nupkg
+*.snupkg
+**/[Pp]ackages/*
+!**/[Pp]ackages/build/
+project.lock.json
+project.fragment.lock.json
+*.nuget.props
+*.nuget.targets
+
+# ---------------------------
+# OS junk
+# ---------------------------
+.DS_Store
+Thumbs.db
+
+# ---------------------------
+# Local DB files
+# ---------------------------
+*.mdf
+*.ldf
+*.ndf
+*.db
+*.sqlite
+*.sqlite3
+
+# ======================================================
+# FRONTEND (React + TS + Vite)
+# ======================================================
+
+# dependencies
+**/node_modules/
+
+# build output
+**/dist/
+**/build/
+**/.vite/
+
+# env files (never commit secrets)
+.env
+.env.*
+!.env.example
+
+# package manager logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# lock files (válassz stratégiát!)
+# Ha egyedül fejleszted: ajánlott EGY lockfile-t verziózni (pl. package-lock.json).
+# A többieket ignoráljuk, hogy ne keveredjen.
+yarn.lock
+pnpm-lock.yaml
+.pnp.*
+.pnpm-store/
+
+# optional caches
+.eslintcache
+
+# Cypress / Playwright (ha lesz)
+cypress/videos/
+cypress/screenshots/
+cypress/results/
+playwright-report/
+test-results/
+
+# Storybook (ha lesz)
+storybook-static/
+.out/
+.storybook-out/
+.storybook-static/
+
+# ======================================================
+# DOCKER / CI / DEVOPS
+# ======================================================
+
+# docker overrides (gépenként eltér)
+docker-compose.override.yml
+docker-compose.local.yml
+
+# local docker folders/caches
+**/.docker/
+**/docker/
+
+# build artifacts
+*.tar
+*.container
+*.img
+
+# CI/CD temp
+tmp/
+temp/
+.cache/
+
+# ======================================================
+# SECRETS / CONFIG
+# ======================================================
+
+# ASP.NET appsettings (fejlesztői környezetfájlok)
+**/appsettings.Development.json
+**/appsettings.*.Local.json
+
+# user secrets / custom secrets
+secrets.json
+secret.*
+config/local.json
