@@ -14,6 +14,7 @@ public class AppDbContext : DbContext, IAppDbContext
 
     public DbSet<Post> Posts => Set<Post>();
     public DbSet<Product> Products => Set<Product>();
+    public DbSet<Address> Addresses => Set<Address>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -78,6 +79,37 @@ public class AppDbContext : DbContext, IAppDbContext
                 table.HasCheckConstraint("CK_Products_Price_NonNegative", "[Price] >= 0");
                 table.HasCheckConstraint("CK_Products_StockQuantity_NonNegative", "[StockQuantity] >= 0");
             });
+        });
+
+        modelBuilder.Entity<Address>(addressBuilder =>
+        {
+            addressBuilder.Property(address => address.PostalCode)
+                .HasMaxLength(4)
+                .IsRequired();
+
+            addressBuilder.Property(address => address.City)
+                .HasMaxLength(100)
+                .IsRequired();
+
+            addressBuilder.Property(address => address.Street)
+                .HasMaxLength(200)
+                .IsRequired();
+
+            addressBuilder.Property(address => address.HouseNumber)
+                .HasMaxLength(20)
+                .IsRequired();
+
+            addressBuilder.Property(address => address.Building)
+                .HasMaxLength(20);
+
+            addressBuilder.Property(address => address.Floor)
+                .HasMaxLength(20);
+
+            addressBuilder.Property(address => address.Door)
+                .HasMaxLength(20);
+
+            addressBuilder.Property(address => address.Doorbell)
+                .HasMaxLength(50);
         });
     }
 }
