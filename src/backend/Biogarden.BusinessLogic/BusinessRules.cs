@@ -12,4 +12,13 @@ public static class BusinessRules
     public const int ProductImageMaxLength = 500;
     public const int ProductPackageSizeMaxLength = 100;
     public const string DefaultProductImagePath = "/images/products/default.png";
+
+    public const int AddressPostalCodeLength = 4;
+    public const int AddressCityMaxLength = 100;
+    public const int AddressStreetMaxLength = 150;
+    public const int AddressHouseNumberMaxLength = 20;
+    public const int AddressBuildingMaxLength = 20;
+    public const int AddressFloorMaxLength = 20;
+    public const int AddressDoorMaxLength = 20;
+    public const int AddressDoorbellMaxLength = 50;
 }
