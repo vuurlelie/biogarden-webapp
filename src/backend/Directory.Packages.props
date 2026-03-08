@@ -17,6 +17,9 @@
 		<!-- Identity -->
 		<PackageVersion Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="9.0.8" />
 
+		<!-- JWT -->
+		<PackageVersion Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="9.0.8" />
+
 		<!-- OpenAPI / Swagger -->
 		<PackageVersion Include="Swashbuckle.AspNetCore" Version="6.6.2" />
 
