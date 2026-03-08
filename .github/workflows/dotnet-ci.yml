@@ -23,10 +23,10 @@ jobs:
           dotnet-version: 8.0.x
 
       - name: Restore dependencies
-        run: dotnet restore
+        run: dotnet restore ./src/backend/Biogarden.sln
 
       - name: Build solution
-        run: dotnet build --no-restore --configuration Release
+        run: dotnet build ./src/backend/Biogarden.sln --no-restore --configuration Release
 
       - name: Run tests
-        run: dotnet test --no-build --configuration Release --verbosity normal
+        run: dotnet test ./src/backend/Biogarden.sln --no-build --configuration Release --verbosity normal
