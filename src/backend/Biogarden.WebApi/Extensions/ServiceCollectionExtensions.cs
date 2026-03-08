@@ -56,6 +56,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IAddressService, AddressService>();
 
         services.AddScoped<IAuthService, AuthService>();
+        services.AddScoped<IUserService, UserService>();
 
         return services;
     }

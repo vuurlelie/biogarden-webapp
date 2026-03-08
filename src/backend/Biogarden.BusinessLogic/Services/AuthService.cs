@@ -14,25 +14,40 @@ public class AuthService : IAuthService
         _userManager = userManager;
     }
 
-    public async Task RegisterAsync(RegisterRequestDto request)
+    public async Task RegisterAsync(RegisterRequestDto registerRequestDto)
     {
-        if (request.Password != request.ConfirmPassword)
+        if (registerRequestDto.Password != registerRequestDto.ConfirmPassword)
         {
-            throw new ArgumentException("Passwords do not match.");
+            throw new ArgumentException("A jelszavak nem egyeznek.");
+        }
+
+        var normalizedEmail = registerRequestDto.Email.Trim();
+
+        var existingUser = await _userManager.FindByEmailAsync(normalizedEmail);
+
+        if (existingUser is not null)
+        {
+            throw new InvalidOperationException(
+                "Ezzel az email címmel már létezik felhasználó.");
         }
 
         var user = new ApplicationUser
         {
-            Email = request.Email,
-            UserName = request.Email
+            Email = normalizedEmail,
+            UserName = normalizedEmail
         };
 
-        var result = await _userManager.CreateAsync(user, request.Password);
+        var result = await _userManager.CreateAsync(
+            user,
+            registerRequestDto.Password);
 
         if (!result.Succeeded)
         {
-            var errors = string.Join(", ", result.Errors.Select(e => e.Description));
-            throw new Exception(errors);
+            var errors = string.Join(
+                ", ",
+                result.Errors.Select(error => error.Description));
+
+            throw new InvalidOperationException(errors);
         }
     }
 }
