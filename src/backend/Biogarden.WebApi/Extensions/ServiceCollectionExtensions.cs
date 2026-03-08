@@ -1,11 +1,15 @@
-﻿using Biogarden.BusinessLogic.Abstractions;
+﻿using System.Text;
+using Biogarden.BusinessLogic.Abstractions;
+using Biogarden.BusinessLogic.Options;
 using Biogarden.BusinessLogic.Services;
 using Biogarden.DataAccess;
 using Biogarden.DataAccess.Abstractions;
 using Biogarden.DataAccess.Entities;
 using Biogarden.DataAccess.Repositories;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
 
 namespace Biogarden.WebApi.Extensions;
 
@@ -26,6 +30,15 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IAppDbContext>(serviceProvider =>
             serviceProvider.GetRequiredService<AppDbContext>());
 
+        services.Configure<JwtSettings>(
+            configuration.GetSection(JwtSettings.SectionName));
+
+        var jwtSettings = configuration
+            .GetSection(JwtSettings.SectionName)
+            .Get<JwtSettings>()
+            ?? throw new InvalidOperationException(
+                "JWT settings are not configured.");
+
         services.AddIdentity<ApplicationUser, IdentityRole<Guid>>(options =>
         {
             options.Password.RequiredLength = 8;
@@ -39,7 +52,32 @@ public static class ServiceCollectionExtensions
         .AddEntityFrameworkStores<AppDbContext>()
         .AddDefaultTokenProviders();
 
-        services.AddAuthentication();
+        services.AddAuthentication(options =>
+        {
+            options.DefaultAuthenticateScheme =
+                JwtBearerDefaults.AuthenticationScheme;
+
+            options.DefaultChallengeScheme =
+                JwtBearerDefaults.AuthenticationScheme;
+
+            options.DefaultScheme =
+                JwtBearerDefaults.AuthenticationScheme;
+        })
+        .AddJwtBearer(options =>
+        {
+            options.TokenValidationParameters = new TokenValidationParameters
+            {
+                ValidateIssuer = true,
+                ValidateAudience = true,
+                ValidateIssuerSigningKey = true,
+                ValidateLifetime = true,
+                ValidIssuer = jwtSettings.Issuer,
+                ValidAudience = jwtSettings.Audience,
+                IssuerSigningKey = new SymmetricSecurityKey(
+                    Encoding.UTF8.GetBytes(jwtSettings.SecretKey)),
+                ClockSkew = TimeSpan.Zero
+            };
+        });
 
         services.AddAuthorization();
 
@@ -57,6 +95,7 @@ public static class ServiceCollectionExtensions
 
         services.AddScoped<IAuthService, AuthService>();
         services.AddScoped<IUserService, UserService>();
+        services.AddScoped<ITokenService, JwtTokenService>();
 
         return services;
     }

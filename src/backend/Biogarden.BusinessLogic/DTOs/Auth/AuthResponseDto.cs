@@ -6,5 +6,7 @@ public class AuthResponseDto
 
     public string Email { get; set; } = string.Empty;
 
-    public IEnumerable<string> Roles { get; set; } = Enumerable.Empty<string>();
+    public IEnumerable<string> Roles { get; set; } = [];
+
+    public string Token { get; set; } = string.Empty;
 }

@@ -8,10 +8,14 @@ namespace Biogarden.BusinessLogic.Services;
 public class AuthService : IAuthService
 {
     private readonly UserManager<ApplicationUser> _userManager;
+    private readonly ITokenService _tokenService;
 
-    public AuthService(UserManager<ApplicationUser> userManager)
+    public AuthService(
+        UserManager<ApplicationUser> userManager,
+        ITokenService tokenService)
     {
         _userManager = userManager;
+        _tokenService = tokenService;
     }
 
     public async Task RegisterAsync(RegisterRequestDto registerRequestDto)
@@ -59,8 +63,7 @@ public class AuthService : IAuthService
 
         if (user is null)
         {
-            throw new UnauthorizedAccessException(
-                "Hibás email vagy jelszó.");
+            throw new UnauthorizedAccessException("Hibás email vagy jelszó.");
         }
 
         var passwordValid = await _userManager.CheckPasswordAsync(
@@ -69,17 +72,18 @@ public class AuthService : IAuthService
 
         if (!passwordValid)
         {
-            throw new UnauthorizedAccessException(
-                "Hibás email vagy jelszó.");
+            throw new UnauthorizedAccessException("Hibás email vagy jelszó.");
         }
 
         var roles = await _userManager.GetRolesAsync(user);
+        var token = await _tokenService.CreateTokenAsync(user);
 
         return new AuthResponseDto
         {
             UserId = user.Id,
             Email = user.Email ?? string.Empty,
-            Roles = roles
+            Roles = roles,
+            Token = token
         };
     }
 }
