@@ -20,7 +20,7 @@ public static class PostMapper
             Title = post.Title,
             Category = post.Category,
             Article = post.Article,
-            Image = post.Image,
+            Image = post.Image ?? BusinessRules.DefaultPostImagePath,
             PublishedAt = post.PublishedAt,
             Draft = post.Draft
         };
@@ -46,14 +46,9 @@ public static class PostMapper
 
         if (changes.Image is not null)
         {
-            if (string.IsNullOrWhiteSpace(changes.Image))
-            {
-                entity.Image = BusinessRules.DefaultPostImagePath;
-            }
-            else
-            {
-                entity.Image = changes.Image;
-            }
+            entity.Image = string.IsNullOrWhiteSpace(changes.Image)
+            ? BusinessRules.DefaultPostImagePath
+            : changes.Image;
         }
 
         entity.PublishedAt = changes.PublishedAt;

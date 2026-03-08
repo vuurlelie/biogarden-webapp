@@ -7,6 +7,7 @@ public sealed class UnitOfWork : IUnitOfWork
     private readonly IAppDbContext _databaseContext;
 
     private IPostRepository? _postRepository;
+    private IProductRepository? _productRepository;
 
     public UnitOfWork(IAppDbContext databaseContext)
     {
@@ -15,6 +16,9 @@ public sealed class UnitOfWork : IUnitOfWork
 
     public IPostRepository PostRepository
         => _postRepository ??= new PostRepository(_databaseContext);
+
+    public IProductRepository ProductRepository
+        => _productRepository ??= new ProductRepository(_databaseContext);
 
     public Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
         => _databaseContext.SaveChangesAsync(cancellationToken);

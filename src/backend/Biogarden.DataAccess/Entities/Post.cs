@@ -10,7 +10,7 @@ public class Post
     public PostCategory Category { get; set; }
     public required string Article { get; set; }
 
-    public string Image { get; set; } = "/images/posts/default.png";
+    public string? Image { get; set; }
 
     public DateTime PublishedAt { get; set; } = DateTime.UtcNow;
 
