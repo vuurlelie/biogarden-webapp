@@ -50,4 +50,36 @@ public class AuthService : IAuthService
             throw new InvalidOperationException(errors);
         }
     }
+
+    public async Task<AuthResponseDto> LoginAsync(LoginRequestDto loginRequestDto)
+    {
+        var normalizedEmail = loginRequestDto.Email.Trim();
+
+        var user = await _userManager.FindByEmailAsync(normalizedEmail);
+
+        if (user is null)
+        {
+            throw new UnauthorizedAccessException(
+                "Hibás email vagy jelszó.");
+        }
+
+        var passwordValid = await _userManager.CheckPasswordAsync(
+            user,
+            loginRequestDto.Password);
+
+        if (!passwordValid)
+        {
+            throw new UnauthorizedAccessException(
+                "Hibás email vagy jelszó.");
+        }
+
+        var roles = await _userManager.GetRolesAsync(user);
+
+        return new AuthResponseDto
+        {
+            UserId = user.Id,
+            Email = user.Email ?? string.Empty,
+            Roles = roles
+        };
+    }
 }

@@ -5,4 +5,5 @@ namespace Biogarden.BusinessLogic.Abstractions;
 public interface IAuthService
 {
     Task RegisterAsync(RegisterRequestDto request);
+    Task<AuthResponseDto> LoginAsync(LoginRequestDto loginRequestDto);
 }
