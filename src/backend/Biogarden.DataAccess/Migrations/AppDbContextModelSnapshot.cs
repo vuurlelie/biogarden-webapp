@@ -83,6 +83,9 @@ namespace Biogarden.DataAccess.Migrations
                     b.Property<int>("AccessFailedCount")
                         .HasColumnType("int");
 
+                    b.Property<int?>("BillingAddressId")
+                        .HasColumnType("int");
+
                     b.Property<string>("ConcurrencyStamp")
                         .IsConcurrencyToken()
                         .HasColumnType("nvarchar(max)");
@@ -98,10 +101,12 @@ namespace Biogarden.DataAccess.Migrations
                         .HasColumnType("bit");
 
                     b.Property<string>("FirstName")
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
 
                     b.Property<string>("LastName")
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
 
                     b.Property<bool>("LockoutEnabled")
                         .HasColumnType("bit");
@@ -132,6 +137,9 @@ namespace Biogarden.DataAccess.Migrations
                     b.Property<string>("SecurityStamp")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<int?>("ShippingAddressId")
+                        .HasColumnType("int");
+
                     b.Property<bool>("TwoFactorEnabled")
                         .HasColumnType("bit");
 
@@ -141,6 +149,8 @@ namespace Biogarden.DataAccess.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("BillingAddressId");
+
                     b.HasIndex("NormalizedEmail")
                         .HasDatabaseName("EmailIndex");
 
@@ -148,6 +158,8 @@ namespace Biogarden.DataAccess.Migrations
                         .IsUnique()
                         .HasDatabaseName("UserNameIndex")
                         .HasFilter("[NormalizedUserName] IS NOT NULL");
+
+                    b.HasIndex("ShippingAddressId");
 
                     b.ToTable("AspNetUsers", (string)null);
                 });
@@ -387,6 +399,23 @@ namespace Biogarden.DataAccess.Migrations
 
                             t.HasCheckConstraint("CK_Products_StockQuantity_NonNegative", "[StockQuantity] >= 0");
                         });
+                });
+
+            modelBuilder.Entity("Biogarden.DataAccess.Entities.ApplicationUser", b =>
+                {
+                    b.HasOne("Biogarden.DataAccess.Entities.Address", "BillingAddress")
+                        .WithMany()
+                        .HasForeignKey("BillingAddressId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Biogarden.DataAccess.Entities.Address", "ShippingAddress")
+                        .WithMany()
+                        .HasForeignKey("ShippingAddressId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("BillingAddress");
+
+                    b.Navigation("ShippingAddress");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<System.Guid>", b =>

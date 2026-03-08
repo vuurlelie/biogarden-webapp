@@ -9,6 +9,14 @@ public class ApplicationUser : IdentityUser<Guid>
 
     public string? LastName { get; set; }
 
+    public int? ShippingAddressId { get; set; }
+
+    public Address? ShippingAddress { get; set; }
+
+    public int? BillingAddressId { get; set; }
+
+    public Address? BillingAddress { get; set; }
+
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     public RecordStatus RecordStatus { get; set; } = RecordStatus.Active;
