@@ -14,7 +14,7 @@ public static class AddressMapper
             City = address.City,
             Street = address.Street,
             HouseNumber = address.HouseNumber,
-            FullAddress = address.ToFullAddress()
+            FullAddress = address.ToDisplayAddress()
         };
     }
 
@@ -39,7 +39,7 @@ public static class AddressMapper
             Floor = address.Floor,
             Door = address.Door,
             Doorbell = address.Doorbell,
-            FullAddress = address.ToFullAddress()
+            FullAddress = address.ToDisplayAddress()
         };
     }
 
@@ -72,7 +72,7 @@ public static class AddressMapper
         address.Doorbell = NormalizeOptional(addressEditDto.Doorbell);
     }
 
-    public static string ToFullAddress(this Address address)
+    public static string ToDisplayAddress(this Address address)
     {
         var addressParts = new List<string>
         {
