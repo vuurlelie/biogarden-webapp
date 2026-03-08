@@ -10,9 +10,4 @@
     <ProjectReference Include="..\Biogarden.BusinessLogic\Biogarden.BusinessLogic.csproj" />
   </ItemGroup>
 
-  <ItemGroup>
-    <Folder Include="Controllers\" />
-    <Folder Include="Contracts\" />
-  </ItemGroup>
-
 </Project>

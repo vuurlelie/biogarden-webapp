@@ -1,0 +1,51 @@
+﻿using System.Net;
+using System.Text.Json;
+using Biogarden.WebApi.Contracts;
+
+namespace Biogarden.WebApi.Middleware;
+
+public sealed class ExceptionHandlingMiddleware
+{
+    private readonly RequestDelegate _next;
+
+    public ExceptionHandlingMiddleware(RequestDelegate next)
+    {
+        _next = next;
+    }
+
+    public async Task Invoke(HttpContext context)
+    {
+        try
+        {
+            await _next(context);
+        }
+        catch (Exception exception)
+        {
+            await HandleExceptionAsync(context, exception);
+        }
+    }
+
+    private static Task HandleExceptionAsync(HttpContext context, Exception exception)
+    {
+        var (statusCode, title) = exception switch
+        {
+            KeyNotFoundException => (HttpStatusCode.NotFound, "Resource not found."),
+            InvalidOperationException => (HttpStatusCode.Conflict, "Operation conflict."),
+            _ => (HttpStatusCode.InternalServerError, "Unexpected server error.")
+        };
+
+        var response = new ApiErrorResponse
+        {
+            Title = title,
+            Status = (int)statusCode,
+            Detail = exception.Message,
+            TraceId = context.TraceIdentifier
+        };
+
+        context.Response.ContentType = "application/json";
+        context.Response.StatusCode = (int)statusCode;
+
+        var json = JsonSerializer.Serialize(response);
+        return context.Response.WriteAsync(json);
+    }
+}
