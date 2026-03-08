@@ -7,6 +7,8 @@ public interface IAppDbContext
 {
     DbSet<Post> Posts { get; }
     DbSet<Product> Products { get; }
+    DbSet<Address> Addresses { get; }
+
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }
