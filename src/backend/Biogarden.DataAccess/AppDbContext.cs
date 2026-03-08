@@ -66,9 +66,6 @@ public class AppDbContext : DbContext, IAppDbContext
                 .HasColumnType("decimal(18,2)")
                 .IsRequired();
 
-            productBuilder.Property(product => product.PackageSize)
-                .HasMaxLength(100);
-
             productBuilder.Property(product => product.RecordStatus)
                 .HasConversion<byte>();
 
