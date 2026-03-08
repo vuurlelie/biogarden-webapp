@@ -28,6 +28,7 @@ public static class ServiceCollectionExtensions
     {
         services.AddScoped<IUnitOfWork, UnitOfWork>();
         services.AddScoped<IPostService, PostService>();
+        services.AddScoped<IProductService, ProductService>();
 
         return services;
     }

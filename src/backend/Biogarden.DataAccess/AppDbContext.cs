@@ -20,33 +20,65 @@ public class AppDbContext : DbContext, IAppDbContext
     {
         base.OnModelCreating(modelBuilder);
 
-        modelBuilder.Entity<Post>(post =>
+        modelBuilder.Entity<Post>(postBuilder =>
         {
-            post.ToTable("Posts");
+            postBuilder.ToTable("Posts");
 
-            post.Property(post => post.Title)
+            postBuilder.Property(post => post.Title)
                 .HasMaxLength(200)
                 .IsRequired();
 
-            post.HasIndex(post => post.Title).IsUnique();
+            postBuilder.HasIndex(post => post.Title).IsUnique();
 
-            post.Property(post => post.Article)
+            postBuilder.Property(post => post.Article)
                 .IsRequired();
 
-            post.Property(post => post.Image)
+            postBuilder.Property(post => post.Image)
                 .HasMaxLength(500);
 
-            post.Property(post => post.PublishedAt)
+            postBuilder.Property(post => post.PublishedAt)
                 .HasColumnType("datetime2")
                 .IsRequired()
                 .HasDefaultValueSql("SYSUTCDATETIME()");
 
-            post.Property(post => post.RecordStatus)
+            postBuilder.Property(post => post.RecordStatus)
                 .HasConversion<byte>();
 
-            post.HasQueryFilter(post => post.RecordStatus == RecordStatus.Active);
+            postBuilder.HasQueryFilter(post => post.RecordStatus == RecordStatus.Active);
 
-            post.HasIndex(post => post.PublishedAt);
+            postBuilder.HasIndex(post => post.PublishedAt);
+        });
+
+        modelBuilder.Entity<Product>(productBuilder =>
+        {
+            productBuilder.ToTable("Products");
+
+            productBuilder.Property(product => product.Name)
+                .HasMaxLength(200)
+                .IsRequired();
+
+            productBuilder.Property(product => product.Description)
+                .HasMaxLength(1000);
+
+            productBuilder.Property(product => product.Image)
+                .HasMaxLength(500);
+
+            productBuilder.Property(product => product.Price)
+                .HasColumnType("decimal(18,2)")
+                .IsRequired();
+
+            productBuilder.Property(product => product.RecordStatus)
+                .HasConversion<byte>();
+
+            productBuilder.HasQueryFilter(product => product.RecordStatus == RecordStatus.Active);
+
+            productBuilder.HasIndex(product => product.Name);
+
+            productBuilder.ToTable(table =>
+            {
+                table.HasCheckConstraint("CK_Products_Price_NonNegative", "[Price] >= 0");
+                table.HasCheckConstraint("CK_Products_StockQuantity_NonNegative", "[StockQuantity] >= 0");
+            });
         });
 
         modelBuilder.Entity<Address>(addressBuilder =>
