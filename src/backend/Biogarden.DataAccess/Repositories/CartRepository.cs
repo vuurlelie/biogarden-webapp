@@ -13,9 +13,7 @@ public class CartRepository : ICartRepository
         _context = context;
     }
 
-    public async Task<Cart?> GetActiveByUserIdAsync(
-        string userId,
-        CancellationToken cancellationToken = default)
+    public async Task<Cart?> GetActiveByUserIdAsync(string userId, CancellationToken cancellationToken = default)
     {
         return await _context.Carts
             .Include(cart => cart.Items)
@@ -29,9 +27,7 @@ public class CartRepository : ICartRepository
                 cancellationToken);
     }
 
-    public async Task<Cart?> GetActiveBySessionIdAsync(
-        string sessionId,
-        CancellationToken cancellationToken = default)
+    public async Task<Cart?> GetActiveBySessionIdAsync(string sessionId, CancellationToken cancellationToken = default)
     {
         return await _context.Carts
             .Include(cart => cart.Items)
@@ -45,9 +41,7 @@ public class CartRepository : ICartRepository
                 cancellationToken);
     }
 
-    public async Task<Cart?> GetByIdWithItemsAsync(
-        Guid cartId,
-        CancellationToken cancellationToken = default)
+    public async Task<Cart?> GetByIdWithItemsAsync(Guid cartId, CancellationToken cancellationToken = default)
     {
         return await _context.Carts
             .Include(cart => cart.Items)
@@ -71,10 +65,7 @@ public class CartRepository : ICartRepository
         _context.Carts.Remove(cart);
     }
 
-    public async Task<int> GetActiveReservedQuantityForProductAsync(
-        int productId,
-        Guid? excludedCartId = null,
-        CancellationToken cancellationToken = default)
+    public async Task<int> GetActiveReservedQuantityForProductAsync(int productId, Guid? excludedCartId = null, CancellationToken cancellationToken = default)
     {
         var query = _context.CartItems
             .Where(cartItem =>

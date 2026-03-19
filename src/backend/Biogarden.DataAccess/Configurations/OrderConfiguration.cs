@@ -13,10 +13,23 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
 
         orderBuilder.HasKey(order => order.Id);
 
+        orderBuilder.Property(order => order.OrderNumber)
+            .HasMaxLength(50)
+            .IsRequired();
+
+        orderBuilder.HasIndex(order => order.OrderNumber)
+            .IsUnique();
+
         orderBuilder.Property(order => order.CreatedAtUtc)
             .HasColumnType("datetime2")
             .IsRequired()
             .HasDefaultValueSql("SYSUTCDATETIME()");
+
+        orderBuilder.Property(order => order.ConfirmedAtUtc)
+            .HasColumnType("datetime2");
+
+        orderBuilder.Property(order => order.CancelledAtUtc)
+            .HasColumnType("datetime2");
 
         orderBuilder.Property(order => order.TotalPrice)
             .HasPrecision(18, 2)
@@ -27,8 +40,15 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
             .HasDefaultValue(OrderStatus.Pending)
             .IsRequired();
 
-        orderBuilder.HasIndex(order => order.UserId);
+        orderBuilder.Property(order => order.PaymentStatus)
+            .HasConversion<byte>()
+            .HasDefaultValue(PaymentStatus.Pending)
+            .IsRequired();
 
+        orderBuilder.Property(order => order.CancellationReason)
+            .HasMaxLength(500);
+
+        orderBuilder.HasIndex(order => order.UserId);
         orderBuilder.HasIndex(order => order.CreatedAtUtc);
 
         orderBuilder.HasIndex(order => order.CartId)

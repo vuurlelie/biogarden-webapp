@@ -13,17 +13,13 @@ public class OrderRepository : IOrderRepository
         _context = context;
     }
 
-    public async Task<Order?> GetByIdAsync(
-        Guid orderId,
-        CancellationToken cancellationToken = default)
+    public async Task<Order?> GetByIdAsync(Guid orderId, CancellationToken cancellationToken = default)
     {
         return await _context.Orders
             .FirstOrDefaultAsync(order => order.Id == orderId, cancellationToken);
     }
 
-    public async Task<Order?> GetByIdWithItemsAsync(
-        Guid orderId,
-        CancellationToken cancellationToken = default)
+    public async Task<Order?> GetByIdWithItemsAsync(Guid orderId, CancellationToken cancellationToken = default)
     {
         return await _context.Orders
             .Include(order => order.Items)
@@ -32,9 +28,7 @@ public class OrderRepository : IOrderRepository
             .FirstOrDefaultAsync(order => order.Id == orderId, cancellationToken);
     }
 
-    public async Task<List<Order>> GetByUserIdAsync(
-        Guid userId,
-        CancellationToken cancellationToken = default)
+    public async Task<List<Order>> GetByUserIdAsync(Guid userId, CancellationToken cancellationToken = default)
     {
         return await _context.Orders
             .Include(order => order.Items)
