@@ -97,6 +97,8 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IUserService, UserService>();
         services.AddScoped<ITokenService, JwtTokenService>();
 
+        services.AddScoped<ICartService, CartService>();
+
         return services;
     }
 

@@ -16,6 +16,8 @@ public class AppDbContext
     public DbSet<Post> Posts => Set<Post>();
     public DbSet<Product> Products => Set<Product>();
     public DbSet<Address> Addresses => Set<Address>();
+    public DbSet<Cart> Carts => Set<Cart>();
+    public DbSet<CartItem> CartItems => Set<CartItem>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
