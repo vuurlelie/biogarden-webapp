@@ -16,14 +16,14 @@ public class AddressService : IAddressService
 
     public async Task<List<AddressListItemDto>> GetAllAsync()
     {
-        var addresses = await _unitOfWork.Addresses.GetAllAsync();
+        var addresses = await _unitOfWork.AddressRepository.GetAllAsync();
 
         return addresses.ToListItemDtos();
     }
 
     public async Task<AddressDetailsDto?> GetDetailsAsync(int addressId)
     {
-        var address = await _unitOfWork.Addresses.GetByIdAsync(addressId);
+        var address = await _unitOfWork.AddressRepository.GetByIdAsync(addressId);
 
         return address?.ToDetailsDto();
     }
@@ -32,7 +32,7 @@ public class AddressService : IAddressService
     {
         var address = addressCreateDto.ToEntity();
 
-        await _unitOfWork.Addresses.AddAsync(address);
+        await _unitOfWork.AddressRepository.AddAsync(address);
         await _unitOfWork.SaveChangesAsync();
 
         return address.Id;
@@ -40,7 +40,7 @@ public class AddressService : IAddressService
 
     public async Task UpdateAsync(int addressId, AddressEditDto addressEditDto)
     {
-        var address = await _unitOfWork.Addresses.GetByIdAsync(addressId);
+        var address = await _unitOfWork.AddressRepository.GetByIdAsync(addressId);
 
         if (address is null)
         {
@@ -50,13 +50,13 @@ public class AddressService : IAddressService
 
         address.ApplyChanges(addressEditDto);
 
-        _unitOfWork.Addresses.Update(address);
+        _unitOfWork.AddressRepository.Update(address);
         await _unitOfWork.SaveChangesAsync();
     }
 
     public async Task DeleteAsync(int addressId)
     {
-        var address = await _unitOfWork.Addresses.GetByIdAsync(addressId);
+        var address = await _unitOfWork.AddressRepository.GetByIdAsync(addressId);
 
         if (address is null)
         {
@@ -64,7 +64,7 @@ public class AddressService : IAddressService
                 $"Address with id {addressId} was not found.");
         }
 
-        _unitOfWork.Addresses.Delete(address);
+        _unitOfWork.AddressRepository.Delete(address);
         await _unitOfWork.SaveChangesAsync();
     }
 }

@@ -9,7 +9,9 @@ public sealed class UnitOfWork : IUnitOfWork
 
     private IPostRepository? _postRepository;
     private IProductRepository? _productRepository;
-    private IAddressRepository? _addresses;
+    private IAddressRepository? _addressRepository;
+    private ICartRepository? _cartRepository;
+
 
     public UnitOfWork(IAppDbContext databaseContext)
     {
@@ -21,8 +23,10 @@ public sealed class UnitOfWork : IUnitOfWork
 
     public IProductRepository ProductRepository
         => _productRepository ??= new ProductRepository(_databaseContext);
-    public IAddressRepository Addresses
-    => _addresses ??= new AddressRepository(_databaseContext);
+    public IAddressRepository AddressRepository
+    => _addressRepository ??= new AddressRepository(_databaseContext);
+    public ICartRepository CartRepository =>
+        _cartRepository ??= new CartRepository(_databaseContext);
 
     public Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
         => _databaseContext.SaveChangesAsync(cancellationToken);

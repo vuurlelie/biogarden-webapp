@@ -119,7 +119,7 @@ public class UserService : IUserService
 
     private async Task EnsureAddressExists(int addressId)
     {
-        var address = await _unitOfWork.Addresses.GetByIdAsync(addressId);
+        var address = await _unitOfWork.AddressRepository.GetByIdAsync(addressId);
 
         if (address is null)
         {
