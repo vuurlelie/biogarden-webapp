@@ -11,6 +11,7 @@ public sealed class UnitOfWork : IUnitOfWork
     private IProductRepository? _productRepository;
     private IAddressRepository? _addressRepository;
     private ICartRepository? _cartRepository;
+    private IOrderRepository? _orderRepository;
 
 
     public UnitOfWork(IAppDbContext databaseContext)
@@ -27,6 +28,8 @@ public sealed class UnitOfWork : IUnitOfWork
     => _addressRepository ??= new AddressRepository(_databaseContext);
     public ICartRepository CartRepository =>
         _cartRepository ??= new CartRepository(_databaseContext);
+    public IOrderRepository OrderRepository =>
+        _orderRepository ??= new OrderRepository(_databaseContext);
 
     public Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
         => _databaseContext.SaveChangesAsync(cancellationToken);
