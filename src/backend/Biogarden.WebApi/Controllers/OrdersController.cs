@@ -9,11 +9,11 @@ namespace Biogarden.WebApi.Controllers;
 [ApiController]
 [Authorize]
 [Route("api/[controller]")]
-public class OrderController : ControllerBase
+public class OrdersController : ControllerBase
 {
     private readonly IOrderService _orderService;
 
-    public OrderController(IOrderService orderService)
+    public OrdersController(IOrderService orderService)
     {
         _orderService = orderService;
     }
