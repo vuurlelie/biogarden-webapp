@@ -14,20 +14,29 @@ public class AddressRepository : IAddressRepository
         _context = context;
     }
 
-    public async Task<Address?> GetByIdAsync(int id)
+    public async Task<Address?> GetByIdAsync(
+        int addressId,
+        CancellationToken cancellationToken = default)
     {
         return await _context.Addresses
-            .FirstOrDefaultAsync(a => a.Id == id);
+            .FirstOrDefaultAsync(
+                address => address.Id == addressId,
+                cancellationToken);
     }
 
-    public async Task<List<Address>> GetAllAsync()
+    public async Task<List<Address>> GetAllAsync(
+        CancellationToken cancellationToken = default)
     {
-        return await _context.Addresses.ToListAsync();
+        return await _context.Addresses
+            .ToListAsync(cancellationToken);
     }
 
-    public async Task AddAsync(Address address)
+    public async Task AddAsync(
+        Address address,
+        CancellationToken cancellationToken = default)
     {
-        await _context.Addresses.AddAsync(address);
+        await _context.Addresses
+            .AddAsync(address, cancellationToken);
     }
 
     public void Update(Address address)
@@ -38,6 +47,7 @@ public class AddressRepository : IAddressRepository
     public void Delete(Address address)
     {
         address.RecordStatus = RecordStatus.Deleted;
+
         _context.Addresses.Update(address);
     }
 }

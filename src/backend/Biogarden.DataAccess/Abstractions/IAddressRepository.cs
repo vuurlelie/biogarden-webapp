@@ -1,16 +1,10 @@
 ﻿using Biogarden.DataAccess.Entities;
 
-namespace Biogarden.DataAccess.Abstractions;
-
 public interface IAddressRepository
 {
-    Task<Address?> GetByIdAsync(int id);
-
-    Task<List<Address>> GetAllAsync();
-
-    Task AddAsync(Address address);
-
+    Task<Address?> GetByIdAsync(int id, CancellationToken cancellationToken = default);
+    Task<List<Address>> GetAllAsync(CancellationToken cancellationToken = default);
+    Task AddAsync(Address address, CancellationToken cancellationToken = default);
     void Update(Address address);
-
     void Delete(Address address);
 }
