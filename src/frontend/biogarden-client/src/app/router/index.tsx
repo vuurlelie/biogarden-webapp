@@ -1,0 +1,82 @@
+import { createBrowserRouter } from "react-router-dom";
+import { ROUTES } from "../../shared/constants/routes";
+
+import MainLayout from "../layouts/MainLayout";
+import AccountLayout from "../layouts/AccountLayout";
+import AdminLayout from "../layouts/AdminLayout";
+
+import ProtectedRoute from "./ProtectedRoute";
+import AdminRoute from "./AdminRoute";
+
+// pages
+import HomePage from "../../pages/public/HomePage";
+import AboutPage from "../../pages/public/AboutPage";
+import ProductsPage from "../../pages/public/ProductsPage";
+import ProductDetailsPage from "../../pages/public/ProductDetailsPage";
+import PostsPage from "../../pages/public/PostsPage";
+import PostDetailsPage from "../../pages/public/PostDetailsPage";
+import LoginPage from "../../pages/public/LoginPage";
+import RegisterPage from "../../pages/public/RegisterPage";
+import CartPage from "../../pages/public/CartPage";
+import CheckoutPage from "../../pages/public/CheckoutPage";
+import NotFoundPage from "../../pages/public/NotFoundPage";
+
+import AccountDashboardPage from "../../pages/account/AccountDashboardPage";
+import AccountProfilePage from "../../pages/account/AccountProfilePage";
+
+import AdminDashboardPage from "../../pages/admin/AdminDashboardPage";
+import AdminLoginPage from "../../pages/admin/AdminLoginPage";
+
+export const router = createBrowserRouter([
+  {
+    path: ROUTES.home,
+    element: <MainLayout />,
+    children: [
+      { index: true, element: <HomePage /> },
+      { path: ROUTES.about.slice(1), element: <AboutPage /> },
+      { path: ROUTES.products.slice(1), element: <ProductsPage /> },
+      { path: "termekek/:productId", element: <ProductDetailsPage /> },
+      { path: "tudastar", element: <PostsPage /> },
+      { path: "tudastar/:postId", element: <PostDetailsPage /> },
+      { path: ROUTES.login.slice(1), element: <LoginPage /> },
+      { path: ROUTES.register.slice(1), element: <RegisterPage /> },
+      { path: ROUTES.cart.slice(1), element: <CartPage /> },
+      { path: ROUTES.checkout.slice(1), element: <CheckoutPage /> },
+    ],
+  },
+
+  {
+    element: <ProtectedRoute />,
+    children: [
+      {
+        path: ROUTES.account,
+        element: <AccountLayout />,
+        children: [
+          { index: true, element: <AccountDashboardPage /> },
+          { path: "adatok", element: <AccountProfilePage /> },
+        ],
+      },
+    ],
+  },
+
+  {
+    path: ROUTES.admin,
+    element: <AdminRoute />,
+    children: [
+      {
+        element: <AdminLayout />,
+        children: [{ index: true, element: <AdminDashboardPage /> }],
+      },
+    ],
+  },
+
+  {
+    path: ROUTES.adminLogin,
+    element: <AdminLoginPage />,
+  },
+
+  {
+    path: "*",
+    element: <NotFoundPage />,
+  },
+]);
