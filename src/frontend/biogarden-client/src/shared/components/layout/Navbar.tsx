@@ -62,14 +62,21 @@ export default function Navbar({
   };
 
   const navLinkClass = useMemo(
-    () =>
-      ({ isActive }: { isActive: boolean }) =>
-        [
-          "inline-flex items-center text-[0.95rem] lg:text-base uppercase tracking-wide transition-colors",
-          isActive ? "font-semibold text-[#5f761d]" : "text-[#6F8625] hover:text-[#5f761d]",
-        ].join(" "),
-    [],
-  );
+  () =>
+    ({ isActive }: { isActive: boolean }) =>
+      [
+        "relative inline-flex items-center text-[0.95rem] lg:text-base uppercase tracking-wide transition-colors duration-200",
+        "after:content-[''] after:absolute after:left-0 after:-bottom-1 after:h-[2px] after:w-full after:bg-[#5f761d]",
+        "after:origin-left after:scale-x-0 after:transition-transform after:duration-300",
+        isActive
+          ? "font-bold text-[#5f761d] after:scale-x-100"
+          : "text-[#6F8625] hover:text-[#5f761d] hover:font-semibold",
+      ].join(" "),
+  [],
+);
+
+  const desktopActionLinkClass =
+    "inline-flex items-center text-sm uppercase tracking-wide text-[#6F8625] transition-colors hover:text-[#5f761d]";
 
   const iconButtonClass =
     "relative inline-flex items-center justify-center text-[#6F8625] hover:text-[#5f761d] transition-colors";
@@ -112,7 +119,7 @@ export default function Navbar({
             />
             <img
               src={bakonykincse}
-              alt="Biogarden"
+              alt="Bakony Kincse Biokertészet"
               className="hidden h-10 w-auto xl:block"
             />
           </Link>
@@ -159,28 +166,42 @@ export default function Navbar({
             <button
               type="button"
               onClick={goContact}
-              className="inline-flex items-center text-[0.95rem] lg:text-base uppercase tracking-wide text-[#6F8625] transition-colors hover:text-[#5f761d]"
-            >
+className="inline-flex items-center text-[0.95rem] lg:text-base uppercase tracking-wide text-[#6F8625] transition-colors hover:text-[#5f761d] cursor-pointer"            >
               Kapcsolat
             </button>
           </div>
 
           <div className="hidden lg:flex items-center gap-5">
-            <NavLink
-              to={isAuthenticated ? ROUTES.account : ROUTES.login}
-              className={iconButtonClass}
-              aria-label={isAuthenticated ? "Fiókom" : "Belépés"}
-              title={isAuthenticated ? "Fiókom" : "Belépés"}
-            >
-              <div className="flex items-center gap-2">
-                <svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M12 2C9.243 2 7 4.243 7 7s2.243 5 5 5 5-2.243 5-5S14.757 2 12 2Zm0 8c-1.654 0-3-1.346-3-3s1.346-3 3-3 3 1.346 3 3-1.346 3-3 3Zm0 3c-4.411 0-8 3.589-8 8a1 1 0 0 0 2 0c0-3.309 2.691-6 6-6s6 2.691 6 6a1 1 0 0 0 2 0c0-4.411-3.589-8-8-8Z" />
-                </svg>
-                <span className="text-sm uppercase tracking-wide">
-                  {isAuthenticated ? "Fiókom" : "Belépés"}
-                </span>
-              </div>
-            </NavLink>
+            {isAuthenticated ? (
+              <NavLink
+                to={ROUTES.account}
+                className={desktopActionLinkClass}
+                aria-label="Fiókom"
+                title="Fiókom"
+              >
+                Fiókom
+              </NavLink>
+            ) : (
+              <>
+                <NavLink
+                  to={ROUTES.login}
+                  className={desktopActionLinkClass}
+                  aria-label="Belépés"
+                  title="Belépés"
+                >
+                  Belépés
+                </NavLink>
+
+                <NavLink
+                  to={ROUTES.register}
+                  className={desktopActionLinkClass}
+                  aria-label="Regisztráció"
+                  title="Regisztráció"
+                >
+                  Regisztráció
+                </NavLink>
+              </>
+            )}
 
             {isAuthenticated && isAdmin && (
               <NavLink
@@ -273,21 +294,40 @@ export default function Navbar({
             </button>
 
             <div className="mt-2 grid grid-cols-2 gap-3">
-              <NavLink
-                to={isAuthenticated ? ROUTES.account : ROUTES.login}
-                onClick={closeMobile}
-                className="inline-flex items-center justify-center gap-2 rounded-xl border border-[#d8d1b0] bg-white px-4 py-3 text-sm uppercase tracking-wide text-[#5f761d]"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M12 2C9.243 2 7 4.243 7 7s2.243 5 5 5 5-2.243 5-5S14.757 2 12 2Zm0 8c-1.654 0-3-1.346-3-3s1.346-3 3-3 3 1.346 3 3-1.346 3-3 3Zm0 3c-4.411 0-8 3.589-8 8a1 1 0 0 0 2 0c0-3.309 2.691-6 6-6s6 2.691 6 6a1 1 0 0 0 2 0c0-4.411-3.589-8-8-8Z" />
-                </svg>
-                {isAuthenticated ? "Fiókom" : "Belépés"}
-              </NavLink>
+              {isAuthenticated ? (
+                <NavLink
+                  to={ROUTES.account}
+                  onClick={closeMobile}
+                  className="inline-flex items-center justify-center rounded-xl border border-[#d8d1b0] bg-white px-4 py-3 text-sm uppercase tracking-wide text-[#5f761d]"
+                >
+                  Fiókom
+                </NavLink>
+              ) : (
+                <>
+                  <NavLink
+                    to={ROUTES.login}
+                    onClick={closeMobile}
+                    className="inline-flex items-center justify-center rounded-xl border border-[#d8d1b0] bg-white px-4 py-3 text-sm uppercase tracking-wide text-[#5f761d]"
+                  >
+                    Belépés
+                  </NavLink>
 
+                  <NavLink
+                    to={ROUTES.register}
+                    onClick={closeMobile}
+                    className="inline-flex items-center justify-center rounded-xl border border-[#d8d1b0] bg-white px-4 py-3 text-sm uppercase tracking-wide text-[#5f761d]"
+                  >
+                    Regisztráció
+                  </NavLink>
+                </>
+              )}
+            </div>
+
+            <div className="mt-3">
               <NavLink
                 to={ROUTES.cart}
                 onClick={closeMobile}
-                className="relative inline-flex items-center justify-center gap-2 rounded-xl border border-[#d8d1b0] bg-white px-4 py-3 text-sm uppercase tracking-wide text-[#5f761d]"
+                className="relative inline-flex w-full items-center justify-center gap-2 rounded-xl border border-[#d8d1b0] bg-white px-4 py-3 text-sm uppercase tracking-wide text-[#5f761d]"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M16.53 13H8.118L6.167 7H18.67l-2.14 6ZM19 5H5.517l-.59-1.815A1 1 0 0 0 3.976 2.5H2a1 1 0 0 0 0 2h1.25l3.169 9.748A1 1 0 0 0 7.37 15H17.2a1 1 0 0 0 .942-.664l2.8-8A1 1 0 0 0 20 5Zm-10 14a1.75 1.75 0 1 0 .001 3.501A1.75 1.75 0 0 0 9 19Zm8 0a1.75 1.75 0 1 0 .001 3.501A1.75 1.75 0 0 0 17 19Z" />

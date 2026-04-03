@@ -9,10 +9,10 @@ export default function Footer() {
       >
         <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="grid gap-10 lg:grid-cols-4">
-            <div className="lg:col-span-2">
+            <div className="lg:col-span-2 flex items-center justify-center">
               <iframe
                 title="Biogarden location – Bakonyszentlászló"
-                className="h-[260px] w-full rounded-2xl border border-[#ddd] shadow-lg"
+                className="h-[290px] w-11/12 rounded-2xl border border-[#ddd] shadow-lg"
                 src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d86475.23035605217!2d17.728068301205862!3d47.366068474596005!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x476bd4517abd7b8f%3A0x400c4290c1e4340!2zQmFrb255c3plbnRsw6FzemzDsywgODQzMQ!5e0!3m2!1shu!2shu!4v1719932127988!5m2!1shu!2shu"
                 loading="lazy"
                 referrerPolicy="no-referrer-when-downgrade"
@@ -21,11 +21,11 @@ export default function Footer() {
             </div>
 
             <div>
-              <h2 className="mb-5 text-center text-sm font-semibold uppercase tracking-wider text-gray-800 md:text-left">
+              <h2 className="mb-5 text-center text-sm font-bold uppercase tracking-wider text-gray-800 md:text-left">
                 Kapcsolat
               </h2>
 
-              <div className="space-y-4 text-gray-700">
+              <div className="space-y-5 text-gray-700">
                 <p className="flex items-center gap-3">
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 shrink-0" viewBox="0 0 24 24" fill="currentColor">
                     <path
@@ -120,7 +120,7 @@ export default function Footer() {
             </div>
 
             <div>
-              <h2 className="mb-5 text-center text-sm font-semibold uppercase tracking-wider text-gray-800 md:text-left">
+              <h2 className="mb-5 text-center text-sm font-bold uppercase tracking-wider text-gray-800 md:text-left">
                 Hasznos információk
               </h2>
 
@@ -133,13 +133,13 @@ export default function Footer() {
                 </NavLink>
 
                 <div className="pt-5">
-                  <h3 className="mb-3 text-sm font-semibold uppercase tracking-wider text-gray-800">
+                  <h3 className="mb-3 text-sm font-bold uppercase tracking-wider text-gray-800">
                     Nyitvatartás
                   </h3>
                   <div className="leading-relaxed">
                     <div>Hétfő - Péntek: 8:00 - 16:00</div>
                     <div className="mt-2 text-sm">
-                      Birtoklátogatás előtt kérjük, egyeztess velünk az elérhetőségeink egyikén.
+                      Birtoklátogatás előtt kérjük, egyeztess velünk a megadott elérhetőségeink egyikén.
                     </div>
                     <div className="mt-2 text-xl" aria-hidden="true">
                       🌱😊
