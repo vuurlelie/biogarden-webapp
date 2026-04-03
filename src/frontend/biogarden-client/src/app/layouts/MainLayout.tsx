@@ -1,19 +1,31 @@
 import { Outlet } from "react-router-dom";
+import Navbar from "../../shared/components/layout/Navbar";
+import Footer from "../../shared/components/layout/Footer";
+import ScrollToTop from "../router/ScrollToTop";
+import BackToTopBtn from "../../shared/components/ui/BackToTopBtn";
 
 export default function MainLayout() {
+  const isAuthenticated = false;
+  const isAdmin = false;
+  const cartItemCount = 0;
+
   return (
-    <div className="min-h-screen flex flex-col">
-      <header className="p-4 bg-green-600 text-white">
-        Navbar (placeholder)
-      </header>
+    <div className="min-h-screen bg-[#fffdf8] text-gray-900">
+        <ScrollToTop />
 
-      <main className="flex-1">
+        <Navbar
+        isAuthenticated={isAuthenticated}
+        isAdmin={isAdmin}
+        cartItemCount={cartItemCount}
+        />
+
+        <main className="flex-1">
         <Outlet />
-      </main>
+        </main>
 
-      <footer className="p-4 bg-gray-800 text-white text-center">
-        Footer (placeholder)
-      </footer>
+        <BackToTopBtn />
+      
+        <Footer />
     </div>
   );
 }
