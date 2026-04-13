@@ -165,3 +165,4 @@ temp/
 secrets.json
 secret.*
 config/local.json
+/scripts/PostImport

@@ -16,6 +16,10 @@ public static class ApplicationBuilderExtensions
 
         app.UseHttpsRedirection();
 
+        app.UseStaticFiles();
+
+        app.UseCors("FrontendDev");
+
         app.UseAuthentication();
 
         app.UseAuthorization();
