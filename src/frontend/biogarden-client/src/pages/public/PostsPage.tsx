@@ -5,7 +5,7 @@ import KnowledgeCards from "../../features/posts/components/KnowledgeCards";
 import KnowledgePagination from "../../features/posts/components/KnowledgePagination";
 import PictureGrid from "../../features/posts/components/PictureGrid";
 import Contents from "../../features/posts/components/Contents";
-import type { Post } from "../../features/posts/types/post.types";
+import type { Post, PostSortOrder } from "../../features/posts/types/post.types";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
@@ -14,7 +14,7 @@ const POSTS_PER_PAGE = 4;
 export default function PostsPage() {
   const [posts, setPosts] = useState<Post[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<"all" | 0 | 1>("all");
-  const [sortOrder, setSortOrder] = useState<"newest" | "oldest">("newest");
+  const [sortOrder, setSortOrder] = useState<PostSortOrder>("newest");
   const [currentPage, setCurrentPage] = useState(1);
 
   const [isLoading, setIsLoading] = useState(true);
@@ -83,6 +83,12 @@ export default function PostsPage() {
 
   const sortedPosts = useMemo(() => {
     return [...filteredPosts].sort((a, b) => {
+      if (sortOrder === "abc") {
+        return a.title.localeCompare(b.title, "hu", {
+          sensitivity: "base",
+        });
+      }
+
       const first = new Date(a.publishedAt).getTime();
       const second = new Date(b.publishedAt).getTime();
 

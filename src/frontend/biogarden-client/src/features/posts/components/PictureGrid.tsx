@@ -9,23 +9,18 @@ type PictureGridProps = {
 const API_BASE_URL = "http://localhost:5097";
 
 export default function PictureGrid({ posts }: PictureGridProps) {
-  const latestPosts = [...posts]
-    .sort(
-      (a, b) =>
-        new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime()
-    )
-    .slice(0, 6);
+  const displayedPosts = [...posts].reverse().slice(0, 12);
 
-  if (latestPosts.length === 0) return null;
+  if (displayedPosts.length === 0) return null;
 
   return (
     <section className="mt-10 rounded-sm bg-white p-4 shadow-lg">
-      <h3 className="mb-4 text-lg font-bold text-gray-800">
+      <h3 className="mb-4 text-lg font-bold text-site-heading">
         Friss bejegyzések
       </h3>
 
       <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
-        {latestPosts.map((post) => {
+        {displayedPosts.map((post) => {
           const imageUrl = `${API_BASE_URL}/${post.image}`;
 
           return (

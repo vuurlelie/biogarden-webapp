@@ -21,11 +21,11 @@ export default function Footer() {
             </div>
 
             <div>
-              <h2 className="mb-5 text-center text-sm font-bold uppercase tracking-wider text-gray-800 md:text-left">
+              <h2 className="mb-5 text-center text-sm font-bold uppercase tracking-wider text-site-heading md:text-left">
                 Kapcsolat
               </h2>
 
-              <div className="space-y-5 text-gray-700">
+              <div className="space-y-5 text-site-text">
                 <p className="flex items-center gap-3">
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 shrink-0" viewBox="0 0 24 24" fill="currentColor">
                     <path
@@ -120,11 +120,11 @@ export default function Footer() {
             </div>
 
             <div>
-              <h2 className="mb-5 text-center text-sm font-bold uppercase tracking-wider text-gray-800 md:text-left">
+              <h2 className="mb-5 text-center text-sm font-bold uppercase tracking-wider text-site-heading md:text-left">
                 Hasznos információk
               </h2>
 
-              <div className="space-y-3 text-center text-gray-700 md:text-left">
+              <div className="space-y-3 text-center text-site-text md:text-left">
                 <NavLink to="/adatkezelesi-tajekoztato" className="block hover:underline">
                   Adatkezelési tájékoztató
                 </NavLink>
@@ -133,7 +133,7 @@ export default function Footer() {
                 </NavLink>
 
                 <div className="pt-5">
-                  <h3 className="mb-3 text-sm font-bold uppercase tracking-wider text-gray-800">
+                  <h3 className="mb-3 text-sm font-bold uppercase tracking-wider text-site-heading">
                     Nyitvatartás
                   </h3>
                   <div className="leading-relaxed">
@@ -152,7 +152,7 @@ export default function Footer() {
         </div>
       </footer>
 
-      <div className="bg-gradient-to-b from-[#FFF3EA]/95 to-[#FFE8B2]/95 p-4 text-center text-[#6F8625] shadow-md">
+      <div className="bg-gradient-to-b from-[#FFF3EA]/95 to-[#FFE8B2]/95 p-4 text-center text-site-text shadow-md">
         <div>©{new Date().getFullYear()} Bakony Kincse Biokertészet – Minden jog fenntartva.</div>
         <div className="text-sm">
           Készítette:{" "}

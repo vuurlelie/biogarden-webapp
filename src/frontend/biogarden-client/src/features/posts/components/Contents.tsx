@@ -42,7 +42,7 @@ export default function Contents({ posts }: ContentsProps) {
   function toggleYear(year: string) {
     setOpenYears((prev) => ({
       ...prev,
-      [year]: !prev[year],
+      [year]: !(prev[year] ?? true),
     }));
   }
 
@@ -51,13 +51,13 @@ export default function Contents({ posts }: ContentsProps) {
 
     setOpenMonths((prev) => ({
       ...prev,
-      [key]: !prev[key],
+      [key]: !(prev[key] ?? false),
     }));
   }
 
   return (
     <aside className="rounded-sm bg-white p-5 shadow-lg">
-      <h3 className="mb-4 text-lg font-bold text-gray-800">Tartalomjegyzék</h3>
+      <h3 className="mb-4 text-lg font-bold text-site-heading">Tartalomjegyzék</h3>
 
       <div className="max-h-[70vh] overflow-y-auto pr-1">
         <div className="space-y-4">
@@ -66,7 +66,7 @@ export default function Contents({ posts }: ContentsProps) {
               <button
                 type="button"
                 onClick={() => toggleYear(year)}
-                className="flex w-full items-center justify-between rounded-md py-1 text-left font-semibold text-[#6F8625] hover:bg-gray-50"
+                className="flex w-full items-center justify-between rounded-md py-1 text-left font-semibold text-site-green hover:bg-gray-50"
               >
                 <span>{year}</span>
                 <span className="text-sm">{openYears[year] ? "▾" : "▸"}</span>
@@ -76,14 +76,14 @@ export default function Contents({ posts }: ContentsProps) {
                 <div className="mt-2 space-y-3">
                   {Object.entries(groupedPosts[year]).map(([month, monthPosts]) => {
                     const monthKey = `${year}-${month}`;
-                    const isOpen = openMonths[monthKey] ?? true;
+                    const isOpen = openMonths[monthKey] ?? false;
 
                     return (
                       <div key={monthKey}>
                         <button
                           type="button"
                           onClick={() => toggleMonth(year, month)}
-                          className="flex w-full items-center justify-between rounded-md py-1 text-left text-sm font-medium text-gray-700 hover:bg-gray-50"
+                          className="flex w-full items-center justify-between rounded-md py-1 text-left text-sm font-medium text-site-text hover:bg-gray-50"
                         >
                           <span>{month}</span>
                           <span className="text-xs">{isOpen ? "▾" : "▸"}</span>
@@ -95,7 +95,7 @@ export default function Contents({ posts }: ContentsProps) {
                               <NavLink
                                 key={post.id}
                                 to={`${ROUTES.posts}/${post.id}`}
-                                className="block text-sm text-gray-600 hover:text-[#6F8625] hover:underline"
+                                className="block text-sm text-site-text hover:text-site-green hover:underline"
                               >
                                 {post.title}
                               </NavLink>

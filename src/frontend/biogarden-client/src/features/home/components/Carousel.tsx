@@ -24,7 +24,9 @@ export default function Carousel({
   }, [slides.length]);
 
   useEffect(() => {
-    if (!auto || slides.length <= 1) return;
+    if (!auto || slides.length <= 1) 
+      return;
+
     const id = setInterval(() => {
       if (!hoverRef.current) next();
     }, Math.max(2000, interval));
@@ -42,8 +44,7 @@ export default function Carousel({
 
   const startX = useRef<number | null>(null);
 
-  const onTouchStart = (e: React.TouchEvent) =>
-    (startX.current = e.touches[0].clientX);
+  const onTouchStart = (e: React.TouchEvent) => (startX.current = e.touches[0].clientX);
 
   const onTouchEnd = (e: React.TouchEvent) => {
     if (startX.current == null) return;
@@ -81,7 +82,7 @@ export default function Carousel({
       <div className="absolute inset-0 flex items-center justify-between p-3 sm:p-4 pointer-events-none">
         <button
           onClick={previous}
-          className="pointer-events-auto p-2 rounded-full shadow bg-white/85 text-gray-800 hover:bg-white"
+          className="pointer-events-auto p-2 rounded-full shadow bg-white/85 text-site-heading hover:bg-white"
           aria-label="Előző dia"
         >
           <svg
@@ -96,7 +97,7 @@ export default function Carousel({
         </button>
         <button
           onClick={next}
-          className="pointer-events-auto p-2 rounded-full shadow bg-white/85 text-gray-800 hover:bg-white"
+          className="pointer-events-auto p-2 rounded-full shadow bg-white/85 text-site-heading hover:bg-white"
           aria-label="Következő dia"
         >
           <svg

@@ -9,8 +9,9 @@ type KnowledgeCardsProps = {
   posts: Post[];
 };
 
-function truncateHtmlContent(html: string, maxLength = 220) {
-  const plainText = html.replace(/<[^>]+>/g, "");
+function truncateHtmlContent(html: string, maxLength = 260) {
+  const plainText = html.replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim();
+
   return plainText.length > maxLength
     ? `${plainText.slice(0, maxLength).trim()}...`
     : plainText;
@@ -34,47 +35,55 @@ export default function KnowledgeCards({ posts }: KnowledgeCardsProps) {
         const imageUrl = `${API_BASE_URL}/${post.image}`;
 
         return (
-          <article
-            key={post.id}
-            className="overflow-hidden rounded-sm bg-white shadow-lg transition hover:shadow-xl"
-          >
-            <NavLink to={`${ROUTES.posts}/${post.id}`}>
-              <img
-                src={imageUrl}
-                alt={post.title}
-                className="h-64 w-full object-cover"
-                loading="lazy"
-              />
+          <div key={post.id}>
+            <NavLink to={`${ROUTES.posts}/${post.id}`} className="block">
+              <article className="rounded-sm bg-white shadow-sm transition hover:shadow-xl">
+                
+                {/* KÉP KERETTEL */}
+                <div className="p-4">
+                  <img
+                    className="h-52 w-full object-cover rounded-sm md:h-64"
+                    src={imageUrl}
+                    alt={post.title}
+                    loading="lazy"
+                  />
+                </div>
+
+                {/* SZÖVEG */}
+                <div className="px-6 pb-6">
+                  <div className="pb-3 text-sm font-bold uppercase tracking-wide text-blue-700">
+                    {getPostCategoryLabel(post.category)}
+                  </div>
+
+                  <div className="pb-4 text-2xl font-bold text-site-heading transition hover:text-[#252525] md:text-3xl">
+                    {post.title}
+                  </div>
+
+                  <div className="pb-3 text-sm text-site-text">
+                    Szerző:{" "}
+                    <span className="font-semibold text-site-heading">
+                      Volf Gábor
+                    </span>
+                    , Közzététel:{" "}
+                    {new Date(post.publishedAt).toLocaleString("hu-HU", {
+                      dateStyle: "short",
+                      timeStyle: "short",
+                    })}
+                  </div>
+
+                  <div className="pb-5 text-justify text-site-text">
+                    <div className="line-clamp-3 leading-7">
+                      {parse(truncateHtmlContent(post.article))}
+                    </div>
+                  </div>
+
+                  <div className="font-bold uppercase text-site-green transition hover:text-site-green-hover">
+                    Tovább →
+                  </div>
+                </div>
+              </article>
             </NavLink>
-
-            <div className="p-6">
-              <div className="mb-3 text-sm font-semibold uppercase tracking-wide text-[#6F8625]">
-                {getPostCategoryLabel(post.category)} /{" "}
-                {new Date(post.publishedAt).toLocaleDateString("hu-HU", {
-                  year: "numeric",
-                  month: "long",
-                  day: "numeric",
-                })}
-              </div>
-
-              <NavLink to={`${ROUTES.posts}/${post.id}`}>
-                <h2 className="mb-4 text-2xl font-bold text-gray-800 hover:text-[#6F8625]">
-                  {post.title}
-                </h2>
-              </NavLink>
-
-              <div className="mb-5 text-justify leading-7 text-gray-700">
-                {parse(truncateHtmlContent(post.article))}
-              </div>
-
-              <NavLink
-                to={`${ROUTES.posts}/${post.id}`}
-                className="inline-flex items-center font-semibold text-[#6F8625] hover:underline"
-              >
-                Tovább olvasom
-              </NavLink>
-            </div>
-          </article>
+          </div>
         );
       })}
     </div>

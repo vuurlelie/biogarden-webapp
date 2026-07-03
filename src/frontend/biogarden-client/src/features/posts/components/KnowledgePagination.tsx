@@ -2,12 +2,14 @@ type KnowledgePaginationProps = {
   currentPage: number;
   totalPages: number;
   onPageChange: (page: number) => void;
+  className?: string;
 };
 
 export default function KnowledgePagination({
   currentPage,
   totalPages,
   onPageChange,
+  className = "mt-8",
 }: KnowledgePaginationProps) {
   if (totalPages <= 1) return null;
 
@@ -25,12 +27,12 @@ export default function KnowledgePagination({
   }
 
   return (
-    <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
+    <div className={`${className} flex flex-wrap items-center justify-center gap-3`}>
       <button
         type="button"
         onClick={() => changePage(currentPage - 1)}
         disabled={currentPage === 1}
-        className="rounded-xl bg-white px-4 py-2 text-sm text-gray-700 shadow-md transition hover:shadow-lg cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
+        className="rounded-xl bg-white px-4 py-2 text-sm text-site-text shadow-md transition hover:shadow-lg cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
       >
         Előző
       </button>
@@ -45,8 +47,8 @@ export default function KnowledgePagination({
             onClick={() => changePage(page)}
             className={
               isActive
-                ? "rounded-xl bg-[#6F8625] px-4 py-2 text-sm font-semibold text-white shadow-md transition hover:shadow-lg cursor-pointer"
-                : "rounded-xl bg-white px-4 py-2 text-sm text-gray-700 shadow-md transition hover:shadow-lg cursor-pointer"
+                ? "rounded-xl bg-site-green px-4 py-2 text-sm font-semibold text-white shadow-md transition hover:bg-site-green-hover hover:shadow-lg cursor-pointer"
+                : "rounded-xl bg-white px-4 py-2 text-sm text-site-text shadow-md transition hover:shadow-lg cursor-pointer"
             }
           >
             {page}
@@ -58,7 +60,7 @@ export default function KnowledgePagination({
         type="button"
         onClick={() => changePage(currentPage + 1)}
         disabled={currentPage === totalPages}
-        className="rounded-lg bg-white px-4 py-2 text-sm text-gray-700 shadow-md transition hover:shadow-lg cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
+        className="rounded-lg bg-white px-4 py-2 text-sm text-site-text shadow-md transition hover:shadow-lg cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
       >
         Következő
       </button>

@@ -22,9 +22,9 @@ export default function BackToTopBtn() {
       type="button"
       onClick={backToTop}
       aria-label="Back to top"
-      className="fixed bottom-5 right-5 z-20 rounded-full bg-[#6F8625] p-3 text-white shadow-md transition
-                 duration-150 ease-in-out hover:bg-[#8DC740] hover:shadow-lg focus:outline-none focus:ring-1
-                 active:bg-[#8DC740]"
+      className="fixed bottom-5 right-5 z-20 rounded-full bg-site-green p-3 text-white shadow-md transition
+                 duration-150 ease-in-out hover:bg-site-green-hover hover:shadow-lg focus:outline-none focus:ring-1
+                 active:bg-site-green-hover"
     >
       <svg
         aria-hidden="true"
