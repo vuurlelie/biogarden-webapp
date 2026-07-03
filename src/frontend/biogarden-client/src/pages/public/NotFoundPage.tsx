@@ -14,18 +14,18 @@ export default function NotFoundPage({
           404
         </h1>
 
-        <h2 className="mt-4 text-2xl sm:text-3xl font-semibold text-gray-700">
+        <h2 className="mt-4 text-2xl sm:text-3xl font-semibold text-site-heading">
           Oldal nem található
         </h2>
 
-        <p className="mt-4 text-gray-500 text-sm sm:text-base">
+        <p className="mt-4 text-site-text text-sm sm:text-base">
           {message}
         </p>
 
         <div className="mt-8">
           <Link
             to="/"
-            className="inline-flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-5 py-2.5 rounded-lg transition-colors"
+            className="inline-flex items-center gap-2 bg-site-green hover:bg-site-green-hover text-white px-5 py-2.5 rounded-lg transition-colors"
           >
             <span>Vissza a kezdőlapra</span>
           </Link>

@@ -10,7 +10,7 @@ export default function MainLayout() {
   const cartItemCount = 0;
 
   return (
-    <div className="min-h-screen bg-[#fffdf8] text-gray-900">
+    <div className="min-h-screen bg-white text-site-text">
         <ScrollToTop />
 
         <Navbar

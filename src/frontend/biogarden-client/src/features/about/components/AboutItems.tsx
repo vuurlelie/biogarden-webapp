@@ -1,7 +1,7 @@
 export default function AboutItems({ bemutatokep }: { bemutatokep: string }) {
   return (
     <section id="about" className="relative bg-white overflow-hidden mt-16 mb-8 shadow-lg">
-      <div className="max-w-6xl mx-auto">
+      <div className="relative max-w-6xl mx-auto">
         <div className="relative z-10 pb-10 bg-white lg:max-w-2xl lg:w-full">
           <svg
             className="hidden lg:block absolute right-0 inset-y-0 h-full w-48 text-white translate-x-1/2"
@@ -12,11 +12,11 @@ export default function AboutItems({ bemutatokep }: { bemutatokep: string }) {
 
           <div className="px-4">
             <div className="text-left">
-              <h2 className="mb-6 text-xl md:text-2xl font-bold text-gray-700">
+              <h2 className="mb-6 text-xl md:text-2xl font-bold text-site-heading">
                 Fenntartható gazdálkodás
               </h2>
 
-              <ul className="max-w-prose space-y-2 text-gray-600 list-disc list-inside text-justify">
+              <ul className="max-w-prose space-y-2 text-site-text list-disc list-inside text-justify">
                 <li>Alapelvünk a fenntarthatóság és a biodiverzitás megőrzése.</li>
                 <li>Minden zöldséget, gyógy- és fűszernövényt magunk termesztünk a birtokon.</li>
                 <li>Kizárólag természetes növényvédelmi és növénytáplálási megoldásokat alkalmazunk – ez egyszerre óvja a környezetet és garantálja a termékeink magas minőségét.</li>
@@ -25,10 +25,10 @@ export default function AboutItems({ bemutatokep }: { bemutatokep: string }) {
                 <li>A megrendelt zöldségeket mindig frissen szedjük, szezonális kínálatunk folyamatosan bővül. Minőségükre teljes garanciát vállalunk.</li>
               </ul>
 
-              <h3 className="mt-8 mb-4 text-xl md:text-2xl font-bold text-gray-700">
+              <h3 className="mt-8 mb-4 text-xl md:text-2xl font-bold text-site-heading">
                 Feldolgozott termékeink nem tartalmaznak:
               </h3>
-              <ul className="max-w-prose space-y-1 text-gray-600 list-disc list-inside">
+              <ul className="max-w-prose space-y-1 text-site-text list-disc list-inside">
                 <li>Hozzáadott sót</li>
                 <li>Mesterséges adalékanyagokat</li>
                 <li>Tartósítószereket</li>
@@ -38,9 +38,9 @@ export default function AboutItems({ bemutatokep }: { bemutatokep: string }) {
           </div>
         </div>
 
-        <div className="px-4 lg:px-0 lg:absolute lg:inset-y-0 lg:right-0 lg:w-1/2">
-        <img
-          className="w-full object-cover object-top sm:h-72 md:h-96 lg:h-full"
+        <div className="px-4 lg:absolute lg:inset-y-0 lg:right-4 lg:w-[calc(50%-1rem)] lg:px-0">
+          <img
+            className="h-auto w-full object-cover object-top sm:h-72 md:h-96 lg:h-full"
             src={bemutatokep}
             alt="Kertészeti életkép"
             loading="lazy"

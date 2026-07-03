@@ -61,6 +61,8 @@ public static class PostMapper
             Id = post.Id,
             Title = post.Title,
             Category = post.Category,
+            Article = post.Article,
+            Image = post.Image ?? BusinessRules.DefaultPostImagePath,
             PublishedAt = post.PublishedAt,
             Draft = post.Draft
         };

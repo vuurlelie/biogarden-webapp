@@ -65,29 +65,29 @@ export default function Navbar({
   () =>
     ({ isActive }: { isActive: boolean }) =>
       [
-        "relative inline-flex items-center text-[0.95rem] lg:text-base uppercase tracking-wide transition-colors duration-200",
-        "after:content-[''] after:absolute after:left-0 after:-bottom-1 after:h-[2px] after:w-full after:bg-[#5f761d]",
+        "relative inline-flex items-center text-[0.8rem] lg:text-base uppercase tracking-wide transition-colors duration-200",
+        "after:content-[''] after:absolute after:left-0 after:-bottom-1 after:h-[2px] after:w-full after:bg-site-text",
         "after:origin-left after:scale-x-0 after:transition-transform after:duration-300",
         isActive
-          ? "font-bold text-[#5f761d] after:scale-x-100"
-          : "text-[#6F8625] hover:text-[#5f761d] hover:font-semibold",
+          ? "font-bold text-site-heading after:scale-x-100"
+          : "text-site-text hover:text-site-heading hover:font-semibold",
       ].join(" "),
   [],
 );
 
   const desktopActionLinkClass =
-    "inline-flex items-center text-sm uppercase tracking-wide text-[#6F8625] transition-colors hover:text-[#5f761d]";
+    "inline-flex items-center text-sm uppercase tracking-wide text-site-text transition-colors hover:text-site-heading";
 
   const iconButtonClass =
-    "relative inline-flex items-center justify-center text-[#6F8625] hover:text-[#5f761d] transition-colors";
+    "relative inline-flex items-center justify-center text-site-text hover:text-site-heading transition-colors";
 
   const mobileItemClass =
-    "block w-full rounded-lg px-3 py-3 text-left text-[0.95rem] uppercase tracking-wide text-[#6F8625] hover:bg-[#f6edd8] hover:text-[#5f761d] transition-colors";
+    "block w-full rounded-lg px-3 py-3 text-left text-[0.95rem] uppercase tracking-wide text-site-text hover:bg-[#f6edd8] hover:text-site-heading transition-colors";
 
   return (
     <>
       <div
-        className="fixed left-0 top-0 z-[60] h-[3px] bg-[#6F8625]/55 transition-[width] duration-150"
+        className="fixed left-0 top-0 z-[60] h-[3px] bg-site-green/55 transition-[width] duration-150"
         style={{ width: `${progress}%` }}
       />
 
@@ -102,7 +102,7 @@ export default function Navbar({
         <nav
           className={[
             "mx-auto flex w-full max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8",
-            isScrolled ? "h-20" : "h-24",
+            isScrolled ? "h-16" : "h-20",
           ].join(" ")}
           aria-label="Fő navigáció"
         >
@@ -151,7 +151,7 @@ export default function Navbar({
                   <NavLink
                     key={item.to}
                     to={item.to}
-                    className="block rounded-xl px-4 py-3 text-sm text-[#5c6c30] transition hover:bg-[#f7efd8] hover:text-[#49561d]"
+                    className="block rounded-xl px-4 py-3 text-sm text-site-text transition hover:bg-[#f7efd8] hover:text-site-heading"
                   >
                     {item.label}
                   </NavLink>
@@ -166,7 +166,7 @@ export default function Navbar({
             <button
               type="button"
               onClick={goContact}
-className="inline-flex items-center text-[0.95rem] lg:text-base uppercase tracking-wide text-[#6F8625] transition-colors hover:text-[#5f761d] cursor-pointer"            >
+className="inline-flex items-center text-[0.95rem] lg:text-base uppercase tracking-wide text-site-text transition-colors hover:text-site-heading cursor-pointer"            >
               Kapcsolat
             </button>
           </div>
@@ -206,7 +206,7 @@ className="inline-flex items-center text-[0.95rem] lg:text-base uppercase tracki
             {isAuthenticated && isAdmin && (
               <NavLink
                 to={ROUTES.admin}
-                className="text-sm uppercase tracking-wide text-[#6F8625] transition-colors hover:text-[#5f761d]"
+                className="text-sm uppercase tracking-wide text-site-text transition-colors hover:text-site-heading"
               >
                 Admin
               </NavLink>
@@ -218,7 +218,7 @@ className="inline-flex items-center text-[0.95rem] lg:text-base uppercase tracki
               aria-label="Kosár"
               title="Kosár"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 24 24" fill="currentColor">
+              <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M16.53 13H8.118L6.167 7H18.67l-2.14 6ZM19 5H5.517l-.59-1.815A1 1 0 0 0 3.976 2.5H2a1 1 0 0 0 0 2h1.25l3.169 9.748A1 1 0 0 0 7.37 15H17.2a1 1 0 0 0 .942-.664l2.8-8A1 1 0 0 0 20 5Zm-10 14a1.75 1.75 0 1 0 .001 3.501A1.75 1.75 0 0 0 9 19Zm8 0a1.75 1.75 0 1 0 .001 3.501A1.75 1.75 0 0 0 17 19Z" />
               </svg>
 
@@ -235,7 +235,7 @@ className="inline-flex items-center text-[0.95rem] lg:text-base uppercase tracki
             aria-label="Menü megnyitása"
             aria-expanded={mobileOpen}
             aria-controls="mobile-menu"
-            className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-[#5a642e] lg:hidden"
+            className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-site-text lg:hidden"
             onClick={() => setMobileOpen((prev) => !prev)}
           >
             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
@@ -263,7 +263,7 @@ className="inline-flex items-center text-[0.95rem] lg:text-base uppercase tracki
             </NavLink>
 
             <div className="rounded-xl bg-[#fbf5e5] px-3 py-2">
-              <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-[#7d845c]">
+              <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-site-text">
                 Termékkategóriák
               </div>
 
@@ -272,7 +272,7 @@ className="inline-flex items-center text-[0.95rem] lg:text-base uppercase tracki
                   <NavLink
                     key={item.to}
                     to={item.to}
-                    className="rounded-lg px-2 py-2 text-sm text-[#5c6c30] hover:bg-white"
+                    className="rounded-lg px-2 py-2 text-sm text-site-text hover:bg-white"
                     onClick={closeMobile}
                   >
                     {item.label}
@@ -298,7 +298,7 @@ className="inline-flex items-center text-[0.95rem] lg:text-base uppercase tracki
                 <NavLink
                   to={ROUTES.account}
                   onClick={closeMobile}
-                  className="inline-flex items-center justify-center rounded-xl border border-[#d8d1b0] bg-white px-4 py-3 text-sm uppercase tracking-wide text-[#5f761d]"
+                  className="inline-flex items-center justify-center rounded-xl border border-[#d8d1b0] bg-white px-4 py-3 text-sm uppercase tracking-wide text-site-text"
                 >
                   Fiókom
                 </NavLink>
@@ -307,7 +307,7 @@ className="inline-flex items-center text-[0.95rem] lg:text-base uppercase tracki
                   <NavLink
                     to={ROUTES.login}
                     onClick={closeMobile}
-                    className="inline-flex items-center justify-center rounded-xl border border-[#d8d1b0] bg-white px-4 py-3 text-sm uppercase tracking-wide text-[#5f761d]"
+                    className="inline-flex items-center justify-center rounded-xl border border-[#d8d1b0] bg-white px-4 py-3 text-sm uppercase tracking-wide text-site-text"
                   >
                     Belépés
                   </NavLink>
@@ -315,7 +315,7 @@ className="inline-flex items-center text-[0.95rem] lg:text-base uppercase tracki
                   <NavLink
                     to={ROUTES.register}
                     onClick={closeMobile}
-                    className="inline-flex items-center justify-center rounded-xl border border-[#d8d1b0] bg-white px-4 py-3 text-sm uppercase tracking-wide text-[#5f761d]"
+                    className="inline-flex items-center justify-center rounded-xl border border-[#d8d1b0] bg-white px-4 py-3 text-sm uppercase tracking-wide text-site-text"
                   >
                     Regisztráció
                   </NavLink>
@@ -327,7 +327,7 @@ className="inline-flex items-center text-[0.95rem] lg:text-base uppercase tracki
               <NavLink
                 to={ROUTES.cart}
                 onClick={closeMobile}
-                className="relative inline-flex w-full items-center justify-center gap-2 rounded-xl border border-[#d8d1b0] bg-white px-4 py-3 text-sm uppercase tracking-wide text-[#5f761d]"
+                className="relative inline-flex w-full items-center justify-center gap-2 rounded-xl border border-[#d8d1b0] bg-white px-4 py-3 text-sm uppercase tracking-wide text-site-text"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M16.53 13H8.118L6.167 7H18.67l-2.14 6ZM19 5H5.517l-.59-1.815A1 1 0 0 0 3.976 2.5H2a1 1 0 0 0 0 2h1.25l3.169 9.748A1 1 0 0 0 7.37 15H17.2a1 1 0 0 0 .942-.664l2.8-8A1 1 0 0 0 20 5Zm-10 14a1.75 1.75 0 1 0 .001 3.501A1.75 1.75 0 0 0 9 19Zm8 0a1.75 1.75 0 1 0 .001 3.501A1.75 1.75 0 0 0 17 19Z" />
@@ -346,7 +346,7 @@ className="inline-flex items-center text-[0.95rem] lg:text-base uppercase tracki
               <NavLink
                 to={ROUTES.admin}
                 onClick={closeMobile}
-                className="mt-2 rounded-xl bg-[#6F8625] px-4 py-3 text-center text-sm font-medium uppercase tracking-wide text-white"
+                className="mt-2 rounded-xl bg-site-green px-4 py-3 text-center text-sm font-medium uppercase tracking-wide text-white transition-colors hover:bg-site-green-hover"
               >
                 Admin felület
               </NavLink>

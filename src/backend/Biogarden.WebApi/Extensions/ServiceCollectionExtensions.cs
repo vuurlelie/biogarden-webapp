@@ -23,6 +23,17 @@ public static class ServiceCollectionExtensions
 
         services.AddEndpointsApiExplorer();
 
+        services.AddCors(options =>
+        {
+            options.AddPolicy("FrontendDev", policy =>
+            {
+                policy
+                    .WithOrigins("http://localhost:5173")
+                    .AllowAnyHeader()
+                    .AllowAnyMethod();
+            });
+        });
+
         services.AddDbContext<AppDbContext>(options =>
             options.UseSqlServer(
                 configuration.GetConnectionString("DefaultConnection")));
