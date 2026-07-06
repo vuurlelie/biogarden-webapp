@@ -18,6 +18,7 @@ export const ROUTES = {
   accountProfile: "/fiokom/adatok",
   accountAddresses: "/fiokom/cimek",
   accountOrders: "/fiokom/rendeleseim",
+  accountOrderDetails: "/fiokom/rendeleseim/:orderId",
   accountDelete: "/fiokom/fiok-torles",
 
   adminLogin: "/admin/bejelentkezes",

@@ -6,7 +6,6 @@ type FilterAndSortProps = {
   sortOrder: PostSortOrder;
   onCategoryChange: (value: "all" | 0 | 1) => void;
   onSortChange: (value: PostSortOrder) => void;
-
   currentPage?: number;
   totalPages?: number;
   onPageChange?: (page: number) => void;
@@ -28,30 +27,10 @@ export default function FilterAndSort({
     totalPages > 1;
 
   return (
-    <div className="rounded-sm bg-white p-4 shadow">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-        <div className="flex flex-col gap-2">
-          <select
-            id="category"
-            value={String(selectedCategory)}
-            onChange={(e) => {
-              const value = e.target.value;
-              if (value === "all") {
-                onCategoryChange("all");
-              } else {
-                onCategoryChange(Number(value) as 0 | 1);
-              }
-            }}
-            className="rounded-lg border border-site-border bg-white px-4 py-2 text-site-text focus:border-site-green focus:outline-none focus:ring-2 focus:ring-site-green/15"
-          >
-            <option value="all">Összes bejegyzés</option>
-            <option value="0">Tudástár</option>
-            <option value="1">Receptajánló</option>
-          </select>
-        </div>
-
+    <div className="rounded-sm border border-site-border bg-site-surface-soft p-4 shadow">
+      <div className="grid gap-4 lg:grid-cols-[2fr_1fr] lg:items-center">
         {shouldShowPagination && (
-          <div className="flex-1 lg:px-6">
+          <div className="order-2 flex justify-center lg:order-1 lg:col-start-1">
             <KnowledgePagination
               currentPage={currentPage}
               totalPages={totalPages}
@@ -61,12 +40,28 @@ export default function FilterAndSort({
           </div>
         )}
 
-        <div className="flex flex-col gap-2">
+        <div className="order-1 flex flex-col gap-3 sm:flex-row lg:order-2 lg:col-start-2 lg:justify-end">
+          <select
+            id="category"
+            aria-label="Bejegyzés kategória"
+            value={String(selectedCategory)}
+            onChange={(event) => {
+              const value = event.target.value;
+              onCategoryChange(value === "all" ? "all" : (Number(value) as 0 | 1));
+            }}
+            className="min-w-0 flex-1 rounded-sm border border-site-border bg-white px-3 py-2 text-site-text focus:border-site-green focus:outline-none focus:ring-2 focus:ring-site-green/15"
+          >
+            <option value="all">Összes bejegyzés</option>
+            <option value="0">Tudástár</option>
+            <option value="1">Receptajánló</option>
+          </select>
+
           <select
             id="sortOrder"
+            aria-label="Bejegyzések rendezése"
             value={sortOrder}
-            onChange={(e) => onSortChange(e.target.value as PostSortOrder)}
-            className="rounded-lg border border-site-border bg-white px-4 py-2 text-site-text focus:border-site-green focus:outline-none focus:ring-2 focus:ring-site-green/15"
+            onChange={(event) => onSortChange(event.target.value as PostSortOrder)}
+            className="min-w-0 flex-1 rounded-sm border border-site-border bg-white px-3 py-2 text-site-text focus:border-site-green focus:outline-none focus:ring-2 focus:ring-site-green/15"
           >
             <option value="newest">Legújabb elöl</option>
             <option value="oldest">Legrégebbi elöl</option>

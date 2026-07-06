@@ -4,7 +4,7 @@ namespace Biogarden.DataAccess.Abstractions;
 
 public interface ICartRepository
 {
-    Task<Cart?> GetActiveByUserIdAsync(string userId, CancellationToken cancellationToken = default);
+    Task<Cart?> GetActiveByUserIdAsync(Guid userId, CancellationToken cancellationToken = default);
     Task<Cart?> GetActiveBySessionIdAsync(string sessionId, CancellationToken cancellationToken = default);
     Task<Cart?> GetByIdWithItemsAsync(Guid cartId, CancellationToken cancellationToken = default);
 

@@ -60,7 +60,7 @@ export default function Contents({ posts }: ContentsProps) {
       <h3 className="mb-4 text-lg font-bold text-site-heading">Tartalomjegyzék</h3>
 
       <div className="max-h-[70vh] overflow-y-auto pr-1">
-        <div className="space-y-4">
+        <div className="space-y-2">
           {years.map((year) => (
             <div key={year}>
               <button
@@ -73,7 +73,7 @@ export default function Contents({ posts }: ContentsProps) {
               </button>
 
               {openYears[year] && (
-                <div className="mt-2 space-y-3">
+                <div className="ml-4 mt-1 space-y-1 border-l border-site-border pl-3">
                   {Object.entries(groupedPosts[year]).map(([month, monthPosts]) => {
                     const monthKey = `${year}-${month}`;
                     const isOpen = openMonths[monthKey] ?? false;
@@ -83,14 +83,17 @@ export default function Contents({ posts }: ContentsProps) {
                         <button
                           type="button"
                           onClick={() => toggleMonth(year, month)}
-                          className="flex w-full items-center justify-between rounded-md py-1 text-left text-sm font-medium text-site-text hover:bg-site-surface-soft"
+                          className="flex w-full items-center justify-between rounded-md py-0.5 text-left text-sm font-medium text-site-text hover:bg-site-surface-soft"
                         >
-                          <span>{month}</span>
+                          <span className="flex items-center gap-2">
+                            <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-site-green/55" aria-hidden="true" />
+                            {month}
+                          </span>
                           <span className="text-xs">{isOpen ? "▾" : "▸"}</span>
                         </button>
 
                         {isOpen && (
-                          <div className="ml-3 mt-1 space-y-1">
+                          <div className="ml-5 space-y-0.5">
                             {monthPosts.map((post) => (
                               <NavLink
                                 key={post.id}

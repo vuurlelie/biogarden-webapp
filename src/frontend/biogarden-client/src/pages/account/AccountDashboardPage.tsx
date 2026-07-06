@@ -13,7 +13,7 @@ export default function AccountDashboardPage() {
       <h1 className="mt-2 text-3xl font-bold text-site-heading">Üdvözlünk!</h1>
       <p className="mt-3 max-w-2xl leading-7 text-site-text">
         Bejelentkezve mint <span className="font-semibold text-site-heading">{auth?.email}</span>.
-        Innen kezelheted a személyes adataidat, később pedig a címeidet és rendeléseidet is.
+        Innen kezelheted a személyes adataidat, mentett címeidet és rendeléseidet.
       </p>
 
       <div className="mt-8 grid gap-4 sm:grid-cols-2">
@@ -26,6 +26,30 @@ export default function AccountDashboardPage() {
           </h2>
           <p className="mt-2 text-sm leading-6 text-site-text">
             Név és telefonszám megadása vagy módosítása.
+          </p>
+        </Link>
+
+        <Link
+          to={ROUTES.accountAddresses}
+          className="group rounded-sm border border-site-border bg-site-surface p-5 transition hover:border-site-green hover:shadow-md"
+        >
+          <h2 className="text-lg font-bold text-site-heading group-hover:text-site-green-dark">
+            Mentett címek
+          </h2>
+          <p className="mt-2 text-sm leading-6 text-site-text">
+            Szállítási és számlázási címek kezelése.
+          </p>
+        </Link>
+
+        <Link
+          to={ROUTES.accountOrders}
+          className="group rounded-sm border border-site-border bg-site-surface p-5 transition hover:border-site-green hover:shadow-md"
+        >
+          <h2 className="text-lg font-bold text-site-heading group-hover:text-site-green-dark">
+            Rendeléseim
+          </h2>
+          <p className="mt-2 text-sm leading-6 text-site-text">
+            Korábbi rendelések és aktuális állapotuk.
           </p>
         </Link>
 
@@ -44,4 +68,3 @@ export default function AccountDashboardPage() {
     </div>
   );
 }
-

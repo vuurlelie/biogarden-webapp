@@ -432,7 +432,7 @@ public class CartService : ICartService
         var cart = new Cart
         {
             Id = Guid.NewGuid(),
-            UserId = userId?.ToString(),
+            UserId = userId,
             SessionId = NormalizeOptional(sessionId),
             CreatedAtUtc = DateTime.UtcNow,
             LastActivityAtUtc = DateTime.UtcNow,
@@ -454,7 +454,7 @@ public class CartService : ICartService
         if (userId.HasValue)
         {
             var userCart = await _unitOfWork.CartRepository.GetActiveByUserIdAsync(
-                userId.Value.ToString(),
+                userId.Value,
                 cancellationToken);
 
             if (userCart is not null)

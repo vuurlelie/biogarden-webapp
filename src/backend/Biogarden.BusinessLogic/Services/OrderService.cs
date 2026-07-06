@@ -31,7 +31,7 @@ public class OrderService : IOrderService
         CancellationToken cancellationToken = default)
     {
         var cart = await _unitOfWork.CartRepository.GetActiveByUserIdAsync(
-            userId.ToString(),
+            userId,
             cancellationToken);
 
         if (cart is null)

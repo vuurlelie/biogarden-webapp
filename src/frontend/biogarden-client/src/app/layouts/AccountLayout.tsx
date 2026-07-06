@@ -56,6 +56,9 @@ export default function AccountLayout() {
             <NavLink to={ROUTES.accountAddresses} className={accountLinkClass}>
               Mentett címek
             </NavLink>
+            <NavLink to={ROUTES.accountOrders} className={accountLinkClass}>
+              Rendeléseim
+            </NavLink>
           </nav>
 
           <button
