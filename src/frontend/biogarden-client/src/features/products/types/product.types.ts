@@ -22,3 +22,8 @@ export type ProductListItem = {
   available: boolean;
   deliveryAvailable: boolean;
 };
+
+export type ProductDetails = ProductListItem & {
+  description: string | null;
+  stockQuantity: number;
+};

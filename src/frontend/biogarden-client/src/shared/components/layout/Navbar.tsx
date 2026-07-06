@@ -291,7 +291,7 @@ className="inline-flex items-center text-[0.95rem] lg:text-base uppercase tracki
             <button
               type="button"
               onClick={goContact}
-              className={mobileItemClass}
+              className={mobileItemClass({ isActive: false })}
             >
               Kapcsolat
             </button>
