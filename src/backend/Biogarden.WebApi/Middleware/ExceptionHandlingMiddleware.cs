@@ -30,6 +30,8 @@ public sealed class ExceptionHandlingMiddleware
         var (statusCode, title) = exception switch
         {
             KeyNotFoundException => (HttpStatusCode.NotFound, "Resource not found."),
+            ArgumentException => (HttpStatusCode.BadRequest, "Validation failed."),
+            UnauthorizedAccessException => (HttpStatusCode.Unauthorized, "Authentication failed."),
             InvalidOperationException => (HttpStatusCode.Conflict, "Operation conflict."),
             _ => (HttpStatusCode.InternalServerError, "Unexpected server error.")
         };
