@@ -49,6 +49,18 @@ public class OrderService : IOrderService
             throw new InvalidOperationException("Cart is empty.");
         }
 
+        if (!Enum.IsDefined(dto.FulfillmentMethod))
+        {
+            throw new InvalidOperationException("Invalid fulfillment method.");
+        }
+
+        if (dto.FulfillmentMethod == FulfillmentMethod.HomeDelivery &&
+            cart.Items.Any(item => !item.Product.DeliveryAvailable))
+        {
+            throw new InvalidOperationException(
+                "The cart contains a product that is available only for personal pickup.");
+        }
+
         var validationResult = await _cartService.ValidateCartForCheckoutAsync(
             userId,
             sessionId,
@@ -98,7 +110,8 @@ public class OrderService : IOrderService
             CartId = cart.Id,
             CreatedAtUtc = DateTime.UtcNow,
             Status = OrderStatus.Pending,
-            PaymentStatus = PaymentStatus.Pending
+            PaymentStatus = PaymentStatus.Pending,
+            FulfillmentMethod = dto.FulfillmentMethod
         };
 
         decimal totalPrice = 0m;

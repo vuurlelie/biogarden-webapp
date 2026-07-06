@@ -87,7 +87,7 @@ export default function AccountOrderDetailsPage() {
         </span>
       </div>
 
-      <dl className="mt-7 grid gap-4 rounded-sm bg-site-surface-soft p-5 sm:grid-cols-2">
+      <dl className="mt-7 grid gap-4 rounded-sm bg-site-surface-soft p-5 sm:grid-cols-3">
         <div>
           <dt className="text-sm font-bold text-site-heading">Fizetés állapota</dt>
           <dd className="mt-1 text-sm text-site-text">{getPaymentStatusLabel(order.paymentStatus)}</dd>
@@ -95,6 +95,12 @@ export default function AccountOrderDetailsPage() {
         <div>
           <dt className="text-sm font-bold text-site-heading">Végösszeg</dt>
           <dd className="mt-1 text-lg font-bold text-site-heading">{formatOrderPrice(order.totalPrice)}</dd>
+        </div>
+        <div>
+          <dt className="text-sm font-bold text-site-heading">Átvételi mód</dt>
+          <dd className="mt-1 text-sm text-site-text">
+            {order.fulfillmentMethod === 1 ? "Házhoz szállítás" : "Személyes átvétel"}
+          </dd>
         </div>
       </dl>
 

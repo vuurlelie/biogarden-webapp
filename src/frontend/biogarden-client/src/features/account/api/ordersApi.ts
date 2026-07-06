@@ -60,3 +60,31 @@ export async function getOrderById(orderId: string): Promise<Order> {
   return response.json() as Promise<Order>;
 }
 
+export async function createOrder(
+  addressId: number,
+  fulfillmentMethod: 0 | 1,
+): Promise<Order> {
+  const auth = getAuthSession();
+
+  if (!auth) {
+    throw new OrdersApiError("A rendeléshez be kell jelentkezni.", 401);
+  }
+
+  const response = await fetch(`${API_BASE_URL}/api/orders`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${auth.token}`,
+    },
+    credentials: "include",
+    body: JSON.stringify({ addressId, fulfillmentMethod }),
+  });
+
+  if (response.status === 401) clearAuthSession();
+  if (!response.ok) {
+    throw new OrdersApiError(await getErrorMessage(response), response.status);
+  }
+
+  return response.json() as Promise<Order>;
+}
+

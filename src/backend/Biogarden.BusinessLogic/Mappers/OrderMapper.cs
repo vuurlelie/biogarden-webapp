@@ -19,6 +19,7 @@ public static class OrderMapper
             TotalPrice = order.TotalPrice,
             Status = order.Status,
             PaymentStatus = order.PaymentStatus,
+            FulfillmentMethod = order.FulfillmentMethod,
             CancellationReason = order.CancellationReason,
             Items = order.Items.Select(item => new OrderItemDto
             {

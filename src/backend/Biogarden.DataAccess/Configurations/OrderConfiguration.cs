@@ -45,6 +45,11 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
             .HasDefaultValue(PaymentStatus.Pending)
             .IsRequired();
 
+        orderBuilder.Property(order => order.FulfillmentMethod)
+            .HasConversion<byte>()
+            .HasDefaultValue(FulfillmentMethod.PersonalPickup)
+            .IsRequired();
+
         orderBuilder.Property(order => order.CancellationReason)
             .HasMaxLength(500);
 

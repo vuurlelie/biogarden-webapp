@@ -21,6 +21,8 @@ public class OrderDto
     public OrderStatus Status { get; set; }
     public PaymentStatus PaymentStatus { get; set; }
 
+    public FulfillmentMethod FulfillmentMethod { get; set; }
+
     public string? CancellationReason { get; set; }
 
     public List<OrderItemDto> Items { get; set; } = [];
