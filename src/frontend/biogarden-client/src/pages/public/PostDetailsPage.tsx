@@ -71,7 +71,7 @@ export default function PostDetailsPage() {
   if (hasError || !post) {
     return (
       <div className="mx-auto max-w-6xl px-4 py-12">
-        <div className="rounded-2xl bg-white p-8 text-center text-red-600 shadow-lg">
+        <div className="rounded-2xl bg-site-danger-soft p-8 text-center text-site-danger shadow-lg">
           Hiba történt a bejegyzés betöltése közben.
         </div>
       </div>

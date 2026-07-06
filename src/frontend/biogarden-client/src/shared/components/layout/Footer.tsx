@@ -5,14 +5,14 @@ export default function Footer() {
     <>
       <footer
         id="contact"
-        className="w-full bg-black/10 pt-10 pb-10 shadow-lg"
+        className="w-full border-t border-site-border bg-site-surface-soft pt-10 pb-10 shadow-lg"
       >
         <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="grid gap-10 lg:grid-cols-4">
             <div className="lg:col-span-2 flex items-center justify-center">
               <iframe
                 title="Biogarden location – Bakonyszentlászló"
-                className="h-[290px] w-11/12 rounded-2xl border border-[#ddd] shadow-lg"
+                className="h-[290px] w-11/12 rounded-2xl border border-site-border shadow-lg"
                 src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d86475.23035605217!2d17.728068301205862!3d47.366068474596005!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x476bd4517abd7b8f%3A0x400c4290c1e4340!2zQmFrb255c3plbnRsw6FzemzDsywgODQzMQ!5e0!3m2!1shu!2shu!4v1719932127988!5m2!1shu!2shu"
                 loading="lazy"
                 referrerPolicy="no-referrer-when-downgrade"
@@ -152,7 +152,7 @@ export default function Footer() {
         </div>
       </footer>
 
-      <div className="bg-gradient-to-b from-[#FFF3EA]/95 to-[#FFE8B2]/95 p-4 text-center text-site-text shadow-md">
+      <div className="border-t border-site-border bg-site-green-dark p-4 text-center text-white/90 shadow-md">
         <div>©{new Date().getFullYear()} Bakony Kincse Biokertészet – Minden jog fenntartva.</div>
         <div className="text-sm">
           Készítette:{" "}

@@ -16,8 +16,8 @@ type ProductMenuItem = {
 };
 
 const PRODUCT_MENU_ITEMS: ProductMenuItem[] = [
-  { label: "Fűszerek, zöldségek", to: `${ROUTES.products}?category=fuszerek-zoldsegek` },
-  { label: "Gyógynövények, gyógyteák", to: `${ROUTES.products}?category=gyogynovenyek-gyogyteak` },
+  { label: "Zöldségek", to: `${ROUTES.products}?category=zoldsegek` },
+  { label: "Fűszerek, gyógyteák", to: `${ROUTES.products}?category=fuszerek-gyogyteak` },
   { label: "Illóolajok, hidrolátumok", to: `${ROUTES.products}?category=illoolajok-hidrolatumok` },
 ];
 
@@ -66,23 +66,26 @@ export default function Navbar({
     ({ isActive }: { isActive: boolean }) =>
       [
         "relative inline-flex items-center text-[0.8rem] lg:text-base uppercase tracking-wide transition-colors duration-200",
-        "after:content-[''] after:absolute after:left-0 after:-bottom-1 after:h-[2px] after:w-full after:bg-site-text",
+        "after:content-[''] after:absolute after:left-0 after:-bottom-1 after:h-[2px] after:w-full after:bg-site-green",
         "after:origin-left after:scale-x-0 after:transition-transform after:duration-300",
         isActive
-          ? "font-bold text-site-heading after:scale-x-100"
-          : "text-site-text hover:text-site-heading hover:font-semibold",
+          ? "font-bold text-site-green-dark after:scale-x-100"
+          : "text-site-nav hover:text-site-green-dark hover:font-semibold",
       ].join(" "),
   [],
 );
 
   const desktopActionLinkClass =
-    "inline-flex items-center text-sm uppercase tracking-wide text-site-text transition-colors hover:text-site-heading";
+    "inline-flex items-center text-sm uppercase tracking-wide text-site-nav transition-colors hover:text-site-green-dark";
 
   const iconButtonClass =
-    "relative inline-flex items-center justify-center text-site-text hover:text-site-heading transition-colors";
+    "relative inline-flex items-center justify-center text-site-nav hover:text-site-green-dark transition-colors";
 
-  const mobileItemClass =
-    "block w-full rounded-lg px-3 py-3 text-left text-[0.95rem] uppercase tracking-wide text-site-text hover:bg-[#f6edd8] hover:text-site-heading transition-colors";
+  const mobileItemClass = ({ isActive }: { isActive: boolean }) =>
+    [
+      "block w-full rounded-lg px-3 py-3 text-left text-[0.95rem] uppercase tracking-wide hover:bg-site-surface-soft transition-colors",
+      isActive ? "font-semibold text-site-green-dark" : "text-site-nav hover:text-site-green-dark",
+    ].join(" ");
 
   return (
     <>
@@ -95,8 +98,8 @@ export default function Navbar({
         className={[
           "fixed inset-x-0 top-0 z-50 w-full backdrop-blur transition-all duration-300",
           isScrolled
-            ? "bg-gradient-to-b from-[#FFF3EA]/95 to-[#FFE8B2]/95 shadow-md"
-            : "bg-[#FBFBFB]/95 shadow-sm",
+            ? "bg-gradient-to-b from-site-surface/95 to-site-surface-soft/95 shadow-md"
+            : "bg-white/95 shadow-sm",
         ].join(" ")}
       >
         <nav
@@ -146,12 +149,12 @@ export default function Navbar({
                 </span>
               </NavLink>
 
-              <div className="invisible absolute left-0 top-full mt-3 w-72 rounded-2xl border border-[#ead8a9] bg-white/95 p-2 opacity-0 shadow-xl transition-all duration-200 group-hover:visible group-hover:opacity-100">
+              <div className="invisible absolute left-0 top-full mt-3 w-72 rounded-2xl border border-site-border bg-white/95 p-2 opacity-0 shadow-xl transition-all duration-200 group-hover:visible group-hover:opacity-100">
                 {PRODUCT_MENU_ITEMS.map((item) => (
                   <NavLink
                     key={item.to}
                     to={item.to}
-                    className="block rounded-xl px-4 py-3 text-sm text-site-text transition hover:bg-[#f7efd8] hover:text-site-heading"
+                    className="block rounded-xl px-4 py-3 text-sm text-site-nav transition hover:bg-site-surface-soft hover:text-site-green-dark"
                   >
                     {item.label}
                   </NavLink>
@@ -166,7 +169,7 @@ export default function Navbar({
             <button
               type="button"
               onClick={goContact}
-className="inline-flex items-center text-[0.95rem] lg:text-base uppercase tracking-wide text-site-text transition-colors hover:text-site-heading cursor-pointer"            >
+className="inline-flex items-center text-[0.95rem] lg:text-base uppercase tracking-wide text-site-nav transition-colors hover:text-site-green-dark cursor-pointer"            >
               Kapcsolat
             </button>
           </div>
@@ -206,7 +209,7 @@ className="inline-flex items-center text-[0.95rem] lg:text-base uppercase tracki
             {isAuthenticated && isAdmin && (
               <NavLink
                 to={ROUTES.admin}
-                className="text-sm uppercase tracking-wide text-site-text transition-colors hover:text-site-heading"
+                className="text-sm uppercase tracking-wide text-site-nav transition-colors hover:text-site-green-dark"
               >
                 Admin
               </NavLink>
@@ -223,7 +226,7 @@ className="inline-flex items-center text-[0.95rem] lg:text-base uppercase tracki
               </svg>
 
               {cartItemCount > 0 && (
-                <span className="absolute -right-2 -top-2 inline-flex min-h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-[11px] font-semibold text-white">
+                <span className="absolute -right-2 -top-2 inline-flex min-h-5 min-w-5 items-center justify-center rounded-full bg-site-danger px-1 text-[11px] font-semibold text-white">
                   {cartItemCount}
                 </span>
               )}
@@ -235,7 +238,7 @@ className="inline-flex items-center text-[0.95rem] lg:text-base uppercase tracki
             aria-label="Menü megnyitása"
             aria-expanded={mobileOpen}
             aria-controls="mobile-menu"
-            className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-site-text lg:hidden"
+            className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-site-nav lg:hidden"
             onClick={() => setMobileOpen((prev) => !prev)}
           >
             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
@@ -248,9 +251,9 @@ className="inline-flex items-center text-[0.95rem] lg:text-base uppercase tracki
         <div
           id="mobile-menu"
           className={[
-            "border-t border-[#ead8a9] lg:hidden",
+            "border-t border-site-border lg:hidden",
             mobileOpen ? "block" : "hidden",
-            isScrolled ? "bg-[#FFF3EA]/95" : "bg-white",
+            isScrolled ? "bg-site-surface/95" : "bg-white",
           ].join(" ")}
         >
           <div className="mx-auto flex max-w-7xl flex-col gap-1 px-4 py-4 sm:px-6">
@@ -262,8 +265,8 @@ className="inline-flex items-center text-[0.95rem] lg:text-base uppercase tracki
               Termékek
             </NavLink>
 
-            <div className="rounded-xl bg-[#fbf5e5] px-3 py-2">
-              <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-site-text">
+            <div className="rounded-xl bg-site-surface-soft px-3 py-2">
+              <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-site-muted">
                 Termékkategóriák
               </div>
 
@@ -272,7 +275,7 @@ className="inline-flex items-center text-[0.95rem] lg:text-base uppercase tracki
                   <NavLink
                     key={item.to}
                     to={item.to}
-                    className="rounded-lg px-2 py-2 text-sm text-site-text hover:bg-white"
+                    className="rounded-lg px-2 py-2 text-sm text-site-nav hover:bg-white hover:text-site-green-dark"
                     onClick={closeMobile}
                   >
                     {item.label}
@@ -298,7 +301,7 @@ className="inline-flex items-center text-[0.95rem] lg:text-base uppercase tracki
                 <NavLink
                   to={ROUTES.account}
                   onClick={closeMobile}
-                  className="inline-flex items-center justify-center rounded-xl border border-[#d8d1b0] bg-white px-4 py-3 text-sm uppercase tracking-wide text-site-text"
+                  className="inline-flex items-center justify-center rounded-xl border border-site-border bg-white px-4 py-3 text-sm uppercase tracking-wide text-site-nav transition-colors hover:text-site-green-dark"
                 >
                   Fiókom
                 </NavLink>
@@ -307,7 +310,7 @@ className="inline-flex items-center text-[0.95rem] lg:text-base uppercase tracki
                   <NavLink
                     to={ROUTES.login}
                     onClick={closeMobile}
-                    className="inline-flex items-center justify-center rounded-xl border border-[#d8d1b0] bg-white px-4 py-3 text-sm uppercase tracking-wide text-site-text"
+                    className="inline-flex items-center justify-center rounded-xl border border-site-border bg-white px-4 py-3 text-sm uppercase tracking-wide text-site-nav transition-colors hover:text-site-green-dark"
                   >
                     Belépés
                   </NavLink>
@@ -315,7 +318,7 @@ className="inline-flex items-center text-[0.95rem] lg:text-base uppercase tracki
                   <NavLink
                     to={ROUTES.register}
                     onClick={closeMobile}
-                    className="inline-flex items-center justify-center rounded-xl border border-[#d8d1b0] bg-white px-4 py-3 text-sm uppercase tracking-wide text-site-text"
+                    className="inline-flex items-center justify-center rounded-xl border border-site-border bg-white px-4 py-3 text-sm uppercase tracking-wide text-site-nav transition-colors hover:text-site-green-dark"
                   >
                     Regisztráció
                   </NavLink>
@@ -327,7 +330,7 @@ className="inline-flex items-center text-[0.95rem] lg:text-base uppercase tracki
               <NavLink
                 to={ROUTES.cart}
                 onClick={closeMobile}
-                className="relative inline-flex w-full items-center justify-center gap-2 rounded-xl border border-[#d8d1b0] bg-white px-4 py-3 text-sm uppercase tracking-wide text-site-text"
+                className="relative inline-flex w-full items-center justify-center gap-2 rounded-xl border border-site-border bg-white px-4 py-3 text-sm uppercase tracking-wide text-site-nav transition-colors hover:text-site-green-dark"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M16.53 13H8.118L6.167 7H18.67l-2.14 6ZM19 5H5.517l-.59-1.815A1 1 0 0 0 3.976 2.5H2a1 1 0 0 0 0 2h1.25l3.169 9.748A1 1 0 0 0 7.37 15H17.2a1 1 0 0 0 .942-.664l2.8-8A1 1 0 0 0 20 5Zm-10 14a1.75 1.75 0 1 0 .001 3.501A1.75 1.75 0 0 0 9 19Zm8 0a1.75 1.75 0 1 0 .001 3.501A1.75 1.75 0 0 0 17 19Z" />
@@ -335,7 +338,7 @@ className="inline-flex items-center text-[0.95rem] lg:text-base uppercase tracki
                 Kosár
 
                 {cartItemCount > 0 && (
-                  <span className="absolute -right-2 -top-2 inline-flex min-h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-[11px] font-semibold text-white">
+                  <span className="absolute -right-2 -top-2 inline-flex min-h-5 min-w-5 items-center justify-center rounded-full bg-site-danger px-1 text-[11px] font-semibold text-white">
                     {cartItemCount}
                   </span>
                 )}

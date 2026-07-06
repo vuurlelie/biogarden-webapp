@@ -123,7 +123,7 @@ export default function PostsPage() {
     return (
       <div className="mx-auto max-w-6xl px-4 py-12">
         <KnowledgeNavigation />
-        <div className="mt-8 rounded-2xl bg-white p-8 text-center text-red-600 shadow-lg">
+        <div className="mt-8 rounded-2xl bg-site-danger-soft p-8 text-center text-site-danger shadow-lg">
           Hiba történt a bejegyzések betöltése közben.
         </div>
       </div>

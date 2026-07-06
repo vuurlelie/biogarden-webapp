@@ -51,11 +51,11 @@ export default function KnowledgeCards({ posts }: KnowledgeCardsProps) {
 
                 {/* SZÖVEG */}
                 <div className="px-6 pb-6">
-                  <div className="pb-3 text-sm font-bold uppercase tracking-wide text-blue-700">
+                  <div className="pb-3 text-sm font-bold uppercase tracking-wide text-site-green-dark">
                     {getPostCategoryLabel(post.category)}
                   </div>
 
-                  <div className="pb-4 text-2xl font-bold text-site-heading transition hover:text-[#252525] md:text-3xl">
+                  <div className="pb-4 text-2xl font-bold text-site-heading transition hover:text-site-green-dark md:text-3xl">
                     {post.title}
                   </div>
 
