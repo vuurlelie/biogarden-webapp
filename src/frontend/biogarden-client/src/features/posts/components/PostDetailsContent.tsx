@@ -32,13 +32,13 @@ export default function PostDetailsContent({
 
       <div className="mx-auto max-w-6xl px-4">
         <div className="mb-4 text-center">
-          <p className="text-sm font-bold text-blue-700 md:text-base">
+          <p className="text-sm font-bold text-site-green-dark md:text-base">
             {new Date(post.publishedAt).toLocaleString("hu-HU", {
               dateStyle: "short",
               timeStyle: "short",
             })}
-            <span className="px-2 text-blue-700">/</span>
-            <span className="uppercase text-blue-700">
+            <span className="px-2 text-site-green-dark">/</span>
+            <span className="uppercase text-site-green-dark">
               {getPostCategoryLabel(post.category)}
             </span>
           </p>

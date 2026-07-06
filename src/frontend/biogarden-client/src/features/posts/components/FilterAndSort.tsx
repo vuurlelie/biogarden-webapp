@@ -42,7 +42,7 @@ export default function FilterAndSort({
                 onCategoryChange(Number(value) as 0 | 1);
               }
             }}
-            className="rounded-lg border border-gray-300 px-4 py-2 text-site-text focus:border-site-green focus:outline-none"
+            className="rounded-lg border border-site-border bg-white px-4 py-2 text-site-text focus:border-site-green focus:outline-none focus:ring-2 focus:ring-site-green/15"
           >
             <option value="all">Összes bejegyzés</option>
             <option value="0">Tudástár</option>
@@ -66,7 +66,7 @@ export default function FilterAndSort({
             id="sortOrder"
             value={sortOrder}
             onChange={(e) => onSortChange(e.target.value as PostSortOrder)}
-            className="rounded-lg border border-gray-300 px-4 py-2 text-site-text focus:border-site-green focus:outline-none"
+            className="rounded-lg border border-site-border bg-white px-4 py-2 text-site-text focus:border-site-green focus:outline-none focus:ring-2 focus:ring-site-green/15"
           >
             <option value="newest">Legújabb elöl</option>
             <option value="oldest">Legrégebbi elöl</option>

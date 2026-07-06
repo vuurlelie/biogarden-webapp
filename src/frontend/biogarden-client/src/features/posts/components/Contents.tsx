@@ -66,7 +66,7 @@ export default function Contents({ posts }: ContentsProps) {
               <button
                 type="button"
                 onClick={() => toggleYear(year)}
-                className="flex w-full items-center justify-between rounded-md py-1 text-left font-semibold text-site-green hover:bg-gray-50"
+                className="flex w-full items-center justify-between rounded-md py-1 text-left font-semibold text-site-green-dark hover:bg-site-surface-soft"
               >
                 <span>{year}</span>
                 <span className="text-sm">{openYears[year] ? "▾" : "▸"}</span>
@@ -83,7 +83,7 @@ export default function Contents({ posts }: ContentsProps) {
                         <button
                           type="button"
                           onClick={() => toggleMonth(year, month)}
-                          className="flex w-full items-center justify-between rounded-md py-1 text-left text-sm font-medium text-site-text hover:bg-gray-50"
+                          className="flex w-full items-center justify-between rounded-md py-1 text-left text-sm font-medium text-site-text hover:bg-site-surface-soft"
                         >
                           <span>{month}</span>
                           <span className="text-xs">{isOpen ? "▾" : "▸"}</span>
