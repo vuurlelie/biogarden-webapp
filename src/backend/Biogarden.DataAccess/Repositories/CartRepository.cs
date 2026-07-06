@@ -13,7 +13,7 @@ public class CartRepository : ICartRepository
         _context = context;
     }
 
-    public async Task<Cart?> GetActiveByUserIdAsync(string userId, CancellationToken cancellationToken = default)
+    public async Task<Cart?> GetActiveByUserIdAsync(Guid userId, CancellationToken cancellationToken = default)
     {
         return await _context.Carts
             .Include(cart => cart.Items)

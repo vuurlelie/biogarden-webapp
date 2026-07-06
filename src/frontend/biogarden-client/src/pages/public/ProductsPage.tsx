@@ -132,7 +132,7 @@ export default function ProductsPage() {
 
       <section
         id="products-top"
-        className="mt-4 scroll-mt-20 rounded-sm bg-white p-4 shadow-lg sm:p-6"
+        className="mt-4 scroll-mt-20"
       >
         <div className="mb-5">
           <div>

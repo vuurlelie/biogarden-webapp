@@ -1,8 +1,12 @@
-﻿namespace Biogarden.BusinessLogic.DTOs.Users;
+using Biogarden.BusinessLogic.DTOs.Addresses;
+
+namespace Biogarden.BusinessLogic.DTOs.Users;
 
 public class UpdateUserAddressesDto
 {
-    public int? ShippingAddressId { get; set; }
+    public AddressCreateDto? ShippingAddress { get; set; }
 
-    public int? BillingAddressId { get; set; }
+    public AddressCreateDto? BillingAddress { get; set; }
+
+    public bool UseShippingAsBilling { get; set; }
 }

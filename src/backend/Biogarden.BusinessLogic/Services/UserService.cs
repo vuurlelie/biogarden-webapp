@@ -1,4 +1,5 @@
 ﻿using Biogarden.BusinessLogic.Abstractions;
+using Biogarden.BusinessLogic.DTOs.Addresses;
 using Biogarden.BusinessLogic.DTOs.Users;
 using Biogarden.BusinessLogic.Mappers;
 using Biogarden.DataAccess.Abstractions;
@@ -87,7 +88,10 @@ public class UserService : IUserService
         Guid userId,
         UpdateUserAddressesDto dto)
     {
-        var user = await _userManager.FindByIdAsync(userId.ToString());
+        var user = await _userManager.Users
+            .Include(u => u.ShippingAddress)
+            .Include(u => u.BillingAddress)
+            .FirstOrDefaultAsync(u => u.Id == userId);
 
         if (user is null)
         {
@@ -95,18 +99,43 @@ public class UserService : IUserService
                 $"User with id {userId} was not found.");
         }
 
-        if (dto.ShippingAddressId.HasValue)
+        if (dto.ShippingAddress is null)
         {
-            await EnsureAddressExists(dto.ShippingAddressId.Value);
+            throw new ArgumentException("A szállítási cím megadása kötelező.");
         }
 
-        if (dto.BillingAddressId.HasValue)
-        {
-            await EnsureAddressExists(dto.BillingAddressId.Value);
-        }
+        ValidateAddress(dto.ShippingAddress);
+        var previousShippingAddressId = user.ShippingAddressId;
+        var shippingAddress = await UpsertAddressAsync(
+            user.ShippingAddress,
+            dto.ShippingAddress);
 
-        user.ShippingAddressId = dto.ShippingAddressId;
-        user.BillingAddressId = dto.BillingAddressId;
+        await _unitOfWork.SaveChangesAsync();
+        user.ShippingAddressId = shippingAddress.Id;
+
+        if (dto.UseShippingAsBilling)
+        {
+            user.BillingAddressId = shippingAddress.Id;
+        }
+        else
+        {
+            if (dto.BillingAddress is null)
+            {
+                throw new ArgumentException("A számlázási cím megadása kötelező.");
+            }
+
+            ValidateAddress(dto.BillingAddress);
+
+            var existingBillingAddress = user.BillingAddressId == previousShippingAddressId
+                ? null
+                : user.BillingAddress;
+            var billingAddress = await UpsertAddressAsync(
+                existingBillingAddress,
+                dto.BillingAddress);
+
+            await _unitOfWork.SaveChangesAsync();
+            user.BillingAddressId = billingAddress.Id;
+        }
 
         var result = await _userManager.UpdateAsync(user);
 
@@ -117,14 +146,42 @@ public class UserService : IUserService
         }
     }
 
-    private async Task EnsureAddressExists(int addressId)
+    private async Task<Address> UpsertAddressAsync(
+        Address? existingAddress,
+        AddressCreateDto changes)
     {
-        var address = await _unitOfWork.AddressRepository.GetByIdAsync(addressId);
-
-        if (address is null)
+        if (existingAddress is null)
         {
-            throw new KeyNotFoundException(
-                $"Address with id {addressId} was not found.");
+            var newAddress = changes.ToEntity();
+            await _unitOfWork.AddressRepository.AddAsync(newAddress);
+            return newAddress;
+        }
+
+        existingAddress.ApplyChanges(new AddressEditDto
+        {
+            PostalCode = changes.PostalCode,
+            City = changes.City,
+            Street = changes.Street,
+            HouseNumber = changes.HouseNumber,
+            Building = changes.Building,
+            Floor = changes.Floor,
+            Door = changes.Door,
+            Doorbell = changes.Doorbell
+        });
+        _unitOfWork.AddressRepository.Update(existingAddress);
+
+        return existingAddress;
+    }
+
+    private static void ValidateAddress(AddressCreateDto address)
+    {
+        if (string.IsNullOrWhiteSpace(address.PostalCode)
+            || string.IsNullOrWhiteSpace(address.City)
+            || string.IsNullOrWhiteSpace(address.Street)
+            || string.IsNullOrWhiteSpace(address.HouseNumber))
+        {
+            throw new ArgumentException(
+                "Az irányítószám, település, közterület és házszám megadása kötelező.");
         }
     }
 

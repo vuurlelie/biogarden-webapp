@@ -1,0 +1,135 @@
+using Biogarden.BusinessLogic.Abstractions;
+using Biogarden.BusinessLogic.DTOs.Orders;
+using Biogarden.BusinessLogic.Services;
+using Biogarden.DataAccess.Abstractions;
+using Biogarden.DataAccess.Entities;
+using Biogarden.DataAccess.Enums;
+using Microsoft.AspNetCore.Identity;
+using Moq;
+
+namespace Biogarden.UnitTests.Services;
+
+public sealed class OrderServiceTests
+{
+    private readonly Mock<IUnitOfWork> _unitOfWork = new(MockBehavior.Strict);
+    private readonly Mock<IOrderRepository> _orders = new(MockBehavior.Strict);
+    private readonly Mock<IProductRepository> _products = new(MockBehavior.Strict);
+    private readonly Mock<ICartService> _cartService = new(MockBehavior.Strict);
+    private readonly OrderService _service;
+
+    public OrderServiceTests()
+    {
+        _unitOfWork.SetupGet(x => x.OrderRepository).Returns(_orders.Object);
+        _unitOfWork.SetupGet(x => x.ProductRepository).Returns(_products.Object);
+
+        var userStore = new Mock<IUserStore<ApplicationUser>>(MockBehavior.Strict);
+        var userManager = new Mock<UserManager<ApplicationUser>>(
+            userStore.Object, null!, null!, null!, null!, null!, null!, null!, null!);
+
+        _service = new OrderService(_unitOfWork.Object, _cartService.Object, userManager.Object);
+    }
+
+    [Fact]
+    public async Task GetOrderByIdAsync_WhenOrderBelongsToAnotherUser_Throws()
+    {
+        var requestingUserId = Guid.NewGuid();
+        var order = CreateOrder(Guid.NewGuid());
+        _orders
+            .Setup(x => x.GetByIdWithItemsAsync(order.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(order);
+
+        await Assert.ThrowsAsync<KeyNotFoundException>(() =>
+            _service.GetOrderByIdAsync(requestingUserId, order.Id));
+    }
+
+    [Fact]
+    public async Task ConfirmOrderPaymentAsync_WhenAlreadyPaid_DoesNotSaveAgain()
+    {
+        var userId = Guid.NewGuid();
+        var order = CreateOrder(userId);
+        order.Status = OrderStatus.Confirmed;
+        order.PaymentStatus = PaymentStatus.Paid;
+        _orders
+            .Setup(x => x.GetByIdWithItemsAsync(order.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(order);
+
+        var result = await _service.ConfirmOrderPaymentAsync(userId, order.Id);
+
+        Assert.Equal(PaymentStatus.Paid, result.PaymentStatus);
+        _unitOfWork.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task CancelOrderAsync_WhenPaid_RestoresStockAndMarksRefundPending()
+    {
+        var userId = Guid.NewGuid();
+        var product = new Product
+        {
+            Id = 10,
+            Name = "Levendulaolaj",
+            Available = true,
+            StockQuantity = 4
+        };
+        var order = CreateOrder(userId);
+        order.PaymentStatus = PaymentStatus.Paid;
+        order.Items.Add(new OrderItem
+        {
+            Id = Guid.NewGuid(),
+            OrderId = order.Id,
+            ProductId = product.Id,
+            ProductName = product.Name,
+            Quantity = 2,
+            UnitPrice = 1800,
+            LineTotal = 3600
+        });
+
+        _orders
+            .SetupSequence(x => x.GetByIdWithItemsAsync(order.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(order)
+            .ReturnsAsync(order);
+        _products
+            .Setup(x => x.GetByIdAsync(product.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(product);
+        _orders.Setup(x => x.Update(order));
+        _unitOfWork
+            .Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(1);
+
+        var result = await _service.CancelOrderAsync(
+            userId, order.Id, new CancelOrderDto { Reason = "  Meggondoltam magam.  " });
+
+        Assert.Equal(OrderStatus.Cancelled, result.Status);
+        Assert.Equal(PaymentStatus.RefundPending, result.PaymentStatus);
+        Assert.Equal(6, product.StockQuantity);
+        Assert.Equal("Meggondoltam magam.", order.CancellationReason);
+        Assert.NotNull(order.CancelledAtUtc);
+        _unitOfWork.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task CancelOrderAsync_WhenShipped_ThrowsAndDoesNotSave()
+    {
+        var userId = Guid.NewGuid();
+        var order = CreateOrder(userId);
+        order.Status = OrderStatus.Shipped;
+        _orders
+            .Setup(x => x.GetByIdWithItemsAsync(order.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(order);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _service.CancelOrderAsync(userId, order.Id, new CancelOrderDto()));
+
+        _unitOfWork.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    private static Order CreateOrder(Guid userId) => new()
+    {
+        Id = Guid.NewGuid(),
+        OrderNumber = "BG-TEST-0001",
+        UserId = userId,
+        AddressId = 1,
+        CartId = Guid.NewGuid(),
+        Status = OrderStatus.Pending,
+        PaymentStatus = PaymentStatus.Pending
+    };
+}

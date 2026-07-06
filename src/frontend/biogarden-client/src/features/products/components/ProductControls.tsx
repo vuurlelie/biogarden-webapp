@@ -26,7 +26,7 @@ export default function ProductControls({
   onDeliveryOnlyChange,
 }: ProductControlsProps) {
   return (
-    <div className="mb-6 grid gap-4 rounded-sm border border-site-border bg-site-surface-soft p-4 lg:grid-cols-[1fr_auto] lg:items-end">
+    <div className="mb-6 grid gap-4 rounded-sm border border-site-border bg-site-surface-soft p-4 lg:grid-cols-[1fr_auto] lg:items-start">
       <div className="grid gap-4 sm:grid-cols-2">
         <label className="flex flex-col gap-2 text-sm font-semibold text-site-heading">
           Kategória
@@ -61,7 +61,7 @@ export default function ProductControls({
         </label>
       </div>
 
-      <div className="flex flex-col gap-3 text-sm text-site-text sm:flex-row sm:flex-wrap lg:justify-end">
+      <div className="flex flex-col gap-3 text-sm text-site-text sm:flex-row sm:flex-wrap lg:mt-7 lg:min-h-10 lg:items-center lg:justify-end">
         <label className="inline-flex cursor-pointer items-center gap-2">
           <input
             type="checkbox"

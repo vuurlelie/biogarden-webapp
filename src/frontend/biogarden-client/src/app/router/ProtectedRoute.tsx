@@ -1,8 +1,7 @@
 import { Navigate, Outlet } from "react-router-dom";
+import { isAuthenticated } from "../../features/auth/utils/authStorage";
 import { ROUTES } from "../../shared/constants/routes";
 
 export default function ProtectedRoute() {
-  const isAuthenticated = true; // TODO: auth hook
-
-  return isAuthenticated ? <Outlet /> : <Navigate to={ROUTES.login} replace />;
+  return isAuthenticated() ? <Outlet /> : <Navigate to={ROUTES.login} replace />;
 }
