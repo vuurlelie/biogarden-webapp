@@ -13,6 +13,7 @@ import {
 } from "../../features/products/utils/productLabels";
 import { ROUTES } from "../../shared/constants/routes";
 import NotFoundPage from "./NotFoundPage";
+import { useCart } from "../../features/cart/context/useCart";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
@@ -40,6 +41,9 @@ export default function ProductDetailsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
   const [notFound, setNotFound] = useState(false);
+  const [isAddingToCart, setIsAddingToCart] = useState(false);
+  const [cartMessage, setCartMessage] = useState<string | null>(null);
+  const { addItem } = useCart();
 
   useEffect(() => {
     const parsedProductId = Number(productId);
@@ -112,6 +116,19 @@ export default function ProductDetailsPage() {
   const categoryUrl = `${ROUTES.products}?category=${categoryLink.value}`;
   const packageLabel = getProductPackageLabel(product);
   const lowStock = product.available && product.stockQuantity <= 10;
+
+  async function handleAddToCart() {
+    setIsAddingToCart(true);
+    setCartMessage(null);
+    try {
+      await addItem(product!.id);
+      setCartMessage("A termék bekerült a kosárba.");
+    } catch (error) {
+      setCartMessage(error instanceof Error ? error.message : "A terméket nem sikerült kosárba tenni.");
+    } finally {
+      setIsAddingToCart(false);
+    }
+  }
 
   return (
     <main className="mx-auto max-w-6xl px-4 py-4 sm:py-6">
@@ -204,7 +221,15 @@ export default function ProductDetailsPage() {
               megadott elérhetőségeinken lehet egyeztetni.
             </p>
 
-            <div className="mt-7">
+            <div className="mt-7 flex flex-wrap items-center gap-3">
+              <button
+                type="button"
+                onClick={() => void handleAddToCart()}
+                disabled={!product.available || isAddingToCart}
+                className="inline-flex rounded-sm bg-site-green px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-site-green-hover disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {isAddingToCart ? "Kosárba helyezés..." : "Kosárba teszem"}
+              </button>
               <Link
                 to={ROUTES.products}
                 className="inline-flex items-center gap-2 rounded-sm border border-site-green-dark px-5 py-2.5 text-sm font-semibold text-site-green-dark transition-colors hover:bg-site-green-dark hover:text-white"
@@ -213,6 +238,7 @@ export default function ProductDetailsPage() {
                 Vissza a termékekhez
               </Link>
             </div>
+            {cartMessage && <p className="mt-3 text-sm font-semibold text-site-green-dark" role="status">{cartMessage}</p>}
           </div>
         </div>
       </article>
