@@ -53,6 +53,9 @@ export default function AccountLayout() {
             <NavLink to={ROUTES.accountProfile} className={accountLinkClass}>
               Személyes adatok
             </NavLink>
+            <NavLink to={ROUTES.accountAddresses} className={accountLinkClass}>
+              Mentett címek
+            </NavLink>
           </nav>
 
           <button
@@ -74,4 +77,3 @@ export default function AccountLayout() {
     </div>
   );
 }
-

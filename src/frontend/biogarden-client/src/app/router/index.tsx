@@ -23,6 +23,7 @@ import NotFoundPage from "../../pages/public/NotFoundPage";
 
 import AccountDashboardPage from "../../pages/account/AccountDashboardPage";
 import AccountProfilePage from "../../pages/account/AccountProfilePage";
+import AccountAddressesPage from "../../pages/account/AccountAddressesPage";
 
 import AdminDashboardPage from "../../pages/admin/AdminDashboardPage";
 import AdminLoginPage from "../../pages/admin/AdminLoginPage";
@@ -54,6 +55,7 @@ export const router = createBrowserRouter([
         children: [
           { index: true, element: <AccountDashboardPage /> },
           { path: "adatok", element: <AccountProfilePage /> },
+          { path: "cimek", element: <AccountAddressesPage /> },
         ],
       },
     ],

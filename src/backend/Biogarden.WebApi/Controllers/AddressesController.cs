@@ -2,10 +2,13 @@
 using Biogarden.BusinessLogic.DTOs.Addresses;
 using Microsoft.AspNetCore.Mvc;
 
+using Microsoft.AspNetCore.Authorization;
+
 namespace Biogarden.WebApi.Controllers;
 
 [ApiController]
 [Route("api/addresses")]
+[Authorize(Roles = "Admin")]
 public class AddressesController : ControllerBase
 {
     private readonly IAddressService _addressService;

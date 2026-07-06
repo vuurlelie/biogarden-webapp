@@ -6,6 +6,10 @@ import type {
   UpdateUserProfile,
   UserProfile,
 } from "../types/profile.types";
+import type {
+  UpdateUserAddresses,
+  UserAddresses,
+} from "../types/address.types";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
@@ -34,6 +38,7 @@ async function getErrorMessage(response: Response): Promise<string> {
 }
 
 async function profileRequest(
+  path = "",
   init?: RequestInit,
 ): Promise<Response> {
   const auth = getAuthSession();
@@ -42,7 +47,7 @@ async function profileRequest(
     throw new ProfileApiError("A munkamenet lejárt. Jelentkezz be újra.", 401);
   }
 
-  const response = await fetch(`${API_BASE_URL}/api/profile`, {
+  const response = await fetch(`${API_BASE_URL}/api/profile${path}`, {
     ...init,
     headers: {
       "Content-Type": "application/json",
@@ -68,6 +73,19 @@ export async function getProfile(): Promise<UserProfile> {
 export async function updateProfile(
   profile: UpdateUserProfile,
 ): Promise<void> {
-  await profileRequest({ method: "PUT", body: JSON.stringify(profile) });
+  await profileRequest("", { method: "PUT", body: JSON.stringify(profile) });
 }
 
+export async function getAddresses(): Promise<UserAddresses> {
+  const response = await profileRequest("/addresses");
+  return response.json() as Promise<UserAddresses>;
+}
+
+export async function updateAddresses(
+  addresses: UpdateUserAddresses,
+): Promise<void> {
+  await profileRequest("/addresses", {
+    method: "PUT",
+    body: JSON.stringify(addresses),
+  });
+}

@@ -1,3 +1,170 @@
+import { useEffect, useState, type FormEvent } from "react";
+import { useNavigate } from "react-router-dom";
+import {
+  getAddresses,
+  ProfileApiError,
+  updateAddresses,
+} from "../../features/account/api/profileApi";
+import AddressFields from "../../features/account/components/AddressFields";
+import type {
+  AddressDetails,
+  AddressFormData,
+} from "../../features/account/types/address.types";
+import { ROUTES } from "../../shared/constants/routes";
+
+const EMPTY_ADDRESS: AddressFormData = {
+  postalCode: "",
+  city: "",
+  street: "",
+  houseNumber: "",
+  building: null,
+  floor: null,
+  door: null,
+  doorbell: null,
+};
+
+function toFormData(address: AddressDetails | null): AddressFormData {
+  if (!address) return { ...EMPTY_ADDRESS };
+  return {
+    postalCode: address.postalCode,
+    city: address.city,
+    street: address.street,
+    houseNumber: address.houseNumber,
+    building: address.building,
+    floor: address.floor,
+    door: address.door,
+    doorbell: address.doorbell,
+  };
+}
+
+function normalizeAddress(address: AddressFormData): AddressFormData {
+  const normalizeOptional = (value: string | null) => value?.trim() || null;
+  return {
+    postalCode: address.postalCode.trim(),
+    city: address.city.trim(),
+    street: address.street.trim(),
+    houseNumber: address.houseNumber.trim(),
+    building: normalizeOptional(address.building),
+    floor: normalizeOptional(address.floor),
+    door: normalizeOptional(address.door),
+    doorbell: normalizeOptional(address.doorbell),
+  };
+}
+
 export default function AccountAddressesPage() {
-  return <div>Account addresses page</div>;
+  const navigate = useNavigate();
+  const [shippingAddress, setShippingAddress] = useState<AddressFormData>({ ...EMPTY_ADDRESS });
+  const [billingAddress, setBillingAddress] = useState<AddressFormData>({ ...EMPTY_ADDRESS });
+  const [useShippingAsBilling, setUseShippingAsBilling] = useState(true);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+
+  useEffect(() => {
+    let shouldIgnoreResult = false;
+
+    async function loadAddresses() {
+      try {
+        const addresses = await getAddresses();
+        if (shouldIgnoreResult) return;
+
+        setShippingAddress(toFormData(addresses.shippingAddress));
+        setBillingAddress(toFormData(addresses.billingAddress));
+        setUseShippingAsBilling(
+          addresses.billingAddress === null ||
+            addresses.shippingAddress?.id === addresses.billingAddress.id,
+        );
+      } catch (loadError) {
+        if (shouldIgnoreResult) return;
+        if (loadError instanceof ProfileApiError && loadError.status === 401) {
+          navigate(ROUTES.login, { replace: true });
+          return;
+        }
+        setError(loadError instanceof Error ? loadError.message : "A címek betöltése nem sikerült.");
+      } finally {
+        if (!shouldIgnoreResult) setIsLoading(false);
+      }
+    }
+
+    void loadAddresses();
+    return () => {
+      shouldIgnoreResult = true;
+    };
+  }, [navigate]);
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setError("");
+    setSuccess("");
+
+    try {
+      setIsSaving(true);
+      await updateAddresses({
+        shippingAddress: normalizeAddress(shippingAddress),
+        billingAddress: useShippingAsBilling ? null : normalizeAddress(billingAddress),
+        useShippingAsBilling,
+      });
+      setSuccess("A szállítási és számlázási cím mentése sikerült.");
+    } catch (saveError) {
+      if (saveError instanceof ProfileApiError && saveError.status === 401) {
+        navigate(ROUTES.login, { replace: true });
+        return;
+      }
+      setError(saveError instanceof Error ? saveError.message : "A címek mentése nem sikerült.");
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  if (isLoading) {
+    return <div className="rounded-sm bg-site-surface-soft p-10 text-center shadow-md">Címek betöltése...</div>;
+  }
+
+  return (
+    <div className="rounded-sm border border-site-border bg-white p-6 shadow-lg sm:p-8">
+      <p className="text-xs font-bold uppercase tracking-[0.15em] text-site-green-dark">Fiókadatok</p>
+      <h1 className="mt-2 text-3xl font-bold text-site-heading">Mentett címek</h1>
+      <p className="mt-2 text-sm leading-6 text-site-text">
+        Add meg a rendeléseknél használni kívánt szállítási és számlázási címet.
+      </p>
+
+      {error && <div className="mt-6 rounded-sm bg-site-danger-soft p-3 text-sm text-site-danger" role="alert">{error}</div>}
+      {success && <div className="mt-6 rounded-sm border border-site-green/30 bg-site-surface-soft p-3 text-sm text-site-green-dark" role="status">{success}</div>}
+
+      <form onSubmit={handleSubmit} className="mt-8 space-y-8">
+        <fieldset>
+          <legend className="mb-5 text-xl font-bold text-site-heading">Szállítási cím</legend>
+          <AddressFields idPrefix="shipping" value={shippingAddress} onChange={setShippingAddress} />
+        </fieldset>
+
+        <div className="border-t border-site-border pt-6">
+          <label className="flex items-start gap-3 rounded-sm bg-site-surface-soft p-4 text-sm text-site-text">
+            <input
+              type="checkbox"
+              checked={useShippingAsBilling}
+              onChange={(event) => setUseShippingAsBilling(event.target.checked)}
+              className="mt-1 h-4 w-4 accent-site-green"
+            />
+            <span>A számlázási cím megegyezik a szállítási címmel.</span>
+          </label>
+        </div>
+
+        {!useShippingAsBilling && (
+          <fieldset className="border-t border-site-border pt-7">
+            <legend className="mb-5 text-xl font-bold text-site-heading">Számlázási cím</legend>
+            <AddressFields idPrefix="billing" value={billingAddress} onChange={setBillingAddress} />
+          </fieldset>
+        )}
+
+        <button
+          type="submit"
+          disabled={isSaving}
+          className="rounded-sm bg-site-green px-6 py-3 font-semibold text-white transition hover:bg-site-green-hover disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {isSaving ? "Mentés..." : "Címek mentése"}
+        </button>
+      </form>
+    </div>
+  );
 }
