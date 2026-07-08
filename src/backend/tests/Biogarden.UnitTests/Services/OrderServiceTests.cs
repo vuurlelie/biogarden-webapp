@@ -105,6 +105,7 @@ public sealed class OrderServiceTests
         };
         var order = CreateOrder(userId);
         order.PaymentStatus = PaymentStatus.Paid;
+        order.StockCommitted = true;
         order.Items.Add(new OrderItem
         {
             Id = Guid.NewGuid(),
@@ -134,6 +135,7 @@ public sealed class OrderServiceTests
         Assert.Equal(OrderStatus.Cancelled, result.Status);
         Assert.Equal(PaymentStatus.RefundPending, result.PaymentStatus);
         Assert.Equal(6, product.StockQuantity);
+        Assert.False(order.StockCommitted);
         Assert.Equal("Meggondoltam magam.", order.CancellationReason);
         Assert.NotNull(order.CancelledAtUtc);
         _unitOfWork.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);

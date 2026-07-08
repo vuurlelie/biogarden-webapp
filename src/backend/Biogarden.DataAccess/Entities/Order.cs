@@ -46,6 +46,8 @@ public class Order
 
     public decimal TotalPrice { get; set; }
 
+    public bool StockCommitted { get; set; }
+
     public OrderStatus Status { get; set; } = OrderStatus.Pending;
     public PaymentStatus PaymentStatus { get; set; } = PaymentStatus.Pending;
 

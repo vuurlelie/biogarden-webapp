@@ -173,9 +173,13 @@ public class OrderService : IOrderService
             });
 
             totalPrice += lineTotal;
+            product.StockQuantity -= cartItem.Quantity;
+            if (product.StockQuantity < 0)
+                throw new InvalidOperationException("Stock inconsistency detected during order creation.");
         }
 
         order.TotalPrice = totalPrice;
+        order.StockCommitted = true;
 
         cart.IsCheckedOut = true;
         cart.CheckedOutAtUtc = DateTime.UtcNow;
@@ -214,23 +218,17 @@ public class OrderService : IOrderService
             return order.ToDto();
         }
 
-        foreach (var orderItem in order.Items)
+        if (!order.StockCommitted)
         {
-            var product = await _unitOfWork.ProductRepository.GetByIdAsync(
-                orderItem.ProductId,
-                cancellationToken);
-
-            if (product is null)
+            foreach (var orderItem in order.Items)
             {
-                throw new InvalidOperationException("Product missing during payment confirmation.");
-            }
+                var product = await _unitOfWork.ProductRepository.GetByIdAsync(orderItem.ProductId, cancellationToken);
+                if (product is null) throw new InvalidOperationException("Product missing during payment confirmation.");
 
-            product.StockQuantity -= orderItem.Quantity;
-
-            if (product.StockQuantity < 0)
-            {
-                throw new InvalidOperationException("Stock inconsistency detected.");
+                product.StockQuantity -= orderItem.Quantity;
+                if (product.StockQuantity < 0) throw new InvalidOperationException("Stock inconsistency detected.");
             }
+            order.StockCommitted = true;
         }
 
         order.PaymentStatus = PaymentStatus.Paid;
@@ -277,9 +275,7 @@ public class OrderService : IOrderService
             order.PaymentStatus = PaymentStatus.RefundPending;
         }
 
-        if (order.PaymentStatus == PaymentStatus.Paid ||
-            order.PaymentStatus == PaymentStatus.RefundPending ||
-            order.PaymentStatus == PaymentStatus.Refunded)
+        if (order.StockCommitted)
         {
             foreach (var orderItem in order.Items)
             {
@@ -292,6 +288,7 @@ public class OrderService : IOrderService
                     product.StockQuantity += orderItem.Quantity;
                 }
             }
+            order.StockCommitted = false;
         }
 
         order.Status = OrderStatus.Cancelled;

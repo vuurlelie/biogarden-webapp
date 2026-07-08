@@ -381,6 +381,9 @@ namespace Biogarden.DataAccess.Migrations
                         .HasColumnType("tinyint")
                         .HasDefaultValue((byte)0);
 
+                    b.Property<bool>("StockCommitted")
+                        .HasColumnType("bit");
+
                     b.Property<string>("Street")
                         .IsRequired()
                         .HasMaxLength(200)
