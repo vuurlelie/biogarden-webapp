@@ -12,7 +12,7 @@ public class CartItemDto
 
     public string? Image { get; set; }
 
-    public string Unit { get; set; } = string.Empty;
+    public global::UnitOfMeasure Unit { get; set; }
 
     public int Quantity { get; set; }
 

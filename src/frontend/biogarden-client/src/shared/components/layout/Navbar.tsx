@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, NavLink } from "react-router-dom";
+import { Link, NavLink, useNavigate } from "react-router-dom";
+import { clearAuthSession } from "../../../features/auth/utils/authStorage";
 import logo from "../../../assets/images/logo.png";
 import bakonykincse from "../../../assets/images/bakonykincse.png";
 import { ROUTES } from "../../constants/routes";
@@ -26,8 +27,10 @@ export default function Navbar({
   isAdmin = false,
   cartItemCount = 0,
 }: NavbarProps) {
+  const navigate = useNavigate();
   const [isScrolled, setIsScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [mobileAccountOpen, setMobileAccountOpen] = useState(false);
   const [progress, setProgress] = useState(0);
 
   useEffect(() => {
@@ -46,7 +49,16 @@ export default function Navbar({
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
-  const closeMobile = () => setMobileOpen(false);
+  const closeMobile = () => {
+    setMobileOpen(false);
+    setMobileAccountOpen(false);
+  };
+
+  const logout = () => {
+    clearAuthSession();
+    closeMobile();
+    navigate(ROUTES.home, { replace: true });
+  };
 
   const goContact = () => {
     closeMobile();
@@ -176,14 +188,21 @@ className="inline-flex items-center text-[0.95rem] lg:text-base uppercase tracki
 
           <div className="hidden lg:flex items-center gap-5">
             {isAuthenticated ? (
-              <NavLink
-                to={ROUTES.account}
-                className={desktopActionLinkClass}
-                aria-label="Fiókom"
-                title="Fiókom"
-              >
-                Fiókom
-              </NavLink>
+              <div className="group relative py-4">
+                <NavLink
+                  to={ROUTES.account}
+                  className={desktopActionLinkClass}
+                  aria-label="Fiókom"
+                  title="Fiókom"
+                >
+                  <span className="flex items-center gap-1">Fiókom <svg aria-hidden="true" className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 11.168l3.71-3.938a.75.75 0 1 1 1.08 1.04l-4.25 4.5a.75.75 0 0 1-1.08 0l-4.25-4.5a.75.75 0 0 1 .02-1.06Z" clipRule="evenodd"/></svg></span>
+                </NavLink>
+                <div className="invisible absolute right-0 top-full w-64 rounded-sm border border-site-border bg-white p-2 opacity-0 shadow-xl transition-all group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100">
+                  <NavLink to={ROUTES.account} className="block rounded-sm px-4 py-3 text-sm text-site-nav hover:bg-site-surface-soft hover:text-site-green-dark">Adataim</NavLink>
+                  {isAdmin && <NavLink to={ROUTES.admin} className="block rounded-sm px-4 py-3 text-sm text-site-nav hover:bg-site-surface-soft hover:text-site-green-dark">Adminisztrációs felület</NavLink>}
+                  <button type="button" onClick={logout} className="block w-full rounded-sm px-4 py-3 text-left text-sm font-semibold text-site-danger hover:bg-site-danger-soft">Kijelentkezés</button>
+                </div>
+              </div>
             ) : (
               <>
                 <NavLink
@@ -204,15 +223,6 @@ className="inline-flex items-center text-[0.95rem] lg:text-base uppercase tracki
                   Regisztráció
                 </NavLink>
               </>
-            )}
-
-            {isAuthenticated && isAdmin && (
-              <NavLink
-                to={ROUTES.admin}
-                className="text-sm uppercase tracking-wide text-site-nav transition-colors hover:text-site-green-dark"
-              >
-                Admin
-              </NavLink>
             )}
 
             <NavLink
@@ -298,13 +308,14 @@ className="inline-flex items-center text-[0.95rem] lg:text-base uppercase tracki
 
             <div className="mt-2 grid grid-cols-2 gap-3">
               {isAuthenticated ? (
-                <NavLink
-                  to={ROUTES.account}
-                  onClick={closeMobile}
-                  className="inline-flex items-center justify-center rounded-xl border border-site-border bg-white px-4 py-3 text-sm uppercase tracking-wide text-site-nav transition-colors hover:text-site-green-dark"
+                <button
+                  type="button"
+                  onClick={() => setMobileAccountOpen((open) => !open)}
+                  aria-expanded={mobileAccountOpen}
+                  className="col-span-2 inline-flex items-center justify-center gap-2 rounded-xl border border-site-border bg-white px-4 py-3 text-sm uppercase tracking-wide text-site-nav transition-colors hover:text-site-green-dark"
                 >
-                  Fiókom
-                </NavLink>
+                  Fiókom <svg aria-hidden="true" className={`h-4 w-4 transition-transform ${mobileAccountOpen ? "rotate-180" : ""}`} viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 11.168l3.71-3.938a.75.75 0 1 1 1.08 1.04l-4.25 4.5a.75.75 0 0 1-1.08 0l-4.25-4.5a.75.75 0 0 1 .02-1.06Z" clipRule="evenodd"/></svg>
+                </button>
               ) : (
                 <>
                   <NavLink
@@ -326,6 +337,14 @@ className="inline-flex items-center text-[0.95rem] lg:text-base uppercase tracki
               )}
             </div>
 
+            {isAuthenticated && mobileAccountOpen && (
+              <div className="grid gap-1 rounded-xl border border-site-border bg-white p-2 shadow-sm">
+                <NavLink to={ROUTES.account} onClick={closeMobile} className="rounded-lg px-4 py-3 text-sm text-site-nav hover:bg-site-surface-soft hover:text-site-green-dark">Adataim</NavLink>
+                {isAdmin && <NavLink to={ROUTES.admin} onClick={closeMobile} className="rounded-lg px-4 py-3 text-sm text-site-nav hover:bg-site-surface-soft hover:text-site-green-dark">Adminisztrációs felület</NavLink>}
+                <button type="button" onClick={logout} className="rounded-lg px-4 py-3 text-left text-sm font-semibold text-site-danger hover:bg-site-danger-soft">Kijelentkezés</button>
+              </div>
+            )}
+
             <div className="mt-3">
               <NavLink
                 to={ROUTES.cart}
@@ -345,15 +364,6 @@ className="inline-flex items-center text-[0.95rem] lg:text-base uppercase tracki
               </NavLink>
             </div>
 
-            {isAuthenticated && isAdmin && (
-              <NavLink
-                to={ROUTES.admin}
-                onClick={closeMobile}
-                className="mt-2 rounded-xl bg-site-green px-4 py-3 text-center text-sm font-medium uppercase tracking-wide text-white transition-colors hover:bg-site-green-hover"
-              >
-                Admin felület
-              </NavLink>
-            )}
           </div>
         </div>
       </header>

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import {
+  cancelOrder,
   getOrderById,
   OrdersApiError,
 } from "../../features/account/api/ordersApi";
@@ -22,6 +23,26 @@ export default function AccountOrderDetailsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
   const [notFound, setNotFound] = useState(false);
+  const [showCancellation, setShowCancellation] = useState(false);
+  const [cancellationReason, setCancellationReason] = useState("");
+  const [isCancelling, setIsCancelling] = useState(false);
+  const [cancellationSuccess, setCancellationSuccess] = useState<string | null>(null);
+
+  async function handleCancelOrder() {
+    if (!order) return;
+    setIsCancelling(true);
+    setError("");
+    try {
+      const cancelledOrder = await cancelOrder(order.id, cancellationReason);
+      setOrder(cancelledOrder);
+      setShowCancellation(false);
+      setCancellationSuccess(`A(z) ${cancelledOrder.orderNumber} számú rendelést sikeresen lemondtad.`);
+    } catch (cancelError) {
+      setError(cancelError instanceof Error ? cancelError.message : "A rendelés lemondása nem sikerült.");
+    } finally {
+      setIsCancelling(false);
+    }
+  }
 
   useEffect(() => {
     let shouldIgnoreResult = false;
@@ -68,13 +89,14 @@ export default function AccountOrderDetailsPage() {
     return <NotFoundPage message="A keresett rendelés nem található vagy nem tartozik ehhez a fiókhoz." />;
   }
 
-  if (error || !order) {
+  if (!order) {
     return <div className="rounded-sm bg-site-danger-soft p-8 text-center text-site-danger shadow-md">{error || "A rendelés betöltése nem sikerült."}</div>;
   }
 
   return (
     <div className="rounded-sm border border-site-border bg-white p-6 shadow-lg sm:p-8">
       <Link to={ROUTES.accountOrders} className="text-sm font-semibold text-site-green-dark hover:underline">← Vissza a rendelésekhez</Link>
+      {error && <div role="alert" className="mt-5 rounded-sm bg-site-danger-soft p-4 text-site-danger">{error}</div>}
 
       <div className="mt-5 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
@@ -87,7 +109,7 @@ export default function AccountOrderDetailsPage() {
         </span>
       </div>
 
-      <dl className="mt-7 grid gap-4 rounded-sm bg-site-surface-soft p-5 sm:grid-cols-2">
+      <dl className="mt-7 grid gap-4 rounded-sm bg-site-surface-soft p-5 sm:grid-cols-3">
         <div>
           <dt className="text-sm font-bold text-site-heading">Fizetés állapota</dt>
           <dd className="mt-1 text-sm text-site-text">{getPaymentStatusLabel(order.paymentStatus)}</dd>
@@ -95,6 +117,12 @@ export default function AccountOrderDetailsPage() {
         <div>
           <dt className="text-sm font-bold text-site-heading">Végösszeg</dt>
           <dd className="mt-1 text-lg font-bold text-site-heading">{formatOrderPrice(order.totalPrice)}</dd>
+        </div>
+        <div>
+          <dt className="text-sm font-bold text-site-heading">Átvételi mód</dt>
+          <dd className="mt-1 text-sm text-site-text">
+            {order.fulfillmentMethod === 1 ? "Házhoz szállítás" : "Személyes átvétel"}
+          </dd>
         </div>
       </dl>
 
@@ -125,6 +153,31 @@ export default function AccountOrderDetailsPage() {
       {order.status === 4 && order.cancellationReason && (
         <div className="mt-6 rounded-sm bg-site-danger-soft p-4 text-sm text-site-danger">
           <span className="font-bold">Törlés oka:</span> {order.cancellationReason}
+        </div>
+      )}
+
+      {(order.status === 0 || order.status === 1) && (
+        <section className="mt-8 border-t border-site-border pt-6">
+          {!showCancellation ? (
+            <button type="button" onClick={() => setShowCancellation(true)} className="rounded-sm border border-site-danger px-5 py-2.5 font-semibold text-site-danger hover:bg-site-danger-soft">Rendelés lemondása</button>
+          ) : (
+            <div className="rounded-sm bg-site-danger-soft p-5">
+              <h2 className="font-bold text-site-danger">Biztosan lemondod a rendelést?</h2>
+              <label className="mt-4 block text-sm font-semibold text-site-heading">Lemondás oka (opcionális)<textarea value={cancellationReason} onChange={(event) => setCancellationReason(event.target.value)} maxLength={500} rows={3} className="mt-2 block w-full rounded-sm border border-site-border bg-white px-3 py-2.5" /></label>
+              <div className="mt-4 flex flex-wrap gap-3"><button type="button" onClick={() => void handleCancelOrder()} disabled={isCancelling} className="rounded-sm bg-site-danger px-5 py-2.5 font-semibold text-white disabled:opacity-50">{isCancelling ? "Lemondás..." : "Igen, lemondom"}</button><button type="button" onClick={() => setShowCancellation(false)} disabled={isCancelling} className="rounded-sm border border-site-border bg-white px-5 py-2.5">Mégsem</button></div>
+            </div>
+          )}
+        </section>
+      )}
+
+      {cancellationSuccess && (
+        <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/50 p-4" role="dialog" aria-modal="true" aria-labelledby="cancellation-success-title">
+          <section className="w-full max-w-md rounded-sm bg-white p-6 text-center shadow-xl">
+            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-site-surface-soft text-2xl text-site-green-dark">✓</div>
+            <h2 id="cancellation-success-title" className="mt-4 text-2xl font-bold text-site-heading">Sikeres lemondás</h2>
+            <p className="mt-3 text-site-text">{cancellationSuccess}</p>
+            <button type="button" onClick={() => setCancellationSuccess(null)} className="mt-6 rounded-sm bg-site-green px-6 py-3 font-semibold text-white hover:bg-site-green-hover">Rendben</button>
+          </section>
         </div>
       )}
     </div>

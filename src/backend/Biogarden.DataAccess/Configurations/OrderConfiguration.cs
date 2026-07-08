@@ -45,8 +45,35 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
             .HasDefaultValue(PaymentStatus.Pending)
             .IsRequired();
 
+        orderBuilder.Property(order => order.FulfillmentMethod)
+            .HasConversion<byte>()
+            .HasDefaultValue(FulfillmentMethod.PersonalPickup)
+            .IsRequired();
+
         orderBuilder.Property(order => order.CancellationReason)
             .HasMaxLength(500);
+
+        orderBuilder.Property(order => order.CustomerName).HasMaxLength(200).IsRequired();
+        orderBuilder.Property(order => order.CustomerEmail).HasMaxLength(256).IsRequired();
+        orderBuilder.Property(order => order.CustomerPhone).HasMaxLength(50).IsRequired();
+        orderBuilder.Property(order => order.PostalCode).HasMaxLength(20).IsRequired();
+        orderBuilder.Property(order => order.City).HasMaxLength(100).IsRequired();
+        orderBuilder.Property(order => order.Street).HasMaxLength(200).IsRequired();
+        orderBuilder.Property(order => order.HouseNumber).HasMaxLength(50).IsRequired();
+        orderBuilder.Property(order => order.Building).HasMaxLength(50);
+        orderBuilder.Property(order => order.Floor).HasMaxLength(50);
+        orderBuilder.Property(order => order.Door).HasMaxLength(50);
+        orderBuilder.Property(order => order.Doorbell).HasMaxLength(50);
+        orderBuilder.Property(order => order.BillingCompanyName).HasMaxLength(200);
+        orderBuilder.Property(order => order.BillingTaxNumber).HasMaxLength(20);
+        orderBuilder.Property(order => order.DeliveryPostalCode).HasMaxLength(20);
+        orderBuilder.Property(order => order.DeliveryCity).HasMaxLength(100);
+        orderBuilder.Property(order => order.DeliveryStreet).HasMaxLength(200);
+        orderBuilder.Property(order => order.DeliveryHouseNumber).HasMaxLength(50);
+        orderBuilder.Property(order => order.DeliveryBuilding).HasMaxLength(50);
+        orderBuilder.Property(order => order.DeliveryFloor).HasMaxLength(50);
+        orderBuilder.Property(order => order.DeliveryDoor).HasMaxLength(50);
+        orderBuilder.Property(order => order.DeliveryDoorbell).HasMaxLength(50);
 
         orderBuilder.HasIndex(order => order.UserId);
         orderBuilder.HasIndex(order => order.CreatedAtUtc);

@@ -73,6 +73,25 @@ public class CartController : ControllerBase
         }
     }
 
+    [HttpGet("products/{productId:int}/availability")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult> GetProductAvailability(
+        int productId,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var availableQuantity = await _cartService.GetAvailableQuantityToAddAsync(
+                GetCurrentUserId(), GetSessionId(), productId, cancellationToken);
+            return Ok(new { availableQuantity });
+        }
+        catch (KeyNotFoundException exception)
+        {
+            return NotFound(new { message = exception.Message });
+        }
+    }
+
     [HttpPut("items/{cartItemId:guid}")]
     [ProducesResponseType(typeof(CartDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]

@@ -19,6 +19,7 @@ import LoginPage from "../../pages/public/LoginPage";
 import RegisterPage from "../../pages/public/RegisterPage";
 import CartPage from "../../pages/public/CartPage";
 import CheckoutPage from "../../pages/public/CheckoutPage";
+import OrderSuccessPage from "../../pages/public/OrderSuccessPage";
 import NotFoundPage from "../../pages/public/NotFoundPage";
 
 import AccountDashboardPage from "../../pages/account/AccountDashboardPage";
@@ -45,6 +46,7 @@ export const router = createBrowserRouter([
       { path: ROUTES.register.slice(1), element: <RegisterPage /> },
       { path: ROUTES.cart.slice(1), element: <CartPage /> },
       { path: ROUTES.checkout.slice(1), element: <CheckoutPage /> },
+      { path: ROUTES.orderSuccess.slice(1), element: <OrderSuccessPage /> },
     ],
   },
 

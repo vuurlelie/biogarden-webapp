@@ -1,13 +1,16 @@
 import type { AuthResponse } from "../types/auth.types";
 
 export const AUTH_STORAGE_KEY = "biogarden_auth";
+export const AUTH_CHANGED_EVENT = "biogarden:auth-changed";
 
 export function saveAuthSession(auth: AuthResponse): void {
   localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(auth));
+  window.dispatchEvent(new Event(AUTH_CHANGED_EVENT));
 }
 
 export function clearAuthSession(): void {
   localStorage.removeItem(AUTH_STORAGE_KEY);
+  window.dispatchEvent(new Event(AUTH_CHANGED_EVENT));
 }
 
 function isTokenExpired(token: string): boolean {

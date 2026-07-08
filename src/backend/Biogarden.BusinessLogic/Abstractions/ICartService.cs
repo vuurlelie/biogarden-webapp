@@ -15,6 +15,12 @@ public interface ICartService
         AddCartItemDto addCartItemDto,
         CancellationToken cancellationToken = default);
 
+    Task<int> GetAvailableQuantityToAddAsync(
+        Guid? userId,
+        string? sessionId,
+        int productId,
+        CancellationToken cancellationToken = default);
+
     Task<CartDto> UpdateItemQuantityAsync(
         Guid? userId,
         string? sessionId,

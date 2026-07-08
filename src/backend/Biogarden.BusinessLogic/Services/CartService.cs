@@ -28,6 +28,9 @@ public class CartService : ICartService
             createIfMissing: true,
             cancellationToken);
 
+        TouchCart(cart);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+
         return await MapCartAsync(cart, cancellationToken);
     }
 
@@ -79,15 +82,19 @@ public class CartService : ICartService
 
         if (existingCartItem is null)
         {
-            cart.Items.Add(new CartItem
+            var cartItem = new CartItem
             {
                 Id = Guid.NewGuid(),
                 CartId = cart.Id,
+                Cart = cart,
                 ProductId = product.Id,
+                Product = product,
                 Quantity = addCartItemDto.Quantity,
                 CreatedAtUtc = DateTime.UtcNow,
                 UpdatedAtUtc = DateTime.UtcNow
-            });
+            };
+
+            await _unitOfWork.CartRepository.AddItemAsync(cartItem, cancellationToken);
         }
         else
         {
@@ -97,12 +104,30 @@ public class CartService : ICartService
 
         TouchCart(cart);
 
-        _unitOfWork.CartRepository.Update(cart);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         var updatedCart = await ReloadCartAsync(cart.Id, cancellationToken);
 
         return await MapCartAsync(updatedCart, cancellationToken);
+    }
+
+    public async Task<int> GetAvailableQuantityToAddAsync(
+        Guid? userId,
+        string? sessionId,
+        int productId,
+        CancellationToken cancellationToken = default)
+    {
+        var product = await _unitOfWork.ProductRepository.GetByIdAsync(productId, cancellationToken);
+        if (product is null) throw new KeyNotFoundException($"Product with id {productId} was not found.");
+        if (!product.Available) return 0;
+
+        var cart = await ResolveExistingCartAsync(userId, sessionId, cancellationToken);
+        var reservedByOtherCarts = await _unitOfWork.CartRepository
+            .GetActiveReservedQuantityForProductAsync(productId, cart?.Id, cancellationToken);
+        var quantityAlreadyInCart = cart?.Items
+            .SingleOrDefault(item => item.ProductId == productId)?.Quantity ?? 0;
+
+        return Math.Max(0, product.StockQuantity - reservedByOtherCarts - quantityAlreadyInCart);
     }
 
     public async Task<CartDto> UpdateItemQuantityAsync(
@@ -132,7 +157,6 @@ public class CartService : ICartService
             cart.Items.Remove(cartItem);
             TouchCart(cart);
 
-            _unitOfWork.CartRepository.Update(cart);
             await _unitOfWork.SaveChangesAsync(cancellationToken);
 
             var updatedCartAfterRemove = await ReloadCartAsync(cart.Id, cancellationToken);
@@ -151,7 +175,6 @@ public class CartService : ICartService
 
         TouchCart(cart);
 
-        _unitOfWork.CartRepository.Update(cart);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         var updatedCart = await ReloadCartAsync(cart.Id, cancellationToken);
@@ -184,7 +207,6 @@ public class CartService : ICartService
 
         TouchCart(cart);
 
-        _unitOfWork.CartRepository.Update(cart);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         var updatedCart = await ReloadCartAsync(cart.Id, cancellationToken);
@@ -207,7 +229,6 @@ public class CartService : ICartService
 
         TouchCart(cart);
 
-        _unitOfWork.CartRepository.Update(cart);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         var updatedCart = await ReloadCartAsync(cart.Id, cancellationToken);
@@ -258,15 +279,19 @@ public class CartService : ICartService
 
             if (existingUserCartItem is null)
             {
-                userCart.Items.Add(new CartItem
+                var cartItem = new CartItem
                 {
                     Id = Guid.NewGuid(),
                     CartId = userCart.Id,
+                    Cart = userCart,
                     ProductId = guestCartItem.ProductId,
+                    Product = guestCartItem.Product,
                     Quantity = guestCartItem.Quantity,
                     CreatedAtUtc = DateTime.UtcNow,
                     UpdatedAtUtc = DateTime.UtcNow
-                });
+                };
+
+                await _unitOfWork.CartRepository.AddItemAsync(cartItem, cancellationToken);
             }
             else
             {
@@ -279,9 +304,6 @@ public class CartService : ICartService
 
         guestCart.IsCheckedOut = true;
         guestCart.CheckedOutAtUtc = DateTime.UtcNow;
-
-        _unitOfWork.CartRepository.Update(userCart);
-        _unitOfWork.CartRepository.Update(guestCart);
 
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 

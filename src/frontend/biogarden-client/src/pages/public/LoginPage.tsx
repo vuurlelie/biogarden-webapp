@@ -6,6 +6,7 @@ import { ROUTES } from "../../shared/constants/routes";
 
 type LoginLocationState = {
   registrationSuccess?: boolean;
+  from?: string;
 };
 
 export default function LoginPage() {
@@ -32,7 +33,8 @@ export default function LoginPage() {
       setIsSubmitting(true);
       const auth = await login({ email: email.trim(), password });
       saveAuthSession(auth);
-      navigate(ROUTES.account, { replace: true });
+      const from = (location.state as LoginLocationState | null)?.from;
+      navigate(from ?? ROUTES.account, { replace: true });
     } catch (submitError) {
       setError(
         submitError instanceof Error
@@ -72,7 +74,7 @@ export default function LoginPage() {
         <form onSubmit={handleSubmit} className="mt-6 space-y-5">
           <div>
             <label htmlFor="login-email" className="block text-sm font-semibold text-site-heading">
-              Email cím
+              Email cím <span className="text-site-danger">*</span>
             </label>
             <input
               id="login-email"
@@ -87,7 +89,7 @@ export default function LoginPage() {
 
           <div>
             <label htmlFor="login-password" className="block text-sm font-semibold text-site-heading">
-              Jelszó
+              Jelszó <span className="text-site-danger">*</span>
             </label>
             <input
               id="login-password"

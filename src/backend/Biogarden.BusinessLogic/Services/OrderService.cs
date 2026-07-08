@@ -25,14 +25,16 @@ public class OrderService : IOrderService
     }
 
     public async Task<OrderDto> CreateOrderFromCartAsync(
-        Guid userId,
+        Guid? userId,
         string? sessionId,
         PlaceOrderDto dto,
         CancellationToken cancellationToken = default)
     {
-        var cart = await _unitOfWork.CartRepository.GetActiveByUserIdAsync(
-            userId,
-            cancellationToken);
+        var cart = userId.HasValue
+            ? await _unitOfWork.CartRepository.GetActiveByUserIdAsync(userId.Value, cancellationToken)
+            : string.IsNullOrWhiteSpace(sessionId)
+                ? null
+                : await _unitOfWork.CartRepository.GetActiveBySessionIdAsync(sessionId, cancellationToken);
 
         if (cart is null)
         {
@@ -49,6 +51,18 @@ public class OrderService : IOrderService
             throw new InvalidOperationException("Cart is empty.");
         }
 
+        if (!Enum.IsDefined(dto.FulfillmentMethod))
+        {
+            throw new InvalidOperationException("Invalid fulfillment method.");
+        }
+
+        if (dto.FulfillmentMethod != FulfillmentMethod.PersonalPickup &&
+            cart.Items.Any(item => !item.Product.DeliveryAvailable))
+        {
+            throw new InvalidOperationException(
+                "The cart contains a product that is available only for personal pickup.");
+        }
+
         var validationResult = await _cartService.ValidateCartForCheckoutAsync(
             userId,
             sessionId,
@@ -59,46 +73,77 @@ public class OrderService : IOrderService
             throw new InvalidOperationException("Cart validation failed.");
         }
 
-        var address = await _unitOfWork.AddressRepository.GetByIdAsync(
-            dto.AddressId,
-            cancellationToken);
+        ApplicationUser? user = userId.HasValue
+            ? await _userManager.FindByIdAsync(userId.Value.ToString())
+            : null;
+        if (userId.HasValue && user is null) throw new InvalidOperationException("User not found.");
+        var useManualContact = !string.IsNullOrWhiteSpace(dto.CustomerName) ||
+            !string.IsNullOrWhiteSpace(dto.CustomerEmail) ||
+            !string.IsNullOrWhiteSpace(dto.CustomerPhone);
+        if (user is null || useManualContact) ValidateGuestContactDetails(dto); else ValidateAccountContactDetails(user);
 
-        if (address is null)
+        Address? billingAddress = null;
+        if (dto.AddressId.HasValue)
         {
-            throw new InvalidOperationException("Invalid address.");
+            billingAddress = await _unitOfWork.AddressRepository.GetByIdAsync(dto.AddressId.Value, cancellationToken);
+            if (user is null || billingAddress is null || user.BillingAddressId != dto.AddressId)
+                throw new InvalidOperationException("The selected billing address does not belong to the user.");
         }
-
-        var user = await _userManager.FindByIdAsync(userId.ToString());
-
-        if (user is null)
+        else
         {
-            throw new InvalidOperationException("User not found.");
+            ValidateManualAddress(dto.PostalCode, dto.City, dto.Street, dto.HouseNumber, "billing");
         }
+        ValidateCompanyBilling(dto.BillingCompanyName, dto.BillingTaxNumber);
 
-        var isUsersAddress =
-            user.ShippingAddressId == dto.AddressId ||
-            user.BillingAddressId == dto.AddressId;
-
-        if (!isUsersAddress)
+        Address? deliveryAddress = null;
+        if (dto.FulfillmentMethod != FulfillmentMethod.PersonalPickup)
         {
-            throw new InvalidOperationException(
-                "The selected address does not belong to the user.");
+            if (dto.DeliveryAddressId.HasValue)
+            {
+                deliveryAddress = await _unitOfWork.AddressRepository.GetByIdAsync(dto.DeliveryAddressId.Value, cancellationToken);
+                if (user is null || deliveryAddress is null || user.ShippingAddressId != dto.DeliveryAddressId)
+                    throw new InvalidOperationException("The selected delivery address does not belong to the user.");
+            }
+            else
+            {
+                ValidateManualAddress(dto.DeliveryPostalCode, dto.DeliveryCity, dto.DeliveryStreet, dto.DeliveryHouseNumber, "delivery");
+            }
         }
-
-        var existingOrders = await _unitOfWork.OrderRepository.GetByUserIdAsync(
-            userId,
-            cancellationToken);
 
         var order = new Order
         {
             Id = Guid.NewGuid(),
-            OrderNumber = GenerateOrderNumber(existingOrders.Count + 1),
+            OrderNumber = GenerateOrderNumber(),
             UserId = userId,
             AddressId = dto.AddressId,
+            CustomerName = user is null || useManualContact
+                ? dto.CustomerName!.Trim()
+                : $"{user.LastName} {user.FirstName}".Trim(),
+            CustomerEmail = user is null || useManualContact ? dto.CustomerEmail!.Trim() : user.Email!.Trim(),
+            CustomerPhone = user is null || useManualContact ? dto.CustomerPhone!.Trim() : user.PhoneNumber!.Trim(),
+            PostalCode = billingAddress?.PostalCode ?? dto.PostalCode!.Trim(),
+            City = billingAddress?.City ?? dto.City!.Trim(),
+            Street = billingAddress?.Street ?? dto.Street!.Trim(),
+            HouseNumber = billingAddress?.HouseNumber ?? dto.HouseNumber!.Trim(),
+            Building = billingAddress?.Building ?? NormalizeOptional(dto.Building),
+            Floor = billingAddress?.Floor ?? NormalizeOptional(dto.Floor),
+            Door = billingAddress?.Door ?? NormalizeOptional(dto.Door),
+            Doorbell = billingAddress?.Doorbell ?? NormalizeOptional(dto.Doorbell),
+            BillingCompanyName = NormalizeOptional(dto.BillingCompanyName),
+            BillingTaxNumber = NormalizeOptional(dto.BillingTaxNumber),
+            DeliveryPostalCode = deliveryAddress?.PostalCode ?? NormalizeOptional(dto.DeliveryPostalCode),
+            DeliveryCity = deliveryAddress?.City ?? NormalizeOptional(dto.DeliveryCity),
+            DeliveryStreet = deliveryAddress?.Street ?? NormalizeOptional(dto.DeliveryStreet),
+            DeliveryHouseNumber = deliveryAddress?.HouseNumber ?? NormalizeOptional(dto.DeliveryHouseNumber),
+            DeliveryBuilding = deliveryAddress?.Building ?? NormalizeOptional(dto.DeliveryBuilding),
+            DeliveryFloor = deliveryAddress?.Floor ?? NormalizeOptional(dto.DeliveryFloor),
+            DeliveryDoor = deliveryAddress?.Door ?? NormalizeOptional(dto.DeliveryDoor),
+            DeliveryDoorbell = deliveryAddress?.Doorbell ?? NormalizeOptional(dto.DeliveryDoorbell),
             CartId = cart.Id,
             CreatedAtUtc = DateTime.UtcNow,
             Status = OrderStatus.Pending,
-            PaymentStatus = PaymentStatus.Pending
+            PaymentStatus = PaymentStatus.Pending,
+            FulfillmentMethod = dto.FulfillmentMethod
         };
 
         decimal totalPrice = 0m;
@@ -293,8 +338,57 @@ public class OrderService : IOrderService
         return order.ToDto();
     }
 
-    private static string GenerateOrderNumber(int sequence)
+    private static void ValidateGuestContactDetails(PlaceOrderDto dto)
     {
-        return $"BG-{DateTime.UtcNow:yyyyMMdd}-{sequence:D4}";
+        var required = new[]
+        {
+            dto.CustomerName, dto.CustomerEmail, dto.CustomerPhone
+        };
+        if (required.Any(string.IsNullOrWhiteSpace))
+        {
+            throw new ArgumentException("Guest customer and address details are required.");
+        }
+
+        if (!System.Net.Mail.MailAddress.TryCreate(dto.CustomerEmail, out _))
+        {
+            throw new ArgumentException("Invalid email address.");
+        }
+    }
+
+    private static void ValidateManualAddress(string? postalCode, string? city, string? street, string? houseNumber, string kind)
+    {
+        if (new[] { postalCode, city, street, houseNumber }.Any(string.IsNullOrWhiteSpace))
+            throw new ArgumentException($"The {kind} address is incomplete.");
+    }
+
+    private static void ValidateCompanyBilling(string? companyName, string? taxNumber)
+    {
+        var normalizedCompanyName = NormalizeOptional(companyName);
+        var normalizedTaxNumber = NormalizeOptional(taxNumber);
+        if ((normalizedCompanyName is null) != (normalizedTaxNumber is null))
+            throw new ArgumentException("Céges számlázáshoz a cégnév és az adószám együttes megadása szükséges.");
+        if (normalizedTaxNumber is not null &&
+            !System.Text.RegularExpressions.Regex.IsMatch(normalizedTaxNumber, @"^\d{8}(-\d-\d{2})?$"))
+            throw new ArgumentException("Az adószám formátuma hibás. Példa: 12345678-1-12.");
+    }
+
+    private static void ValidateAccountContactDetails(ApplicationUser user)
+    {
+        if (string.IsNullOrWhiteSpace(user.FirstName) ||
+            string.IsNullOrWhiteSpace(user.LastName) ||
+            string.IsNullOrWhiteSpace(user.Email) ||
+            string.IsNullOrWhiteSpace(user.PhoneNumber))
+        {
+            throw new ArgumentException(
+                "A fiók személyes adatai hiányosak. Töltsd ki a nevet, email címet és telefonszámot, vagy válaszd a Más adatok megadása lehetőséget.");
+        }
+    }
+
+    private static string? NormalizeOptional(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
+    private static string GenerateOrderNumber()
+    {
+        return $"BK-{DateTime.UtcNow:yyyyMMdd}-{Guid.NewGuid().ToString("N")[..8].ToUpperInvariant()}";
     }
 }

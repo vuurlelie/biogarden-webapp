@@ -36,7 +36,9 @@ public class UserService : IUserService
             Email = user.Email ?? string.Empty,
             FirstName = user.FirstName,
             LastName = user.LastName,
-            PhoneNumber = user.PhoneNumber
+            PhoneNumber = user.PhoneNumber,
+            CompanyName = user.CompanyName,
+            TaxNumber = user.TaxNumber
         };
     }
 
@@ -55,6 +57,11 @@ public class UserService : IUserService
         user.FirstName = NormalizeOptional(dto.FirstName);
         user.LastName = NormalizeOptional(dto.LastName);
         user.PhoneNumber = NormalizeOptional(dto.PhoneNumber);
+        user.CompanyName = NormalizeOptional(dto.CompanyName);
+        user.TaxNumber = NormalizeOptional(dto.TaxNumber);
+
+        if ((user.CompanyName is null) != (user.TaxNumber is null))
+            throw new ArgumentException("Céges számlázáshoz a cégnév és az adószám együttes megadása szükséges.");
 
         var result = await _userManager.UpdateAsync(user);
 

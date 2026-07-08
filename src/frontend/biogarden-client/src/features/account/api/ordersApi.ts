@@ -7,8 +7,11 @@ import type { Order } from "../types/order.types";
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 type ApiErrorBody = {
+  message?: string;
+  title?: string;
   detail?: string;
   Detail?: string;
+  errors?: Record<string, string[]>;
 };
 
 export class OrdersApiError extends Error {
@@ -24,13 +27,14 @@ export class OrdersApiError extends Error {
 async function getErrorMessage(response: Response): Promise<string> {
   try {
     const body = (await response.json()) as ApiErrorBody;
-    return body.detail ?? body.Detail ?? "A művelet nem sikerült.";
+    const validationMessage = body.errors ? Object.values(body.errors).flat().join(" ") : undefined;
+    return body.message ?? body.detail ?? body.Detail ?? validationMessage ?? body.title ?? "A művelet nem sikerült.";
   } catch {
     return "A művelet nem sikerült. Kérjük, próbáld újra.";
   }
 }
 
-async function ordersRequest(path = ""): Promise<Response> {
+async function ordersRequest(path = "", init: RequestInit = {}): Promise<Response> {
   const auth = getAuthSession();
 
   if (!auth) {
@@ -38,7 +42,12 @@ async function ordersRequest(path = ""): Promise<Response> {
   }
 
   const response = await fetch(`${API_BASE_URL}/api/orders${path}`, {
-    headers: { Authorization: `Bearer ${auth.token}` },
+    ...init,
+    headers: {
+      Authorization: `Bearer ${auth.token}`,
+      ...(init.body ? { "Content-Type": "application/json" } : {}),
+      ...init.headers,
+    },
   });
 
   if (response.status === 401) clearAuthSession();
@@ -57,6 +66,62 @@ export async function getOrders(): Promise<Order[]> {
 
 export async function getOrderById(orderId: string): Promise<Order> {
   const response = await ordersRequest(`/${encodeURIComponent(orderId)}`);
+  return response.json() as Promise<Order>;
+}
+
+export async function cancelOrder(orderId: string, reason: string): Promise<Order> {
+  const response = await ordersRequest(`/${encodeURIComponent(orderId)}/cancel`, {
+    method: "POST",
+    body: JSON.stringify({ reason: reason.trim() }),
+  });
+  return response.json() as Promise<Order>;
+}
+
+export async function createOrder(
+  order: {
+    addressId?: number | null;
+    deliveryAddressId?: number | null;
+    fulfillmentMethod: 0 | 1 | 2;
+    customerName?: string;
+    customerEmail?: string;
+    customerPhone?: string;
+    postalCode?: string;
+    city?: string;
+    street?: string;
+    houseNumber?: string;
+    building?: string;
+    floor?: string;
+    door?: string;
+    doorbell?: string;
+    billingCompanyName?: string;
+    billingTaxNumber?: string;
+    deliveryPostalCode?: string;
+    deliveryCity?: string;
+    deliveryStreet?: string;
+    deliveryHouseNumber?: string;
+    deliveryBuilding?: string;
+    deliveryFloor?: string;
+    deliveryDoor?: string;
+    deliveryDoorbell?: string;
+  },
+): Promise<Order> {
+  const auth = getAuthSession();
+
+  const response = await fetch(`${API_BASE_URL}/api/orders`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...(auth ? { Authorization: `Bearer ${auth.token}` } : {}),
+    },
+    credentials: "include",
+    body: JSON.stringify(order),
+  });
+
+  if (response.status === 401) clearAuthSession();
+  if (!response.ok) {
+    throw new OrdersApiError(await getErrorMessage(response), response.status);
+  }
+
   return response.json() as Promise<Order>;
 }
 
