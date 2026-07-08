@@ -35,8 +35,15 @@ public sealed class ProductService : IProductService
         return details;
     }
 
+    public async Task<IReadOnlyList<ProductDetailsDto>> GetAllDetailsAsync(CancellationToken cancellationToken = default)
+    {
+        var products = await _unitOfWork.ProductRepository.GetAllAsync(cancellationToken);
+        return products.Select(product => product.ToDetailsDto()).ToList();
+    }
+
     public async Task<int> CreateAsync(ProductCreateDto newProduct, CancellationToken cancellationToken = default)
     {
+        Normalize(newProduct);
         var entity = newProduct.ToEntity();
 
         await _unitOfWork.ProductRepository.AddAsync(entity, cancellationToken);
@@ -47,6 +54,7 @@ public sealed class ProductService : IProductService
 
     public async Task UpdateAsync(int productId, ProductEditDto changes, CancellationToken cancellationToken = default)
     {
+        Normalize(changes);
         var entity = await _unitOfWork.ProductRepository.GetByIdAsync(productId, cancellationToken);
         if (entity is null)
         {
@@ -69,4 +77,29 @@ public sealed class ProductService : IProductService
 
         return deleted;
     }
+
+    public async Task<bool> IsImageInUseAsync(string imagePath, CancellationToken cancellationToken = default)
+    {
+        var products = await _unitOfWork.ProductRepository.GetAllAsync(cancellationToken);
+        return products.Any(product => string.Equals(product.Image, imagePath, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static void Normalize(ProductCreateDto product)
+    {
+        product.Name = product.Name.Trim();
+        product.Description = NormalizeOptional(product.Description);
+        product.Image = NormalizeOptional(product.Image);
+        if (product.StockQuantity == 0) product.Available = false;
+    }
+
+    private static void Normalize(ProductEditDto product)
+    {
+        product.Name = product.Name.Trim();
+        product.Description = NormalizeOptional(product.Description);
+        product.Image = product.Image?.Trim();
+        if (product.StockQuantity == 0) product.Available = false;
+    }
+
+    private static string? NormalizeOptional(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 }

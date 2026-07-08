@@ -11,5 +11,5 @@ public static class BusinessRules
     public const int ProductDescriptionMaxLength = 1000;
     public const int ProductImageMaxLength = 500;
     public const int ProductPackageSizeMaxLength = 100;
-    public const string DefaultProductImagePath = "/images/products/default.png";
+    public const string DefaultProductImagePath = "/uploads/products/defaultimg.png";
 }
