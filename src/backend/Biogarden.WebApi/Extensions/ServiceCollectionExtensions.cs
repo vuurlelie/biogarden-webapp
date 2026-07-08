@@ -112,6 +112,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ICartService, CartService>();
         services.AddScoped<IOrderService, OrderService>();
         services.AddScoped<IAdminDashboardService, AdminDashboardService>();
+        services.AddScoped<IAdminInventoryService, AdminInventoryService>();
 
         return services;
     }
