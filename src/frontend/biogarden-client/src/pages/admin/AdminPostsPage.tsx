@@ -1,3 +1,5 @@
+import AdminSectionPlaceholder from "../../shared/components/admin/AdminSectionPlaceholder";
+
 export default function AdminPostsPage() {
-  return <div>Admin posts page</div>;
+  return <AdminSectionPlaceholder title="Bejegyzések" description="A tudástár tartalmainak létrehozása, szerkesztése és közzététele." />;
 }

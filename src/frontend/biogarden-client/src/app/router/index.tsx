@@ -30,6 +30,11 @@ import AccountOrderDetailsPage from "../../pages/account/AccountOrderDetailsPage
 
 import AdminDashboardPage from "../../pages/admin/AdminDashboardPage";
 import AdminLoginPage from "../../pages/admin/AdminLoginPage";
+import AdminProductsPage from "../../pages/admin/AdminProductsPage";
+import AdminOrdersPage from "../../pages/admin/AdminOrdersPage";
+import AdminInventoryPage from "../../pages/admin/AdminInventoryPage";
+import AdminPostsPage from "../../pages/admin/AdminPostsPage";
+import AdminAccountsPage from "../../pages/admin/AdminAccountsPage";
 
 export const router = createBrowserRouter([
   {
@@ -73,7 +78,14 @@ export const router = createBrowserRouter([
     children: [
       {
         element: <AdminLayout />,
-        children: [{ index: true, element: <AdminDashboardPage /> }],
+        children: [
+          { index: true, element: <AdminDashboardPage /> },
+          { path: "termekek", element: <AdminProductsPage /> },
+          { path: "rendelesek", element: <AdminOrdersPage /> },
+          { path: "raktarkeszlet", element: <AdminInventoryPage /> },
+          { path: "bejegyzesek", element: <AdminPostsPage /> },
+          { path: "fiok", element: <AdminAccountsPage /> },
+        ],
       },
     ],
   },
