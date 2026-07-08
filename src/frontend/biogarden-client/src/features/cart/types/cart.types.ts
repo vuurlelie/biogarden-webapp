@@ -1,10 +1,12 @@
+import type { UnitOfMeasure } from "../../products/types/product.types";
+
 export type CartItem = {
   id: string;
   productId: number;
   productName: string;
   unitPrice: number;
   image: string | null;
-  unit: string;
+  unit: UnitOfMeasure;
   quantity: number;
   stockQuantity: number;
   reservedQuantityExcludingCurrentCart: number;

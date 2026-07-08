@@ -70,7 +70,7 @@ export default function RegisterPage() {
 
         <form onSubmit={handleSubmit} className="mt-6 space-y-5">
           <div>
-            <label htmlFor="register-email" className="block text-sm font-semibold text-site-heading">Email cím</label>
+            <label htmlFor="register-email" className="block text-sm font-semibold text-site-heading">Email cím <span className="text-site-danger">*</span></label>
             <input
               id="register-email"
               type="email"
@@ -84,7 +84,7 @@ export default function RegisterPage() {
 
           <div className="grid gap-5 sm:grid-cols-2">
             <div>
-              <label htmlFor="register-password" className="block text-sm font-semibold text-site-heading">Jelszó</label>
+              <label htmlFor="register-password" className="block text-sm font-semibold text-site-heading">Jelszó <span className="text-site-danger">*</span></label>
               <input
                 id="register-password"
                 type="password"
@@ -96,7 +96,7 @@ export default function RegisterPage() {
               />
             </div>
             <div>
-              <label htmlFor="register-password-again" className="block text-sm font-semibold text-site-heading">Jelszó újra</label>
+              <label htmlFor="register-password-again" className="block text-sm font-semibold text-site-heading">Jelszó újra <span className="text-site-danger">*</span></label>
               <input
                 id="register-password-again"
                 type="password"

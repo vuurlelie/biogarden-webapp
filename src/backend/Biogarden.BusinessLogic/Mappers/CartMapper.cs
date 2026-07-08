@@ -32,7 +32,7 @@ public static class CartMapper
                     ProductName = cartItem.Product.Name,
                     UnitPrice = cartItem.Product.Price,
                     Image = cartItem.Product.Image,
-                    Unit = cartItem.Product.Unit.ToString(),
+                    Unit = cartItem.Product.Unit,
                     Quantity = cartItem.Quantity,
                     StockQuantity = cartItem.Product.StockQuantity,
                     ReservedQuantityExcludingCurrentCart = reservedQuantityExcludingCurrentCart,

@@ -13,6 +13,8 @@ const EMPTY_PROFILE: UserProfile = {
   firstName: null,
   lastName: null,
   phoneNumber: null,
+  companyName: null,
+  taxNumber: null,
 };
 
 function normalizeOptional(value: string): string | null {
@@ -55,7 +57,7 @@ export default function AccountProfilePage() {
     };
   }, [navigate]);
 
-  function updateField(field: "firstName" | "lastName" | "phoneNumber", value: string) {
+  function updateField(field: "firstName" | "lastName" | "phoneNumber" | "companyName" | "taxNumber", value: string) {
     setProfile((currentProfile) => ({ ...currentProfile, [field]: value }));
     setSuccess("");
   }
@@ -71,6 +73,8 @@ export default function AccountProfilePage() {
         firstName: normalizeOptional(profile.firstName ?? ""),
         lastName: normalizeOptional(profile.lastName ?? ""),
         phoneNumber: normalizeOptional(profile.phoneNumber ?? ""),
+        companyName: normalizeOptional(profile.companyName ?? ""),
+        taxNumber: normalizeOptional(profile.taxNumber ?? ""),
       });
       setSuccess("A személyes adatok mentése sikerült.");
     } catch (saveError) {
@@ -123,6 +127,15 @@ export default function AccountProfilePage() {
           />
           <p className="mt-1 text-xs text-site-muted">Az email cím jelenleg nem módosítható.</p>
         </div>
+
+        <fieldset className="rounded-sm border border-site-border p-5">
+          <legend className="px-2 font-bold text-site-heading">Céges számlázási adatok (opcionális)</legend>
+          <p className="mb-4 text-xs text-site-muted">Céges számla esetén a cégnév és az adószám együtt szükséges.</p>
+          <div className="grid gap-5 sm:grid-cols-2">
+            <label className="text-sm font-semibold text-site-heading">Cégnév<input value={profile.companyName ?? ""} onChange={(event)=>updateField("companyName",event.target.value)} autoComplete="organization" className="mt-2 block w-full rounded-sm border border-site-border px-3 py-2.5"/></label>
+            <label className="text-sm font-semibold text-site-heading">Adószám<input value={profile.taxNumber ?? ""} onChange={(event)=>updateField("taxNumber",event.target.value)} placeholder="12345678-1-12" className="mt-2 block w-full rounded-sm border border-site-border px-3 py-2.5"/></label>
+          </div>
+        </fieldset>
 
         <div className="grid gap-5 sm:grid-cols-2">
           <div>

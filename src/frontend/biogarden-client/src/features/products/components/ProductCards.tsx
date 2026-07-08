@@ -101,7 +101,7 @@ export default function ProductCards({ products }: ProductCardsProps) {
               <div className="mt-auto flex flex-wrap gap-2 pt-5">
                 <Link
                   to={detailsUrl}
-                  className="inline-flex rounded-sm bg-site-green px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-site-green-hover"
+                  className="inline-flex rounded-sm border border-site-green-dark px-4 py-2 text-sm font-semibold text-site-green-dark transition-colors hover:bg-site-surface-soft"
                 >
                   Részletek
                 </Link>
@@ -109,7 +109,7 @@ export default function ProductCards({ products }: ProductCardsProps) {
                   type="button"
                   onClick={() => void handleAddToCart(product.id)}
                   disabled={!product.available || addingProductId === product.id}
-                  className="inline-flex rounded-sm border border-site-green-dark px-4 py-2 text-sm font-semibold text-site-green-dark transition-colors hover:bg-site-green-dark hover:text-white disabled:cursor-not-allowed disabled:border-site-border disabled:text-site-muted disabled:hover:bg-transparent"
+                  className="inline-flex rounded-sm border border-transparent bg-site-green px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-site-green-hover disabled:cursor-not-allowed disabled:border-site-border disabled:bg-transparent disabled:text-site-muted disabled:hover:bg-transparent"
                 >
                   {addingProductId === product.id ? "Hozzáadás..." : "Kosárba"}
                 </button>

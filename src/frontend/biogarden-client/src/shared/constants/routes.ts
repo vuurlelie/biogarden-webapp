@@ -13,6 +13,7 @@ export const ROUTES = {
 
   cart: "/kosar",
   checkout: "/penztar",
+  orderSuccess: "/rendeles-sikeres",
 
   account: "/fiokom",
   accountProfile: "/fiokom/adatok",

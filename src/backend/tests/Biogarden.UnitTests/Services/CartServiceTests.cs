@@ -32,6 +32,86 @@ public sealed class CartServiceTests
     }
 
     [Fact]
+    public async Task GetCartAsync_ExtendsReservationByThirtyMinutes()
+    {
+        var userId = Guid.NewGuid();
+        var previousExpiry = DateTime.UtcNow.AddMinutes(2);
+        var cart = new Cart { Id = Guid.NewGuid(), UserId = userId, ExpiresAtUtc = previousExpiry };
+        _carts.Setup(x => x.GetActiveByUserIdAsync(userId, It.IsAny<CancellationToken>())).ReturnsAsync(cart);
+        _unitOfWork.Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
+
+        var result = await _service.GetCartAsync(userId, null);
+
+        Assert.True(result.ExpiresAtUtc > previousExpiry);
+        Assert.InRange(result.ExpiresAtUtc, DateTime.UtcNow.AddMinutes(29), DateTime.UtcNow.AddMinutes(30).AddSeconds(1));
+        _unitOfWork.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task GetAvailableQuantityToAddAsync_SubtractsOtherReservationsAndCurrentCartQuantity()
+    {
+        var userId = Guid.NewGuid();
+        var product = new Product { Id = 8, Name = "Uborka", Available = true, StockQuantity = 12 };
+        var cart = CreateCart(userId, product.Id, quantity: 3);
+        _products.Setup(x => x.GetByIdAsync(product.Id, It.IsAny<CancellationToken>())).ReturnsAsync(product);
+        _carts.Setup(x => x.GetActiveByUserIdAsync(userId, It.IsAny<CancellationToken>())).ReturnsAsync(cart);
+        _carts.Setup(x => x.GetActiveReservedQuantityForProductAsync(product.Id, cart.Id, It.IsAny<CancellationToken>())).ReturnsAsync(4);
+
+        var available = await _service.GetAvailableQuantityToAddAsync(userId, null, product.Id);
+
+        Assert.Equal(5, available);
+    }
+
+    [Fact]
+    public async Task AddItemAsync_WithNewItem_SavesTrackedCartWithoutUpdatingGraph()
+    {
+        var userId = Guid.NewGuid();
+        var cart = new Cart { Id = Guid.NewGuid(), UserId = userId };
+        var product = new Product
+        {
+            Id = 7,
+            Name = "Rozmaring",
+            Available = true,
+            StockQuantity = 5
+        };
+
+        _carts
+            .Setup(x => x.GetActiveByUserIdAsync(userId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(cart);
+        _products
+            .Setup(x => x.GetByIdAsync(product.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(product);
+        _carts
+            .Setup(x => x.GetActiveReservedQuantityForProductAsync(
+                product.Id, cart.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(0);
+        _unitOfWork
+            .Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(1);
+        _carts
+            .Setup(x => x.AddItemAsync(It.IsAny<CartItem>(), It.IsAny<CancellationToken>()))
+            .Callback<CartItem, CancellationToken>((item, _) => cart.Items.Add(item))
+            .Returns(Task.CompletedTask);
+        _carts
+            .Setup(x => x.GetByIdWithItemsAsync(cart.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(() =>
+            {
+                cart.Items.Single().Product = product;
+                return cart;
+            });
+
+        var result = await _service.AddItemAsync(
+            userId,
+            sessionId: null,
+            new AddCartItemDto { ProductId = product.Id, Quantity = 1 });
+
+        Assert.Equal(1, result.TotalItemCount);
+        Assert.Equal(product.Id, Assert.Single(result.Items).ProductId);
+        _carts.Verify(x => x.Update(It.IsAny<Cart>()), Times.Never);
+        _unitOfWork.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
     public async Task ValidateCartForCheckout_WhenCartIsMissing_ReturnsInvalidResult()
     {
         var userId = Guid.NewGuid();

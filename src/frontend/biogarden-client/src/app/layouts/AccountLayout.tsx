@@ -8,6 +8,7 @@ import Navbar from "../../shared/components/layout/Navbar";
 import BackToTopBtn from "../../shared/components/ui/BackToTopBtn";
 import { ROUTES } from "../../shared/constants/routes";
 import ScrollToTop from "../router/ScrollToTop";
+import { useCart } from "../../features/cart/context/useCart";
 
 const accountLinkClass = ({ isActive }: { isActive: boolean }) =>
   [
@@ -20,6 +21,7 @@ const accountLinkClass = ({ isActive }: { isActive: boolean }) =>
 export default function AccountLayout() {
   const navigate = useNavigate();
   const auth = getAuthSession();
+  const { cart } = useCart();
 
   function handleLogout() {
     clearAuthSession();
@@ -32,7 +34,7 @@ export default function AccountLayout() {
       <Navbar
         isAuthenticated
         isAdmin={auth?.roles.includes("Admin") ?? false}
-        cartItemCount={0}
+        cartItemCount={cart?.totalItemCount ?? 0}
       />
 
       <main className="mx-auto grid w-full max-w-7xl gap-6 px-4 py-6 sm:px-6 lg:grid-cols-[240px_minmax(0,1fr)] lg:px-8 lg:py-10">

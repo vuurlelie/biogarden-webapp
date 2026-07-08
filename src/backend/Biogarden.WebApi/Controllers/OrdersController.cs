@@ -19,12 +19,13 @@ public class OrdersController : ControllerBase
     }
 
     [HttpPost]
+    [AllowAnonymous]
     [ProducesResponseType(typeof(OrderDto), StatusCodes.Status200OK)]
     public async Task<ActionResult<OrderDto>> CreateOrderFromCart(
         [FromBody] PlaceOrderDto placeOrderDto,
         CancellationToken cancellationToken)
     {
-        var userId = GetCurrentUserId();
+        var userId = GetCurrentUserIdOrNull();
         var sessionId = GetCartSessionId();
 
         var order = await _orderService.CreateOrderFromCartAsync(
@@ -100,17 +101,23 @@ public class OrdersController : ControllerBase
         return Ok(order);
     }
 
-    private Guid GetCurrentUserId()
+    private Guid? GetCurrentUserIdOrNull()
     {
         var userIdValue = User.FindFirstValue(ClaimTypes.NameIdentifier);
 
         if (string.IsNullOrWhiteSpace(userIdValue) ||
             !Guid.TryParse(userIdValue, out var userId))
         {
-            throw new UnauthorizedAccessException("Authenticated user id is missing or invalid.");
+            return null;
         }
 
         return userId;
+    }
+
+    private Guid GetCurrentUserId()
+    {
+        return GetCurrentUserIdOrNull()
+            ?? throw new UnauthorizedAccessException("Authenticated user id is missing or invalid.");
     }
 
     private string? GetCartSessionId()

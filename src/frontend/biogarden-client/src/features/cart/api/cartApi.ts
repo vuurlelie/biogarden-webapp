@@ -66,6 +66,12 @@ export function addCartItem(productId: number, quantity: number): Promise<Cart> 
   });
 }
 
+export async function getAvailableQuantityToAdd(productId: number): Promise<number> {
+  const response = await cartRequest(`/products/${productId}/availability`);
+  const body = await response.json() as { availableQuantity: number };
+  return body.availableQuantity;
+}
+
 export function updateCartItem(cartItemId: string, quantity: number): Promise<Cart> {
   return cartMutation(`/items/${encodeURIComponent(cartItemId)}`, {
     method: "PUT",

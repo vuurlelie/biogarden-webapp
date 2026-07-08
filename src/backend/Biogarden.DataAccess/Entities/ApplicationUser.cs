@@ -9,6 +9,10 @@ public class ApplicationUser : IdentityUser<Guid>
 
     public string? LastName { get; set; }
 
+    public string? CompanyName { get; set; }
+
+    public string? TaxNumber { get; set; }
+
     public int? ShippingAddressId { get; set; }
 
     public Address? ShippingAddress { get; set; }

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useCart } from "../../features/cart/context/useCart";
 import type { CartItem } from "../../features/cart/types/cart.types";
+import { getUnitLabel } from "../../features/products/utils/productLabels";
 import { ROUTES } from "../../shared/constants/routes";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
@@ -53,7 +54,7 @@ function CartRow({ item, isUpdating, onUpdate, onRemove }: CartRowProps) {
           </Link>
         </h2>
         <p className="mt-1 text-sm text-site-text">
-          {formatPrice(item.unitPrice)} / {item.unit}
+          {formatPrice(item.unitPrice)} / {getUnitLabel(item.unit)}
         </p>
         <p className="mt-1 text-xs text-site-muted">
           {item.deliveryAvailable ? "Kiszállítható" : "Csak személyes átvétellel"}
@@ -105,6 +106,10 @@ export default function CartPage() {
   const [updatingItemId, setUpdatingItemId] = useState<string | null>(null);
   const [isClearing, setIsClearing] = useState(false);
   const [now, setNow] = useState(Date.now());
+
+  useEffect(() => {
+    void refresh().then(() => setNow(Date.now())).catch(() => undefined);
+  }, [refresh]);
 
   useEffect(() => {
     const interval = window.setInterval(() => setNow(Date.now()), 1000);
@@ -207,9 +212,9 @@ export default function CartPage() {
               <div className="flex justify-between gap-4"><dt>Termékek száma</dt><dd className="font-semibold">{cart.totalItemCount} db</dd></div>
               <div className="flex justify-between gap-4 border-t border-site-border pt-4 text-lg"><dt className="font-bold text-site-heading">Összesen</dt><dd className="font-bold text-site-heading">{formatPrice(cart.totalPrice)}</dd></div>
             </dl>
-            <p className="mt-4 text-xs leading-5 text-site-muted">A szállítási mód és annak esetleges díja a pénztárnál választható ki.</p>
+            <p className="mt-4 text-xs leading-5 text-site-muted">A következő lépésben megadhatod a kapcsolattartási és számlázási adatokat, valamint kiválaszthatod az átvételi vagy szállítási módot.</p>
             <Link to={ROUTES.checkout} className="mt-5 flex w-full justify-center rounded-sm bg-site-green px-5 py-3 font-semibold text-white transition-colors hover:bg-site-green-hover">
-              Tovább a pénztárhoz
+              Személyes és szállítási adatok megadása
             </Link>
             <Link to={ROUTES.products} className="mt-3 flex w-full justify-center rounded-sm border border-site-green-dark px-5 py-2.5 text-sm font-semibold text-site-green-dark transition-colors hover:bg-site-green-dark hover:text-white">
               Vásárlás folytatása

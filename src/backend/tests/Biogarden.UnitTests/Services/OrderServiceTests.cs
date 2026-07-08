@@ -13,6 +13,7 @@ public sealed class OrderServiceTests
 {
     private readonly Mock<IUnitOfWork> _unitOfWork = new(MockBehavior.Strict);
     private readonly Mock<IOrderRepository> _orders = new(MockBehavior.Strict);
+    private readonly Mock<ICartRepository> _carts = new(MockBehavior.Strict);
     private readonly Mock<IProductRepository> _products = new(MockBehavior.Strict);
     private readonly Mock<ICartService> _cartService = new(MockBehavior.Strict);
     private readonly OrderService _service;
@@ -27,6 +28,38 @@ public sealed class OrderServiceTests
             userStore.Object, null!, null!, null!, null!, null!, null!, null!, null!);
 
         _service = new OrderService(_unitOfWork.Object, _cartService.Object, userManager.Object);
+    }
+
+    [Fact]
+    public async Task CreateOrderFromCartAsync_AsGuest_UsesSessionCartAndSnapshotsManualData()
+    {
+        const string sessionId = "guest-session";
+        var product = new Product { Id = 4, Name = "Bazsalikom", Available = true, StockQuantity = 3, Price = 900 };
+        var cart = new Cart { Id = Guid.NewGuid(), SessionId = sessionId };
+        cart.Items.Add(new CartItem { Id = Guid.NewGuid(), CartId = cart.Id, ProductId = product.Id, Product = product, Quantity = 2 });
+        Order? savedOrder = null;
+        _unitOfWork.SetupGet(x => x.CartRepository).Returns(_carts.Object);
+        _carts.Setup(x => x.GetActiveBySessionIdAsync(sessionId, It.IsAny<CancellationToken>())).ReturnsAsync(cart);
+        _cartService.Setup(x => x.ValidateCartForCheckoutAsync(null, sessionId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Biogarden.BusinessLogic.DTOs.Carts.CartValidationResultDto { IsValid = true });
+        _products.Setup(x => x.GetByIdAsync(product.Id, It.IsAny<CancellationToken>())).ReturnsAsync(product);
+        _orders.Setup(x => x.AddAsync(It.IsAny<Order>(), It.IsAny<CancellationToken>()))
+            .Callback<Order, CancellationToken>((order, _) => savedOrder = order).Returns(Task.CompletedTask);
+        _unitOfWork.Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
+        _orders.Setup(x => x.GetByIdWithItemsAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(() => savedOrder);
+
+        var result = await _service.CreateOrderFromCartAsync(null, sessionId, new PlaceOrderDto
+        {
+            CustomerName = "Teszt Elek", CustomerEmail = "guest@example.com", CustomerPhone = "+361234567",
+            PostalCode = "8200", City = "Veszprém", Street = "Kert utca", HouseNumber = "1",
+            FulfillmentMethod = FulfillmentMethod.PersonalPickup
+        });
+
+        Assert.Null(result.UserId);
+        Assert.Null(result.AddressId);
+        Assert.Equal("guest@example.com", result.CustomerEmail);
+        Assert.True(cart.IsCheckedOut);
     }
 
     [Fact]
@@ -125,7 +158,7 @@ public sealed class OrderServiceTests
     private static Order CreateOrder(Guid userId) => new()
     {
         Id = Guid.NewGuid(),
-        OrderNumber = "BG-TEST-0001",
+        OrderNumber = "BK-TEST-0001",
         UserId = userId,
         AddressId = 1,
         CartId = Guid.NewGuid(),
