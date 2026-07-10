@@ -1,3 +1,4 @@
+import { lazy, Suspense, type ReactNode } from "react";
 import { createBrowserRouter } from "react-router-dom";
 import { ROUTES } from "../../shared/constants/routes";
 
@@ -8,55 +9,64 @@ import AdminLayout from "../layouts/AdminLayout";
 import ProtectedRoute from "./ProtectedRoute";
 import AdminRoute from "./AdminRoute";
 
-// pages
-import HomePage from "../../pages/public/HomePage";
-import AboutPage from "../../pages/public/AboutPage";
-import PrivacyPolicyPage from "../../pages/public/PrivacyPolicyPage";
-import TermsPage from "../../pages/public/TermsPage";
-import ProductsPage from "../../pages/public/ProductsPage";
-import ProductDetailsPage from "../../pages/public/ProductDetailsPage";
-import PostsPage from "../../pages/public/PostsPage";
-import PostDetailsPage from "../../pages/public/PostDetailsPage";
-import LoginPage from "../../pages/public/LoginPage";
-import RegisterPage from "../../pages/public/RegisterPage";
-import CartPage from "../../pages/public/CartPage";
-import CheckoutPage from "../../pages/public/CheckoutPage";
-import OrderSuccessPage from "../../pages/public/OrderSuccessPage";
-import NotFoundPage from "../../pages/public/NotFoundPage";
+const HomePage = lazy(() => import("../../pages/public/HomePage"));
+const AboutPage = lazy(() => import("../../pages/public/AboutPage"));
+const PrivacyPolicyPage = lazy(() => import("../../pages/public/PrivacyPolicyPage"));
+const TermsPage = lazy(() => import("../../pages/public/TermsPage"));
+const ProductsPage = lazy(() => import("../../pages/public/ProductsPage"));
+const ProductDetailsPage = lazy(() => import("../../pages/public/ProductDetailsPage"));
+const PostsPage = lazy(() => import("../../pages/public/PostsPage"));
+const PostDetailsPage = lazy(() => import("../../pages/public/PostDetailsPage"));
+const LoginPage = lazy(() => import("../../pages/public/LoginPage"));
+const RegisterPage = lazy(() => import("../../pages/public/RegisterPage"));
+const CartPage = lazy(() => import("../../pages/public/CartPage"));
+const CheckoutPage = lazy(() => import("../../pages/public/CheckoutPage"));
+const OrderSuccessPage = lazy(() => import("../../pages/public/OrderSuccessPage"));
+const NotFoundPage = lazy(() => import("../../pages/public/NotFoundPage"));
 
-import AccountDashboardPage from "../../pages/account/AccountDashboardPage";
-import AccountProfilePage from "../../pages/account/AccountProfilePage";
-import AccountAddressesPage from "../../pages/account/AccountAddressesPage";
-import AccountOrdersPage from "../../pages/account/AccountOrdersPage";
-import AccountOrderDetailsPage from "../../pages/account/AccountOrderDetailsPage";
-import AccountDeletePage from "../../pages/account/AccountDeletePage";
+const AccountDashboardPage = lazy(() => import("../../pages/account/AccountDashboardPage"));
+const AccountProfilePage = lazy(() => import("../../pages/account/AccountProfilePage"));
+const AccountAddressesPage = lazy(() => import("../../pages/account/AccountAddressesPage"));
+const AccountOrdersPage = lazy(() => import("../../pages/account/AccountOrdersPage"));
+const AccountOrderDetailsPage = lazy(() => import("../../pages/account/AccountOrderDetailsPage"));
+const AccountDeletePage = lazy(() => import("../../pages/account/AccountDeletePage"));
 
-import AdminDashboardPage from "../../pages/admin/AdminDashboardPage";
-import AdminLoginPage from "../../pages/admin/AdminLoginPage";
-import AdminProductsPage from "../../pages/admin/AdminProductsPage";
-import AdminOrdersPage from "../../pages/admin/AdminOrdersPage";
-import AdminInventoryPage from "../../pages/admin/AdminInventoryPage";
-import AdminPostsPage from "../../pages/admin/AdminPostsPage";
-import AdminAccountsPage from "../../pages/admin/AdminAccountsPage";
+const AdminDashboardPage = lazy(() => import("../../pages/admin/AdminDashboardPage"));
+const AdminLoginPage = lazy(() => import("../../pages/admin/AdminLoginPage"));
+const AdminProductsPage = lazy(() => import("../../pages/admin/AdminProductsPage"));
+const AdminOrdersPage = lazy(() => import("../../pages/admin/AdminOrdersPage"));
+const AdminInventoryPage = lazy(() => import("../../pages/admin/AdminInventoryPage"));
+const AdminPostsPage = lazy(() => import("../../pages/admin/AdminPostsPage"));
+const AdminAccountsPage = lazy(() => import("../../pages/admin/AdminAccountsPage"));
+
+const pageLoader = (
+  <div className="mx-auto grid min-h-[18rem] w-full max-w-7xl place-items-center px-4 py-12 text-center text-site-muted">
+    Betöltés...
+  </div>
+);
+
+function routeElement(page: ReactNode) {
+  return <Suspense fallback={pageLoader}>{page}</Suspense>;
+}
 
 export const router = createBrowserRouter([
   {
     path: ROUTES.home,
     element: <MainLayout />,
     children: [
-      { index: true, element: <HomePage /> },
-      { path: ROUTES.about.slice(1), element: <AboutPage /> },
-      { path: ROUTES.privacyPolicy.slice(1), element: <PrivacyPolicyPage /> },
-      { path: ROUTES.terms.slice(1), element: <TermsPage /> },
-      { path: ROUTES.products.slice(1), element: <ProductsPage /> },
-      { path: "termekek/:productId", element: <ProductDetailsPage /> },
-      { path: "tudastar", element: <PostsPage /> },
-      { path: "tudastar/:postId", element: <PostDetailsPage /> },
-      { path: ROUTES.login.slice(1), element: <LoginPage /> },
-      { path: ROUTES.register.slice(1), element: <RegisterPage /> },
-      { path: ROUTES.cart.slice(1), element: <CartPage /> },
-      { path: ROUTES.checkout.slice(1), element: <CheckoutPage /> },
-      { path: ROUTES.orderSuccess.slice(1), element: <OrderSuccessPage /> },
+      { index: true, element: routeElement(<HomePage />) },
+      { path: ROUTES.about.slice(1), element: routeElement(<AboutPage />) },
+      { path: ROUTES.privacyPolicy.slice(1), element: routeElement(<PrivacyPolicyPage />) },
+      { path: ROUTES.terms.slice(1), element: routeElement(<TermsPage />) },
+      { path: ROUTES.products.slice(1), element: routeElement(<ProductsPage />) },
+      { path: "termekek/:productId", element: routeElement(<ProductDetailsPage />) },
+      { path: "tudastar", element: routeElement(<PostsPage />) },
+      { path: "tudastar/:postId", element: routeElement(<PostDetailsPage />) },
+      { path: ROUTES.login.slice(1), element: routeElement(<LoginPage />) },
+      { path: ROUTES.register.slice(1), element: routeElement(<RegisterPage />) },
+      { path: ROUTES.cart.slice(1), element: routeElement(<CartPage />) },
+      { path: ROUTES.checkout.slice(1), element: routeElement(<CheckoutPage />) },
+      { path: ROUTES.orderSuccess.slice(1), element: routeElement(<OrderSuccessPage />) },
     ],
   },
 
@@ -67,12 +77,12 @@ export const router = createBrowserRouter([
         path: ROUTES.account,
         element: <AccountLayout />,
         children: [
-          { index: true, element: <AccountDashboardPage /> },
-          { path: "adatok", element: <AccountProfilePage /> },
-          { path: "cimek", element: <AccountAddressesPage /> },
-          { path: "rendeleseim", element: <AccountOrdersPage /> },
-          { path: "rendeleseim/:orderId", element: <AccountOrderDetailsPage /> },
-          { path: "fiok-torles", element: <AccountDeletePage /> },
+          { index: true, element: routeElement(<AccountDashboardPage />) },
+          { path: "adatok", element: routeElement(<AccountProfilePage />) },
+          { path: "cimek", element: routeElement(<AccountAddressesPage />) },
+          { path: "rendeleseim", element: routeElement(<AccountOrdersPage />) },
+          { path: "rendeleseim/:orderId", element: routeElement(<AccountOrderDetailsPage />) },
+          { path: "fiok-torles", element: routeElement(<AccountDeletePage />) },
         ],
       },
     ],
@@ -85,12 +95,12 @@ export const router = createBrowserRouter([
       {
         element: <AdminLayout />,
         children: [
-          { index: true, element: <AdminDashboardPage /> },
-          { path: "termekek", element: <AdminProductsPage /> },
-          { path: "rendelesek", element: <AdminOrdersPage /> },
-          { path: "raktarkeszlet", element: <AdminInventoryPage /> },
-          { path: "bejegyzesek", element: <AdminPostsPage /> },
-          { path: "fiok", element: <AdminAccountsPage /> },
+          { index: true, element: routeElement(<AdminDashboardPage />) },
+          { path: "termekek", element: routeElement(<AdminProductsPage />) },
+          { path: "rendelesek", element: routeElement(<AdminOrdersPage />) },
+          { path: "raktarkeszlet", element: routeElement(<AdminInventoryPage />) },
+          { path: "bejegyzesek", element: routeElement(<AdminPostsPage />) },
+          { path: "fiok", element: routeElement(<AdminAccountsPage />) },
         ],
       },
     ],
@@ -98,11 +108,11 @@ export const router = createBrowserRouter([
 
   {
     path: ROUTES.adminLogin,
-    element: <AdminLoginPage />,
+    element: routeElement(<AdminLoginPage />),
   },
 
   {
     path: "*",
-    element: <NotFoundPage />,
+    element: routeElement(<NotFoundPage />),
   },
 ]);
