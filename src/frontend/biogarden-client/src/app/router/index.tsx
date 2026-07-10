@@ -27,6 +27,7 @@ import AccountProfilePage from "../../pages/account/AccountProfilePage";
 import AccountAddressesPage from "../../pages/account/AccountAddressesPage";
 import AccountOrdersPage from "../../pages/account/AccountOrdersPage";
 import AccountOrderDetailsPage from "../../pages/account/AccountOrderDetailsPage";
+import AccountDeletePage from "../../pages/account/AccountDeletePage";
 
 import AdminDashboardPage from "../../pages/admin/AdminDashboardPage";
 import AdminLoginPage from "../../pages/admin/AdminLoginPage";
@@ -67,6 +68,7 @@ export const router = createBrowserRouter([
           { path: "cimek", element: <AccountAddressesPage /> },
           { path: "rendeleseim", element: <AccountOrdersPage /> },
           { path: "rendeleseim/:orderId", element: <AccountOrderDetailsPage /> },
+          { path: "fiok-torles", element: <AccountDeletePage /> },
         ],
       },
     ],

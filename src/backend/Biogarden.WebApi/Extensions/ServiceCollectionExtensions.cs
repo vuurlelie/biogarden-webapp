@@ -114,6 +114,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IAdminDashboardService, AdminDashboardService>();
         services.AddScoped<IAdminInventoryService, AdminInventoryService>();
         services.AddScoped<IAdminOrderService, AdminOrderService>();
+        services.AddScoped<IAdminUserService, AdminUserService>();
 
         return services;
     }

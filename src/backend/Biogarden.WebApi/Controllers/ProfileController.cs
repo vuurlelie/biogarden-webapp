@@ -72,6 +72,19 @@ public class ProfileController : ControllerBase
         return NoContent();
     }
 
+    [HttpPost("account-lifecycle")]
+    public async Task<ActionResult<AccountLifecycleResultDto>> RequestAccountLifecycleAsync(
+        [FromBody] AccountLifecycleRequestDto request,
+        CancellationToken cancellationToken)
+    {
+        var userId = GetCurrentUserId();
+
+        return Ok(await _userService.RequestAccountLifecycleAsync(
+            userId,
+            request,
+            cancellationToken));
+    }
+
     private Guid GetCurrentUserId()
     {
         var userIdValue = User.FindFirstValue(ClaimTypes.NameIdentifier);

@@ -4,6 +4,7 @@ using Biogarden.BusinessLogic.DTOs.Users;
 using Biogarden.BusinessLogic.Mappers;
 using Biogarden.DataAccess.Abstractions;
 using Biogarden.DataAccess.Entities;
+using Biogarden.DataAccess.Enums;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 
@@ -13,13 +14,16 @@ public class UserService : IUserService
 {
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly IUnitOfWork _unitOfWork;
+    private readonly IAppDbContext _databaseContext;
 
     public UserService(
         UserManager<ApplicationUser> userManager,
-        IUnitOfWork unitOfWork)
+        IUnitOfWork unitOfWork,
+        IAppDbContext databaseContext)
     {
         _userManager = userManager;
         _unitOfWork = unitOfWork;
+        _databaseContext = databaseContext;
     }
 
     public async Task<UserProfileDto?> GetProfileAsync(Guid userId)
@@ -153,6 +157,150 @@ public class UserService : IUserService
         }
     }
 
+    public async Task<AccountLifecycleResultDto> RequestAccountLifecycleAsync(
+        Guid userId,
+        AccountLifecycleRequestDto request,
+        CancellationToken cancellationToken = default)
+    {
+        var user = await _userManager.Users
+            .Include(item => item.ShippingAddress)
+            .Include(item => item.BillingAddress)
+            .FirstOrDefaultAsync(item => item.Id == userId, cancellationToken)
+            ?? throw new KeyNotFoundException($"User with id {userId} was not found.");
+
+        var orderCount = await _databaseContext.Orders
+            .CountAsync(order => order.UserId == userId, cancellationToken);
+        var activeOrderCount = await _databaseContext.Orders
+            .CountAsync(order => order.UserId == userId && ActiveOrderStatuses.Contains(order.Status), cancellationToken);
+
+        if (request.Type == AccountLifecycleRequestType.Deactivation)
+        {
+            await DeactivateUserAsync(user);
+            await AddCompletedLifecycleRequestAsync(
+                user.Id,
+                request.Type,
+                NormalizeOptional(request.Reason),
+                activeOrderCount > 0
+                    ? "A fiókodat deaktiváltuk. A folyamatban lévő rendelésedet továbbra is teljesítjük, de a fiókba már nem lehet bejelentkezni."
+                    : "A fiókodat deaktiváltuk. A fiókba már nem lehet bejelentkezni, de kérésre újraaktiválható.",
+                cancellationToken);
+
+            return new AccountLifecycleResultDto
+            {
+                Message = activeOrderCount > 0
+                    ? "A fiókodat deaktiváltuk. A folyamatban lévő rendelésedet továbbra is teljesítjük, de a fiókba már nem lehet bejelentkezni."
+                    : "A fiókodat deaktiváltuk. A fiókba már nem lehet bejelentkezni, de kérésre újraaktiválható.",
+                SessionEnded = true,
+                Status = AccountLifecycleRequestStatus.Completed
+            };
+        }
+
+        if (activeOrderCount > 0)
+        {
+            var message = "A fióktörlési kérelmedet rögzítettük. A folyamatban lévő rendelés lezárása után a fiók mentett személyes adatait töröljük vagy anonimizáljuk.";
+            await AddPendingLifecycleRequestAsync(user.Id, request.Type, NormalizeOptional(request.Reason), message, cancellationToken);
+
+            return new AccountLifecycleResultDto
+            {
+                Message = message,
+                SessionEnded = false,
+                Status = AccountLifecycleRequestStatus.Pending
+            };
+        }
+
+        if (orderCount == 0)
+        {
+            await DeleteUserWithoutOrdersAsync(user, cancellationToken);
+
+            return new AccountLifecycleResultDto
+            {
+                Message = "A fiókodat és a mentett személyes adataidat töröltük.",
+                SessionEnded = true,
+                Status = AccountLifecycleRequestStatus.Completed
+            };
+        }
+
+        await AnonymizeUserAsync(user, cancellationToken);
+        await AddCompletedLifecycleRequestAsync(
+            user.Id,
+            request.Type,
+            NormalizeOptional(request.Reason),
+            "A fiók mentett személyes adatait anonimizáltuk. A korábbi rendelésekhez tartozó, kötelezően megőrzendő számlázási és rendelési adatok változatlanul megmaradnak.",
+            cancellationToken);
+
+        return new AccountLifecycleResultDto
+        {
+            Message = "A fiók mentett személyes adatait anonimizáltuk. A korábbi rendelésekhez tartozó, kötelezően megőrzendő számlázási és rendelési adatok változatlanul megmaradnak.",
+            SessionEnded = true,
+            Status = AccountLifecycleRequestStatus.Completed
+        };
+    }
+
+    internal static bool IsActiveOrderStatus(OrderStatus status) => ActiveOrderStatuses.Contains(status);
+
+    internal static async Task DeactivateUserAsync(ApplicationUser user, UserManager<ApplicationUser> userManager)
+    {
+        user.RecordStatus = RecordStatus.Deleted;
+        user.DeactivatedAtUtc ??= DateTime.UtcNow;
+        user.LockoutEnabled = true;
+        user.LockoutEnd = DateTimeOffset.MaxValue;
+        await UpdateIdentityUserAsync(userManager, user);
+    }
+
+    internal static async Task ReactivateUserAsync(ApplicationUser user, UserManager<ApplicationUser> userManager)
+    {
+        if (user.AnonymizedAtUtc is not null)
+        {
+            throw new InvalidOperationException("Anonimizált fiók nem aktiválható újra.");
+        }
+
+        user.RecordStatus = RecordStatus.Active;
+        user.DeactivatedAtUtc = null;
+        user.LockoutEnd = null;
+        await UpdateIdentityUserAsync(userManager, user);
+    }
+
+    internal async Task AnonymizeUserAsync(ApplicationUser user, CancellationToken cancellationToken)
+    {
+        var now = DateTime.UtcNow;
+        var anonymizedEmail = $"deleted-user-{user.Id:N}@deleted.invalid";
+
+        user.Email = anonymizedEmail;
+        user.NormalizedEmail = anonymizedEmail.ToUpperInvariant();
+        user.UserName = anonymizedEmail;
+        user.NormalizedUserName = anonymizedEmail.ToUpperInvariant();
+        user.FirstName = "Törölt";
+        user.LastName = "Felhasználó";
+        user.PhoneNumber = null;
+        user.CompanyName = null;
+        user.TaxNumber = null;
+        user.EmailConfirmed = false;
+        user.PhoneNumberConfirmed = false;
+        user.RecordStatus = RecordStatus.Deleted;
+        user.DeactivatedAtUtc ??= now;
+        user.AnonymizedAtUtc = now;
+        user.LockoutEnabled = true;
+        user.LockoutEnd = DateTimeOffset.MaxValue;
+
+        MarkAddressDeleted(user.ShippingAddress);
+        MarkAddressDeleted(user.BillingAddress);
+        user.ShippingAddressId = null;
+        user.BillingAddressId = null;
+
+        await DeleteOpenCartsAsync(user.Id, cancellationToken);
+        await UpdateIdentityUserAsync(_userManager, user);
+    }
+
+    internal async Task DeleteUserWithoutOrdersAsync(ApplicationUser user, CancellationToken cancellationToken)
+    {
+        await DeleteOpenCartsAsync(user.Id, cancellationToken);
+        var result = await _userManager.DeleteAsync(user);
+        if (!result.Succeeded)
+        {
+            throw new InvalidOperationException(string.Join(", ", result.Errors.Select(error => error.Description)));
+        }
+    }
+
     private async Task<Address> UpsertAddressAsync(
         Address? existingAddress,
         AddressCreateDto changes)
@@ -200,5 +348,100 @@ public class UserService : IUserService
         }
 
         return value.Trim();
+    }
+
+    private static readonly OrderStatus[] ActiveOrderStatuses =
+    [
+        OrderStatus.Pending,
+        OrderStatus.Confirmed,
+        OrderStatus.Shipped
+    ];
+
+    private async Task DeactivateUserAsync(ApplicationUser user)
+    {
+        await DeactivateUserAsync(user, _userManager);
+    }
+
+    private async Task AddPendingLifecycleRequestAsync(
+        Guid userId,
+        AccountLifecycleRequestType type,
+        string? reason,
+        string message,
+        CancellationToken cancellationToken)
+    {
+        var existing = await _databaseContext.AccountLifecycleRequests
+            .FirstOrDefaultAsync(
+                request => request.UserId == userId
+                    && request.Type == type
+                    && request.Status == AccountLifecycleRequestStatus.Pending,
+                cancellationToken);
+
+        if (existing is not null)
+        {
+            existing.Reason = reason;
+            existing.Message = message;
+            await _databaseContext.SaveChangesAsync(cancellationToken);
+            return;
+        }
+
+        _databaseContext.AccountLifecycleRequests.Add(new AccountLifecycleRequest
+        {
+            UserId = userId,
+            Type = type,
+            Status = AccountLifecycleRequestStatus.Pending,
+            Reason = reason,
+            Message = message
+        });
+        await _databaseContext.SaveChangesAsync(cancellationToken);
+    }
+
+    private async Task AddCompletedLifecycleRequestAsync(
+        Guid userId,
+        AccountLifecycleRequestType type,
+        string? reason,
+        string message,
+        CancellationToken cancellationToken)
+    {
+        _databaseContext.AccountLifecycleRequests.Add(new AccountLifecycleRequest
+        {
+            UserId = userId,
+            Type = type,
+            Status = AccountLifecycleRequestStatus.Completed,
+            Reason = reason,
+            Message = message,
+            HandledAtUtc = DateTime.UtcNow
+        });
+        await _databaseContext.SaveChangesAsync(cancellationToken);
+    }
+
+    private async Task DeleteOpenCartsAsync(Guid userId, CancellationToken cancellationToken)
+    {
+        var carts = await _databaseContext.Carts
+            .Include(cart => cart.Items)
+            .Where(cart => cart.UserId == userId && !cart.IsCheckedOut)
+            .ToListAsync(cancellationToken);
+
+        _databaseContext.Carts.RemoveRange(carts);
+        await _databaseContext.SaveChangesAsync(cancellationToken);
+    }
+
+    private static void MarkAddressDeleted(Address? address)
+    {
+        if (address is not null)
+        {
+            address.RecordStatus = RecordStatus.Deleted;
+        }
+    }
+
+    private static async Task UpdateIdentityUserAsync(
+        UserManager<ApplicationUser> userManager,
+        ApplicationUser user)
+    {
+        await userManager.UpdateSecurityStampAsync(user);
+        var result = await userManager.UpdateAsync(user);
+        if (!result.Succeeded)
+        {
+            throw new InvalidOperationException(string.Join(", ", result.Errors.Select(error => error.Description)));
+        }
     }
 }

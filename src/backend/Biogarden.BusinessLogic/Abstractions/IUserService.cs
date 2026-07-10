@@ -15,4 +15,9 @@ public interface IUserService
     Task UpdateAddressesAsync(
         Guid userId,
         UpdateUserAddressesDto updateUserAddressesDto);
+
+    Task<AccountLifecycleResultDto> RequestAccountLifecycleAsync(
+        Guid userId,
+        AccountLifecycleRequestDto request,
+        CancellationToken cancellationToken = default);
 }

@@ -61,6 +61,9 @@ export default function AccountLayout() {
             <NavLink to={ROUTES.accountOrders} className={accountLinkClass}>
               Rendeléseim
             </NavLink>
+            <NavLink to={ROUTES.accountDelete} className={accountLinkClass}>
+              Fiók törlése
+            </NavLink>
           </nav>
 
           <button

@@ -3,6 +3,8 @@ import {
   getAuthSession,
 } from "../../auth/utils/authStorage";
 import type {
+  AccountLifecycleRequest,
+  AccountLifecycleResult,
   UpdateUserProfile,
   UserProfile,
 } from "../types/profile.types";
@@ -88,4 +90,14 @@ export async function updateAddresses(
     method: "PUT",
     body: JSON.stringify(addresses),
   });
+}
+
+export async function requestAccountLifecycle(
+  request: AccountLifecycleRequest,
+): Promise<AccountLifecycleResult> {
+  const response = await profileRequest("/account-lifecycle", {
+    method: "POST",
+    body: JSON.stringify(request),
+  });
+  return response.json() as Promise<AccountLifecycleResult>;
 }

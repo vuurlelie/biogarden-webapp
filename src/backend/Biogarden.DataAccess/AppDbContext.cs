@@ -20,6 +20,7 @@ public class AppDbContext
     public DbSet<CartItem> CartItems => Set<CartItem>();
     public DbSet<Order> Orders => Set<Order>();
     public DbSet<OrderItem> OrderItems => Set<OrderItem>();
+    public DbSet<AccountLifecycleRequest> AccountLifecycleRequests => Set<AccountLifecycleRequest>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
