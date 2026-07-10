@@ -20,37 +20,61 @@ const navigationItems: NavigationItem[] = [
     description: "Adminisztrációs kezdőlap",
     to: ROUTES.admin,
     end: true,
-    icon: <svg aria-hidden="true" className={iconClass} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M4 13h6V4H4v9Zm0 7h6v-4H4v4Zm10 0h6v-9h-6v9Zm0-16v4h6V4h-6Z" /></svg>,
+    icon: (
+      <svg aria-hidden="true" className={iconClass} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+        <path d="M4 13h6V4H4v9Zm0 7h6v-4H4v4Zm10 0h6v-9h-6v9Zm0-16v4h6V4h-6Z" />
+      </svg>
+    ),
   },
   {
     label: "Termékek",
     description: "Kínálat és termékadatok",
     to: ROUTES.adminProducts,
-    icon: <svg aria-hidden="true" className={iconClass} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="m4 7 8-4 8 4-8 4-8-4Zm0 0v10l8 4m0-10v10m8-14v10l-8 4" /></svg>,
+    icon: (
+      <svg aria-hidden="true" className={iconClass} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+        <path d="m4 7 8-4 8 4-8 4-8-4Zm0 0v10l8 4m0-10v10m8-14v10l-8 4" />
+      </svg>
+    ),
   },
   {
     label: "Rendelések",
     description: "Beérkezett rendelések",
     to: ROUTES.adminOrders,
-    icon: <svg aria-hidden="true" className={iconClass} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M7 3h10v4H7V3ZM5 5H3v16h18V5h-2M7 12h10M7 16h7" /></svg>,
+    icon: (
+      <svg aria-hidden="true" className={iconClass} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+        <path d="M7 3h10v4H7V3ZM5 5H3v16h18V5h-2M7 12h10M7 16h7" />
+      </svg>
+    ),
   },
   {
     label: "Raktárkészlet",
     description: "Készlet és elérhetőség",
     to: ROUTES.adminInventory,
-    icon: <svg aria-hidden="true" className={iconClass} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M3 8h18v13H3V8Zm2-5h14l2 5H3l2-5Zm4 9h6" /></svg>,
+    icon: (
+      <svg aria-hidden="true" className={iconClass} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+        <path d="M3 8h18v13H3V8Zm2-5h14l2 5H3l2-5Zm4 9h6" />
+      </svg>
+    ),
   },
   {
     label: "Bejegyzések",
     description: "Tudástár kezelése",
     to: ROUTES.adminPosts,
-    icon: <svg aria-hidden="true" className={iconClass} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M5 3h14v18H5V3Zm4 5h6M9 12h6M9 16h4" /></svg>,
+    icon: (
+      <svg aria-hidden="true" className={iconClass} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+        <path d="M5 3h14v18H5V3Zm4 5h6M9 12h6M9 16h4" />
+      </svg>
+    ),
   },
   {
     label: "Felhasználók",
     description: "Fiókok és jogosultságok",
     to: ROUTES.adminAccounts,
-    icon: <svg aria-hidden="true" className={iconClass} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2m7-10a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm8-1v6m3-3h-6" /></svg>,
+    icon: (
+      <svg aria-hidden="true" className={iconClass} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+        <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2m7-10a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm8-1v6m3-3h-6" />
+      </svg>
+    ),
   },
 ];
 
