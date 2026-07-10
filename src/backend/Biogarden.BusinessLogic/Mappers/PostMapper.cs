@@ -29,9 +29,9 @@ public static class PostMapper
     {
         return new Post
         {
-            Title = dto.Title,
+            Title = dto.Title.Trim(),
             Category = dto.Category,
-            Article = dto.Article,
+            Article = dto.Article.Trim(),
             Image = string.IsNullOrWhiteSpace(dto.Image) ? BusinessRules.DefaultPostImagePath : dto.Image,
             PublishedAt = dto.PublishedAt ?? DateTime.UtcNow,
             Draft = dto.Draft
@@ -40,9 +40,9 @@ public static class PostMapper
 
     public static void ApplyChanges(this PostEditDto changes, Post entity)
     {
-        entity.Title = changes.Title;
+        entity.Title = changes.Title.Trim();
         entity.Category = changes.Category;
-        entity.Article = changes.Article;
+        entity.Article = changes.Article.Trim();
 
         if (changes.Image is not null)
         {

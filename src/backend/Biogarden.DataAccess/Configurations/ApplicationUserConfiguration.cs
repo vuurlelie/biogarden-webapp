@@ -22,6 +22,12 @@ public class ApplicationUserConfiguration
         userBuilder.Property(user => user.RecordStatus)
             .HasConversion<byte>();
 
+        userBuilder.Property(user => user.DeactivatedAtUtc)
+            .HasColumnType("datetime2");
+
+        userBuilder.Property(user => user.AnonymizedAtUtc)
+            .HasColumnType("datetime2");
+
         userBuilder.HasOne(user => user.ShippingAddress)
             .WithMany()
             .HasForeignKey(user => user.ShippingAddressId)

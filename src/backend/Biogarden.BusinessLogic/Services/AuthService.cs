@@ -1,6 +1,7 @@
-﻿using Biogarden.BusinessLogic.Abstractions;
+using Biogarden.BusinessLogic.Abstractions;
 using Biogarden.BusinessLogic.DTOs.Auth;
 using Biogarden.DataAccess.Entities;
+using Biogarden.DataAccess.Enums;
 using Microsoft.AspNetCore.Identity;
 
 namespace Biogarden.BusinessLogic.Services;
@@ -64,6 +65,13 @@ public class AuthService : IAuthService
         if (user is null)
         {
             throw new UnauthorizedAccessException("Hibás email vagy jelszó.");
+        }
+
+        if (user.RecordStatus == RecordStatus.Deleted
+            || user.DeactivatedAtUtc is not null
+            || user.AnonymizedAtUtc is not null)
+        {
+            throw new UnauthorizedAccessException("Ez a fiók jelenleg nem aktív.");
         }
 
         var passwordValid = await _userManager.CheckPasswordAsync(

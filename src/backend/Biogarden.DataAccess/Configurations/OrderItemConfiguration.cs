@@ -35,6 +35,10 @@ public class OrderItemConfiguration : IEntityTypeConfiguration<OrderItem>
             .HasPrecision(18, 2)
             .IsRequired();
 
+        orderItemBuilder.Property(orderItem => orderItem.Unit)
+            .HasConversion<byte>()
+            .IsRequired();
+
         orderItemBuilder.Property(orderItem => orderItem.Quantity)
             .IsRequired();
 

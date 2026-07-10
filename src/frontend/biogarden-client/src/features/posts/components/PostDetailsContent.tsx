@@ -58,8 +58,8 @@ export default function PostDetailsContent({
 
         <div className="relative mx-auto max-w-5xl px-2">
           <div className="relative z-10 -mt-[220px] md:-mt-[350px] lg:-mt-[450px]">
-            <div className="rounded-sm bg-white/95 p-6 text-base leading-8 text-site-text shadow-xl md:p-10 md:text-lg">
-              <div className="prose prose-neutral max-w-none prose-img:rounded-xl prose-headings:text-site-heading prose-p:text-site-text">
+            <div className="rounded-sm bg-white/95 p-6 text-sm leading-7 text-site-text shadow-xl md:p-10 md:text-base">
+              <div className="prose prose-neutral max-w-none prose-img:rounded-xl prose-headings:text-site-heading prose-p:text-site-text prose-p:leading-7">
                 {parse(post.article)}
               </div>
             </div>

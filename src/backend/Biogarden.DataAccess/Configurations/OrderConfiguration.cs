@@ -31,6 +31,9 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
         orderBuilder.Property(order => order.CancelledAtUtc)
             .HasColumnType("datetime2");
 
+        orderBuilder.Property(order => order.DeletedAtUtc)
+            .HasColumnType("datetime2");
+
         orderBuilder.Property(order => order.TotalPrice)
             .HasPrecision(18, 2)
             .IsRequired();

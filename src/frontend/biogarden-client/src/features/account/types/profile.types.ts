@@ -15,3 +15,16 @@ export type UpdateUserProfile = {
   taxNumber: string | null;
 };
 
+export type AccountLifecycleRequestType = 1 | 2;
+
+export type AccountLifecycleRequest = {
+  type: AccountLifecycleRequestType;
+  reason: string | null;
+};
+
+export type AccountLifecycleResult = {
+  message: string;
+  sessionEnded: boolean;
+  status: 1 | 2 | 3;
+};
+

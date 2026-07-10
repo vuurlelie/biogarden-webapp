@@ -8,6 +8,8 @@ public class OrderItemDto
 
     public decimal UnitPrice { get; set; }
 
+    public UnitOfMeasure Unit { get; set; }
+
     public int Quantity { get; set; }
 
     public decimal LineTotal { get; set; }

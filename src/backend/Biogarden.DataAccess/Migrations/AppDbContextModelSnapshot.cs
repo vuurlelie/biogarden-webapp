@@ -22,6 +22,58 @@ namespace Biogarden.DataAccess.Migrations
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
+            modelBuilder.Entity("Biogarden.DataAccess.Entities.AccountLifecycleRequest", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("AdminNote")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<DateTime?>("HandledAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("HandledByAdminId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Message")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<string>("Reason")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<DateTime>("RequestedAtUtc")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasDefaultValueSql("SYSUTCDATETIME()");
+
+                    b.Property<byte>("Status")
+                        .HasColumnType("tinyint");
+
+                    b.Property<byte>("Type")
+                        .HasColumnType("tinyint");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("HandledByAdminId");
+
+                    b.HasIndex("RequestedAtUtc");
+
+                    b.HasIndex("UserId", "Status");
+
+                    b.ToTable("AccountLifecycleRequests", (string)null);
+                });
+
             modelBuilder.Entity("Biogarden.DataAccess.Entities.Address", b =>
                 {
                     b.Property<int>("Id")
@@ -83,6 +135,9 @@ namespace Biogarden.DataAccess.Migrations
                     b.Property<int>("AccessFailedCount")
                         .HasColumnType("int");
 
+                    b.Property<DateTime?>("AnonymizedAtUtc")
+                        .HasColumnType("datetime2");
+
                     b.Property<int?>("BillingAddressId")
                         .HasColumnType("int");
 
@@ -95,6 +150,9 @@ namespace Biogarden.DataAccess.Migrations
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("DeactivatedAtUtc")
                         .HasColumnType("datetime2");
 
                     b.Property<string>("Email")
@@ -307,6 +365,9 @@ namespace Biogarden.DataAccess.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
 
+                    b.Property<DateTime?>("DeletedAtUtc")
+                        .HasColumnType("datetime2");
+
                     b.Property<string>("DeliveryBuilding")
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
@@ -381,6 +442,9 @@ namespace Biogarden.DataAccess.Migrations
                         .HasColumnType("tinyint")
                         .HasDefaultValue((byte)0);
 
+                    b.Property<bool>("StockCommitted")
+                        .HasColumnType("bit");
+
                     b.Property<string>("Street")
                         .IsRequired()
                         .HasMaxLength(200)
@@ -433,6 +497,9 @@ namespace Biogarden.DataAccess.Migrations
 
                     b.Property<int>("Quantity")
                         .HasColumnType("int");
+
+                    b.Property<byte>("Unit")
+                        .HasColumnType("tinyint");
 
                     b.Property<decimal>("UnitPrice")
                         .HasPrecision(18, 2)
@@ -689,6 +756,24 @@ namespace Biogarden.DataAccess.Migrations
 
                             t.HasCheckConstraint("CK_Products_StockQuantity_NonNegative", "[StockQuantity] >= 0");
                         });
+                });
+
+            modelBuilder.Entity("Biogarden.DataAccess.Entities.AccountLifecycleRequest", b =>
+                {
+                    b.HasOne("Biogarden.DataAccess.Entities.ApplicationUser", "HandledByAdmin")
+                        .WithMany()
+                        .HasForeignKey("HandledByAdminId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Biogarden.DataAccess.Entities.ApplicationUser", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("HandledByAdmin");
+
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("Biogarden.DataAccess.Entities.ApplicationUser", b =>

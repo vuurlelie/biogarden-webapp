@@ -168,14 +168,19 @@ public class OrderService : IOrderService
                 ProductId = product.Id,
                 ProductName = product.Name,
                 UnitPrice = product.Price,
+                Unit = product.Unit,
                 Quantity = cartItem.Quantity,
                 LineTotal = lineTotal
             });
 
             totalPrice += lineTotal;
+            product.StockQuantity -= cartItem.Quantity;
+            if (product.StockQuantity < 0)
+                throw new InvalidOperationException("Stock inconsistency detected during order creation.");
         }
 
         order.TotalPrice = totalPrice;
+        order.StockCommitted = true;
 
         cart.IsCheckedOut = true;
         cart.CheckedOutAtUtc = DateTime.UtcNow;
@@ -214,23 +219,17 @@ public class OrderService : IOrderService
             return order.ToDto();
         }
 
-        foreach (var orderItem in order.Items)
+        if (!order.StockCommitted)
         {
-            var product = await _unitOfWork.ProductRepository.GetByIdAsync(
-                orderItem.ProductId,
-                cancellationToken);
-
-            if (product is null)
+            foreach (var orderItem in order.Items)
             {
-                throw new InvalidOperationException("Product missing during payment confirmation.");
-            }
+                var product = await _unitOfWork.ProductRepository.GetByIdAsync(orderItem.ProductId, cancellationToken);
+                if (product is null) throw new InvalidOperationException("Product missing during payment confirmation.");
 
-            product.StockQuantity -= orderItem.Quantity;
-
-            if (product.StockQuantity < 0)
-            {
-                throw new InvalidOperationException("Stock inconsistency detected.");
+                product.StockQuantity -= orderItem.Quantity;
+                if (product.StockQuantity < 0) throw new InvalidOperationException("Stock inconsistency detected.");
             }
+            order.StockCommitted = true;
         }
 
         order.PaymentStatus = PaymentStatus.Paid;
@@ -277,9 +276,7 @@ public class OrderService : IOrderService
             order.PaymentStatus = PaymentStatus.RefundPending;
         }
 
-        if (order.PaymentStatus == PaymentStatus.Paid ||
-            order.PaymentStatus == PaymentStatus.RefundPending ||
-            order.PaymentStatus == PaymentStatus.Refunded)
+        if (order.StockCommitted)
         {
             foreach (var orderItem in order.Items)
             {
@@ -292,10 +289,12 @@ public class OrderService : IOrderService
                     product.StockQuantity += orderItem.Quantity;
                 }
             }
+            order.StockCommitted = false;
         }
 
         order.Status = OrderStatus.Cancelled;
         order.CancelledAtUtc = DateTime.UtcNow;
+        order.DeletedAtUtc = order.CancelledAtUtc;
         order.CancellationReason = string.IsNullOrWhiteSpace(dto.Reason)
             ? null
             : dto.Reason.Trim();
@@ -318,7 +317,12 @@ public class OrderService : IOrderService
             userId,
             cancellationToken);
 
-        return orders.Select(order => order.ToDto()).ToList();
+        var visibleFromUtc = DateTime.UtcNow.AddDays(-7);
+
+        return orders
+            .Where(order => IsVisibleInUserHistory(order, visibleFromUtc))
+            .Select(order => order.ToDto())
+            .ToList();
     }
 
     public async Task<OrderDto> GetOrderByIdAsync(
@@ -330,12 +334,24 @@ public class OrderService : IOrderService
             orderId,
             cancellationToken);
 
-        if (order is null || order.UserId != userId)
+        if (order is null || order.UserId != userId ||
+            !IsVisibleInUserHistory(order, DateTime.UtcNow.AddDays(-7)))
         {
             throw new KeyNotFoundException("Order not found.");
         }
 
         return order.ToDto();
+    }
+
+    private static bool IsVisibleInUserHistory(Order order, DateTime visibleFromUtc)
+    {
+        if (order.Status != OrderStatus.Cancelled)
+        {
+            return true;
+        }
+
+        var deletedAtUtc = order.DeletedAtUtc ?? order.CancelledAtUtc;
+        return deletedAtUtc.HasValue && deletedAtUtc.Value >= visibleFromUtc;
     }
 
     private static void ValidateGuestContactDetails(PlaceOrderDto dto)

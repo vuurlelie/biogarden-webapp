@@ -43,8 +43,11 @@ public class Order
     public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;
     public DateTime? ConfirmedAtUtc { get; set; }
     public DateTime? CancelledAtUtc { get; set; }
+    public DateTime? DeletedAtUtc { get; set; }
 
     public decimal TotalPrice { get; set; }
+
+    public bool StockCommitted { get; set; }
 
     public OrderStatus Status { get; set; } = OrderStatus.Pending;
     public PaymentStatus PaymentStatus { get; set; } = PaymentStatus.Pending;

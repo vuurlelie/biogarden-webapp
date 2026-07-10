@@ -27,9 +27,15 @@ import AccountProfilePage from "../../pages/account/AccountProfilePage";
 import AccountAddressesPage from "../../pages/account/AccountAddressesPage";
 import AccountOrdersPage from "../../pages/account/AccountOrdersPage";
 import AccountOrderDetailsPage from "../../pages/account/AccountOrderDetailsPage";
+import AccountDeletePage from "../../pages/account/AccountDeletePage";
 
 import AdminDashboardPage from "../../pages/admin/AdminDashboardPage";
 import AdminLoginPage from "../../pages/admin/AdminLoginPage";
+import AdminProductsPage from "../../pages/admin/AdminProductsPage";
+import AdminOrdersPage from "../../pages/admin/AdminOrdersPage";
+import AdminInventoryPage from "../../pages/admin/AdminInventoryPage";
+import AdminPostsPage from "../../pages/admin/AdminPostsPage";
+import AdminAccountsPage from "../../pages/admin/AdminAccountsPage";
 
 export const router = createBrowserRouter([
   {
@@ -62,6 +68,7 @@ export const router = createBrowserRouter([
           { path: "cimek", element: <AccountAddressesPage /> },
           { path: "rendeleseim", element: <AccountOrdersPage /> },
           { path: "rendeleseim/:orderId", element: <AccountOrderDetailsPage /> },
+          { path: "fiok-torles", element: <AccountDeletePage /> },
         ],
       },
     ],
@@ -73,7 +80,14 @@ export const router = createBrowserRouter([
     children: [
       {
         element: <AdminLayout />,
-        children: [{ index: true, element: <AdminDashboardPage /> }],
+        children: [
+          { index: true, element: <AdminDashboardPage /> },
+          { path: "termekek", element: <AdminProductsPage /> },
+          { path: "rendelesek", element: <AdminOrdersPage /> },
+          { path: "raktarkeszlet", element: <AdminInventoryPage /> },
+          { path: "bejegyzesek", element: <AdminPostsPage /> },
+          { path: "fiok", element: <AdminAccountsPage /> },
+        ],
       },
     ],
   },

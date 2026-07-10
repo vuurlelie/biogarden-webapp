@@ -105,6 +105,7 @@ public sealed class OrderServiceTests
         };
         var order = CreateOrder(userId);
         order.PaymentStatus = PaymentStatus.Paid;
+        order.StockCommitted = true;
         order.Items.Add(new OrderItem
         {
             Id = Guid.NewGuid(),
@@ -113,6 +114,7 @@ public sealed class OrderServiceTests
             ProductName = product.Name,
             Quantity = 2,
             UnitPrice = 1800,
+            Unit = UnitOfMeasure.Piece,
             LineTotal = 3600
         });
 
@@ -134,8 +136,10 @@ public sealed class OrderServiceTests
         Assert.Equal(OrderStatus.Cancelled, result.Status);
         Assert.Equal(PaymentStatus.RefundPending, result.PaymentStatus);
         Assert.Equal(6, product.StockQuantity);
+        Assert.False(order.StockCommitted);
         Assert.Equal("Meggondoltam magam.", order.CancellationReason);
         Assert.NotNull(order.CancelledAtUtc);
+        Assert.NotNull(order.DeletedAtUtc);
         _unitOfWork.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
     }
 

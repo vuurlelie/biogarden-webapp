@@ -24,4 +24,8 @@ public class ApplicationUser : IdentityUser<Guid>
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     public RecordStatus RecordStatus { get; set; } = RecordStatus.Active;
+
+    public DateTime? DeactivatedAtUtc { get; set; }
+
+    public DateTime? AnonymizedAtUtc { get; set; }
 }

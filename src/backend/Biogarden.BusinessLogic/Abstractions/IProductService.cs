@@ -6,6 +6,8 @@ public interface IProductService
 {
     Task<IReadOnlyList<ProductListItemDto>> GetAllAsync(CancellationToken cancellationToken = default);
 
+    Task<IReadOnlyList<ProductDetailsDto>> GetAllDetailsAsync(CancellationToken cancellationToken = default);
+
     Task<ProductDetailsDto?> GetDetailsAsync(int productId, CancellationToken cancellationToken = default);
 
     Task<int> CreateAsync(ProductCreateDto newProduct, CancellationToken cancellationToken = default);
@@ -13,4 +15,6 @@ public interface IProductService
     Task UpdateAsync(int productId, ProductEditDto changes, CancellationToken cancellationToken = default);
 
     Task<bool> DeleteAsync(int productId, CancellationToken cancellationToken = default);
+
+    Task<bool> IsImageInUseAsync(string imagePath, CancellationToken cancellationToken = default);
 }
