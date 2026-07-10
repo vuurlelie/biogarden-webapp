@@ -1,4 +1,3 @@
-import parse from "html-react-parser";
 import { NavLink } from "react-router-dom";
 import type { Post } from "../types/post.types";
 import { ROUTES } from "../../../shared/constants/routes";
@@ -10,7 +9,8 @@ type KnowledgeCardsProps = {
 };
 
 function truncateHtmlContent(html: string, maxLength = 260) {
-  const plainText = html.replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim();
+  const parsed = new DOMParser().parseFromString(html, "text/html");
+  const plainText = (parsed.body.textContent ?? "").replace(/\s+/g, " ").trim();
 
   return plainText.length > maxLength
     ? `${plainText.slice(0, maxLength).trim()}...`
@@ -73,7 +73,7 @@ export default function KnowledgeCards({ posts }: KnowledgeCardsProps) {
 
                   <div className="pb-5 text-justify text-site-text">
                     <div className="line-clamp-3 leading-7">
-                      {parse(truncateHtmlContent(post.article))}
+                      {truncateHtmlContent(post.article)}
                     </div>
                   </div>
 

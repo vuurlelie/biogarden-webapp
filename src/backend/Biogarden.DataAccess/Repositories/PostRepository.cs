@@ -38,6 +38,18 @@ public sealed class PostRepository : IPostRepository
         return posts;
     }
 
+    public async Task<IReadOnlyList<Post>> GetAllIncludingDeletedAsync(CancellationToken cancellationToken = default)
+    {
+        var posts = await _databaseContext.Posts
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .OrderByDescending(post => post.PublishedAt)
+            .ThenBy(post => post.Title)
+            .ToListAsync(cancellationToken);
+
+        return posts;
+    }
+
     public async Task AddAsync(Post post, CancellationToken cancellationToken = default)
     {
         await _databaseContext.Posts.AddAsync(post, cancellationToken);

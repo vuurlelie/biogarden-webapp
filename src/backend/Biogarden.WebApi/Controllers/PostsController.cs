@@ -19,7 +19,8 @@ public sealed class PostsController : ControllerBase
     [ProducesResponseType(typeof(IReadOnlyList<PostListItemDto>), StatusCodes.Status200OK)]
     public async Task<IReadOnlyList<PostListItemDto>> GetAll(CancellationToken cancellationToken)
     {
-        return await _postService.GetAllAsync(cancellationToken);
+        var posts = await _postService.GetAllAsync(cancellationToken);
+        return posts.Where(post => !post.Draft).ToList();
     }
 
     [HttpGet("{postId:int}")]
@@ -29,48 +30,11 @@ public sealed class PostsController : ControllerBase
     {
         var post = await _postService.GetDetailsAsync(postId, cancellationToken);
 
-        if (post is null)
+        if (post is null || post.Draft)
         {
             return NotFound();
         }
 
         return Ok(post);
-    }
-
-    [HttpPost]
-    [ProducesResponseType(typeof(int), StatusCodes.Status201Created)]
-    public async Task<ActionResult<int>> Create(PostCreateDto newPost, CancellationToken cancellationToken)
-    {
-        var postId = await _postService.CreateAsync(newPost, cancellationToken);
-
-        return CreatedAtAction(
-            nameof(GetDetails),
-            new { postId },
-            postId);
-    }
-
-    [HttpPut("{postId:int}")]
-    [ProducesResponseType(StatusCodes.Status204NoContent)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> Update(int postId, PostEditDto changes, CancellationToken cancellationToken)
-    {
-        await _postService.UpdateAsync(postId, changes, cancellationToken);
-
-        return NoContent();
-    }
-
-    [HttpDelete("{postId:int}")]
-    [ProducesResponseType(StatusCodes.Status204NoContent)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> Delete(int postId, CancellationToken cancellationToken)
-    {
-        var deleted = await _postService.DeleteAsync(postId, cancellationToken);
-
-        if (!deleted)
-        {
-            return NotFound();
-        }
-
-        return NoContent();
     }
 }

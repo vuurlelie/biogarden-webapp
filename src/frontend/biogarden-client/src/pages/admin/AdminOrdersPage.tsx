@@ -148,7 +148,7 @@ function OrderCard({
               {order.items.map((item) => (
                 <div
                   key={`${order.id}-${item.productId}`}
-                  className="grid min-w-0 gap-1 rounded-sm bg-site-surface-soft p-3 text-sm sm:grid-cols-[minmax(0,1fr)_9rem_8rem] sm:gap-4"
+                  className="grid min-w-0 gap-1 rounded-sm bg-site-surface-soft p-3 text-sm sm:grid-cols-[minmax(10rem,1fr)_8rem_6.5rem] sm:gap-4"
                 >
                   <span className="min-w-0 break-words">{item.productName} × {item.quantity}</span>
                   <span className="text-site-muted">

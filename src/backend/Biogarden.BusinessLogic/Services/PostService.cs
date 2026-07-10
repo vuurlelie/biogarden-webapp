@@ -2,6 +2,7 @@
 using Biogarden.BusinessLogic.DTOs.Posts;
 using Biogarden.BusinessLogic.Mappers;
 using Biogarden.DataAccess.Abstractions;
+using Biogarden.DataAccess.Enums;
 
 namespace Biogarden.BusinessLogic.Services;
 
@@ -35,6 +36,7 @@ public sealed class PostService : IPostService
 
     public async Task<int> CreateAsync(PostCreateDto newPost, CancellationToken cancellationToken = default)
     {
+        Validate(newPost.Title, newPost.Article);
         var entity = newPost.ToEntity();
 
         await _unitOfWork.PostRepository.AddAsync(entity, cancellationToken);
@@ -45,6 +47,7 @@ public sealed class PostService : IPostService
 
     public async Task UpdateAsync(int postId, PostEditDto changes, CancellationToken cancellationToken = default)
     {
+        Validate(changes.Title, changes.Article);
         var entity = await _unitOfWork.PostRepository.GetByIdAsync(postId, cancellationToken);
         if (entity is null)
         {
@@ -66,5 +69,32 @@ public sealed class PostService : IPostService
         }
 
         return deleted;
+    }
+
+    public async Task<bool> IsImageInUseAsync(string? imagePath, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(imagePath) ||
+            string.Equals(imagePath, BusinessRules.DefaultPostImagePath, StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        var posts = await _unitOfWork.PostRepository.GetAllIncludingDeletedAsync(cancellationToken);
+        return posts.Any(post =>
+            post.RecordStatus == RecordStatus.Active &&
+            string.Equals(post.Image, imagePath, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static void Validate(string title, string article)
+    {
+        if (string.IsNullOrWhiteSpace(title) || title.Trim().Length < 3)
+        {
+            throw new ArgumentException("A bejegyzés címe legalább 3 karakter legyen.");
+        }
+
+        if (string.IsNullOrWhiteSpace(article) || article.Trim().Length < 20)
+        {
+            throw new ArgumentException("A bejegyzés szövege legalább 20 karakter legyen.");
+        }
     }
 }

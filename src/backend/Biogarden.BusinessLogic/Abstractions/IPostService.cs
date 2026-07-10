@@ -10,4 +10,5 @@ public interface IPostService
     Task<int> CreateAsync(PostCreateDto newPost, CancellationToken cancellationToken = default);
     Task UpdateAsync(int postId, PostEditDto changes, CancellationToken cancellationToken = default);
     Task<bool> DeleteAsync(int postId, CancellationToken cancellationToken = default);
+    Task<bool> IsImageInUseAsync(string? imagePath, CancellationToken cancellationToken = default);
 }
