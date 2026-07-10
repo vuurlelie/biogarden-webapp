@@ -179,6 +179,11 @@ public sealed class AdminUserService : IAdminUserService
         }
 
         var user = request.User ?? throw new KeyNotFoundException("User not found.");
+        if (user.Id == currentAdminId)
+        {
+            throw new InvalidOperationException("A saját fiókodat nem törölheted vagy anonimizálhatod az admin felületről.");
+        }
+
         var activeOrderCount = await CountActiveOrdersAsync(user.Id, cancellationToken);
 
         if (activeOrderCount > 0)
