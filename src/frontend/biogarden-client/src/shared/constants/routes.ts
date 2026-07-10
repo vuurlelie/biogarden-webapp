@@ -12,6 +12,7 @@ export const ROUTES = {
 
   login: "/bejelentkezes",
   register: "/regisztracio",
+  emailConfirmation: "/email-megerosites",
 
   cart: "/kosar",
   checkout: "/penztar",

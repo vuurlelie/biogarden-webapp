@@ -1,4 +1,4 @@
-﻿using Biogarden.BusinessLogic.Abstractions;
+using Biogarden.BusinessLogic.Abstractions;
 using Biogarden.BusinessLogic.DTOs.Auth;
 using Microsoft.AspNetCore.Mvc;
 
@@ -31,5 +31,23 @@ public class AuthController : ControllerBase
         var result = await _authService.LoginAsync(loginRequestDto);
 
         return Ok(result);
+    }
+
+    [HttpPost("confirm-email")]
+    public async Task<IActionResult> ConfirmEmailAsync(
+        [FromBody] ConfirmEmailRequestDto confirmEmailRequestDto)
+    {
+        await _authService.ConfirmEmailAsync(confirmEmailRequestDto);
+
+        return Ok();
+    }
+
+    [HttpPost("resend-email-confirmation")]
+    public async Task<IActionResult> ResendEmailConfirmationAsync(
+        [FromBody] ResendEmailConfirmationRequestDto resendEmailConfirmationRequestDto)
+    {
+        await _authService.ResendEmailConfirmationAsync(resendEmailConfirmationRequestDto);
+
+        return Ok();
     }
 }

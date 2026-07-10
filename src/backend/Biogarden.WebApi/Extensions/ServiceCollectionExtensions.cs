@@ -48,6 +48,9 @@ public static class ServiceCollectionExtensions
         services.Configure<EmailOptions>(
             configuration.GetSection(EmailOptions.SectionName));
 
+        services.Configure<AuthEmailOptions>(
+            configuration.GetSection(AuthEmailOptions.SectionName));
+
         var jwtSettings = configuration
             .GetSection(JwtSettings.SectionName)
             .Get<JwtSettings>()

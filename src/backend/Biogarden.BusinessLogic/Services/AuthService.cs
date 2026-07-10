@@ -1,8 +1,12 @@
 using Biogarden.BusinessLogic.Abstractions;
 using Biogarden.BusinessLogic.DTOs.Auth;
+using Biogarden.BusinessLogic.Models.Email;
+using Biogarden.BusinessLogic.Options;
 using Biogarden.DataAccess.Entities;
 using Biogarden.DataAccess.Enums;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 
 namespace Biogarden.BusinessLogic.Services;
 
@@ -10,17 +14,25 @@ public class AuthService : IAuthService
 {
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly ITokenService _tokenService;
+    private readonly IEmailService _emailService;
+    private readonly AuthEmailOptions _authEmailOptions;
 
     public AuthService(
         UserManager<ApplicationUser> userManager,
-        ITokenService tokenService)
+        ITokenService tokenService,
+        IEmailService emailService,
+        IOptions<AuthEmailOptions> authEmailOptions)
     {
         _userManager = userManager;
         _tokenService = tokenService;
+        _emailService = emailService;
+        _authEmailOptions = authEmailOptions.Value;
     }
 
     public async Task RegisterAsync(RegisterRequestDto registerRequestDto)
     {
+        await DeleteExpiredUnconfirmedUsersAsync();
+
         if (registerRequestDto.Password != registerRequestDto.ConfirmPassword)
         {
             throw new ArgumentException("A jelszavak nem egyeznek.");
@@ -39,7 +51,8 @@ public class AuthService : IAuthService
         var user = new ApplicationUser
         {
             Email = normalizedEmail,
-            UserName = normalizedEmail
+            UserName = normalizedEmail,
+            EmailConfirmed = false
         };
 
         var result = await _userManager.CreateAsync(
@@ -54,6 +67,8 @@ public class AuthService : IAuthService
 
             throw new InvalidOperationException(errors);
         }
+
+        await SendEmailConfirmationAsync(user);
     }
 
     public async Task<AuthResponseDto> LoginAsync(LoginRequestDto loginRequestDto)
@@ -83,6 +98,12 @@ public class AuthService : IAuthService
             throw new UnauthorizedAccessException("Hibás email vagy jelszó.");
         }
 
+        if (!user.EmailConfirmed)
+        {
+            throw new UnauthorizedAccessException(
+                "A fiók még nincs megerősítve. Kérjük, ellenőrizd az email fiókodat.");
+        }
+
         var roles = await _userManager.GetRolesAsync(user);
         var token = await _tokenService.CreateTokenAsync(user);
 
@@ -93,5 +114,121 @@ public class AuthService : IAuthService
             Roles = roles,
             Token = token
         };
+    }
+
+    public async Task ConfirmEmailAsync(ConfirmEmailRequestDto confirmEmailRequestDto)
+    {
+        var user = await _userManager.FindByIdAsync(
+            confirmEmailRequestDto.UserId.ToString());
+
+        if (user is null
+            || user.RecordStatus == RecordStatus.Deleted
+            || user.AnonymizedAtUtc is not null)
+        {
+            throw new InvalidOperationException("Az email megerősítés nem sikerült.");
+        }
+
+        if (user.EmailConfirmed)
+        {
+            return;
+        }
+
+        var result = await _userManager.ConfirmEmailAsync(
+            user,
+            confirmEmailRequestDto.Token);
+
+        if (!result.Succeeded)
+        {
+            throw new InvalidOperationException("Az email megerősítés nem sikerült.");
+        }
+    }
+
+    public async Task ResendEmailConfirmationAsync(
+        ResendEmailConfirmationRequestDto resendEmailConfirmationRequestDto)
+    {
+        var normalizedEmail = resendEmailConfirmationRequestDto.Email.Trim();
+
+        if (string.IsNullOrWhiteSpace(normalizedEmail))
+        {
+            return;
+        }
+
+        var user = await _userManager.FindByEmailAsync(normalizedEmail);
+
+        if (user is null
+            || user.EmailConfirmed
+            || user.RecordStatus == RecordStatus.Deleted
+            || user.DeactivatedAtUtc is not null
+            || user.AnonymizedAtUtc is not null)
+        {
+            return;
+        }
+
+        await SendEmailConfirmationAsync(user);
+    }
+
+    private async Task SendEmailConfirmationAsync(ApplicationUser user)
+    {
+        if (string.IsNullOrWhiteSpace(user.Email))
+        {
+            throw new InvalidOperationException("A felhasználó email címe hiányzik.");
+        }
+
+        var token = await _userManager.GenerateEmailConfirmationTokenAsync(user);
+        var confirmationUrl = BuildEmailConfirmationUrl(user.Id, token);
+
+        await _emailService.SendAsync(new EmailMessage
+        {
+            To = user.Email,
+            Subject = "Email cím megerősítése - Bakony Kincse Biokertészet",
+            PlainTextBody = $"""
+                Kedves Vásárlónk!
+
+                Köszönjük a regisztrációt. A fiókod aktiválásához kérjük, nyisd meg az alábbi linket:
+
+                {confirmationUrl}
+
+                Ha nem te regisztráltál, ezt az üzenetet nyugodtan figyelmen kívül hagyhatod.
+                """,
+            HtmlBody = $"""
+                <p>Kedves Vásárlónk!</p>
+                <p>Köszönjük a regisztrációt. A fiókod aktiválásához kérjük, nyisd meg az alábbi linket:</p>
+                <p><a href="{confirmationUrl}">Email cím megerősítése</a></p>
+                <p>Ha nem te regisztráltál, ezt az üzenetet nyugodtan figyelmen kívül hagyhatod.</p>
+                """
+        });
+    }
+
+    private string BuildEmailConfirmationUrl(Guid userId, string token)
+    {
+        var clientBaseUrl = _authEmailOptions.ClientBaseUrl.TrimEnd('/');
+        var confirmEmailPath = _authEmailOptions.ConfirmEmailPath.StartsWith('/')
+            ? _authEmailOptions.ConfirmEmailPath
+            : $"/{_authEmailOptions.ConfirmEmailPath}";
+
+        return $"{clientBaseUrl}{confirmEmailPath}?userId={userId}&token={Uri.EscapeDataString(token)}";
+    }
+
+    private async Task DeleteExpiredUnconfirmedUsersAsync()
+    {
+        var retentionDays = Math.Max(
+            1,
+            _authEmailOptions.UnconfirmedAccountRetentionDays);
+
+        var createdBefore = DateTime.UtcNow.AddDays(-retentionDays);
+
+        var expiredUsers = await _userManager.Users
+            .Where(user =>
+                !user.EmailConfirmed
+                && user.CreatedAt < createdBefore
+                && user.RecordStatus == RecordStatus.Active
+                && user.DeactivatedAtUtc == null
+                && user.AnonymizedAtUtc == null)
+            .ToListAsync();
+
+        foreach (var expiredUser in expiredUsers)
+        {
+            await _userManager.DeleteAsync(expiredUser);
+        }
     }
 }

@@ -19,6 +19,7 @@ const PostsPage = lazy(() => import("../../pages/public/PostsPage"));
 const PostDetailsPage = lazy(() => import("../../pages/public/PostDetailsPage"));
 const LoginPage = lazy(() => import("../../pages/public/LoginPage"));
 const RegisterPage = lazy(() => import("../../pages/public/RegisterPage"));
+const EmailConfirmationPage = lazy(() => import("../../pages/public/EmailConfirmationPage"));
 const CartPage = lazy(() => import("../../pages/public/CartPage"));
 const CheckoutPage = lazy(() => import("../../pages/public/CheckoutPage"));
 const OrderSuccessPage = lazy(() => import("../../pages/public/OrderSuccessPage"));
@@ -64,6 +65,7 @@ export const router = createBrowserRouter([
       { path: "tudastar/:postId", element: routeElement(<PostDetailsPage />) },
       { path: ROUTES.login.slice(1), element: routeElement(<LoginPage />) },
       { path: ROUTES.register.slice(1), element: routeElement(<RegisterPage />) },
+      { path: ROUTES.emailConfirmation.slice(1), element: routeElement(<EmailConfirmationPage />) },
       { path: ROUTES.cart.slice(1), element: routeElement(<CartPage />) },
       { path: ROUTES.checkout.slice(1), element: routeElement(<CheckoutPage />) },
       { path: ROUTES.orderSuccess.slice(1), element: routeElement(<OrderSuccessPage />) },

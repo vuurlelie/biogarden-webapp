@@ -38,7 +38,7 @@ export default function RegisterPage() {
       await register({ email: email.trim(), password, confirmPassword });
       navigate(ROUTES.login, {
         replace: true,
-        state: { registrationSuccess: true },
+        state: { registrationRequiresConfirmation: true },
       });
     } catch (submitError) {
       setError(

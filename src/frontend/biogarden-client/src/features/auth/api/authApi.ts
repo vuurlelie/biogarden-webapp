@@ -1,7 +1,9 @@
 import type {
   AuthResponse,
+  ConfirmEmailRequest,
   LoginRequest,
   RegisterRequest,
+  ResendEmailConfirmationRequest,
 } from "../types/auth.types";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
@@ -46,6 +48,32 @@ export async function login(request: LoginRequest): Promise<AuthResponse> {
 
 export async function register(request: RegisterRequest): Promise<void> {
   const response = await fetch(`${API_BASE_URL}/api/auth/register`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(request),
+  });
+
+  if (!response.ok) {
+    throw new AuthApiError(await getErrorMessage(response), response.status);
+  }
+}
+
+export async function confirmEmail(request: ConfirmEmailRequest): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/api/auth/confirm-email`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(request),
+  });
+
+  if (!response.ok) {
+    throw new AuthApiError(await getErrorMessage(response), response.status);
+  }
+}
+
+export async function resendEmailConfirmation(
+  request: ResendEmailConfirmationRequest,
+): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/api/auth/resend-email-confirmation`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(request),
