@@ -1,4 +1,4 @@
-﻿using System.Text;
+using System.Text;
 using Biogarden.BusinessLogic.Abstractions;
 using Biogarden.BusinessLogic.Options;
 using Biogarden.BusinessLogic.Services;
@@ -44,6 +44,9 @@ public static class ServiceCollectionExtensions
 
         services.Configure<JwtSettings>(
             configuration.GetSection(JwtSettings.SectionName));
+
+        services.Configure<EmailOptions>(
+            configuration.GetSection(EmailOptions.SectionName));
 
         var jwtSettings = configuration
             .GetSection(JwtSettings.SectionName)
@@ -108,6 +111,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IAuthService, AuthService>();
         services.AddScoped<IUserService, UserService>();
         services.AddScoped<ITokenService, JwtTokenService>();
+        services.AddScoped<IEmailService, SmtpEmailService>();
 
         services.AddScoped<ICartService, CartService>();
         services.AddScoped<IOrderService, OrderService>();
