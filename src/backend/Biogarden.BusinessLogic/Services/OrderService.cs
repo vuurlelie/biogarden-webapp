@@ -168,6 +168,7 @@ public class OrderService : IOrderService
                 ProductId = product.Id,
                 ProductName = product.Name,
                 UnitPrice = product.Price,
+                Unit = product.Unit,
                 Quantity = cartItem.Quantity,
                 LineTotal = lineTotal
             });
@@ -293,6 +294,7 @@ public class OrderService : IOrderService
 
         order.Status = OrderStatus.Cancelled;
         order.CancelledAtUtc = DateTime.UtcNow;
+        order.DeletedAtUtc = order.CancelledAtUtc;
         order.CancellationReason = string.IsNullOrWhiteSpace(dto.Reason)
             ? null
             : dto.Reason.Trim();
@@ -315,7 +317,12 @@ public class OrderService : IOrderService
             userId,
             cancellationToken);
 
-        return orders.Select(order => order.ToDto()).ToList();
+        var visibleFromUtc = DateTime.UtcNow.AddDays(-7);
+
+        return orders
+            .Where(order => IsVisibleInUserHistory(order, visibleFromUtc))
+            .Select(order => order.ToDto())
+            .ToList();
     }
 
     public async Task<OrderDto> GetOrderByIdAsync(
@@ -327,12 +334,24 @@ public class OrderService : IOrderService
             orderId,
             cancellationToken);
 
-        if (order is null || order.UserId != userId)
+        if (order is null || order.UserId != userId ||
+            !IsVisibleInUserHistory(order, DateTime.UtcNow.AddDays(-7)))
         {
             throw new KeyNotFoundException("Order not found.");
         }
 
         return order.ToDto();
+    }
+
+    private static bool IsVisibleInUserHistory(Order order, DateTime visibleFromUtc)
+    {
+        if (order.Status != OrderStatus.Cancelled)
+        {
+            return true;
+        }
+
+        var deletedAtUtc = order.DeletedAtUtc ?? order.CancelledAtUtc;
+        return deletedAtUtc.HasValue && deletedAtUtc.Value >= visibleFromUtc;
     }
 
     private static void ValidateGuestContactDetails(PlaceOrderDto dto)

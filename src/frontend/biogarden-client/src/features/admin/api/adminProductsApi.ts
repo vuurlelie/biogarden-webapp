@@ -38,7 +38,10 @@ async function ensureSuccess(response: Response): Promise<void> {
 }
 
 export async function getAdminProducts(signal?: AbortSignal): Promise<ProductDetails[]> {
-  const response = await fetch(`${API_BASE_URL}/api/admin/products`, { headers: authorizationHeaders(), signal });
+  const response = await fetch(`${API_BASE_URL}/api/admin/products`, {
+    headers: authorizationHeaders(),
+    signal,
+  });
   await ensureSuccess(response);
   return response.json() as Promise<ProductDetails[]>;
 }
@@ -63,14 +66,21 @@ export async function updateAdminProduct(productId: number, product: AdminProduc
 }
 
 export async function deleteAdminProduct(productId: number): Promise<void> {
-  const response = await fetch(`${API_BASE_URL}/api/admin/products/${productId}`, { method: "DELETE", headers: authorizationHeaders() });
+  const response = await fetch(`${API_BASE_URL}/api/admin/products/${productId}`, {
+    method: "DELETE",
+    headers: authorizationHeaders(),
+  });
   await ensureSuccess(response);
 }
 
 export async function uploadAdminProductImage(image: File): Promise<string> {
   const data = new FormData();
   data.append("image", image);
-  const response = await fetch(`${API_BASE_URL}/api/admin/products/image`, { method: "POST", headers: authorizationHeaders(), body: data });
+  const response = await fetch(`${API_BASE_URL}/api/admin/products/image`, {
+    method: "POST",
+    headers: authorizationHeaders(),
+    body: data,
+  });
   await ensureSuccess(response);
   const result = await response.json() as { path: string };
   return result.path;

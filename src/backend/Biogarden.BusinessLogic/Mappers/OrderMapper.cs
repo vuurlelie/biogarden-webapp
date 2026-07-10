@@ -37,6 +37,7 @@ public static class OrderMapper
             CreatedAtUtc = order.CreatedAtUtc,
             ConfirmedAtUtc = order.ConfirmedAtUtc,
             CancelledAtUtc = order.CancelledAtUtc,
+            DeletedAtUtc = order.DeletedAtUtc,
             TotalPrice = order.TotalPrice,
             Status = order.Status,
             PaymentStatus = order.PaymentStatus,
@@ -47,6 +48,7 @@ public static class OrderMapper
                 ProductId = item.ProductId,
                 ProductName = item.ProductName,
                 UnitPrice = item.UnitPrice,
+                Unit = item.Unit,
                 Quantity = item.Quantity,
                 LineTotal = item.LineTotal
             }).ToList()

@@ -48,6 +48,7 @@ public sealed class AdminOrderService : IAdminOrderService
                 order.StockCommitted = false;
             }
             order.CancelledAtUtc = DateTime.UtcNow;
+            order.DeletedAtUtc = order.CancelledAtUtc;
             order.CancellationReason = string.IsNullOrWhiteSpace(changes.CancellationReason) ? null : changes.CancellationReason.Trim();
             if (order.PaymentStatus == PaymentStatus.Paid) changes.PaymentStatus = PaymentStatus.RefundPending;
         }

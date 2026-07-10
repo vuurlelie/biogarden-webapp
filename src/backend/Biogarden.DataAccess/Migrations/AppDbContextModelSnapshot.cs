@@ -307,6 +307,9 @@ namespace Biogarden.DataAccess.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
 
+                    b.Property<DateTime?>("DeletedAtUtc")
+                        .HasColumnType("datetime2");
+
                     b.Property<string>("DeliveryBuilding")
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
@@ -436,6 +439,9 @@ namespace Biogarden.DataAccess.Migrations
 
                     b.Property<int>("Quantity")
                         .HasColumnType("int");
+
+                    b.Property<byte>("Unit")
+                        .HasColumnType("tinyint");
 
                     b.Property<decimal>("UnitPrice")
                         .HasPrecision(18, 2)

@@ -114,6 +114,7 @@ public sealed class OrderServiceTests
             ProductName = product.Name,
             Quantity = 2,
             UnitPrice = 1800,
+            Unit = UnitOfMeasure.Piece,
             LineTotal = 3600
         });
 
@@ -138,6 +139,7 @@ public sealed class OrderServiceTests
         Assert.False(order.StockCommitted);
         Assert.Equal("Meggondoltam magam.", order.CancellationReason);
         Assert.NotNull(order.CancelledAtUtc);
+        Assert.NotNull(order.DeletedAtUtc);
         _unitOfWork.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
     }
 

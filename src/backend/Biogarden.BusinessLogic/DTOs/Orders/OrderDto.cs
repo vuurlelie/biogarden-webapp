@@ -37,6 +37,7 @@ public class OrderDto
     public DateTime CreatedAtUtc { get; set; }
     public DateTime? ConfirmedAtUtc { get; set; }
     public DateTime? CancelledAtUtc { get; set; }
+    public DateTime? DeletedAtUtc { get; set; }
 
     public decimal TotalPrice { get; set; }
 

@@ -1,3 +1,5 @@
+import type { UnitOfMeasure } from "../../products/types/product.types";
+
 export type OrderStatus = 0 | 1 | 2 | 3 | 4;
 export type PaymentStatus = 0 | 1 | 2 | 3 | 4 | 5 | 6;
 export type FulfillmentMethod = 0 | 1 | 2;
@@ -6,6 +8,7 @@ export type OrderItem = {
   productId: number;
   productName: string;
   unitPrice: number;
+  unit: UnitOfMeasure;
   quantity: number;
   lineTotal: number;
 };
@@ -39,6 +42,7 @@ export type Order = {
   createdAtUtc: string;
   confirmedAtUtc: string | null;
   cancelledAtUtc: string | null;
+  deletedAtUtc: string | null;
   totalPrice: number;
   status: OrderStatus;
   paymentStatus: PaymentStatus;

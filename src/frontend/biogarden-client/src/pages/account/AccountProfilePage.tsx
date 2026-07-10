@@ -57,7 +57,10 @@ export default function AccountProfilePage() {
     };
   }, [navigate]);
 
-  function updateField(field: "firstName" | "lastName" | "phoneNumber" | "companyName" | "taxNumber", value: string) {
+  function updateField(
+    field: "firstName" | "lastName" | "phoneNumber" | "companyName" | "taxNumber",
+    value: string,
+  ) {
     setProfile((currentProfile) => ({ ...currentProfile, [field]: value }));
     setSuccess("");
   }
@@ -110,14 +113,19 @@ export default function AccountProfilePage() {
         </div>
       )}
       {success && (
-        <div className="mt-6 rounded-sm border border-site-green/30 bg-site-surface-soft p-3 text-sm text-site-green-dark" role="status">
+        <div
+          className="mt-6 rounded-sm border border-site-green/30 bg-site-surface-soft p-3 text-sm text-site-green-dark"
+          role="status"
+        >
           {success}
         </div>
       )}
 
       <form onSubmit={handleSubmit} className="mt-7 space-y-5">
         <div>
-          <label htmlFor="profile-email" className="block text-sm font-semibold text-site-heading">Email cím</label>
+          <label htmlFor="profile-email" className="block text-sm font-semibold text-site-heading">
+            Email cím
+          </label>
           <input
             id="profile-email"
             type="email"
@@ -128,18 +136,11 @@ export default function AccountProfilePage() {
           <p className="mt-1 text-xs text-site-muted">Az email cím jelenleg nem módosítható.</p>
         </div>
 
-        <fieldset className="rounded-sm border border-site-border p-5">
-          <legend className="px-2 font-bold text-site-heading">Céges számlázási adatok (opcionális)</legend>
-          <p className="mb-4 text-xs text-site-muted">Céges számla esetén a cégnév és az adószám együtt szükséges.</p>
-          <div className="grid gap-5 sm:grid-cols-2">
-            <label className="text-sm font-semibold text-site-heading">Cégnév<input value={profile.companyName ?? ""} onChange={(event)=>updateField("companyName",event.target.value)} autoComplete="organization" className="mt-2 block w-full rounded-sm border border-site-border px-3 py-2.5"/></label>
-            <label className="text-sm font-semibold text-site-heading">Adószám<input value={profile.taxNumber ?? ""} onChange={(event)=>updateField("taxNumber",event.target.value)} placeholder="12345678-1-12" className="mt-2 block w-full rounded-sm border border-site-border px-3 py-2.5"/></label>
-          </div>
-        </fieldset>
-
         <div className="grid gap-5 sm:grid-cols-2">
           <div>
-            <label htmlFor="profile-last-name" className="block text-sm font-semibold text-site-heading">Vezetéknév</label>
+            <label htmlFor="profile-last-name" className="block text-sm font-semibold text-site-heading">
+              Vezetéknév
+            </label>
             <input
               id="profile-last-name"
               type="text"
@@ -150,7 +151,9 @@ export default function AccountProfilePage() {
             />
           </div>
           <div>
-            <label htmlFor="profile-first-name" className="block text-sm font-semibold text-site-heading">Keresztnév</label>
+            <label htmlFor="profile-first-name" className="block text-sm font-semibold text-site-heading">
+              Keresztnév
+            </label>
             <input
               id="profile-first-name"
               type="text"
@@ -163,7 +166,9 @@ export default function AccountProfilePage() {
         </div>
 
         <div>
-          <label htmlFor="profile-phone" className="block text-sm font-semibold text-site-heading">Telefonszám</label>
+          <label htmlFor="profile-phone" className="block text-sm font-semibold text-site-heading">
+            Telefonszám
+          </label>
           <input
             id="profile-phone"
             type="tel"
@@ -174,6 +179,35 @@ export default function AccountProfilePage() {
             placeholder="+36 20 123 4567"
           />
         </div>
+
+        <fieldset className="rounded-sm border border-site-border p-5">
+          <legend className="px-2 font-bold text-site-heading">
+            Céges számlázási adatok (opcionális)
+          </legend>
+          <p className="mb-4 text-xs text-site-muted">
+            Céges számla esetén a cégnév és az adószám együtt szükséges.
+          </p>
+          <div className="grid gap-5 sm:grid-cols-2">
+            <label className="text-sm font-semibold text-site-heading">
+              Cégnév
+              <input
+                value={profile.companyName ?? ""}
+                onChange={(event) => updateField("companyName", event.target.value)}
+                autoComplete="organization"
+                className="mt-2 block w-full rounded-sm border border-site-border px-3 py-2.5"
+              />
+            </label>
+            <label className="text-sm font-semibold text-site-heading">
+              Adószám
+              <input
+                value={profile.taxNumber ?? ""}
+                onChange={(event) => updateField("taxNumber", event.target.value)}
+                placeholder="12345678-1-12"
+                className="mt-2 block w-full rounded-sm border border-site-border px-3 py-2.5"
+              />
+            </label>
+          </div>
+        </fieldset>
 
         <div className="pt-2">
           <button
