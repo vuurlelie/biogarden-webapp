@@ -62,10 +62,14 @@ public sealed class AdminInventoryService : IAdminInventoryService
 
         return new AdminInventoryItemDto
         {
-            ProductId = product.Id, Name = product.Name,
+            ProductId = product.Id,
+            Name = product.Name,
             Image = product.Image ?? Biogarden.BusinessLogic.BusinessRules.DefaultProductImagePath,
-            Unit = product.Unit, StockQuantity = product.StockQuantity, ReservedQuantity = reserved,
-            AvailableQuantity = Math.Max(0, product.StockQuantity - reserved), Available = product.Available,
+            Unit = product.Unit,
+            StockQuantity = product.StockQuantity,
+            ReservedQuantity = reserved,
+            AvailableQuantity = Math.Max(0, product.StockQuantity - reserved),
+            Available = product.Available,
             DeliveryAvailable = product.DeliveryAvailable
         };
     }

@@ -51,8 +51,13 @@ public sealed class OrderServiceTests
 
         var result = await _service.CreateOrderFromCartAsync(null, sessionId, new PlaceOrderDto
         {
-            CustomerName = "Teszt Elek", CustomerEmail = "guest@example.com", CustomerPhone = "+361234567",
-            PostalCode = "8200", City = "Veszprém", Street = "Kert utca", HouseNumber = "1",
+            CustomerName = "Teszt Elek",
+            CustomerEmail = "guest@example.com",
+            CustomerPhone = "+361234567",
+            PostalCode = "8200",
+            City = "Veszprém",
+            Street = "Kert utca",
+            HouseNumber = "1",
             FulfillmentMethod = FulfillmentMethod.PersonalPickup
         });
 

@@ -1,6 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { deleteAdminProduct, getAdminProducts } from "../../features/admin/api/adminProductsApi";
-import AdminProductFormModal from "../../features/admin/components/AdminProductFormModal";
 import type { ProductCategory, ProductDetails } from "../../features/products/types/product.types";
 import {
   formatProductPrice,
@@ -12,6 +11,8 @@ import AdminPagination from "../../shared/components/admin/AdminPagination";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 const PAGE_SIZE = 12;
+
+const AdminProductFormModal = lazy(() => import("../../features/admin/components/AdminProductFormModal"));
 
 type AvailabilityFilter = "all" | "available" | "unavailable";
 
@@ -282,11 +283,19 @@ export default function AdminProductsPage() {
       )}
 
       {editingProduct !== undefined && (
-        <AdminProductFormModal
-          product={editingProduct}
-          onClose={() => setEditingProduct(undefined)}
-          onSaved={(text) => void handleSaved(text)}
-        />
+        <Suspense
+          fallback={(
+            <div className="fixed inset-0 z-[80] grid place-items-center bg-black/55 p-4 text-center font-semibold text-white">
+              Szerkesztő betöltése...
+            </div>
+          )}
+        >
+          <AdminProductFormModal
+            product={editingProduct}
+            onClose={() => setEditingProduct(undefined)}
+            onSaved={(text) => void handleSaved(text)}
+          />
+        </Suspense>
       )}
 
       {deletingProduct && (

@@ -1,11 +1,24 @@
-import { NavLink } from "react-router-dom";
+import type { MouseEvent } from "react";
+import { NavLink, useLocation } from "react-router-dom";
+import { ROUTES } from "../../constants/routes";
 
 export default function Footer() {
+  const { pathname } = useLocation();
+
+  function scrollToTopOnCurrentPage(targetPath: string) {
+    return (event: MouseEvent<HTMLAnchorElement>) => {
+      if (pathname !== targetPath) return;
+
+      event.preventDefault();
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    };
+  }
+
   return (
     <>
       <footer
         id="contact"
-        className="w-full border-t border-site-border bg-site-surface-soft pt-10 pb-10 shadow-lg"
+        className="w-full border-t border-site-footer-border bg-site-footer pt-10 pb-10"
       >
         <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="grid gap-10 lg:grid-cols-4">
@@ -50,7 +63,10 @@ export default function Footer() {
                     <path d="M1.5 8.67v8.58a3 3 0 0 0 3 3h15a3 3 0 0 0 3-3V8.67l-8.928 5.493a3 3 0 0 1-3.144 0L1.5 8.67z" />
                     <path d="M22.5 6.908V6.75a3 3 0 0 0-3-3h-15a3 3 0 0 0-3 3v.158l9.714 5.978a1.5 1.5 0 0 0 1.572 0L22.5 6.908z" />
                   </svg>
-                  <a href="mailto:info@bakonykincse.hu" className="hover:underline">
+                  <a
+                    href="mailto:info@bakonykincse.hu"
+                    className="font-semibold text-site-green-dark underline underline-offset-4 transition hover:text-site-green-hover"
+                  >
                     info@bakonykincse.hu
                   </a>
                 </p>
@@ -63,7 +79,10 @@ export default function Footer() {
                       clipRule="evenodd"
                     />
                   </svg>
-                  <a href="tel:+36208005606" className="hover:underline">
+                  <a
+                    href="tel:+36208005606"
+                    className="font-semibold text-site-green-dark underline underline-offset-4 transition hover:text-site-green-hover"
+                  >
                     +36 20 800 56 06
                   </a>
                 </p>
@@ -73,7 +92,7 @@ export default function Footer() {
                     href="https://www.facebook.com/profile.php?id=100083082863561"
                     target="_blank"
                     rel="noreferrer"
-                    className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-[#3b5998] text-white shadow transition hover:brightness-95"
+                    className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-[#3b5998] text-white shadow transition hover:scale-105 hover:brightness-95 focus:outline-none focus:ring-2 focus:ring-site-green focus:ring-offset-2"
                     aria-label="Facebook oldal"
                   >
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512" className="h-4 w-4" fill="currentColor">
@@ -85,7 +104,7 @@ export default function Footer() {
                     href="https://www.instagram.com/bakony.kincse.biokerteszet/"
                     target="_blank"
                     rel="noreferrer"
-                    className="inline-flex h-11 w-11 items-center justify-center rounded-full text-white transition hover:brightness-95"
+                    className="inline-flex h-11 w-11 items-center justify-center rounded-full text-white transition hover:scale-105 hover:brightness-95 focus:outline-none focus:ring-2 focus:ring-site-green focus:ring-offset-2"
                     aria-label="Instagram oldal"
                   >
                     <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" className="h-11 w-11">
@@ -125,10 +144,18 @@ export default function Footer() {
               </h2>
 
               <div className="space-y-3 text-center text-site-text md:text-left">
-                <NavLink to="/adatkezelesi-tajekoztato" className="block hover:underline">
+                <NavLink
+                  to={ROUTES.privacyPolicy}
+                  onClick={scrollToTopOnCurrentPage(ROUTES.privacyPolicy)}
+                  className="block font-semibold text-site-green-dark underline underline-offset-4 transition hover:text-site-green-hover"
+                >
                   Adatkezelési tájékoztató
                 </NavLink>
-                <NavLink to="/altalanos-szerzodesi-feltetelek" className="block hover:underline">
+                <NavLink
+                  to={ROUTES.terms}
+                  onClick={scrollToTopOnCurrentPage(ROUTES.terms)}
+                  className="block font-semibold text-site-green-dark underline underline-offset-4 transition hover:text-site-green-hover"
+                >
                   Általános Szerződési Feltételek
                 </NavLink>
 
@@ -157,7 +184,7 @@ export default function Footer() {
         <div className="text-sm">
           Készítette:{" "}
           <a
-            className="font-semibold hover:underline"
+            className="font-semibold underline underline-offset-4 transition hover:text-white"
             href="https://www.facebook.com/profile.php?id=100012648488859"
             target="_blank"
             rel="noreferrer"

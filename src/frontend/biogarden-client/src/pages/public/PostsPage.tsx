@@ -48,8 +48,6 @@ export default function PostsPage() {
         setHasError(false);
 
         const url = `${API_BASE_URL}/api/posts`;
-        console.log("Fetching posts from:", url);
-
         const response = await fetch(url);
 
         if (!response.ok) {

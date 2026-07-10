@@ -108,7 +108,7 @@ export default function Navbar({
 
       <header
         className={[
-          "fixed inset-x-0 top-0 z-50 w-full backdrop-blur transition-all duration-300",
+          "sticky inset-x-0 top-0 z-50 w-full backdrop-blur transition-all duration-300",
           isScrolled
             ? "bg-gradient-to-b from-site-surface/95 to-site-surface-soft/95 shadow-md"
             : "bg-white/95 shadow-sm",
@@ -368,7 +368,6 @@ className="inline-flex items-center text-[0.95rem] lg:text-base uppercase tracki
         </div>
       </header>
 
-      <div aria-hidden className={isScrolled ? "h-20" : "h-24"} />
     </>
   );
 }

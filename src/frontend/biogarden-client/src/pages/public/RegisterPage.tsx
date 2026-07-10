@@ -122,11 +122,11 @@ export default function RegisterPage() {
             />
             <span>
               Elolvastam és elfogadom az{" "}
-              <Link to="/altalanos-szerzodesi-feltetelek" className="font-semibold text-site-green-dark hover:underline">
+              <Link to={ROUTES.terms} className="font-semibold text-site-green-dark hover:underline">
                 Általános Szerződési Feltételeket
               </Link>{" "}
               és az{" "}
-              <Link to="/adatkezelesi-tajekoztato" className="font-semibold text-site-green-dark hover:underline">
+              <Link to={ROUTES.privacyPolicy} className="font-semibold text-site-green-dark hover:underline">
                 Adatkezelési tájékoztatót
               </Link>.
             </span>
