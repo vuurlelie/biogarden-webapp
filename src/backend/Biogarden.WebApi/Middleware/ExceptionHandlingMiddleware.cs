@@ -1,4 +1,4 @@
-﻿using System.Net;
+using System.Net;
 using System.Text.Json;
 using Biogarden.WebApi.Contracts;
 
@@ -21,6 +21,16 @@ public sealed class ExceptionHandlingMiddleware
         }
         catch (Exception exception)
         {
+            if (exception is OperationCanceledException && context.RequestAborted.IsCancellationRequested)
+            {
+                if (!context.Response.HasStarted)
+                {
+                    context.Response.StatusCode = StatusCodes.Status499ClientClosedRequest;
+                }
+
+                return;
+            }
+
             await HandleExceptionAsync(context, exception);
         }
     }

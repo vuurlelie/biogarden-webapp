@@ -21,22 +21,22 @@ export default function MainLayout() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-white text-site-text">
-        <ScrollToTop />
+    <div className="flex min-h-screen flex-col bg-white text-site-text">
+      <ScrollToTop />
 
-        <Navbar
+      <Navbar
         isAuthenticated={isAuthenticated}
         isAdmin={isAdmin}
         cartItemCount={cartItemCount}
-        />
+      />
 
-        <main className="flex-1">
+      <main className="relative z-10 flex-1 shadow-[0_12px_30px_rgba(48,55,43,0.14)]">
         <Outlet />
-        </main>
+      </main>
 
-        <BackToTopBtn />
-      
-        <Footer />
+      <BackToTopBtn />
+
+      <Footer />
     </div>
   );
 }

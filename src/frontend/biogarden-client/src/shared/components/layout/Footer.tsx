@@ -18,7 +18,7 @@ export default function Footer() {
     <>
       <footer
         id="contact"
-        className="w-full border-t border-site-footer-border bg-site-footer pt-10 pb-10 shadow-[0_-16px_36px_rgba(48,55,43,0.08)]"
+        className="w-full border-t border-site-footer-border bg-site-footer pt-10 pb-10"
       >
         <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="grid gap-10 lg:grid-cols-4">

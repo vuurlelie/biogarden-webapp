@@ -34,7 +34,7 @@ export default function HomePage() {
       </div>
 
       {/* BANNER */}
-      <div className="w-full px-0 mb-8 shadow-lg">
+      <div className="w-full px-0 shadow-lg">
         <img
           className="w-full h-auto"
           src={actual}

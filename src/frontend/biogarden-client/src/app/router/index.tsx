@@ -40,7 +40,7 @@ const AdminPostsPage = lazy(() => import("../../pages/admin/AdminPostsPage"));
 const AdminAccountsPage = lazy(() => import("../../pages/admin/AdminAccountsPage"));
 
 const pageLoader = (
-  <div className="mx-auto grid min-h-[18rem] w-full max-w-7xl place-items-center px-4 py-12 text-center text-site-muted">
+  <div className="grid min-h-[14rem] w-full place-items-center bg-site-surface-soft px-4 py-10 text-center text-site-muted">
     Betöltés...
   </div>
 );

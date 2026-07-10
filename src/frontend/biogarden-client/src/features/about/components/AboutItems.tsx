@@ -1,6 +1,6 @@
 export default function AboutItems({ bemutatokep }: { bemutatokep: string }) {
   return (
-    <section id="about" className="relative bg-white overflow-hidden mt-16 mb-8 shadow-lg">
+    <section id="about" className="relative mt-16 overflow-hidden bg-white shadow-lg">
       <div className="relative max-w-6xl mx-auto">
         <div className="relative z-10 pb-10 bg-white lg:max-w-2xl lg:w-full">
           <svg

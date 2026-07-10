@@ -225,12 +225,6 @@ export default function ProductDetailsPage() {
               </p>
             )}
 
-            <p className="mt-6 text-sm italic leading-6 text-site-muted">
-              Termékeink személyes átvétellel rendelhetők meg. A házhozszállításra
-              alkalmas termékekről és az átvétel részleteiről a Kapcsolat résznél
-              megadott elérhetőségeinken lehet egyeztetni.
-            </p>
-
             <div className="mt-7 flex flex-wrap items-center gap-3">
               <label className="flex items-center gap-2 text-sm font-semibold text-site-heading">
                 Mennyiség
