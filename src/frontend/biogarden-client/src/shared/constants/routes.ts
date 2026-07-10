@@ -1,6 +1,8 @@
 export const ROUTES = {
   home: "/",
   about: "/rolunk",
+  privacyPolicy: "/adatkezelesi-tajekoztato",
+  terms: "/altalanos-szerzodesi-feltetelek",
 
   products: "/termekek",
   productDetails: "/termekek/:productId",

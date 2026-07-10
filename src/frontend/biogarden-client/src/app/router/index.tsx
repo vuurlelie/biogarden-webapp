@@ -11,6 +11,8 @@ import AdminRoute from "./AdminRoute";
 // pages
 import HomePage from "../../pages/public/HomePage";
 import AboutPage from "../../pages/public/AboutPage";
+import PrivacyPolicyPage from "../../pages/public/PrivacyPolicyPage";
+import TermsPage from "../../pages/public/TermsPage";
 import ProductsPage from "../../pages/public/ProductsPage";
 import ProductDetailsPage from "../../pages/public/ProductDetailsPage";
 import PostsPage from "../../pages/public/PostsPage";
@@ -44,6 +46,8 @@ export const router = createBrowserRouter([
     children: [
       { index: true, element: <HomePage /> },
       { path: ROUTES.about.slice(1), element: <AboutPage /> },
+      { path: ROUTES.privacyPolicy.slice(1), element: <PrivacyPolicyPage /> },
+      { path: ROUTES.terms.slice(1), element: <TermsPage /> },
       { path: ROUTES.products.slice(1), element: <ProductsPage /> },
       { path: "termekek/:productId", element: <ProductDetailsPage /> },
       { path: "tudastar", element: <PostsPage /> },
