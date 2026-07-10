@@ -1,6 +1,5 @@
 using Biogarden.BusinessLogic.Abstractions;
 using Biogarden.BusinessLogic.DTOs.Auth;
-using Biogarden.BusinessLogic.Models.Email;
 using Biogarden.BusinessLogic.Options;
 using Biogarden.DataAccess.Entities;
 using Biogarden.DataAccess.Enums;
@@ -15,17 +14,20 @@ public class AuthService : IAuthService
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly ITokenService _tokenService;
     private readonly IEmailService _emailService;
+    private readonly IEmailTemplateService _emailTemplateService;
     private readonly AuthEmailOptions _authEmailOptions;
 
     public AuthService(
         UserManager<ApplicationUser> userManager,
         ITokenService tokenService,
         IEmailService emailService,
+        IEmailTemplateService emailTemplateService,
         IOptions<AuthEmailOptions> authEmailOptions)
     {
         _userManager = userManager;
         _tokenService = tokenService;
         _emailService = emailService;
+        _emailTemplateService = emailTemplateService;
         _authEmailOptions = authEmailOptions.Value;
     }
 
@@ -176,27 +178,11 @@ public class AuthService : IAuthService
 
         var token = await _userManager.GenerateEmailConfirmationTokenAsync(user);
         var confirmationUrl = BuildEmailConfirmationUrl(user.Id, token);
+        var message = _emailTemplateService.BuildEmailConfirmationMessage(
+            user.Email,
+            confirmationUrl);
 
-        await _emailService.SendAsync(new EmailMessage
-        {
-            To = user.Email,
-            Subject = "Email cím megerősítése - Bakony Kincse Biokertészet",
-            PlainTextBody = $"""
-                Kedves Vásárlónk!
-
-                Köszönjük a regisztrációt. A fiókod aktiválásához kérjük, nyisd meg az alábbi linket:
-
-                {confirmationUrl}
-
-                Ha nem te regisztráltál, ezt az üzenetet nyugodtan figyelmen kívül hagyhatod.
-                """,
-            HtmlBody = $"""
-                <p>Kedves Vásárlónk!</p>
-                <p>Köszönjük a regisztrációt. A fiókod aktiválásához kérjük, nyisd meg az alábbi linket:</p>
-                <p><a href="{confirmationUrl}">Email cím megerősítése</a></p>
-                <p>Ha nem te regisztráltál, ezt az üzenetet nyugodtan figyelmen kívül hagyhatod.</p>
-                """
-        });
+        await _emailService.SendAsync(message);
     }
 
     private string BuildEmailConfirmationUrl(Guid userId, string token)

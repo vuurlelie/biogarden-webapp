@@ -51,6 +51,9 @@ public static class ServiceCollectionExtensions
         services.Configure<AuthEmailOptions>(
             configuration.GetSection(AuthEmailOptions.SectionName));
 
+        services.Configure<EmailBrandingOptions>(
+            configuration.GetSection(EmailBrandingOptions.SectionName));
+
         var jwtSettings = configuration
             .GetSection(JwtSettings.SectionName)
             .Get<JwtSettings>()
@@ -115,6 +118,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IUserService, UserService>();
         services.AddScoped<ITokenService, JwtTokenService>();
         services.AddScoped<IEmailService, SmtpEmailService>();
+        services.AddScoped<IEmailTemplateService, EmailTemplateService>();
 
         services.AddScoped<ICartService, CartService>();
         services.AddScoped<IOrderService, OrderService>();

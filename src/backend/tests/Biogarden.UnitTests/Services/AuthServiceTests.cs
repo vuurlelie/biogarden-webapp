@@ -18,6 +18,7 @@ public sealed class AuthServiceTests
     private readonly Mock<UserManager<ApplicationUser>> _userManager;
     private readonly Mock<ITokenService> _tokenService = new(MockBehavior.Strict);
     private readonly Mock<IEmailService> _emailService = new(MockBehavior.Strict);
+    private readonly Mock<IEmailTemplateService> _emailTemplateService = new(MockBehavior.Strict);
     private readonly AuthService _service;
 
     public AuthServiceTests()
@@ -34,6 +35,7 @@ public sealed class AuthServiceTests
             _userManager.Object,
             _tokenService.Object,
             _emailService.Object,
+            _emailTemplateService.Object,
             Options.Create(new AuthEmailOptions
             {
                 ClientBaseUrl = "https://bakonykincse.hu",
@@ -60,13 +62,24 @@ public sealed class AuthServiceTests
             .Setup(manager => manager.GenerateEmailConfirmationTokenAsync(
                 It.Is<ApplicationUser>(user => user.Email == "vasarlo@example.com")))
             .ReturnsAsync("token value");
+        _emailTemplateService
+            .Setup(service => service.BuildEmailConfirmationMessage(
+                "vasarlo@example.com",
+                It.Is<string>(url =>
+                    url.Contains("https://bakonykincse.hu/email-megerosites")
+                    && url.Contains("token%20value"))))
+            .Returns(new EmailMessage
+            {
+                To = "vasarlo@example.com",
+                Subject = "Email cím megerősítése - Bakony Kincse Biokertészet",
+                PlainTextBody = "confirmation email",
+                HtmlBody = "<p>confirmation email</p>"
+            });
         _emailService
             .Setup(service => service.SendAsync(
                 It.Is<EmailMessage>(message =>
                     message.To == "vasarlo@example.com"
-                    && message.Subject.Contains("Email cím megerősítése")
-                    && message.PlainTextBody!.Contains("https://bakonykincse.hu/email-megerosites")
-                    && message.PlainTextBody.Contains("token%20value")),
+                    && message.Subject.Contains("Email cím megerősítése")),
                 It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
@@ -78,6 +91,7 @@ public sealed class AuthServiceTests
         });
 
         _emailService.VerifyAll();
+        _emailTemplateService.VerifyAll();
     }
 
     [Fact]
