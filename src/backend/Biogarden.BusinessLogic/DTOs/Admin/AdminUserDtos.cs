@@ -23,6 +23,8 @@ public sealed class AdminUserDto
 
     public bool IsAdmin { get; init; }
 
+    public bool EmailConfirmed { get; init; }
+
     public bool IsDeactivated { get; init; }
 
     public bool IsAnonymized { get; init; }

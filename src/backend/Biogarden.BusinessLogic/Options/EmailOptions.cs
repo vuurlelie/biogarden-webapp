@@ -14,6 +14,7 @@ public sealed class EmailOptions
     public string Username { get; init; } = string.Empty;
     public string Password { get; init; } = string.Empty;
     public bool UseSsl { get; init; } = true;
+    public string DisabledDeliveryPreviewDirectory { get; init; } = "email-previews";
 
     public bool IsConfigured =>
         Enabled

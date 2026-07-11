@@ -90,6 +90,29 @@ public sealed class AdminUserService : IAdminUserService
         return await BuildUserDtoAsync(user.Id, cancellationToken);
     }
 
+    public async Task<AdminUserDto> ConfirmEmailAsync(Guid userId, CancellationToken cancellationToken = default)
+    {
+        var user = await FindUserAsync(userId, cancellationToken);
+
+        if (user.AnonymizedAtUtc is not null || user.RecordStatus == RecordStatus.Deleted)
+        {
+            throw new InvalidOperationException("Törölt vagy anonimizált fiók email címe nem erősíthető meg.");
+        }
+
+        if (!user.EmailConfirmed)
+        {
+            user.EmailConfirmed = true;
+            var result = await _userManager.UpdateAsync(user);
+
+            if (!result.Succeeded)
+            {
+                throw new InvalidOperationException(string.Join(", ", result.Errors.Select(error => error.Description)));
+            }
+        }
+
+        return await BuildUserDtoAsync(user.Id, cancellationToken);
+    }
+
     public async Task<AdminUserDto> DeactivateAsync(Guid userId, Guid currentAdminId, CancellationToken cancellationToken = default)
     {
         if (userId == currentAdminId)
@@ -271,6 +294,7 @@ public sealed class AdminUserService : IAdminUserService
             TaxNumber = user.TaxNumber,
             Roles = roles.ToList(),
             IsAdmin = roles.Any(role => string.Equals(role, "Admin", StringComparison.OrdinalIgnoreCase)),
+            EmailConfirmed = user.EmailConfirmed,
             IsDeactivated = user.DeactivatedAtUtc is not null,
             IsAnonymized = user.AnonymizedAtUtc is not null,
             CreatedAt = user.CreatedAt,

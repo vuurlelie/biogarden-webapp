@@ -158,13 +158,13 @@ public sealed class EmailTemplateService : IEmailTemplateService
                 <div style="width:54px;height:54px;border-radius:50%;background:#eef3e7;border:1px solid #d9dfd1;color:#6f8b22;font-size:20px;font-weight:700;line-height:54px;text-align:center;">BK</div>
                 """
             : $"""
-                <img src="{HtmlAttributeEncode(_brandingOptions.LogoUrl)}" width="54" height="54" alt="{HtmlAttributeEncode(_brandingOptions.CompanyName)}" style="display:block;border:0;outline:none;text-decoration:none;max-width:54px;height:auto;">
+                <img src="{HtmlAttributeEncode(_brandingOptions.LogoUrl)}" width="92" alt="{HtmlAttributeEncode(_brandingOptions.CompanyName)}" style="display:block;border:0;outline:none;text-decoration:none;max-width:92px;height:auto;">
                 """;
 
         return $$"""
             <table role="presentation" cellspacing="0" cellpadding="0" width="100%">
               <tr>
-                <td width="66" valign="top">{{logoMarkup}}</td>
+                <td width="104" valign="top">{{logoMarkup}}</td>
                 <td valign="top" style="padding-left:14px;">
                   <p style="margin:0 0 5px;color:#263124;font-size:16px;line-height:1.4;font-weight:700;">Üdvözlettel:<br>{{HtmlEncode(_brandingOptions.CompanyName)}}</p>
                   <p style="margin:0;color:#65705f;font-size:13px;line-height:1.6;">

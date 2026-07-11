@@ -1,5 +1,7 @@
 using System.Net;
 using System.Net.Mail;
+using System.Text;
+using System.Text.RegularExpressions;
 using Biogarden.BusinessLogic.Abstractions;
 using Biogarden.BusinessLogic.Models.Email;
 using Biogarden.BusinessLogic.Options;
@@ -29,8 +31,10 @@ public sealed class SmtpEmailService : IEmailService
 
         if (!_options.Enabled)
         {
+            await WriteDisabledDeliveryPreviewAsync(message, cancellationToken);
+
             _logger.LogInformation(
-                "Email sending is disabled. Skipping email to {Recipient} with subject {Subject}.",
+                "Email sending is disabled. Saved preview for email to {Recipient} with subject {Subject}.",
                 message.To,
                 message.Subject);
 
@@ -96,6 +100,63 @@ public sealed class SmtpEmailService : IEmailService
         }
 
         return smtpClient;
+    }
+
+    private async Task WriteDisabledDeliveryPreviewAsync(
+        EmailMessage message,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(_options.DisabledDeliveryPreviewDirectory))
+        {
+            return;
+        }
+
+        var previewDirectory = Path.GetFullPath(_options.DisabledDeliveryPreviewDirectory);
+        Directory.CreateDirectory(previewDirectory);
+
+        var safeSubject = CreateSafeFileName(message.Subject);
+        var timestamp = DateTime.UtcNow.ToString("yyyyMMdd-HHmmss");
+        var baseFileName = $"{timestamp}-{safeSubject}";
+
+        if (!string.IsNullOrWhiteSpace(message.HtmlBody))
+        {
+            var htmlPath = Path.Combine(previewDirectory, $"{baseFileName}.html");
+            await File.WriteAllTextAsync(
+                htmlPath,
+                message.HtmlBody,
+                Encoding.UTF8,
+                cancellationToken);
+
+            var latestHtmlPath = Path.Combine(previewDirectory, "latest.html");
+            await File.WriteAllTextAsync(
+                latestHtmlPath,
+                message.HtmlBody,
+                Encoding.UTF8,
+                cancellationToken);
+        }
+
+        if (!string.IsNullOrWhiteSpace(message.PlainTextBody))
+        {
+            var textPath = Path.Combine(previewDirectory, $"{baseFileName}.txt");
+            await File.WriteAllTextAsync(
+                textPath,
+                message.PlainTextBody,
+                Encoding.UTF8,
+                cancellationToken);
+
+            var latestTextPath = Path.Combine(previewDirectory, "latest.txt");
+            await File.WriteAllTextAsync(
+                latestTextPath,
+                message.PlainTextBody,
+                Encoding.UTF8,
+                cancellationToken);
+        }
+    }
+
+    private static string CreateSafeFileName(string value)
+    {
+        var safeValue = Regex.Replace(value.ToLowerInvariant(), "[^a-z0-9]+", "-");
+        return safeValue.Trim('-');
     }
 
     private static void ValidateMessage(EmailMessage message)

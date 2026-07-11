@@ -31,13 +31,13 @@ public class AuthService : IAuthService
         _authEmailOptions = authEmailOptions.Value;
     }
 
-    public async Task RegisterAsync(RegisterRequestDto registerRequestDto)
+    public async Task<AuthOperationResultDto> RegisterAsync(RegisterRequestDto registerRequestDto)
     {
         await DeleteExpiredUnconfirmedUsersAsync();
 
         if (registerRequestDto.Password != registerRequestDto.ConfirmPassword)
         {
-            throw new ArgumentException("A jelszavak nem egyeznek.");
+            return AuthOperationResultDto.Failure("A jelszavak nem egyeznek.");
         }
 
         var normalizedEmail = registerRequestDto.Email.Trim();
@@ -46,7 +46,7 @@ public class AuthService : IAuthService
 
         if (existingUser is not null)
         {
-            throw new InvalidOperationException(
+            return AuthOperationResultDto.Failure(
                 "Ezzel az email címmel már létezik felhasználó.");
         }
 
@@ -67,13 +67,15 @@ public class AuthService : IAuthService
                 ", ",
                 result.Errors.Select(error => error.Description));
 
-            throw new InvalidOperationException(errors);
+            return AuthOperationResultDto.Failure(errors);
         }
 
         await SendEmailConfirmationAsync(user);
+
+        return AuthOperationResultDto.Success();
     }
 
-    public async Task<AuthResponseDto> LoginAsync(LoginRequestDto loginRequestDto)
+    public async Task<LoginResultDto> LoginAsync(LoginRequestDto loginRequestDto)
     {
         var normalizedEmail = loginRequestDto.Email.Trim();
 
@@ -81,14 +83,14 @@ public class AuthService : IAuthService
 
         if (user is null)
         {
-            throw new UnauthorizedAccessException("Hibás email vagy jelszó.");
+            return LoginResultDto.Failure("Hibás email vagy jelszó.");
         }
 
         if (user.RecordStatus == RecordStatus.Deleted
             || user.DeactivatedAtUtc is not null
             || user.AnonymizedAtUtc is not null)
         {
-            throw new UnauthorizedAccessException("Ez a fiók jelenleg nem aktív.");
+            return LoginResultDto.Failure("Ez a fiók jelenleg nem aktív.");
         }
 
         var passwordValid = await _userManager.CheckPasswordAsync(
@@ -97,28 +99,29 @@ public class AuthService : IAuthService
 
         if (!passwordValid)
         {
-            throw new UnauthorizedAccessException("Hibás email vagy jelszó.");
+            return LoginResultDto.Failure("Hibás email vagy jelszó.");
         }
 
         if (!user.EmailConfirmed)
         {
-            throw new UnauthorizedAccessException(
+            return LoginResultDto.Failure(
                 "A fiók még nincs megerősítve. Kérjük, ellenőrizd az email fiókodat.");
         }
 
         var roles = await _userManager.GetRolesAsync(user);
         var token = await _tokenService.CreateTokenAsync(user);
 
-        return new AuthResponseDto
-        {
-            UserId = user.Id,
-            Email = user.Email ?? string.Empty,
-            Roles = roles,
-            Token = token
-        };
+        return LoginResultDto.Success(
+            new AuthResponseDto
+            {
+                UserId = user.Id,
+                Email = user.Email ?? string.Empty,
+                Roles = roles,
+                Token = token
+            });
     }
 
-    public async Task ConfirmEmailAsync(ConfirmEmailRequestDto confirmEmailRequestDto)
+    public async Task<AuthOperationResultDto> ConfirmEmailAsync(ConfirmEmailRequestDto confirmEmailRequestDto)
     {
         var user = await _userManager.FindByIdAsync(
             confirmEmailRequestDto.UserId.ToString());
@@ -127,12 +130,12 @@ public class AuthService : IAuthService
             || user.RecordStatus == RecordStatus.Deleted
             || user.AnonymizedAtUtc is not null)
         {
-            throw new InvalidOperationException("Az email megerősítés nem sikerült.");
+            return AuthOperationResultDto.Failure("Az email megerősítés nem sikerült.");
         }
 
         if (user.EmailConfirmed)
         {
-            return;
+            return AuthOperationResultDto.Success();
         }
 
         var result = await _userManager.ConfirmEmailAsync(
@@ -141,8 +144,10 @@ public class AuthService : IAuthService
 
         if (!result.Succeeded)
         {
-            throw new InvalidOperationException("Az email megerősítés nem sikerült.");
+            return AuthOperationResultDto.Failure("Az email megerősítés nem sikerült.");
         }
+
+        return AuthOperationResultDto.Success();
     }
 
     public async Task ResendEmailConfirmationAsync(

@@ -51,6 +51,30 @@ public sealed class AdminUserServiceTests
     }
 
     [Fact]
+    public async Task ConfirmEmailAsync_WhenUserIsAnonymized_ThrowsBeforeUpdate()
+    {
+        var userId = Guid.NewGuid();
+        var users = CreateMockDbSet([
+            new ApplicationUser
+            {
+                Id = userId,
+                EmailConfirmed = false,
+                AnonymizedAtUtc = DateTime.UtcNow
+            }
+        ]);
+
+        _userManager
+            .SetupGet(manager => manager.Users)
+            .Returns(users.Object);
+
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _service.ConfirmEmailAsync(userId));
+
+        Assert.Equal("Törölt vagy anonimizált fiók email címe nem erősíthető meg.", exception.Message);
+        _userManager.Verify(manager => manager.UpdateAsync(It.IsAny<ApplicationUser>()), Times.Never);
+    }
+
+    [Fact]
     public async Task EraseAsync_WhenCurrentAdminTargetsSelf_ThrowsBeforeUserLookup()
     {
         var currentAdminId = Guid.NewGuid();

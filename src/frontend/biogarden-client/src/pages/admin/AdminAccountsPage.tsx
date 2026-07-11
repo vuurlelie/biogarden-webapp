@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   completeErasureRequest,
+  confirmAdminUserEmail,
   deactivateAdminUser,
   eraseAdminUser,
   getAdminUsers,
@@ -85,6 +86,9 @@ function UserCard({ user, onUpdate, onErase, onMessage }: {
         <div className="flex flex-wrap gap-2">
           {isCurrentUser && <span className="rounded-full border border-site-green-dark bg-white px-2.5 py-1 text-xs font-bold text-site-green-dark">Saját fiók</span>}
           {user.isAdmin && <span className="rounded-full bg-site-green px-2.5 py-1 text-xs font-bold text-white">Admin</span>}
+          <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${user.emailConfirmed ? "bg-site-surface-soft text-site-green-dark" : "bg-site-danger-soft text-site-danger"}`}>
+            {user.emailConfirmed ? "Email megerősítve" : "Email nincs megerősítve"}
+          </span>
           {user.isDeactivated && <span className="rounded-full bg-site-danger-soft px-2.5 py-1 text-xs font-bold text-site-danger">Inaktív</span>}
           {user.isAnonymized && <span className="rounded-full bg-site-surface-soft px-2.5 py-1 text-xs font-bold text-site-muted">Anonimizált</span>}
         </div>
@@ -157,6 +161,19 @@ function UserCard({ user, onUpdate, onErase, onMessage }: {
         >
           {user.isAdmin ? "Admin elvétele" : "Adminná tétel"}
         </button>
+        {!user.emailConfirmed && (
+          <button
+            type="button"
+            disabled={busy !== null || user.isAnonymized}
+            onClick={() => {
+              if (!window.confirm("Biztosan megerősíted a felhasználó email címét? Csak akkor használd, ha a felhasználó a saját email címéről kérte.")) return;
+              void run("confirm-email", () => confirmAdminUserEmail(user.id), "Az email cím megerősítve.");
+            }}
+            className="rounded-sm border border-site-green-dark bg-white px-4 py-2.5 text-sm font-semibold text-site-green-dark disabled:opacity-60"
+          >
+            Email megerősítése
+          </button>
+        )}
         {user.isDeactivated ? (
           <button
             type="button"

@@ -69,6 +69,7 @@ public static class ServiceCollectionExtensions
             options.Password.RequireNonAlphanumeric = false;
 
             options.User.RequireUniqueEmail = true;
+            options.SignIn.RequireConfirmedEmail = true;
         })
         .AddEntityFrameworkStores<AppDbContext>()
         .AddDefaultTokenProviders();

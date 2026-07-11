@@ -30,7 +30,7 @@ export default function MainLayout() {
         cartItemCount={cartItemCount}
       />
 
-      <main className="relative z-10 flex-1 shadow-[0_12px_30px_rgba(48,55,43,0.14)]">
+      <main className="relative z-20 flex-1 shadow-[0_12px_30px_rgba(48,55,43,0.14)]">
         <Outlet />
       </main>
 

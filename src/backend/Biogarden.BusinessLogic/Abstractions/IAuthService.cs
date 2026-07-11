@@ -4,8 +4,8 @@ namespace Biogarden.BusinessLogic.Abstractions;
 
 public interface IAuthService
 {
-    Task RegisterAsync(RegisterRequestDto request);
-    Task<AuthResponseDto> LoginAsync(LoginRequestDto loginRequestDto);
-    Task ConfirmEmailAsync(ConfirmEmailRequestDto confirmEmailRequestDto);
+    Task<AuthOperationResultDto> RegisterAsync(RegisterRequestDto request);
+    Task<LoginResultDto> LoginAsync(LoginRequestDto loginRequestDto);
+    Task<AuthOperationResultDto> ConfirmEmailAsync(ConfirmEmailRequestDto confirmEmailRequestDto);
     Task ResendEmailConfirmationAsync(ResendEmailConfirmationRequestDto resendEmailConfirmationRequestDto);
 }

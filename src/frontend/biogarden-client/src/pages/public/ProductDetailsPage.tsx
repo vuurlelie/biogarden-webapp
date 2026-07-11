@@ -46,6 +46,7 @@ export default function ProductDetailsPage() {
   const [cartMessage, setCartMessage] = useState<string | null>(null);
   const [quantity, setQuantity] = useState(1);
   const [availableToAdd, setAvailableToAdd] = useState(0);
+  const [isImageOpen, setIsImageOpen] = useState(false);
   const { addItem } = useCart();
 
   useEffect(() => {
@@ -92,6 +93,17 @@ export default function ProductDetailsPage() {
       shouldIgnoreResult = true;
     };
   }, [productId]);
+
+  useEffect(() => {
+    if (!isImageOpen) return;
+
+    function closeOnEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") setIsImageOpen(false);
+    }
+
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [isImageOpen]);
 
   if (isLoading) {
     return (
@@ -163,17 +175,23 @@ export default function ProductDetailsPage() {
         </span>
       </nav>
 
-      <article className="mt-4 overflow-hidden rounded-sm border border-site-border bg-white shadow-lg">
-        <div className="grid gap-8 p-4 sm:p-6 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)] lg:gap-12 lg:p-10">
-          <div className="self-start rounded-sm bg-site-surface p-3">
+      <article className="mt-8 grid gap-8 lg:grid-cols-2 lg:items-start">
+        <div className="min-w-0 self-start">
+          <button
+            type="button"
+            onClick={() => setIsImageOpen(true)}
+            className="block w-full max-w-[420px] cursor-zoom-in rounded-lg border border-gray-200 bg-white p-2 text-left shadow-lg focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-site-green"
+            aria-label="Termékkép nagyítása"
+          >
             <img
               src={getProductImageUrl(product.image)}
               alt={product.name}
-              className="aspect-square w-full rounded-sm object-cover"
+              className="aspect-square max-h-[420px] w-full max-w-[420px] cursor-zoom-in rounded-sm object-cover"
             />
-          </div>
+          </button>
+        </div>
 
-          <div className="flex min-w-0 flex-col py-1">
+        <div className="flex min-w-0 flex-col py-1">
             <Link
               to={categoryUrl}
               className="w-fit text-xs font-bold uppercase tracking-[0.16em] text-site-green-dark hover:underline"
@@ -196,7 +214,7 @@ export default function ProductDetailsPage() {
             </div>
 
             {product.description && (
-              <p className="mt-5 whitespace-pre-line text-justify leading-7 text-site-text">
+              <p className="mt-5 whitespace-pre-line text-justify text-base italic leading-7 text-site-text">
                 {product.description}
               </p>
             )}
@@ -260,9 +278,37 @@ export default function ProductDetailsPage() {
             </div>
             {product.available && availableToAdd === 0 && <p className="mt-3 text-sm font-semibold text-site-danger">A teljes készlet jelenleg más kosarakban van lefoglalva vagy már a kosaradban található.</p>}
             {cartMessage && <p className="mt-3 text-sm font-semibold text-site-green-dark" role="status">{cartMessage}</p>}
-          </div>
         </div>
       </article>
+
+      {isImageOpen && (
+        <div
+          className="fixed inset-0 z-[200] flex items-center justify-center bg-site-heading/80 p-4 pt-28 backdrop-blur-sm sm:p-6 sm:pt-32"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Termékkép nagy nézetben"
+          onClick={() => setIsImageOpen(false)}
+        >
+          <div
+            className="relative inline-flex max-h-[calc(100vh-9rem)] max-w-[94vw] rounded-sm border border-white/35 bg-white p-2 shadow-2xl sm:max-h-[calc(100vh-10rem)]"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <button
+              type="button"
+              onClick={() => setIsImageOpen(false)}
+              className="absolute right-3 top-3 z-10 grid h-10 w-10 place-items-center rounded-full bg-white/95 text-2xl font-bold leading-none text-site-heading shadow-md transition hover:bg-site-surface-soft focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-site-green"
+              aria-label="Kép bezárása"
+            >
+              ×
+            </button>
+            <img
+              src={getProductImageUrl(product.image)}
+              alt={product.name}
+              className="max-h-[calc(100vh-10rem)] max-w-[calc(94vw-1rem)] rounded-sm object-contain sm:max-h-[calc(100vh-11rem)]"
+            />
+          </div>
+        </div>
+      )}
     </main>
   );
 }

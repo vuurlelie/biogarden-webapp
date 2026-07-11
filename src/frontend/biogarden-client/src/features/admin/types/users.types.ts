@@ -20,6 +20,7 @@ export type AdminUser = {
   taxNumber: string | null;
   roles: string[];
   isAdmin: boolean;
+  emailConfirmed: boolean;
   isDeactivated: boolean;
   isAnonymized: boolean;
   createdAt: string;

@@ -42,6 +42,15 @@ export async function setAdminRole(userId: string, isAdmin: boolean): Promise<Ad
   return response.json() as Promise<AdminUser>;
 }
 
+export async function confirmAdminUserEmail(userId: string): Promise<AdminUser> {
+  const response = await fetch(`${API_BASE_URL}/api/admin/users/${userId}/confirm-email`, {
+    method: "POST",
+    headers: headers(),
+  });
+  await ensure(response);
+  return response.json() as Promise<AdminUser>;
+}
+
 export async function deactivateAdminUser(userId: string): Promise<AdminUser> {
   const response = await fetch(`${API_BASE_URL}/api/admin/users/${userId}/deactivate`, {
     method: "POST",

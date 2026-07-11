@@ -25,6 +25,7 @@ export default function LoginPage() {
   const [infoMessage, setInfoMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isResendingConfirmation, setIsResendingConfirmation] = useState(false);
+  const [showResendConfirmation, setShowResendConfirmation] = useState(registrationRequiresConfirmation);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -43,11 +44,15 @@ export default function LoginPage() {
       const from = (location.state as LoginLocationState | null)?.from;
       navigate(from ?? ROUTES.account, { replace: true });
     } catch (submitError) {
-      setError(
-        submitError instanceof Error
-          ? submitError.message
-          : "A bejelentkezés nem sikerült.",
-      );
+      const message = submitError instanceof Error
+        ? submitError.message
+        : "A bejelentkezés nem sikerült.";
+
+      if (message.toLocaleLowerCase("hu-HU").includes("meger")) {
+        setShowResendConfirmation(true);
+      }
+
+      setError(message);
     } finally {
       setIsSubmitting(false);
     }
@@ -78,7 +83,7 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="bg-site-surface-soft px-4 py-10 sm:py-14">
+    <main className="bg-site-surface-soft px-4 pb-10 pt-6 sm:pb-14 sm:pt-8">
       <section className="mx-auto w-full max-w-md rounded-sm border border-site-border bg-white p-6 shadow-lg sm:p-8">
         <div className="text-center">
           <p className="text-xs font-bold uppercase tracking-[0.16em] text-site-green-dark">
@@ -161,16 +166,18 @@ export default function LoginPage() {
           </Link>
         </p>
 
-        <div className="mt-4 text-center text-sm text-site-text">
-          <button
-            type="button"
-            onClick={handleResendConfirmation}
-            disabled={isResendingConfirmation}
-            className="font-semibold text-site-green-dark underline-offset-4 hover:underline disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {isResendingConfirmation ? "Küldés..." : "Megerősítő email újraküldése"}
-          </button>
-        </div>
+        {showResendConfirmation && (
+          <div className="mt-4 text-center text-sm text-site-text">
+            <button
+              type="button"
+              onClick={handleResendConfirmation}
+              disabled={isResendingConfirmation}
+              className="font-semibold text-site-green-dark underline-offset-4 hover:underline disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {isResendingConfirmation ? "Küldés..." : "Megerősítő email újraküldése"}
+            </button>
+          </div>
+        )}
       </section>
     </main>
   );

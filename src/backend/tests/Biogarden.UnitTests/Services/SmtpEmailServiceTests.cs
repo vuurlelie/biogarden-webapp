@@ -9,16 +9,35 @@ namespace Biogarden.UnitTests.Services;
 public sealed class SmtpEmailServiceTests
 {
     [Fact]
-    public async Task SendAsync_WhenEmailSendingIsDisabled_DoesNotRequireSmtpConfiguration()
+    public async Task SendAsync_WhenEmailSendingIsDisabled_WritesPreviewWithoutSmtpConfiguration()
     {
-        var service = CreateService(new EmailOptions { Enabled = false });
+        var previewDirectory = Path.Combine(
+            Path.GetTempPath(),
+            "biogarden-email-tests",
+            Guid.NewGuid().ToString("N"));
+
+        var service = CreateService(new EmailOptions
+        {
+            Enabled = false,
+            DisabledDeliveryPreviewDirectory = previewDirectory
+        });
 
         await service.SendAsync(new EmailMessage
         {
             To = "vasarlo@example.com",
             Subject = "Teszt email",
-            PlainTextBody = "Ez egy teszt email."
+            PlainTextBody = "Ez egy teszt email.",
+            HtmlBody = "<p>Ez egy teszt email.</p>"
         });
+
+        var latestHtmlPath = Path.Combine(previewDirectory, "latest.html");
+        var latestTextPath = Path.Combine(previewDirectory, "latest.txt");
+
+        Assert.True(File.Exists(latestHtmlPath));
+        Assert.True(File.Exists(latestTextPath));
+        Assert.Contains(
+            "Ez egy teszt email.",
+            await File.ReadAllTextAsync(latestTextPath));
     }
 
     [Fact]

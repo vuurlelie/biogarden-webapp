@@ -83,19 +83,60 @@ public sealed class AuthServiceTests
                 It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
-        await _service.RegisterAsync(new RegisterRequestDto
+        var result = await _service.RegisterAsync(new RegisterRequestDto
         {
             Email = " vasarlo@example.com ",
             Password = "Password1",
             ConfirmPassword = "Password1"
         });
 
+        Assert.True(result.Succeeded);
         _emailService.VerifyAll();
         _emailTemplateService.VerifyAll();
     }
 
     [Fact]
-    public async Task LoginAsync_WhenPasswordIsValidButEmailIsUnconfirmed_ThrowsBeforeTokenCreation()
+    public async Task RegisterAsync_WhenEmailAlreadyExists_ReturnsFailureWithoutSendingEmail()
+    {
+        _userManager
+            .Setup(manager => manager.FindByEmailAsync("vasarlo@example.com"))
+            .ReturnsAsync(new ApplicationUser { Email = "vasarlo@example.com" });
+
+        var result = await _service.RegisterAsync(new RegisterRequestDto
+        {
+            Email = "vasarlo@example.com",
+            Password = "Password1",
+            ConfirmPassword = "Password1"
+        });
+
+        Assert.False(result.Succeeded);
+        Assert.Equal("Ezzel az email címmel már létezik felhasználó.", result.ErrorMessage);
+        _emailService.Verify(
+            service => service.SendAsync(
+                It.IsAny<EmailMessage>(),
+                It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public async Task RegisterAsync_WhenPasswordsDoNotMatch_ReturnsFailureBeforeUserLookup()
+    {
+        var result = await _service.RegisterAsync(new RegisterRequestDto
+        {
+            Email = "vasarlo@example.com",
+            Password = "Password1",
+            ConfirmPassword = "Password2"
+        });
+
+        Assert.False(result.Succeeded);
+        Assert.Equal("A jelszavak nem egyeznek.", result.ErrorMessage);
+        _userManager.Verify(
+            manager => manager.FindByEmailAsync(It.IsAny<string>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public async Task LoginAsync_WhenPasswordIsValidButEmailIsUnconfirmed_ReturnsFailureBeforeTokenCreation()
     {
         var user = new ApplicationUser
         {
@@ -111,16 +152,46 @@ public sealed class AuthServiceTests
             .Setup(manager => manager.CheckPasswordAsync(user, "Password1"))
             .ReturnsAsync(true);
 
-        var exception = await Assert.ThrowsAsync<UnauthorizedAccessException>(() =>
-            _service.LoginAsync(new LoginRequestDto
-            {
-                Email = "vasarlo@example.com",
-                Password = "Password1"
-            }));
+        var result = await _service.LoginAsync(new LoginRequestDto
+        {
+            Email = "vasarlo@example.com",
+            Password = "Password1"
+        });
 
         Assert.Equal(
             "A fiók még nincs megerősítve. Kérjük, ellenőrizd az email fiókodat.",
-            exception.Message);
+            result.ErrorMessage);
+        Assert.False(result.Succeeded);
+        _tokenService.Verify(
+            service => service.CreateTokenAsync(It.IsAny<ApplicationUser>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public async Task LoginAsync_WhenPasswordIsInvalid_ReturnsGenericFailureBeforeTokenCreation()
+    {
+        var user = new ApplicationUser
+        {
+            Id = Guid.NewGuid(),
+            Email = "vasarlo@example.com",
+            EmailConfirmed = true
+        };
+
+        _userManager
+            .Setup(manager => manager.FindByEmailAsync("vasarlo@example.com"))
+            .ReturnsAsync(user);
+        _userManager
+            .Setup(manager => manager.CheckPasswordAsync(user, "WrongPassword1"))
+            .ReturnsAsync(false);
+
+        var result = await _service.LoginAsync(new LoginRequestDto
+        {
+            Email = "vasarlo@example.com",
+            Password = "WrongPassword1"
+        });
+
+        Assert.False(result.Succeeded);
+        Assert.Equal("Hibás email vagy jelszó.", result.ErrorMessage);
         _tokenService.Verify(
             service => service.CreateTokenAsync(It.IsAny<ApplicationUser>()),
             Times.Never);
@@ -140,6 +211,61 @@ public sealed class AuthServiceTests
             service => service.SendAsync(
                 It.IsAny<EmailMessage>(),
                 It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public async Task ConfirmEmailAsync_WhenTokenIsInvalid_ReturnsFailure()
+    {
+        var user = new ApplicationUser
+        {
+            Id = Guid.NewGuid(),
+            Email = "vasarlo@example.com",
+            EmailConfirmed = false
+        };
+
+        _userManager
+            .Setup(manager => manager.FindByIdAsync(user.Id.ToString()))
+            .ReturnsAsync(user);
+        _userManager
+            .Setup(manager => manager.ConfirmEmailAsync(user, "invalid-token"))
+            .ReturnsAsync(IdentityResult.Failed());
+
+        var result = await _service.ConfirmEmailAsync(new ConfirmEmailRequestDto
+        {
+            UserId = user.Id,
+            Token = "invalid-token"
+        });
+
+        Assert.False(result.Succeeded);
+        Assert.Equal("Az email megerősítés nem sikerült.", result.ErrorMessage);
+    }
+
+    [Fact]
+    public async Task ConfirmEmailAsync_WhenEmailIsAlreadyConfirmed_ReturnsSuccess()
+    {
+        var user = new ApplicationUser
+        {
+            Id = Guid.NewGuid(),
+            Email = "vasarlo@example.com",
+            EmailConfirmed = true
+        };
+
+        _userManager
+            .Setup(manager => manager.FindByIdAsync(user.Id.ToString()))
+            .ReturnsAsync(user);
+
+        var result = await _service.ConfirmEmailAsync(new ConfirmEmailRequestDto
+        {
+            UserId = user.Id,
+            Token = "any-token"
+        });
+
+        Assert.True(result.Succeeded);
+        _userManager.Verify(
+            manager => manager.ConfirmEmailAsync(
+                It.IsAny<ApplicationUser>(),
+                It.IsAny<string>()),
             Times.Never);
     }
 

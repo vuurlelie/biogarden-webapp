@@ -8,6 +8,8 @@ public interface IAdminUserService
 
     Task<AdminUserDto> SetAdminRoleAsync(Guid userId, bool isAdmin, Guid currentAdminId, CancellationToken cancellationToken = default);
 
+    Task<AdminUserDto> ConfirmEmailAsync(Guid userId, CancellationToken cancellationToken = default);
+
     Task<AdminUserDto> DeactivateAsync(Guid userId, Guid currentAdminId, CancellationToken cancellationToken = default);
 
     Task<AdminUserDto> ReactivateAsync(Guid userId, CancellationToken cancellationToken = default);
