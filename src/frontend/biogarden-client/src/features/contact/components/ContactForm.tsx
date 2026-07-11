@@ -9,7 +9,17 @@ const initialForm = {
   message: "",
 };
 
-export default function ContactForm() {
+type ContactFormProps = {
+  className?: string;
+  surfaceClassName?: string;
+  titleId?: string;
+};
+
+export default function ContactForm({
+  className = "",
+  surfaceClassName = "bg-white/65",
+  titleId,
+}: ContactFormProps) {
   const [form, setForm] = useState(initialForm);
   const [success, setSuccess] = useState("");
   const [error, setError] = useState("");
@@ -54,9 +64,9 @@ export default function ContactForm() {
   return (
     <form
       onSubmit={handleSubmit}
-      className="h-full rounded-sm border border-site-footer-border bg-white/65 p-4 shadow-sm sm:p-5"
+      className={`rounded-sm border border-site-footer-border ${surfaceClassName} p-4 shadow-sm sm:p-5 ${className}`}
     >
-      <h2 className="text-sm font-bold uppercase tracking-wider text-site-heading">
+      <h2 id={titleId} className="text-sm font-bold uppercase tracking-wider text-site-heading">
         Írj nekünk
       </h2>
 
