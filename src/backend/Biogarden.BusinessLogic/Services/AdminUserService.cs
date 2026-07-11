@@ -12,11 +12,19 @@ public sealed class AdminUserService : IAdminUserService
 {
     private readonly IAppDbContext _databaseContext;
     private readonly UserManager<ApplicationUser> _userManager;
+    private readonly IEmailService _emailService;
+    private readonly IEmailTemplateService _emailTemplateService;
 
-    public AdminUserService(IAppDbContext databaseContext, UserManager<ApplicationUser> userManager)
+    public AdminUserService(
+        IAppDbContext databaseContext,
+        UserManager<ApplicationUser> userManager,
+        IEmailService emailService,
+        IEmailTemplateService emailTemplateService)
     {
         _databaseContext = databaseContext;
         _userManager = userManager;
+        _emailService = emailService;
+        _emailTemplateService = emailTemplateService;
     }
 
     public async Task<IReadOnlyList<AdminUserDto>> GetAllAsync(CancellationToken cancellationToken = default)
@@ -90,6 +98,29 @@ public sealed class AdminUserService : IAdminUserService
         return await BuildUserDtoAsync(user.Id, cancellationToken);
     }
 
+    public async Task<AdminUserDto> ConfirmEmailAsync(Guid userId, CancellationToken cancellationToken = default)
+    {
+        var user = await FindUserAsync(userId, cancellationToken);
+
+        if (user.AnonymizedAtUtc is not null || user.RecordStatus == RecordStatus.Deleted)
+        {
+            throw new InvalidOperationException("Törölt vagy anonimizált fiók email címe nem erősíthető meg.");
+        }
+
+        if (!user.EmailConfirmed)
+        {
+            user.EmailConfirmed = true;
+            var result = await _userManager.UpdateAsync(user);
+
+            if (!result.Succeeded)
+            {
+                throw new InvalidOperationException(string.Join(", ", result.Errors.Select(error => error.Description)));
+            }
+        }
+
+        return await BuildUserDtoAsync(user.Id, cancellationToken);
+    }
+
     public async Task<AdminUserDto> DeactivateAsync(Guid userId, Guid currentAdminId, CancellationToken cancellationToken = default)
     {
         if (userId == currentAdminId)
@@ -99,6 +130,7 @@ public sealed class AdminUserService : IAdminUserService
 
         var user = await FindUserAsync(userId, cancellationToken);
         await UserService.DeactivateUserAsync(user, _userManager);
+        await SendAccountDeactivatedEmailAsync(user.Email, cancellationToken);
         return await BuildUserDtoAsync(user.Id, cancellationToken);
     }
 
@@ -106,6 +138,7 @@ public sealed class AdminUserService : IAdminUserService
     {
         var user = await FindUserAsync(userId, cancellationToken);
         await UserService.ReactivateUserAsync(user, _userManager);
+        await SendAccountReactivatedEmailAsync(user.Email, cancellationToken);
         return await BuildUserDtoAsync(user.Id, cancellationToken);
     }
 
@@ -128,12 +161,14 @@ public sealed class AdminUserService : IAdminUserService
 
         var orderCount = await _databaseContext.Orders
             .CountAsync(order => order.UserId == user.Id, cancellationToken);
-        var userService = new UserService(_userManager, null!, _databaseContext);
+        var userService = BuildUserService();
 
         if (orderCount == 0)
         {
+            var deletedEmail = user.Email;
             await CompletePendingErasureRequestsAsync(user.Id, currentAdminId, "Admin által törölve.", cancellationToken);
             await userService.DeleteUserWithoutOrdersAsync(user, cancellationToken);
+            await SendAccountDeletedEmailAsync(deletedEmail, cancellationToken);
 
             return new AdminUserErasureResultDto
             {
@@ -143,7 +178,9 @@ public sealed class AdminUserService : IAdminUserService
             };
         }
 
+        var anonymizedEmail = user.Email;
         await userService.AnonymizeUserAsync(user, cancellationToken);
+        await userService.SendAccountAnonymizedEmailAsync(anonymizedEmail);
         await CompletePendingErasureRequestsAsync(user.Id, currentAdminId, "Admin által anonimizálva.", cancellationToken);
 
         return new AdminUserErasureResultDto
@@ -191,8 +228,10 @@ public sealed class AdminUserService : IAdminUserService
             throw new InvalidOperationException("A felhasználónak még van folyamatban lévő rendelése.");
         }
 
-        var userService = new UserService(_userManager, null!, _databaseContext);
+        var userService = BuildUserService();
+        var anonymizedEmail = user.Email;
         await userService.AnonymizeUserAsync(user, cancellationToken);
+        await userService.SendAccountAnonymizedEmailAsync(anonymizedEmail);
 
         request.Status = AccountLifecycleRequestStatus.Completed;
         request.HandledAtUtc = DateTime.UtcNow;
@@ -271,6 +310,7 @@ public sealed class AdminUserService : IAdminUserService
             TaxNumber = user.TaxNumber,
             Roles = roles.ToList(),
             IsAdmin = roles.Any(role => string.Equals(role, "Admin", StringComparison.OrdinalIgnoreCase)),
+            EmailConfirmed = user.EmailConfirmed,
             IsDeactivated = user.DeactivatedAtUtc is not null,
             IsAnonymized = user.AnonymizedAtUtc is not null,
             CreatedAt = user.CreatedAt,
@@ -329,5 +369,54 @@ public sealed class AdminUserService : IAdminUserService
         {
             await _databaseContext.SaveChangesAsync(cancellationToken);
         }
+    }
+
+    private UserService BuildUserService()
+    {
+        return new UserService(
+            _userManager,
+            null!,
+            _databaseContext,
+            _emailService,
+            _emailTemplateService);
+    }
+
+    private async Task SendAccountDeactivatedEmailAsync(
+        string? email,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(email))
+        {
+            return;
+        }
+
+        var message = _emailTemplateService.BuildAccountDeactivatedMessage(email);
+        await _emailService.SendAsync(message, cancellationToken);
+    }
+
+    private async Task SendAccountReactivatedEmailAsync(
+        string? email,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(email))
+        {
+            return;
+        }
+
+        var message = _emailTemplateService.BuildAccountReactivatedMessage(email);
+        await _emailService.SendAsync(message, cancellationToken);
+    }
+
+    private async Task SendAccountDeletedEmailAsync(
+        string? email,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(email))
+        {
+            return;
+        }
+
+        var message = _emailTemplateService.BuildAccountDeletedMessage(email);
+        await _emailService.SendAsync(message, cancellationToken);
     }
 }

@@ -1,9 +1,13 @@
-﻿using Biogarden.BusinessLogic.DTOs.Auth;
+using Biogarden.BusinessLogic.DTOs.Auth;
 
 namespace Biogarden.BusinessLogic.Abstractions;
 
 public interface IAuthService
 {
-    Task RegisterAsync(RegisterRequestDto request);
-    Task<AuthResponseDto> LoginAsync(LoginRequestDto loginRequestDto);
+    Task<AuthOperationResultDto> RegisterAsync(RegisterRequestDto request);
+    Task<LoginResultDto> LoginAsync(LoginRequestDto loginRequestDto);
+    Task<AuthOperationResultDto> ConfirmEmailAsync(ConfirmEmailRequestDto confirmEmailRequestDto);
+    Task ResendEmailConfirmationAsync(ResendEmailConfirmationRequestDto resendEmailConfirmationRequestDto);
+    Task ForgotPasswordAsync(ForgotPasswordRequestDto forgotPasswordRequestDto);
+    Task<AuthOperationResultDto> ResetPasswordAsync(ResetPasswordRequestDto resetPasswordRequestDto);
 }

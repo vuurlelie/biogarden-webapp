@@ -1,0 +1,501 @@
+using System.Collections;
+using System.Linq.Expressions;
+using Biogarden.BusinessLogic.Abstractions;
+using Biogarden.BusinessLogic.DTOs.Auth;
+using Biogarden.BusinessLogic.Models.Email;
+using Biogarden.BusinessLogic.Options;
+using Biogarden.BusinessLogic.Services;
+using Biogarden.DataAccess.Entities;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore.Query;
+using Microsoft.Extensions.Options;
+using Moq;
+
+namespace Biogarden.UnitTests.Services;
+
+public sealed class AuthServiceTests
+{
+    private readonly Mock<UserManager<ApplicationUser>> _userManager;
+    private readonly Mock<ITokenService> _tokenService = new(MockBehavior.Strict);
+    private readonly Mock<IEmailService> _emailService = new(MockBehavior.Strict);
+    private readonly Mock<IEmailTemplateService> _emailTemplateService = new(MockBehavior.Strict);
+    private readonly AuthService _service;
+
+    public AuthServiceTests()
+    {
+        var userStore = new Mock<IUserStore<ApplicationUser>>(MockBehavior.Strict);
+        _userManager = new Mock<UserManager<ApplicationUser>>(
+            userStore.Object, null!, null!, null!, null!, null!, null!, null!, null!);
+
+        _userManager
+            .SetupGet(manager => manager.Users)
+            .Returns(CreateAsyncQueryable(Array.Empty<ApplicationUser>()));
+
+        _service = new AuthService(
+            _userManager.Object,
+            _tokenService.Object,
+            _emailService.Object,
+            _emailTemplateService.Object,
+            Options.Create(new AuthEmailOptions
+            {
+                ClientBaseUrl = "https://bakonykincse.hu",
+                ConfirmEmailPath = "/email-megerosites",
+                ResetPasswordPath = "/jelszo-visszaallitas",
+                UnconfirmedAccountRetentionDays = 14
+            }));
+    }
+
+    [Fact]
+    public async Task RegisterAsync_WhenRegistrationSucceeds_SendsConfirmationEmail()
+    {
+        _userManager
+            .Setup(manager => manager.FindByEmailAsync("vasarlo@example.com"))
+            .ReturnsAsync((ApplicationUser?)null);
+        _userManager
+            .Setup(manager => manager.CreateAsync(
+                It.Is<ApplicationUser>(user =>
+                    user.Email == "vasarlo@example.com"
+                    && user.UserName == "vasarlo@example.com"
+                    && !user.EmailConfirmed),
+                "Password1"))
+            .ReturnsAsync(IdentityResult.Success);
+        _userManager
+            .Setup(manager => manager.GenerateEmailConfirmationTokenAsync(
+                It.Is<ApplicationUser>(user => user.Email == "vasarlo@example.com")))
+            .ReturnsAsync("token value");
+        _emailTemplateService
+            .Setup(service => service.BuildEmailConfirmationMessage(
+                "vasarlo@example.com",
+                It.Is<string>(url =>
+                    url.Contains("https://bakonykincse.hu/email-megerosites")
+                    && url.Contains("token%20value"))))
+            .Returns(new EmailMessage
+            {
+                To = "vasarlo@example.com",
+                Subject = "Email cím megerősítése - Bakony Kincse Biokertészet",
+                PlainTextBody = "confirmation email",
+                HtmlBody = "<p>confirmation email</p>"
+            });
+        _emailService
+            .Setup(service => service.SendAsync(
+                It.Is<EmailMessage>(message =>
+                    message.To == "vasarlo@example.com"
+                    && message.Subject.Contains("Email cím megerősítése")),
+                It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        var result = await _service.RegisterAsync(new RegisterRequestDto
+        {
+            Email = " vasarlo@example.com ",
+            Password = "Password1",
+            ConfirmPassword = "Password1"
+        });
+
+        Assert.True(result.Succeeded);
+        _emailService.VerifyAll();
+        _emailTemplateService.VerifyAll();
+    }
+
+    [Fact]
+    public async Task RegisterAsync_WhenEmailAlreadyExists_ReturnsFailureWithoutSendingEmail()
+    {
+        _userManager
+            .Setup(manager => manager.FindByEmailAsync("vasarlo@example.com"))
+            .ReturnsAsync(new ApplicationUser { Email = "vasarlo@example.com" });
+
+        var result = await _service.RegisterAsync(new RegisterRequestDto
+        {
+            Email = "vasarlo@example.com",
+            Password = "Password1",
+            ConfirmPassword = "Password1"
+        });
+
+        Assert.False(result.Succeeded);
+        Assert.Equal("Ezzel az email címmel már létezik felhasználó.", result.ErrorMessage);
+        _emailService.Verify(
+            service => service.SendAsync(
+                It.IsAny<EmailMessage>(),
+                It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public async Task RegisterAsync_WhenPasswordsDoNotMatch_ReturnsFailureBeforeUserLookup()
+    {
+        var result = await _service.RegisterAsync(new RegisterRequestDto
+        {
+            Email = "vasarlo@example.com",
+            Password = "Password1",
+            ConfirmPassword = "Password2"
+        });
+
+        Assert.False(result.Succeeded);
+        Assert.Equal("A jelszavak nem egyeznek.", result.ErrorMessage);
+        _userManager.Verify(
+            manager => manager.FindByEmailAsync(It.IsAny<string>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public async Task LoginAsync_WhenPasswordIsValidButEmailIsUnconfirmed_ReturnsFailureBeforeTokenCreation()
+    {
+        var user = new ApplicationUser
+        {
+            Id = Guid.NewGuid(),
+            Email = "vasarlo@example.com",
+            EmailConfirmed = false
+        };
+
+        _userManager
+            .Setup(manager => manager.FindByEmailAsync("vasarlo@example.com"))
+            .ReturnsAsync(user);
+        _userManager
+            .Setup(manager => manager.CheckPasswordAsync(user, "Password1"))
+            .ReturnsAsync(true);
+
+        var result = await _service.LoginAsync(new LoginRequestDto
+        {
+            Email = "vasarlo@example.com",
+            Password = "Password1"
+        });
+
+        Assert.Equal(
+            "A fiók még nincs megerősítve. Kérjük, ellenőrizd az email fiókodat.",
+            result.ErrorMessage);
+        Assert.False(result.Succeeded);
+        _tokenService.Verify(
+            service => service.CreateTokenAsync(It.IsAny<ApplicationUser>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public async Task LoginAsync_WhenPasswordIsInvalid_ReturnsGenericFailureBeforeTokenCreation()
+    {
+        var user = new ApplicationUser
+        {
+            Id = Guid.NewGuid(),
+            Email = "vasarlo@example.com",
+            EmailConfirmed = true
+        };
+
+        _userManager
+            .Setup(manager => manager.FindByEmailAsync("vasarlo@example.com"))
+            .ReturnsAsync(user);
+        _userManager
+            .Setup(manager => manager.CheckPasswordAsync(user, "WrongPassword1"))
+            .ReturnsAsync(false);
+
+        var result = await _service.LoginAsync(new LoginRequestDto
+        {
+            Email = "vasarlo@example.com",
+            Password = "WrongPassword1"
+        });
+
+        Assert.False(result.Succeeded);
+        Assert.Equal("Hibás email vagy jelszó.", result.ErrorMessage);
+        _tokenService.Verify(
+            service => service.CreateTokenAsync(It.IsAny<ApplicationUser>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public async Task ResendEmailConfirmationAsync_WhenUserDoesNotExist_ReturnsNeutralSuccess()
+    {
+        _userManager
+            .Setup(manager => manager.FindByEmailAsync("missing@example.com"))
+            .ReturnsAsync((ApplicationUser?)null);
+
+        await _service.ResendEmailConfirmationAsync(
+            new ResendEmailConfirmationRequestDto { Email = "missing@example.com" });
+
+        _emailService.Verify(
+            service => service.SendAsync(
+                It.IsAny<EmailMessage>(),
+                It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public async Task ForgotPasswordAsync_WhenUserExistsAndIsActive_SendsResetEmail()
+    {
+        var user = new ApplicationUser
+        {
+            Id = Guid.NewGuid(),
+            Email = "vasarlo@example.com",
+            EmailConfirmed = true
+        };
+
+        _userManager
+            .Setup(manager => manager.FindByEmailAsync("vasarlo@example.com"))
+            .ReturnsAsync(user);
+        _userManager
+            .Setup(manager => manager.GeneratePasswordResetTokenAsync(user))
+            .ReturnsAsync("reset token");
+        _emailTemplateService
+            .Setup(service => service.BuildPasswordResetMessage(
+                "vasarlo@example.com",
+                It.Is<string>(url =>
+                    url.Contains("https://bakonykincse.hu/jelszo-visszaallitas")
+                    && url.Contains("reset%20token"))))
+            .Returns(new EmailMessage
+            {
+                To = "vasarlo@example.com",
+                Subject = "Jelszó visszaállítása - Bakony Kincse Biokertészet",
+                PlainTextBody = "reset email",
+                HtmlBody = "<p>reset email</p>"
+            });
+        _emailService
+            .Setup(service => service.SendAsync(
+                It.Is<EmailMessage>(message =>
+                    message.To == "vasarlo@example.com"
+                    && message.Subject.Contains("Jelszó visszaállítása")),
+                It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        await _service.ForgotPasswordAsync(new ForgotPasswordRequestDto
+        {
+            Email = " vasarlo@example.com "
+        });
+
+        _emailService.VerifyAll();
+        _emailTemplateService.VerifyAll();
+    }
+
+    [Fact]
+    public async Task ForgotPasswordAsync_WhenUserDoesNotExist_ReturnsNeutralSuccess()
+    {
+        _userManager
+            .Setup(manager => manager.FindByEmailAsync("missing@example.com"))
+            .ReturnsAsync((ApplicationUser?)null);
+
+        await _service.ForgotPasswordAsync(new ForgotPasswordRequestDto
+        {
+            Email = "missing@example.com"
+        });
+
+        _emailService.Verify(
+            service => service.SendAsync(
+                It.IsAny<EmailMessage>(),
+                It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public async Task ResetPasswordAsync_WhenTokenIsValid_ResetsPassword()
+    {
+        var user = new ApplicationUser
+        {
+            Id = Guid.NewGuid(),
+            Email = "vasarlo@example.com"
+        };
+
+        _userManager
+            .Setup(manager => manager.FindByIdAsync(user.Id.ToString()))
+            .ReturnsAsync(user);
+        _userManager
+            .Setup(manager => manager.ResetPasswordAsync(user, "valid-token", "Password1"))
+            .ReturnsAsync(IdentityResult.Success);
+        _emailTemplateService
+            .Setup(service => service.BuildPasswordChangedMessage("vasarlo@example.com"))
+            .Returns(new EmailMessage
+            {
+                To = "vasarlo@example.com",
+                Subject = "Jelszavad megváltozott - Bakony Kincse Biokertészet",
+                PlainTextBody = "password changed",
+                HtmlBody = "<p>password changed</p>"
+            });
+        _emailService
+            .Setup(service => service.SendAsync(
+                It.Is<EmailMessage>(message =>
+                    message.To == "vasarlo@example.com"
+                    && message.Subject.Contains("Jelszavad megváltozott")),
+                It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        var result = await _service.ResetPasswordAsync(new ResetPasswordRequestDto
+        {
+            UserId = user.Id,
+            Token = "valid-token",
+            Password = "Password1",
+            ConfirmPassword = "Password1"
+        });
+
+        Assert.True(result.Succeeded);
+        _emailService.VerifyAll();
+        _emailTemplateService.VerifyAll();
+    }
+
+    [Fact]
+    public async Task ResetPasswordAsync_WhenPasswordsDoNotMatch_ReturnsFailureBeforeUserLookup()
+    {
+        var result = await _service.ResetPasswordAsync(new ResetPasswordRequestDto
+        {
+            UserId = Guid.NewGuid(),
+            Token = "token",
+            Password = "Password1",
+            ConfirmPassword = "Password2"
+        });
+
+        Assert.False(result.Succeeded);
+        Assert.Equal("A jelszavak nem egyeznek.", result.ErrorMessage);
+        _userManager.Verify(
+            manager => manager.FindByIdAsync(It.IsAny<string>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public async Task ConfirmEmailAsync_WhenTokenIsInvalid_ReturnsFailure()
+    {
+        var user = new ApplicationUser
+        {
+            Id = Guid.NewGuid(),
+            Email = "vasarlo@example.com",
+            EmailConfirmed = false
+        };
+
+        _userManager
+            .Setup(manager => manager.FindByIdAsync(user.Id.ToString()))
+            .ReturnsAsync(user);
+        _userManager
+            .Setup(manager => manager.ConfirmEmailAsync(user, "invalid-token"))
+            .ReturnsAsync(IdentityResult.Failed());
+
+        var result = await _service.ConfirmEmailAsync(new ConfirmEmailRequestDto
+        {
+            UserId = user.Id,
+            Token = "invalid-token"
+        });
+
+        Assert.False(result.Succeeded);
+        Assert.Equal("Az email megerősítés nem sikerült.", result.ErrorMessage);
+    }
+
+    [Fact]
+    public async Task ConfirmEmailAsync_WhenEmailIsAlreadyConfirmed_ReturnsSuccess()
+    {
+        var user = new ApplicationUser
+        {
+            Id = Guid.NewGuid(),
+            Email = "vasarlo@example.com",
+            EmailConfirmed = true
+        };
+
+        _userManager
+            .Setup(manager => manager.FindByIdAsync(user.Id.ToString()))
+            .ReturnsAsync(user);
+
+        var result = await _service.ConfirmEmailAsync(new ConfirmEmailRequestDto
+        {
+            UserId = user.Id,
+            Token = "any-token"
+        });
+
+        Assert.True(result.Succeeded);
+        _userManager.Verify(
+            manager => manager.ConfirmEmailAsync(
+                It.IsAny<ApplicationUser>(),
+                It.IsAny<string>()),
+            Times.Never);
+    }
+
+    private static IQueryable<TEntity> CreateAsyncQueryable<TEntity>(IEnumerable<TEntity> entities)
+    {
+        return new TestAsyncEnumerable<TEntity>(entities);
+    }
+
+    private sealed class TestAsyncQueryProvider<TEntity> : IAsyncQueryProvider
+    {
+        private readonly IQueryProvider _inner;
+
+        public TestAsyncQueryProvider(IQueryProvider inner)
+        {
+            _inner = inner;
+        }
+
+        public IQueryable CreateQuery(Expression expression)
+        {
+            return new TestAsyncEnumerable<TEntity>(expression);
+        }
+
+        public IQueryable<TElement> CreateQuery<TElement>(Expression expression)
+        {
+            return new TestAsyncEnumerable<TElement>(expression);
+        }
+
+        public object? Execute(Expression expression)
+        {
+            return _inner.Execute(expression);
+        }
+
+        public TResult Execute<TResult>(Expression expression)
+        {
+            return _inner.Execute<TResult>(expression);
+        }
+
+        public TResult ExecuteAsync<TResult>(
+            Expression expression,
+            CancellationToken cancellationToken = default)
+        {
+            var expectedResultType = typeof(TResult).GetGenericArguments()[0];
+            var executionResult = typeof(IQueryProvider)
+                .GetMethod(
+                    nameof(IQueryProvider.Execute),
+                    1,
+                    [typeof(Expression)])
+                ?.MakeGenericMethod(expectedResultType)
+                .Invoke(this, [expression]);
+
+            return (TResult)typeof(Task)
+                .GetMethod(nameof(Task.FromResult))!
+                .MakeGenericMethod(expectedResultType)
+                .Invoke(null, [executionResult])!;
+        }
+    }
+
+    private sealed class TestAsyncEnumerable<TEntity> :
+        EnumerableQuery<TEntity>,
+        IAsyncEnumerable<TEntity>,
+        IQueryable<TEntity>
+    {
+        public TestAsyncEnumerable(IEnumerable<TEntity> enumerable)
+            : base(enumerable)
+        {
+        }
+
+        public TestAsyncEnumerable(Expression expression)
+            : base(expression)
+        {
+        }
+
+        public IAsyncEnumerator<TEntity> GetAsyncEnumerator(
+            CancellationToken cancellationToken = default)
+        {
+            return new TestAsyncEnumerator<TEntity>(this.AsEnumerable().GetEnumerator());
+        }
+
+        IQueryProvider IQueryable.Provider => new TestAsyncQueryProvider<TEntity>(this);
+    }
+
+    private sealed class TestAsyncEnumerator<TEntity> : IAsyncEnumerator<TEntity>
+    {
+        private readonly IEnumerator<TEntity> _inner;
+
+        public TestAsyncEnumerator(IEnumerator<TEntity> inner)
+        {
+            _inner = inner;
+        }
+
+        public TEntity Current => _inner.Current;
+
+        public ValueTask DisposeAsync()
+        {
+            _inner.Dispose();
+            return ValueTask.CompletedTask;
+        }
+
+        public ValueTask<bool> MoveNextAsync()
+        {
+            return ValueTask.FromResult(_inner.MoveNext());
+        }
+    }
+}

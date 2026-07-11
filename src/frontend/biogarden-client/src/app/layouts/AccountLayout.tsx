@@ -29,7 +29,7 @@ export default function AccountLayout() {
   }
 
   return (
-    <div className="min-h-screen bg-white text-site-text">
+    <div className="flex min-h-screen flex-col bg-white text-site-text">
       <ScrollToTop />
       <Navbar
         isAuthenticated
@@ -37,7 +37,8 @@ export default function AccountLayout() {
         cartItemCount={cart?.totalItemCount ?? 0}
       />
 
-      <main className="mx-auto grid w-full max-w-7xl gap-6 px-4 py-6 sm:px-6 lg:grid-cols-[240px_minmax(0,1fr)] lg:px-8 lg:py-10">
+      <main className="relative z-20 w-full flex-1 shadow-[0_12px_30px_rgba(48,55,43,0.14)]">
+        <div className="mx-auto grid w-full max-w-7xl gap-6 px-4 py-6 sm:px-6 lg:grid-cols-[240px_minmax(0,1fr)] lg:px-8 lg:py-10">
         <aside className="self-start rounded-sm border border-site-border bg-white p-3 shadow-md lg:sticky lg:top-20">
           <div className="border-b border-site-border px-3 pb-4 pt-2">
             <p className="text-xs font-bold uppercase tracking-[0.15em] text-site-green-dark">
@@ -78,6 +79,7 @@ export default function AccountLayout() {
         <section className="min-w-0">
           <Outlet />
         </section>
+        </div>
       </main>
 
       <BackToTopBtn />

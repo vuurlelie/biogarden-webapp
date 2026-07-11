@@ -38,7 +38,7 @@ export default function RegisterPage() {
       await register({ email: email.trim(), password, confirmPassword });
       navigate(ROUTES.login, {
         replace: true,
-        state: { registrationSuccess: true },
+        state: { registrationRequiresConfirmation: true },
       });
     } catch (submitError) {
       setError(
@@ -52,7 +52,7 @@ export default function RegisterPage() {
   }
 
   return (
-    <main className="bg-site-surface-soft px-4 py-10 sm:py-14">
+    <main className="bg-site-surface-soft px-4 pb-10 pt-6 sm:pb-14 sm:pt-8">
       <section className="mx-auto w-full max-w-lg rounded-sm border border-site-border bg-white p-6 shadow-lg sm:p-8">
         <div className="text-center">
           <p className="text-xs font-bold uppercase tracking-[0.16em] text-site-green-dark">Új vásárlói fiók</p>

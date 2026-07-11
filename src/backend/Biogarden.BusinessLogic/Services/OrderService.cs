@@ -5,6 +5,8 @@ using Biogarden.DataAccess.Abstractions;
 using Biogarden.DataAccess.Entities;
 using Biogarden.DataAccess.Enums;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.Extensions.Options;
+using Biogarden.BusinessLogic.Options;
 
 namespace Biogarden.BusinessLogic.Services;
 
@@ -13,15 +15,24 @@ public class OrderService : IOrderService
     private readonly IUnitOfWork _unitOfWork;
     private readonly ICartService _cartService;
     private readonly UserManager<ApplicationUser> _userManager;
+    private readonly IEmailService _emailService;
+    private readonly IEmailTemplateService _emailTemplateService;
+    private readonly EmailBrandingOptions _emailBrandingOptions;
 
     public OrderService(
         IUnitOfWork unitOfWork,
         ICartService cartService,
-        UserManager<ApplicationUser> userManager)
+        UserManager<ApplicationUser> userManager,
+        IEmailService emailService,
+        IEmailTemplateService emailTemplateService,
+        IOptions<EmailBrandingOptions> emailBrandingOptions)
     {
         _unitOfWork = unitOfWork;
         _cartService = cartService;
         _userManager = userManager;
+        _emailService = emailService;
+        _emailTemplateService = emailTemplateService;
+        _emailBrandingOptions = emailBrandingOptions.Value;
     }
 
     public async Task<OrderDto> CreateOrderFromCartAsync(
@@ -192,7 +203,10 @@ public class OrderService : IOrderService
             order.Id,
             cancellationToken);
 
-        return createdOrder!.ToDto();
+        var createdOrderDto = createdOrder!.ToDto();
+        await SendOrderCreatedEmailsAsync(createdOrderDto, cancellationToken);
+
+        return createdOrderDto;
     }
 
     public async Task<OrderDto> ConfirmOrderPaymentAsync(
@@ -406,5 +420,20 @@ public class OrderService : IOrderService
     private static string GenerateOrderNumber()
     {
         return $"BK-{DateTime.UtcNow:yyyyMMdd}-{Guid.NewGuid().ToString("N")[..8].ToUpperInvariant()}";
+    }
+
+    private async Task SendOrderCreatedEmailsAsync(
+        OrderDto order,
+        CancellationToken cancellationToken)
+    {
+        var customerMessage = _emailTemplateService.BuildOrderConfirmationMessage(
+            order.CustomerEmail,
+            order);
+        await _emailService.SendAsync(customerMessage, cancellationToken);
+
+        var businessMessage = _emailTemplateService.BuildOrderBusinessNotificationMessage(
+            _emailBrandingOptions.ContactEmail,
+            order);
+        await _emailService.SendAsync(businessMessage, cancellationToken);
     }
 }

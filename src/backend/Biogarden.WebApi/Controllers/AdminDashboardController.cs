@@ -21,8 +21,8 @@ public sealed class AdminDashboardController : ControllerBase
     [ProducesResponseType(typeof(AdminDashboardDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    public async Task<ActionResult<AdminDashboardDto>> Get(CancellationToken cancellationToken)
+    public async Task<ActionResult<AdminDashboardDto>> Get()
     {
-        return Ok(await _dashboardService.GetAsync(cancellationToken));
+        return Ok(await _dashboardService.GetAsync());
     }
 }

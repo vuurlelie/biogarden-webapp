@@ -1,4 +1,4 @@
-﻿using Biogarden.BusinessLogic.Abstractions;
+using Biogarden.BusinessLogic.Abstractions;
 using Biogarden.BusinessLogic.DTOs.Addresses;
 using Biogarden.BusinessLogic.DTOs.Users;
 using Biogarden.BusinessLogic.Mappers;
@@ -15,15 +15,21 @@ public class UserService : IUserService
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly IUnitOfWork _unitOfWork;
     private readonly IAppDbContext _databaseContext;
+    private readonly IEmailService _emailService;
+    private readonly IEmailTemplateService _emailTemplateService;
 
     public UserService(
         UserManager<ApplicationUser> userManager,
         IUnitOfWork unitOfWork,
-        IAppDbContext databaseContext)
+        IAppDbContext databaseContext,
+        IEmailService emailService,
+        IEmailTemplateService emailTemplateService)
     {
         _userManager = userManager;
         _unitOfWork = unitOfWork;
         _databaseContext = databaseContext;
+        _emailService = emailService;
+        _emailTemplateService = emailTemplateService;
     }
 
     public async Task<UserProfileDto?> GetProfileAsync(Guid userId)
@@ -176,6 +182,7 @@ public class UserService : IUserService
         if (request.Type == AccountLifecycleRequestType.Deactivation)
         {
             await DeactivateUserAsync(user);
+            await SendAccountDeactivatedEmailAsync(user.Email);
             await AddCompletedLifecycleRequestAsync(
                 user.Id,
                 request.Type,
@@ -210,7 +217,9 @@ public class UserService : IUserService
 
         if (orderCount == 0)
         {
+            var deletedEmail = user.Email;
             await DeleteUserWithoutOrdersAsync(user, cancellationToken);
+            await SendAccountDeletedEmailAsync(deletedEmail);
 
             return new AccountLifecycleResultDto
             {
@@ -220,7 +229,9 @@ public class UserService : IUserService
             };
         }
 
+        var anonymizedEmail = user.Email;
         await AnonymizeUserAsync(user, cancellationToken);
+        await SendAccountAnonymizedEmailAsync(anonymizedEmail);
         await AddCompletedLifecycleRequestAsync(
             user.Id,
             request.Type,
@@ -423,6 +434,39 @@ public class UserService : IUserService
 
         _databaseContext.Carts.RemoveRange(carts);
         await _databaseContext.SaveChangesAsync(cancellationToken);
+    }
+
+    internal async Task SendAccountAnonymizedEmailAsync(string? email)
+    {
+        if (string.IsNullOrWhiteSpace(email))
+        {
+            return;
+        }
+
+        var message = _emailTemplateService.BuildAccountAnonymizedMessage(email);
+        await _emailService.SendAsync(message);
+    }
+
+    private async Task SendAccountDeactivatedEmailAsync(string? email)
+    {
+        if (string.IsNullOrWhiteSpace(email))
+        {
+            return;
+        }
+
+        var message = _emailTemplateService.BuildAccountDeactivatedMessage(email);
+        await _emailService.SendAsync(message);
+    }
+
+    private async Task SendAccountDeletedEmailAsync(string? email)
+    {
+        if (string.IsNullOrWhiteSpace(email))
+        {
+            return;
+        }
+
+        var message = _emailTemplateService.BuildAccountDeletedMessage(email);
+        await _emailService.SendAsync(message);
     }
 
     private static void MarkAddressDeleted(Address? address)

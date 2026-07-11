@@ -40,6 +40,12 @@ public sealed class AdminUsersController : ControllerBase
         return Ok(await _service.SetAdminRoleAsync(userId, isAdmin, currentUserId, cancellationToken));
     }
 
+    [HttpPost("{userId:guid}/confirm-email")]
+    public async Task<ActionResult<AdminUserDto>> ConfirmEmail(Guid userId, CancellationToken cancellationToken)
+    {
+        return Ok(await _service.ConfirmEmailAsync(userId, cancellationToken));
+    }
+
     [HttpPost("{userId:guid}/deactivate")]
     public async Task<ActionResult<AdminUserDto>> Deactivate(Guid userId, CancellationToken cancellationToken)
     {

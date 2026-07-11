@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Linq.Expressions;
+using Biogarden.BusinessLogic.Abstractions;
 using Biogarden.BusinessLogic.Services;
 using Biogarden.DataAccess.Abstractions;
 using Biogarden.DataAccess.Entities;
@@ -14,6 +15,8 @@ namespace Biogarden.UnitTests.Services;
 public sealed class AdminUserServiceTests
 {
     private readonly Mock<IAppDbContext> _databaseContext = new(MockBehavior.Strict);
+    private readonly Mock<IEmailService> _emailService = new(MockBehavior.Strict);
+    private readonly Mock<IEmailTemplateService> _emailTemplateService = new(MockBehavior.Strict);
     private readonly Mock<UserManager<ApplicationUser>> _userManager;
     private readonly AdminUserService _service;
 
@@ -23,7 +26,11 @@ public sealed class AdminUserServiceTests
         _userManager = new Mock<UserManager<ApplicationUser>>(
             userStore.Object, null!, null!, null!, null!, null!, null!, null!, null!);
 
-        _service = new AdminUserService(_databaseContext.Object, _userManager.Object);
+        _service = new AdminUserService(
+            _databaseContext.Object,
+            _userManager.Object,
+            _emailService.Object,
+            _emailTemplateService.Object);
     }
 
     [Fact]
@@ -48,6 +55,30 @@ public sealed class AdminUserServiceTests
 
         Assert.Equal("A saját fiókodat nem deaktiválhatod az admin felületről.", exception.Message);
         _databaseContext.VerifyNoOtherCalls();
+    }
+
+    [Fact]
+    public async Task ConfirmEmailAsync_WhenUserIsAnonymized_ThrowsBeforeUpdate()
+    {
+        var userId = Guid.NewGuid();
+        var users = CreateMockDbSet([
+            new ApplicationUser
+            {
+                Id = userId,
+                EmailConfirmed = false,
+                AnonymizedAtUtc = DateTime.UtcNow
+            }
+        ]);
+
+        _userManager
+            .SetupGet(manager => manager.Users)
+            .Returns(users.Object);
+
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _service.ConfirmEmailAsync(userId));
+
+        Assert.Equal("Törölt vagy anonimizált fiók email címe nem erősíthető meg.", exception.Message);
+        _userManager.Verify(manager => manager.UpdateAsync(It.IsAny<ApplicationUser>()), Times.Never);
     }
 
     [Fact]

@@ -1,9 +1,34 @@
-import type { MouseEvent } from "react";
+import { useEffect, useState, type MouseEvent, type ReactNode } from "react";
 import { NavLink, useLocation } from "react-router-dom";
+import ContactForm from "../../../features/contact/components/ContactForm";
 import { ROUTES } from "../../constants/routes";
+
+const mapSource =
+  "https://www.google.com/maps?q=Bakonyszentl%C3%A1szl%C3%B3%2C%208431&z=10&output=embed";
 
 export default function Footer() {
   const { pathname } = useLocation();
+  const [isContactModalOpen, setIsContactModalOpen] = useState(false);
+
+  useEffect(() => {
+    if (!isContactModalOpen) {
+      return;
+    }
+
+    function closeOnEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setIsContactModalOpen(false);
+      }
+    }
+
+    document.addEventListener("keydown", closeOnEscape);
+    document.body.style.overflow = "hidden";
+
+    return () => {
+      document.removeEventListener("keydown", closeOnEscape);
+      document.body.style.overflow = "";
+    };
+  }, [isContactModalOpen]);
 
   function scrollToTopOnCurrentPage(targetPath: string) {
     return (event: MouseEvent<HTMLAnchorElement>) => {
@@ -18,169 +43,134 @@ export default function Footer() {
     <>
       <footer
         id="contact"
-        className="w-full border-t border-site-footer-border bg-site-footer pt-10 pb-10"
+        className="relative z-10 w-full border-t border-site-footer-border bg-site-footer px-4 py-10 shadow-[0_14px_24px_-18px_rgba(31,41,27,0.75)] sm:px-6 lg:px-8"
       >
-        <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="grid gap-10 lg:grid-cols-4">
-            <div className="lg:col-span-2 flex items-center justify-center">
+        <div className="mx-auto grid w-full max-w-6xl gap-10 lg:grid-cols-2 lg:items-start">
+          <section>
+            <h2 className="text-center text-sm font-bold uppercase tracking-wider text-site-heading md:text-left">
+              Itt találsz minket
+            </h2>
+
+            <div className="mt-6 grid items-start gap-12 sm:grid-cols-[auto_minmax(0,22rem)] sm:justify-start">
+              <div className="flex items-center justify-center gap-4 sm:flex-col sm:items-start">
+                <a
+                  href="https://www.facebook.com/profile.php?id=100083082863561"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-[#3b5998] text-xl font-bold text-white shadow transition hover:scale-105 hover:brightness-95 focus:outline-none focus:ring-2 focus:ring-site-green focus:ring-offset-2"
+                  aria-label="Facebook oldal"
+                >
+                  f
+                </a>
+                <a
+                  href="https://www.instagram.com/bakony.kincse.biokerteszet/"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-[radial-gradient(circle_at_30%_110%,#feda75_0%,#fa7e1e_28%,#d62976_52%,#962fbf_75%,#4f5bd5_100%)] text-white shadow transition hover:scale-105 hover:brightness-95 focus:outline-none focus:ring-2 focus:ring-site-green focus:ring-offset-2"
+                  aria-label="Instagram oldal"
+                >
+                  <InstagramIcon />
+                </a>
+              </div>
+
               <iframe
-                title="Biogarden location – Bakonyszentlászló"
-                className="h-[290px] w-11/12 rounded-2xl border border-site-border shadow-lg"
-                src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d86475.23035605217!2d17.728068301205862!3d47.366068474596005!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x476bd4517abd7b8f%3A0x400c4290c1e4340!2zQmFrb255c3plbnRsw6FzemzDsywgODQzMQ!5e0!3m2!1shu!2shu!4v1719932127988!5m2!1shu!2shu"
+                title="Biogarden location - Bakonyszentlászló"
+                className="h-52 w-full rounded-sm border border-site-border shadow-sm sm:h-56"
+                src={mapSource}
                 loading="lazy"
                 referrerPolicy="no-referrer-when-downgrade"
                 allowFullScreen
               />
             </div>
+          </section>
 
-            <div>
+          <div className="grid gap-8 md:grid-cols-2">
+            <section>
               <h2 className="mb-5 text-center text-sm font-bold uppercase tracking-wider text-site-heading md:text-left">
                 Kapcsolat
               </h2>
 
               <div className="space-y-5 text-site-text">
-                <p className="flex items-center gap-3">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 shrink-0" viewBox="0 0 24 24" fill="currentColor">
-                    <path
-                      fillRule="evenodd"
-                      d="M18.685 19.097A9.723 9.723 0 0 0 21.75 12c0-5.385-4.365-9.75-9.75-9.75S2.25 6.615 2.25 12a9.723 9.723 0 0 0 3.065 7.097A9.716 9.716 0 0 0 12 21.75a9.716 9.716 0 0 0 6.685-2.653Zm-12.54-1.285A7.486 7.486 0 0 1 12 15a7.486 7.486 0 0 1 5.855 2.812A8.224 8.224 0 0 1 12 20.25a8.224 8.224 0 0 1-5.855-2.438ZM15.75 9a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0Z"
-                      clipRule="evenodd"
-                    />
-                  </svg>
-                  <span>Volf Gábor</span>
-                </p>
-
-                <p className="flex items-start gap-3">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="mt-0.5 h-5 w-5 shrink-0" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M11.47 3.84a.75.75 0 0 1 1.06 0l8.69 8.69a.75.75 0 1 0 1.06-1.06l-8.689-8.69a2.25 2.25 0 0 0-3.182 0l-8.69 8.69a.75.75 0 0 0 1.061 1.06l8.69-8.69z" />
-                    <path d="M12 5.432l8.159 8.159c.03.03.06.058.091.086v6.198c0 1.035-.84 1.875-1.875 1.875H15a.75.75 0 0 1-.75-.75v-4.5a.75.75 0 0 0-.75-.75h-3a.75.75 0 0 0-.75.75V21a.75.75 0 0 1-.75.75H5.625a1.875 1.875 0 0 1-1.875-1.875v-6.198a2.29 2.29 0 0 0 .091-.086L12 5.43z" />
-                  </svg>
-                  <span>8431 Bakonyszentlászló, Jókai utca 22.</span>
-                </p>
-
-                <p className="flex items-center gap-3">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 shrink-0" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M1.5 8.67v8.58a3 3 0 0 0 3 3h15a3 3 0 0 0 3-3V8.67l-8.928 5.493a3 3 0 0 1-3.144 0L1.5 8.67z" />
-                    <path d="M22.5 6.908V6.75a3 3 0 0 0-3-3h-15a3 3 0 0 0-3 3v.158l9.714 5.978a1.5 1.5 0 0 0 1.572 0L22.5 6.908z" />
-                  </svg>
+                <FooterInfo icon={<UserIcon />}>Volf Gábor</FooterInfo>
+                <FooterInfo icon={<HomeIcon />} alignTop>
+                  8431 Bakonyszentlászló, Jókai utca 22.
+                </FooterInfo>
+                <FooterInfo icon={<MailIcon />}>
                   <a
                     href="mailto:info@bakonykincse.hu"
                     className="font-semibold text-site-green-dark underline underline-offset-4 transition hover:text-site-green-hover"
                   >
                     info@bakonykincse.hu
                   </a>
-                </p>
-
-                <p className="flex items-center gap-3">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 shrink-0" viewBox="0 0 24 24" fill="currentColor">
-                    <path
-                      fillRule="evenodd"
-                      d="M1.5 4.5a3 3 0 0 1 3-3h1.372c.86 0 1.61.586 1.819 1.42l1.105 4.423a1.875 1.875 0 0 1-.694 1.955l-1.293.97c-.135.101-.164.249-.126.352a11.285 11.285 0 0 0 6.697 6.697c.103.038.25.009.352-.126l.97-1.293a1.875 1.875 0 0 1 1.955-.694l4.423 1.105c.834.209 1.42.959 1.42 1.82V19.5a3 3 0 0 1-3 3h-2.25C8.552 22.5 1.5 15.448 1.5 6.75V4.5z"
-                      clipRule="evenodd"
-                    />
-                  </svg>
+                </FooterInfo>
+                <FooterInfo icon={<PhoneIcon />}>
                   <a
                     href="tel:+36208005606"
                     className="font-semibold text-site-green-dark underline underline-offset-4 transition hover:text-site-green-hover"
                   >
                     +36 20 800 56 06
                   </a>
-                </p>
-
-                <div className="flex items-center gap-4 pt-2">
-                  <a
-                    href="https://www.facebook.com/profile.php?id=100083082863561"
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-[#3b5998] text-white shadow transition hover:scale-105 hover:brightness-95 focus:outline-none focus:ring-2 focus:ring-site-green focus:ring-offset-2"
-                    aria-label="Facebook oldal"
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512" className="h-4 w-4" fill="currentColor">
-                      <path d="M80 299.3V512H196V299.3h86.5l18-97.8H196V166.9c0-51.7 20.3-71.5 72.7-71.5c16.3 0 29.4 .4 37 1.2V7.9C291.4 4 256.4 0 236.2 0C129.3 0 80 50.5 80 159.4v42.1H14v97.8H80z" />
-                    </svg>
-                  </a>
-
-                  <a
-                    href="https://www.instagram.com/bakony.kincse.biokerteszet/"
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex h-11 w-11 items-center justify-center rounded-full text-white transition hover:scale-105 hover:brightness-95 focus:outline-none focus:ring-2 focus:ring-site-green focus:ring-offset-2"
-                    aria-label="Instagram oldal"
-                  >
-                    <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" className="h-11 w-11">
-                      <rect x="2" y="2" width="28" height="28" rx="6" fill="url(#paint0)" />
-                      <rect x="2" y="2" width="28" height="28" rx="6" fill="url(#paint1)" />
-                      <rect x="2" y="2" width="28" height="28" rx="6" fill="url(#paint2)" />
-                      <path d="M23 10.5C23 11.3284 22.3284 12 21.5 12C20.6716 12 20 11.3284 20 10.5C20 9.67157 20.6716 9 21.5 9C22.3284 9 23 9.67157 23 10.5Z" fill="white" />
-                      <path fillRule="evenodd" clipRule="evenodd" d="M16 21C18.7614 21 21 18.7614 21 16C21 13.2386 18.7614 11 16 11C13.2386 11 11 13.2386 11 16C11 18.7614 13.2386 21 16 21ZM16 19C17.6569 19 19 17.6569 19 16C19 14.3431 17.6569 13 16 13C14.3431 13 13 14.3431 13 16C13 17.6569 14.3431 19 16 19Z" fill="white" />
-                      <path fillRule="evenodd" clipRule="evenodd" d="M6 15.6C6 12.2397 6 10.5595 6.65396 9.27606C7.2292 8.14708 8.14708 7.2292 9.27606 6.65396C10.5595 6 12.2397 6 15.6 6H16.4C19.7603 6 21.4405 6 22.7239 6.65396C23.8529 7.2292 24.7708 8.14708 25.346 9.27606C26 10.5595 26 12.2397 26 15.6V16.4C26 19.7603 26 21.4405 25.346 22.7239C24.7708 23.8529 23.8529 24.7708 22.7239 25.346C21.4405 26 19.7603 26 16.4 26H15.6C12.2397 26 10.5595 26 9.27606 25.346C8.14708 24.7708 7.2292 23.8529 6.65396 22.7239C6 21.4405 6 19.7603 6 16.4V15.6ZM15.6 8H16.4C18.1132 8 19.2777 8.00156 20.1779 8.0751C21.0548 8.14674 21.5032 8.27659 21.816 8.43597C22.5686 8.81947 23.1805 9.43139 23.564 10.184C23.7234 10.4968 23.8533 10.9452 23.9249 11.8221C23.9984 12.7223 24 13.8868 24 15.6V16.4C24 18.1132 23.9984 19.2777 23.9249 20.1779C23.8533 21.0548 23.7234 21.5032 23.564 21.816C23.1805 22.5686 22.5686 23.1805 21.816 23.564C21.5032 23.7234 21.0548 23.8533 20.1779 23.9249C19.2777 23.9984 18.1132 24 16.4 24H15.6C13.8868 24 12.7223 23.9984 11.8221 23.9249C10.9452 23.8533 10.4968 23.7234 10.184 23.564C9.43139 23.1805 8.81947 22.5686 8.43597 21.816C8.27659 21.5032 8.14674 21.0548 8.0751 20.1779C8.00156 19.2777 8 18.1132 8 16.4V15.6C8 13.8868 8.00156 12.7223 8.0751 11.8221C8.14674 10.9452 8.27659 10.4968 8.43597 10.184C8.81947 9.43139 9.43139 8.81947 10.184 8.43597C10.4968 8.27659 10.9452 8.14674 11.8221 8.0751C12.7223 8.00156 13.8868 8 15.6 8Z" fill="white" />
-                      <defs>
-                        <radialGradient id="paint0" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(12 23) rotate(-55.3758) scale(25.5196)">
-                          <stop stopColor="#B13589" />
-                          <stop offset="0.79309" stopColor="#C62F94" />
-                          <stop offset="1" stopColor="#8A3AC8" />
-                        </radialGradient>
-                        <radialGradient id="paint1" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(11 31) rotate(-65.1363) scale(22.5942)">
-                          <stop stopColor="#E0E8B7" />
-                          <stop offset="0.444662" stopColor="#FB8A2E" />
-                          <stop offset="0.71474" stopColor="#E2425C" />
-                          <stop offset="1" stopColor="#E2425C" stopOpacity="0" />
-                        </radialGradient>
-                        <radialGradient id="paint2" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(0.500002 3) rotate(-8.1301) scale(38.8909 8.31836)">
-                          <stop offset="0.156701" stopColor="#406ADC" />
-                          <stop offset="0.467799" stopColor="#6A45BE" />
-                          <stop offset="1" stopColor="#6A45BE" stopOpacity="0" />
-                        </radialGradient>
-                      </defs>
-                    </svg>
-                  </a>
+                </FooterInfo>
+                <div className="pt-2">
+                  <FooterInfo icon={<MessageIcon />}>
+                    <button
+                      type="button"
+                      onClick={() => setIsContactModalOpen(true)}
+                      className="font-semibold text-site-green-dark underline underline-offset-4 transition hover:text-site-green-hover"
+                    >
+                      Írj nekünk itt
+                    </button>
+                  </FooterInfo>
                 </div>
               </div>
-            </div>
+            </section>
 
-            <div>
-              <h2 className="mb-5 text-center text-sm font-bold uppercase tracking-wider text-site-heading md:text-left">
-                Hasznos információk
-              </h2>
+            <div className="space-y-8">
+              <section>
+                <h2 className="mb-5 text-center text-sm font-bold uppercase tracking-wider text-site-heading md:text-left">
+                  Hasznos információk
+                </h2>
 
-              <div className="space-y-3 text-center text-site-text md:text-left">
-                <NavLink
-                  to={ROUTES.privacyPolicy}
-                  onClick={scrollToTopOnCurrentPage(ROUTES.privacyPolicy)}
-                  className="block font-semibold text-site-green-dark underline underline-offset-4 transition hover:text-site-green-hover"
-                >
-                  Adatkezelési tájékoztató
-                </NavLink>
-                <NavLink
-                  to={ROUTES.terms}
-                  onClick={scrollToTopOnCurrentPage(ROUTES.terms)}
-                  className="block font-semibold text-site-green-dark underline underline-offset-4 transition hover:text-site-green-hover"
-                >
-                  Általános Szerződési Feltételek
-                </NavLink>
+                <div className="space-y-3 text-center text-site-text md:text-left">
+                  <NavLink
+                    to={ROUTES.privacyPolicy}
+                    onClick={scrollToTopOnCurrentPage(ROUTES.privacyPolicy)}
+                    className="block font-semibold text-site-green-dark underline underline-offset-4 transition hover:text-site-green-hover"
+                  >
+                    Adatkezelési tájékoztató
+                  </NavLink>
+                  <NavLink
+                    to={ROUTES.terms}
+                    onClick={scrollToTopOnCurrentPage(ROUTES.terms)}
+                    className="block font-semibold text-site-green-dark underline underline-offset-4 transition hover:text-site-green-hover"
+                  >
+                    Általános Szerződési Feltételek
+                  </NavLink>
+                </div>
+              </section>
 
-                <div className="pt-5">
-                  <h3 className="mb-3 text-sm font-bold uppercase tracking-wider text-site-heading">
-                    Nyitvatartás
-                  </h3>
-                  <div className="leading-relaxed">
-                    <div>Hétfő - Péntek: 8:00 - 16:00</div>
-                    <div className="mt-2 text-sm">
-                      Birtoklátogatás előtt kérjük, egyeztess velünk a megadott elérhetőségeink egyikén.
-                    </div>
-                    <div className="mt-2 text-xl" aria-hidden="true">
-                      🌱😊
-                    </div>
+              <section>
+                <h2 className="mb-5 text-center text-sm font-bold uppercase tracking-wider text-site-heading md:text-left">
+                  Nyitvatartás
+                </h2>
+
+                <div className="text-center leading-relaxed text-site-text md:text-left">
+                  <div>Hétfő - Péntek: 8:00 - 16:00</div>
+                  <div className="mt-2 text-xs">
+                    Birtoklátogatás előtt kérjük, egyeztess velünk a megadott elérhetőségeink egyikén.
+                  </div>
+                  <div className="mt-2 text-xl" aria-hidden="true">
+                    🌱 😊
                   </div>
                 </div>
-              </div>
+              </section>
             </div>
           </div>
         </div>
       </footer>
 
       <div className="border-t border-site-border bg-site-green-dark p-4 text-center text-white/90 shadow-md">
-        <div>©{new Date().getFullYear()} Bakony Kincse Biokertészet – Minden jog fenntartva.</div>
+        <div>©{new Date().getFullYear()} Bakony Kincse Biokertészet - Minden jog fenntartva.</div>
         <div className="text-sm">
           Készítette:{" "}
           <a
@@ -193,6 +183,101 @@ export default function Footer() {
           </a>
         </div>
       </div>
+
+      {isContactModalOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 px-4 py-6"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="contact-modal-title"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) {
+              setIsContactModalOpen(false);
+            }
+          }}
+        >
+          <div className="relative max-h-[90vh] w-full max-w-3xl overflow-y-auto">
+            <button
+              type="button"
+              onClick={() => setIsContactModalOpen(false)}
+              className="absolute right-3 top-3 z-10 inline-flex h-9 w-9 items-center justify-center rounded-full bg-white/80 text-2xl leading-none text-site-heading shadow-sm transition hover:bg-site-surface-soft focus:outline-none focus:ring-2 focus:ring-site-green"
+              aria-label="Bezárás"
+            >
+              ×
+            </button>
+            <ContactForm
+              className="pt-12 shadow-2xl"
+              surfaceClassName="bg-white"
+              titleId="contact-modal-title"
+            />
+          </div>
+        </div>
+      )}
     </>
+  );
+}
+
+type FooterInfoProps = {
+  children: ReactNode;
+  icon: ReactNode;
+  alignTop?: boolean;
+};
+
+function FooterInfo({ children, icon, alignTop = false }: FooterInfoProps) {
+  return (
+    <p className={`flex justify-center gap-3 md:justify-start ${alignTop ? "items-start" : "items-center"}`}>
+      <span className={`${alignTop ? "mt-0.5" : ""} shrink-0 text-site-text`}>{icon}</span>
+      <span>{children}</span>
+    </p>
+  );
+}
+
+function UserIcon() {
+  return (
+    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="M12 12a4 4 0 1 0-4-4 4 4 0 0 0 4 4Zm0 2c-3.3 0-6 1.8-6 4v1h12v-1c0-2.2-2.7-4-6-4Z" />
+    </svg>
+  );
+}
+
+function HomeIcon() {
+  return (
+    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="M12 3 3 10.5l1.4 1.5L6 10.7V21h5v-6h2v6h5V10.7l1.6 1.3 1.4-1.5L12 3Z" />
+    </svg>
+  );
+}
+
+function MailIcon() {
+  return (
+    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="M4 5h16a2 2 0 0 1 2 2v.4l-10 6.1L2 7.4V7a2 2 0 0 1 2-2Zm-2 5 9 5.5a2 2 0 0 0 2 0L22 10v7a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-7Z" />
+    </svg>
+  );
+}
+
+function PhoneIcon() {
+  return (
+    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="M6.6 10.8a15.2 15.2 0 0 0 6.6 6.6l2.2-2.2a1 1 0 0 1 1-.25 11.6 11.6 0 0 0 3.6.55 1 1 0 0 1 1 1V20a1 1 0 0 1-1 1A17 17 0 0 1 3 4a1 1 0 0 1 1-1h3.5a1 1 0 0 1 1 1 11.6 11.6 0 0 0 .55 3.6 1 1 0 0 1-.25 1l-2.2 2.2Z" />
+    </svg>
+  );
+}
+
+function MessageIcon() {
+  return (
+    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="M4.804 21.644A6.707 6.707 0 0 0 6 21.75a6.721 6.721 0 0 0 3.583-1.029A10.27 10.27 0 0 0 12 21c5.322 0 9.75-3.97 9.75-9S17.322 3 12 3s-9.75 3.97-9.75 9c0 2.409 1.025 4.587 2.674 6.16.167.159.243.389.196.615a5.63 5.63 0 0 1-.316.869ZM8.25 12.75a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Zm3.75 0a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Zm3.75 0a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Z" />
+    </svg>
+  );
+}
+
+function InstagramIcon() {
+  return (
+    <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <rect x="5" y="5" width="14" height="14" rx="4" stroke="currentColor" strokeWidth="2" />
+      <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="2" />
+      <circle cx="16.5" cy="7.5" r="1" fill="currentColor" />
+    </svg>
   );
 }

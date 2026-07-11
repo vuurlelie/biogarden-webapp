@@ -1,10 +1,13 @@
 using Biogarden.BusinessLogic.Abstractions;
+using Biogarden.BusinessLogic.Models.Email;
+using Biogarden.BusinessLogic.Options;
 using Biogarden.BusinessLogic.DTOs.Orders;
 using Biogarden.BusinessLogic.Services;
 using Biogarden.DataAccess.Abstractions;
 using Biogarden.DataAccess.Entities;
 using Biogarden.DataAccess.Enums;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.Extensions.Options;
 using Moq;
 
 namespace Biogarden.UnitTests.Services;
@@ -16,6 +19,8 @@ public sealed class OrderServiceTests
     private readonly Mock<ICartRepository> _carts = new(MockBehavior.Strict);
     private readonly Mock<IProductRepository> _products = new(MockBehavior.Strict);
     private readonly Mock<ICartService> _cartService = new(MockBehavior.Strict);
+    private readonly Mock<IEmailService> _emailService = new(MockBehavior.Strict);
+    private readonly Mock<IEmailTemplateService> _emailTemplateService = new(MockBehavior.Strict);
     private readonly OrderService _service;
 
     public OrderServiceTests()
@@ -27,7 +32,16 @@ public sealed class OrderServiceTests
         var userManager = new Mock<UserManager<ApplicationUser>>(
             userStore.Object, null!, null!, null!, null!, null!, null!, null!, null!);
 
-        _service = new OrderService(_unitOfWork.Object, _cartService.Object, userManager.Object);
+        _service = new OrderService(
+            _unitOfWork.Object,
+            _cartService.Object,
+            userManager.Object,
+            _emailService.Object,
+            _emailTemplateService.Object,
+            Options.Create(new EmailBrandingOptions
+            {
+                ContactEmail = "info@bakonykincse.hu"
+            }));
     }
 
     [Fact]
@@ -48,6 +62,28 @@ public sealed class OrderServiceTests
         _unitOfWork.Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
         _orders.Setup(x => x.GetByIdWithItemsAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(() => savedOrder);
+        var customerMessage = new EmailMessage
+        {
+            To = "guest@example.com",
+            Subject = "Rendelésedet megkaptuk"
+        };
+        var businessMessage = new EmailMessage
+        {
+            To = "info@bakonykincse.hu",
+            Subject = "Új rendelés érkezett"
+        };
+        _emailTemplateService
+            .Setup(x => x.BuildOrderConfirmationMessage("guest@example.com", It.IsAny<OrderDto>()))
+            .Returns(customerMessage);
+        _emailTemplateService
+            .Setup(x => x.BuildOrderBusinessNotificationMessage("info@bakonykincse.hu", It.IsAny<OrderDto>()))
+            .Returns(businessMessage);
+        _emailService
+            .Setup(x => x.SendAsync(customerMessage, It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+        _emailService
+            .Setup(x => x.SendAsync(businessMessage, It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
 
         var result = await _service.CreateOrderFromCartAsync(null, sessionId, new PlaceOrderDto
         {
@@ -65,6 +101,18 @@ public sealed class OrderServiceTests
         Assert.Null(result.AddressId);
         Assert.Equal("guest@example.com", result.CustomerEmail);
         Assert.True(cart.IsCheckedOut);
+        _emailTemplateService.Verify(
+            x => x.BuildOrderConfirmationMessage(
+                "guest@example.com",
+                It.Is<OrderDto>(order => order.OrderNumber == result.OrderNumber)),
+            Times.Once);
+        _emailTemplateService.Verify(
+            x => x.BuildOrderBusinessNotificationMessage(
+                "info@bakonykincse.hu",
+                It.Is<OrderDto>(order => order.OrderNumber == result.OrderNumber)),
+            Times.Once);
+        _emailService.Verify(x => x.SendAsync(customerMessage, It.IsAny<CancellationToken>()), Times.Once);
+        _emailService.Verify(x => x.SendAsync(businessMessage, It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
