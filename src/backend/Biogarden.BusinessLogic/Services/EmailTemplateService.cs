@@ -1,8 +1,10 @@
 using System.Net;
 using Biogarden.BusinessLogic.Abstractions;
 using Biogarden.BusinessLogic.DTOs.Contact;
+using Biogarden.BusinessLogic.DTOs.Orders;
 using Biogarden.BusinessLogic.Models.Email;
 using Biogarden.BusinessLogic.Options;
+using Biogarden.DataAccess.Enums;
 using Microsoft.Extensions.Options;
 
 namespace Biogarden.BusinessLogic.Services;
@@ -259,6 +261,120 @@ public sealed class EmailTemplateService : IEmailTemplateService
         };
     }
 
+    public EmailMessage BuildOrderConfirmationMessage(string recipientEmail, OrderDto order)
+    {
+        const string title = "Rendelésedet megkaptuk";
+
+        var bodyLines = new[]
+        {
+            "Köszönjük a rendelésedet. A rendelésedet megkaptuk, feldolgozása hamarosan megkezdődik.",
+            $"Rendelésszám: {order.OrderNumber}",
+            $"Rendelés állapota: {FormatOrderStatus(order.Status)}",
+            $"Átvétel módja: {FormatFulfillmentMethod(order.FulfillmentMethod)}",
+            $"Végösszeg: {FormatPrice(order.TotalPrice)}",
+            $"Termékek: {FormatOrderItems(order)}"
+        };
+
+        var plainTextBody = BuildPlainTextBody(
+            greeting: "Kedves Felhasználónk!",
+            bodyLines: bodyLines,
+            actionText: "Webshop megnyitása",
+            actionUrl: _brandingOptions.WebsiteUrl,
+            note: "A rendelés feldolgozásáról és állapotváltozásairól emailben értesítünk.");
+
+        var htmlBody = BuildHtmlBody(
+            title: title,
+            preheader: $"Megkaptuk a rendelésedet: {order.OrderNumber}.",
+            greeting: "Kedves Felhasználónk!",
+            bodyParagraphs: bodyLines,
+            actionText: "Webshop megnyitása",
+            actionUrl: _brandingOptions.WebsiteUrl,
+            note: "A rendelés feldolgozásáról és állapotváltozásairól emailben értesítünk.");
+
+        return new EmailMessage
+        {
+            To = recipientEmail,
+            Subject = $"{title} - {_brandingOptions.CompanyName}",
+            PlainTextBody = plainTextBody,
+            HtmlBody = htmlBody
+        };
+    }
+
+    public EmailMessage BuildOrderBusinessNotificationMessage(string recipientEmail, OrderDto order)
+    {
+        var bodyLines = new[]
+        {
+            "Új rendelés érkezett a webshopban.",
+            $"Rendelésszám: {order.OrderNumber}",
+            $"Vásárló: {order.CustomerName}",
+            $"Email: {order.CustomerEmail}",
+            $"Telefon: {order.CustomerPhone}",
+            $"Átvétel módja: {FormatFulfillmentMethod(order.FulfillmentMethod)}",
+            $"Végösszeg: {FormatPrice(order.TotalPrice)}",
+            $"Termékek: {FormatOrderItems(order)}"
+        };
+
+        var plainTextBody = BuildPlainTextBody(
+            greeting: "Új rendelés érkezett",
+            bodyLines: bodyLines,
+            actionText: "Admin felület megnyitása",
+            actionUrl: _brandingOptions.WebsiteUrl,
+            note: "A rendelést az admin felületen tudod feldolgozni.");
+
+        var htmlBody = BuildHtmlBody(
+            title: "Új rendelés érkezett",
+            preheader: $"Új rendelés érkezett: {order.OrderNumber}.",
+            greeting: "Új rendelés érkezett",
+            bodyParagraphs: bodyLines,
+            actionText: "Admin felület megnyitása",
+            actionUrl: _brandingOptions.WebsiteUrl,
+            note: "A rendelést az admin felületen tudod feldolgozni.");
+
+        return new EmailMessage
+        {
+            To = recipientEmail,
+            Subject = $"Új rendelés érkezett - {_brandingOptions.CompanyName}",
+            PlainTextBody = plainTextBody,
+            HtmlBody = htmlBody
+        };
+    }
+
+    public EmailMessage BuildOrderStatusChangedMessage(string recipientEmail, OrderDto order)
+    {
+        const string title = "Rendelésed állapota frissült";
+
+        var bodyLines = new[]
+        {
+            $"A rendelésed állapota megváltozott: {FormatOrderStatus(order.Status)}.",
+            $"Rendelésszám: {order.OrderNumber}",
+            $"Végösszeg: {FormatPrice(order.TotalPrice)}"
+        };
+
+        var plainTextBody = BuildPlainTextBody(
+            greeting: "Kedves Felhasználónk!",
+            bodyLines: bodyLines,
+            actionText: "Kapcsolat",
+            actionUrl: $"mailto:{_brandingOptions.ContactEmail}",
+            note: "Ha kérdésed van a rendeléseddel kapcsolatban, válaszolj erre az emailre vagy vedd fel velünk a kapcsolatot.");
+
+        var htmlBody = BuildHtmlBody(
+            title: title,
+            preheader: $"A rendelésed új állapota: {FormatOrderStatus(order.Status)}.",
+            greeting: "Kedves Felhasználónk!",
+            bodyParagraphs: bodyLines,
+            actionText: "Kapcsolatfelvétel",
+            actionUrl: $"mailto:{_brandingOptions.ContactEmail}",
+            note: "Ha kérdésed van a rendeléseddel kapcsolatban, válaszolj erre az emailre vagy vedd fel velünk a kapcsolatot.");
+
+        return new EmailMessage
+        {
+            To = recipientEmail,
+            Subject = $"{title} - {_brandingOptions.CompanyName}",
+            PlainTextBody = plainTextBody,
+            HtmlBody = htmlBody
+        };
+    }
+
     private string BuildPlainTextBody(
         string greeting,
         IReadOnlyList<string> bodyLines,
@@ -423,4 +539,49 @@ public sealed class EmailTemplateService : IEmailTemplateService
     {
         return WebUtility.HtmlEncode(value);
     }
+
+    private static string FormatOrderItems(OrderDto order)
+    {
+        if (order.Items.Count == 0)
+        {
+            return "Nincs termékadat.";
+        }
+
+        return string.Join(
+            "; ",
+            order.Items.Select(item =>
+                $"{item.ProductName} - {item.Quantity} {FormatUnit(item.Unit)}, {FormatPrice(item.LineTotal)}"));
+    }
+
+    private static string FormatOrderStatus(OrderStatus status) => status switch
+    {
+        OrderStatus.Pending => "Feldolgozás alatt",
+        OrderStatus.Confirmed => "Visszaigazolva",
+        OrderStatus.Shipped => "Átadásra vagy kiszállításra előkészítve",
+        OrderStatus.Completed => "Teljesítve",
+        OrderStatus.Cancelled => "Lemondva",
+        _ => status.ToString()
+    };
+
+    private static string FormatFulfillmentMethod(FulfillmentMethod fulfillmentMethod) => fulfillmentMethod switch
+    {
+        FulfillmentMethod.PersonalPickup => "Személyes átvétel",
+        FulfillmentMethod.HomeDelivery => "Házhozszállítás",
+        FulfillmentMethod.ParcelLocker => "Csomagautomata",
+        _ => fulfillmentMethod.ToString()
+    };
+
+    private static string FormatUnit(UnitOfMeasure unit) => unit switch
+    {
+        UnitOfMeasure.Piece => "db",
+        UnitOfMeasure.Kilogram => "kg",
+        UnitOfMeasure.Gram => "g",
+        UnitOfMeasure.Milliliter => "ml",
+        UnitOfMeasure.Liter => "l",
+        UnitOfMeasure.Package => "csomag",
+        UnitOfMeasure.Bottle => "üveg",
+        _ => unit.ToString()
+    };
+
+    private static string FormatPrice(decimal price) => $"{price:0.##} Ft";
 }

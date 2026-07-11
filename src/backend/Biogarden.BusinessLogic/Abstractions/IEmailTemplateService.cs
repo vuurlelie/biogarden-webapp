@@ -1,5 +1,6 @@
 using Biogarden.BusinessLogic.Models.Email;
 using Biogarden.BusinessLogic.DTOs.Contact;
+using Biogarden.BusinessLogic.DTOs.Orders;
 
 namespace Biogarden.BusinessLogic.Abstractions;
 
@@ -26,4 +27,10 @@ public interface IEmailTemplateService
     EmailMessage BuildContactVisitorConfirmationMessage(
         string recipientEmail,
         ContactMessageRequestDto request);
+
+    EmailMessage BuildOrderConfirmationMessage(string recipientEmail, OrderDto order);
+
+    EmailMessage BuildOrderBusinessNotificationMessage(string recipientEmail, OrderDto order);
+
+    EmailMessage BuildOrderStatusChangedMessage(string recipientEmail, OrderDto order);
 }

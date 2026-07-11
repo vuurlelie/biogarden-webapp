@@ -1,6 +1,8 @@
 using Biogarden.BusinessLogic.Options;
 using Biogarden.BusinessLogic.Services;
 using Biogarden.BusinessLogic.DTOs.Contact;
+using Biogarden.BusinessLogic.DTOs.Orders;
+using Biogarden.DataAccess.Enums;
 using Microsoft.Extensions.Options;
 
 namespace Biogarden.UnitTests.Services;
@@ -130,6 +132,54 @@ public sealed class EmailTemplateServiceTests
         Assert.Contains("https://bakonykincse.hu", message.HtmlBody);
     }
 
+    [Fact]
+    public void BuildOrderConfirmationMessage_CreatesCustomerOrderSummary()
+    {
+        var service = CreateOrderTemplateService();
+        var order = CreateOrderDto();
+
+        var message = service.BuildOrderConfirmationMessage("customer@example.com", order);
+
+        Assert.Equal("customer@example.com", message.To);
+        Assert.Contains("Rendelésedet megkaptuk", message.Subject);
+        Assert.Contains("BK-TEST-0001", message.PlainTextBody);
+        Assert.Contains("Levendula", message.PlainTextBody);
+        Assert.Contains("Webshop megnyitása", message.PlainTextBody);
+        Assert.Contains("<!doctype html>", message.HtmlBody);
+        Assert.Contains("BK-TEST-0001", message.HtmlBody);
+    }
+
+    [Fact]
+    public void BuildOrderBusinessNotificationMessage_CreatesBusinessOrderSummary()
+    {
+        var service = CreateOrderTemplateService();
+        var order = CreateOrderDto();
+
+        var message = service.BuildOrderBusinessNotificationMessage("info@bakonykincse.hu", order);
+
+        Assert.Equal("info@bakonykincse.hu", message.To);
+        Assert.Contains("Új rendelés érkezett", message.Subject);
+        Assert.Contains("Teszt Elek", message.PlainTextBody);
+        Assert.Contains("customer@example.com", message.PlainTextBody);
+        Assert.Contains("customer@example.com", message.HtmlBody);
+        Assert.Contains("https://bakonykincse.hu", message.HtmlBody);
+    }
+
+    [Fact]
+    public void BuildOrderStatusChangedMessage_CreatesCustomerStatusUpdate()
+    {
+        var service = CreateOrderTemplateService();
+        var order = CreateOrderDto();
+        order.Status = OrderStatus.Confirmed;
+
+        var message = service.BuildOrderStatusChangedMessage("customer@example.com", order);
+
+        Assert.Equal("customer@example.com", message.To);
+        Assert.Contains("Rendelésed állapota frissült", message.Subject);
+        Assert.Contains("Visszaigazolva", message.PlainTextBody);
+        Assert.Contains("mailto:info@bakonykincse.hu", message.HtmlBody);
+    }
+
     [Theory]
     [InlineData("password", "Jelszavad megváltozott")]
     [InlineData("deactivated", "Fiókod deaktiválva lett")]
@@ -167,5 +217,46 @@ public sealed class EmailTemplateServiceTests
         Assert.Contains("<!doctype html>", message.HtmlBody);
         Assert.Contains("mailto:info@bakonykincse.hu", message.HtmlBody);
         Assert.Contains("https://bakonykincse.hu/logo.png", message.HtmlBody);
+    }
+
+    private static EmailTemplateService CreateOrderTemplateService()
+    {
+        return new EmailTemplateService(Options.Create(new EmailBrandingOptions
+        {
+            CompanyName = "Bakony Kincse Biokertészet",
+            WebsiteUrl = "https://bakonykincse.hu",
+            ContactEmail = "info@bakonykincse.hu",
+            PhoneNumber = "+36 20 800 56 06",
+            Address = "8431 Bakonyszentlászló, Jókai utca 22.",
+            LogoUrl = "https://bakonykincse.hu/logo.png"
+        }));
+    }
+
+    private static OrderDto CreateOrderDto()
+    {
+        return new OrderDto
+        {
+            Id = Guid.NewGuid(),
+            OrderNumber = "BK-TEST-0001",
+            CustomerName = "Teszt Elek",
+            CustomerEmail = "customer@example.com",
+            CustomerPhone = "+36 20 123 4567",
+            TotalPrice = 3600,
+            Status = OrderStatus.Pending,
+            PaymentStatus = PaymentStatus.Pending,
+            FulfillmentMethod = FulfillmentMethod.PersonalPickup,
+            Items =
+            [
+                new OrderItemDto
+                {
+                    ProductId = 1,
+                    ProductName = "Levendula",
+                    Quantity = 2,
+                    Unit = UnitOfMeasure.Piece,
+                    UnitPrice = 1800,
+                    LineTotal = 3600
+                }
+            ]
+        };
     }
 }

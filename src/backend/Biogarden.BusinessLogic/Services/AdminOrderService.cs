@@ -12,7 +12,20 @@ public sealed class AdminOrderService : IAdminOrderService
 {
     private readonly IAppDbContext _databaseContext;
     private readonly IUnitOfWork _unitOfWork;
-    public AdminOrderService(IAppDbContext databaseContext, IUnitOfWork unitOfWork) { _databaseContext = databaseContext; _unitOfWork = unitOfWork; }
+    private readonly IEmailService _emailService;
+    private readonly IEmailTemplateService _emailTemplateService;
+
+    public AdminOrderService(
+        IAppDbContext databaseContext,
+        IUnitOfWork unitOfWork,
+        IEmailService emailService,
+        IEmailTemplateService emailTemplateService)
+    {
+        _databaseContext = databaseContext;
+        _unitOfWork = unitOfWork;
+        _emailService = emailService;
+        _emailTemplateService = emailTemplateService;
+    }
 
     public async Task<IReadOnlyList<OrderDto>> GetAllAsync(CancellationToken cancellationToken = default)
     {
@@ -26,6 +39,7 @@ public sealed class AdminOrderService : IAdminOrderService
         var order = await _databaseContext.Orders.Include(item => item.Items)
             .SingleOrDefaultAsync(item => item.Id == orderId, cancellationToken)
             ?? throw new KeyNotFoundException("Order not found.");
+        var originalStatus = order.Status;
 
         if (order.Status == OrderStatus.Cancelled && changes.Status != OrderStatus.Cancelled)
             throw new InvalidOperationException("A lemondott rendelés állapota nem módosítható.");
@@ -70,6 +84,16 @@ public sealed class AdminOrderService : IAdminOrderService
         order.Status = changes.Status;
         order.PaymentStatus = changes.PaymentStatus;
         await _unitOfWork.SaveChangesAsync(cancellationToken);
-        return order.ToDto();
+        var updatedOrder = order.ToDto();
+
+        if (originalStatus != updatedOrder.Status)
+        {
+            var message = _emailTemplateService.BuildOrderStatusChangedMessage(
+                updatedOrder.CustomerEmail,
+                updatedOrder);
+            await _emailService.SendAsync(message, cancellationToken);
+        }
+
+        return updatedOrder;
     }
 }
