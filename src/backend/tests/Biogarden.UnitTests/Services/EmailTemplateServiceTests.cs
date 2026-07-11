@@ -1,5 +1,6 @@
 using Biogarden.BusinessLogic.Options;
 using Biogarden.BusinessLogic.Services;
+using Biogarden.BusinessLogic.DTOs.Contact;
 using Microsoft.Extensions.Options;
 
 namespace Biogarden.UnitTests.Services;
@@ -74,5 +75,58 @@ public sealed class EmailTemplateServiceTests
         Assert.Contains("<!doctype html>", message.HtmlBody);
         Assert.Contains("href=\"https://bakonykincse.hu/jelszo-visszaallitas?token=abc\"", message.HtmlBody);
         Assert.Contains("https://bakonykincse.hu/logo.png", message.HtmlBody);
+    }
+
+    [Fact]
+    public void BuildContactBusinessNotificationMessage_CreatesNotificationForBusiness()
+    {
+        var service = new EmailTemplateService(Options.Create(new EmailBrandingOptions
+        {
+            CompanyName = "Bakony Kincse Biokertészet",
+            ContactEmail = "info@bakonykincse.hu"
+        }));
+
+        var message = service.BuildContactBusinessNotificationMessage(
+            "info@bakonykincse.hu",
+            new ContactMessageRequestDto
+            {
+                Name = "Teszt Elek",
+                Email = "visitor@example.com",
+                Phone = "+36 20 123 4567",
+                Subject = "Kérdés",
+                Message = "Szeretnék érdeklődni a termékekről."
+            });
+
+        Assert.Equal("info@bakonykincse.hu", message.To);
+        Assert.Contains("Új kapcsolatfelvételi üzenet", message.Subject);
+        Assert.Contains("Teszt Elek", message.PlainTextBody);
+        Assert.Contains("visitor@example.com", message.PlainTextBody);
+        Assert.Contains("visitor@example.com", message.HtmlBody);
+        Assert.Contains("mailto:visitor@example.com", message.HtmlBody);
+    }
+
+    [Fact]
+    public void BuildContactVisitorConfirmationMessage_CreatesConfirmationForVisitor()
+    {
+        var service = new EmailTemplateService(Options.Create(new EmailBrandingOptions
+        {
+            CompanyName = "Bakony Kincse Biokertészet",
+            WebsiteUrl = "https://bakonykincse.hu",
+            ContactEmail = "info@bakonykincse.hu"
+        }));
+
+        var message = service.BuildContactVisitorConfirmationMessage(
+            "visitor@example.com",
+            new ContactMessageRequestDto
+            {
+                Name = "Teszt Elek",
+                Email = "visitor@example.com",
+                Message = "Szeretnék érdeklődni a termékekről."
+            });
+
+        Assert.Equal("visitor@example.com", message.To);
+        Assert.Contains("Megkaptuk az üzenetedet", message.Subject);
+        Assert.Contains("Kedves Teszt Elek!", message.PlainTextBody);
+        Assert.Contains("https://bakonykincse.hu", message.HtmlBody);
     }
 }

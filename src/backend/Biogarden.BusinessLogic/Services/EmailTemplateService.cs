@@ -1,5 +1,6 @@
 using System.Net;
 using Biogarden.BusinessLogic.Abstractions;
+using Biogarden.BusinessLogic.DTOs.Contact;
 using Biogarden.BusinessLogic.Models.Email;
 using Biogarden.BusinessLogic.Options;
 using Microsoft.Extensions.Options;
@@ -87,6 +88,97 @@ public sealed class EmailTemplateService : IEmailTemplateService
             actionText: buttonText,
             actionUrl: resetUrl,
             note: "Ha nem te kérted a jelszó visszaállítását, nincs további teendőd. A jelszavad nem változik meg.");
+
+        return new EmailMessage
+        {
+            To = recipientEmail,
+            Subject = $"{title} - {_brandingOptions.CompanyName}",
+            PlainTextBody = plainTextBody,
+            HtmlBody = htmlBody
+        };
+    }
+
+    public EmailMessage BuildContactBusinessNotificationMessage(
+        string recipientEmail,
+        ContactMessageRequestDto request)
+    {
+        var subject = string.IsNullOrWhiteSpace(request.Subject)
+            ? "Új kapcsolatfelvételi üzenet"
+            : $"Új kapcsolatfelvételi üzenet: {request.Subject}";
+
+        var plainTextBody = $"""
+            Új üzenet érkezett a webshop Kapcsolat űrlapjáról.
+
+            Név: {request.Name}
+            Email: {request.Email}
+            Telefon: {request.Phone ?? "Nincs megadva"}
+            Tárgy: {request.Subject ?? "Nincs megadva"}
+
+            Üzenet:
+            {request.Message}
+            """;
+
+        var htmlBody = BuildHtmlBody(
+            title: "Új kapcsolatfelvételi üzenet",
+            preheader: $"Új üzenet érkezett: {request.Name}",
+            greeting: "Új üzenet érkezett",
+            bodyParagraphs:
+            [
+                "A webshop Kapcsolat űrlapján keresztül új megkeresés érkezett.",
+                $"Név: {request.Name}",
+                $"Email: {request.Email}",
+                $"Telefon: {request.Phone ?? "Nincs megadva"}",
+                $"Tárgy: {request.Subject ?? "Nincs megadva"}",
+                $"Üzenet: {request.Message}"
+            ],
+            actionText: "Válasz emailben",
+            actionUrl: $"mailto:{request.Email}",
+            note: "A válaszhoz használd a megadott email címet, vagy keresd a látogatót telefonon, ha adott meg telefonszámot.");
+
+        return new EmailMessage
+        {
+            To = recipientEmail,
+            Subject = $"{subject} - {_brandingOptions.CompanyName}",
+            PlainTextBody = plainTextBody,
+            HtmlBody = htmlBody
+        };
+    }
+
+    public EmailMessage BuildContactVisitorConfirmationMessage(
+        string recipientEmail,
+        ContactMessageRequestDto request)
+    {
+        const string title = "Megkaptuk az üzenetedet";
+
+        var plainTextBody = $"""
+            Kedves {request.Name}!
+
+            Köszönjük, hogy írtál nekünk. Megkaptuk az üzenetedet, és hamarosan válaszolunk a megadott elérhetőségeden.
+
+            Az elküldött üzeneted:
+            {request.Message}
+
+            Üdvözlettel:
+            {_brandingOptions.CompanyName}
+
+            {_brandingOptions.ContactEmail}
+            {_brandingOptions.PhoneNumber}
+            {_brandingOptions.Address}
+            {_brandingOptions.WebsiteUrl}
+            """;
+
+        var htmlBody = BuildHtmlBody(
+            title: title,
+            preheader: "Köszönjük a megkeresést, hamarosan válaszolunk.",
+            greeting: $"Kedves {request.Name}!",
+            bodyParagraphs:
+            [
+                "Köszönjük, hogy írtál nekünk. Megkaptuk az üzenetedet, és hamarosan válaszolunk a megadott elérhetőségeden.",
+                $"Az elküldött üzeneted: {request.Message}"
+            ],
+            actionText: "Webshop megnyitása",
+            actionUrl: _brandingOptions.WebsiteUrl,
+            note: "Ez egy automatikus visszaigazolás, válaszolnod nem szükséges.");
 
         return new EmailMessage
         {
