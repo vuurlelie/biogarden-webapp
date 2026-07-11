@@ -129,4 +129,43 @@ public sealed class EmailTemplateServiceTests
         Assert.Contains("Kedves Teszt Elek!", message.PlainTextBody);
         Assert.Contains("https://bakonykincse.hu", message.HtmlBody);
     }
+
+    [Theory]
+    [InlineData("password", "Jelszavad megváltozott")]
+    [InlineData("deactivated", "Fiókod deaktiválva lett")]
+    [InlineData("reactivated", "Fiókod újra aktiválva lett")]
+    [InlineData("deleted", "Fiókod törölve lett")]
+    [InlineData("anonymized", "Fiókadataid anonimizálva lettek")]
+    public void BuildAccountLifecycleMessages_CreateBrandedNotifications(
+        string messageType,
+        string expectedTitle)
+    {
+        var service = new EmailTemplateService(Options.Create(new EmailBrandingOptions
+        {
+            CompanyName = "Bakony Kincse Biokertészet",
+            WebsiteUrl = "https://bakonykincse.hu",
+            ContactEmail = "info@bakonykincse.hu",
+            PhoneNumber = "+36 20 800 56 06",
+            Address = "8431 Bakonyszentlászló, Jókai utca 22.",
+            LogoUrl = "https://bakonykincse.hu/logo.png"
+        }));
+
+        var message = messageType switch
+        {
+            "password" => service.BuildPasswordChangedMessage("user@example.com"),
+            "deactivated" => service.BuildAccountDeactivatedMessage("user@example.com"),
+            "reactivated" => service.BuildAccountReactivatedMessage("user@example.com"),
+            "deleted" => service.BuildAccountDeletedMessage("user@example.com"),
+            "anonymized" => service.BuildAccountAnonymizedMessage("user@example.com"),
+            _ => throw new ArgumentOutOfRangeException(nameof(messageType))
+        };
+
+        Assert.Equal("user@example.com", message.To);
+        Assert.Contains(expectedTitle, message.Subject);
+        Assert.Contains("Kedves Felhasználónk!", message.PlainTextBody);
+        Assert.Contains("info@bakonykincse.hu", message.PlainTextBody);
+        Assert.Contains("<!doctype html>", message.HtmlBody);
+        Assert.Contains("mailto:info@bakonykincse.hu", message.HtmlBody);
+        Assert.Contains("https://bakonykincse.hu/logo.png", message.HtmlBody);
+    }
 }

@@ -9,6 +9,16 @@ public interface IEmailTemplateService
 
     EmailMessage BuildPasswordResetMessage(string recipientEmail, string resetUrl);
 
+    EmailMessage BuildPasswordChangedMessage(string recipientEmail);
+
+    EmailMessage BuildAccountDeactivatedMessage(string recipientEmail);
+
+    EmailMessage BuildAccountReactivatedMessage(string recipientEmail);
+
+    EmailMessage BuildAccountDeletedMessage(string recipientEmail);
+
+    EmailMessage BuildAccountAnonymizedMessage(string recipientEmail);
+
     EmailMessage BuildContactBusinessNotificationMessage(
         string recipientEmail,
         ContactMessageRequestDto request);

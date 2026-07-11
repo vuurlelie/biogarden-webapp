@@ -295,6 +295,22 @@ public sealed class AuthServiceTests
         _userManager
             .Setup(manager => manager.ResetPasswordAsync(user, "valid-token", "Password1"))
             .ReturnsAsync(IdentityResult.Success);
+        _emailTemplateService
+            .Setup(service => service.BuildPasswordChangedMessage("vasarlo@example.com"))
+            .Returns(new EmailMessage
+            {
+                To = "vasarlo@example.com",
+                Subject = "Jelszavad megváltozott - Bakony Kincse Biokertészet",
+                PlainTextBody = "password changed",
+                HtmlBody = "<p>password changed</p>"
+            });
+        _emailService
+            .Setup(service => service.SendAsync(
+                It.Is<EmailMessage>(message =>
+                    message.To == "vasarlo@example.com"
+                    && message.Subject.Contains("Jelszavad megváltozott")),
+                It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
 
         var result = await _service.ResetPasswordAsync(new ResetPasswordRequestDto
         {
@@ -305,6 +321,8 @@ public sealed class AuthServiceTests
         });
 
         Assert.True(result.Succeeded);
+        _emailService.VerifyAll();
+        _emailTemplateService.VerifyAll();
     }
 
     [Fact]

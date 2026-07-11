@@ -238,6 +238,12 @@ public class AuthService : IAuthService
                     : errors);
         }
 
+        if (!string.IsNullOrWhiteSpace(user.Email))
+        {
+            var message = _emailTemplateService.BuildPasswordChangedMessage(user.Email);
+            await _emailService.SendAsync(message);
+        }
+
         return AuthOperationResultDto.Success();
     }
 
