@@ -80,6 +80,69 @@ public sealed class SmtpEmailServiceTests
         Assert.Equal("message", exception.ParamName);
     }
 
+    [Fact]
+    public void ValidateForStartup_WhenEmailIsEnabledWithValidSmtpSettings_DoesNotThrow()
+    {
+        var options = new EmailOptions
+        {
+            Enabled = true,
+            FromAddress = "info@bakonykincse.hu",
+            SmtpHost = "smtp.example.com",
+            SmtpPort = 587
+        };
+
+        options.ValidateForStartup();
+    }
+
+    [Fact]
+    public void ValidateForStartup_WhenEmailIsDisabledWithoutPreviewDirectory_Throws()
+    {
+        var options = new EmailOptions
+        {
+            Enabled = false,
+            DisabledDeliveryPreviewDirectory = string.Empty
+        };
+
+        var exception = Assert.Throws<InvalidOperationException>(
+            options.ValidateForStartup);
+
+        Assert.Equal(
+            "Email sending is disabled, but Email:DisabledDeliveryPreviewDirectory is not configured.",
+            exception.Message);
+    }
+
+    [Fact]
+    public void ValidateForStartup_WhenAuthEmailClientBaseUrlIsInvalid_Throws()
+    {
+        var options = new AuthEmailOptions
+        {
+            ClientBaseUrl = "not-a-url"
+        };
+
+        var exception = Assert.Throws<InvalidOperationException>(
+            options.ValidateForStartup);
+
+        Assert.Equal(
+            "AuthEmail:ClientBaseUrl must be an absolute HTTP or HTTPS URL.",
+            exception.Message);
+    }
+
+    [Fact]
+    public void ValidateForStartup_WhenBrandingContactEmailIsInvalid_Throws()
+    {
+        var options = new EmailBrandingOptions
+        {
+            ContactEmail = "hibas-email"
+        };
+
+        var exception = Assert.Throws<InvalidOperationException>(
+            options.ValidateForStartup);
+
+        Assert.Equal(
+            "EmailBranding:ContactEmail must be a valid email address.",
+            exception.Message);
+    }
+
     private static SmtpEmailService CreateService(EmailOptions options)
     {
         return new SmtpEmailService(

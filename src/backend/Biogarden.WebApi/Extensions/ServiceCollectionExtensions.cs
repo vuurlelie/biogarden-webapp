@@ -45,14 +45,32 @@ public static class ServiceCollectionExtensions
         services.Configure<JwtSettings>(
             configuration.GetSection(JwtSettings.SectionName));
 
-        services.Configure<EmailOptions>(
-            configuration.GetSection(EmailOptions.SectionName));
+        services.AddOptions<EmailOptions>()
+            .Bind(configuration.GetSection(EmailOptions.SectionName))
+            .Validate(options =>
+            {
+                options.ValidateForStartup();
+                return true;
+            })
+            .ValidateOnStart();
 
-        services.Configure<AuthEmailOptions>(
-            configuration.GetSection(AuthEmailOptions.SectionName));
+        services.AddOptions<AuthEmailOptions>()
+            .Bind(configuration.GetSection(AuthEmailOptions.SectionName))
+            .Validate(options =>
+            {
+                options.ValidateForStartup();
+                return true;
+            })
+            .ValidateOnStart();
 
-        services.Configure<EmailBrandingOptions>(
-            configuration.GetSection(EmailBrandingOptions.SectionName));
+        services.AddOptions<EmailBrandingOptions>()
+            .Bind(configuration.GetSection(EmailBrandingOptions.SectionName))
+            .Validate(options =>
+            {
+                options.ValidateForStartup();
+                return true;
+            })
+            .ValidateOnStart();
 
         var jwtSettings = configuration
             .GetSection(JwtSettings.SectionName)
