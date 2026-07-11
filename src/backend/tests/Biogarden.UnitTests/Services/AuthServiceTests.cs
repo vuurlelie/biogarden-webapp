@@ -40,6 +40,7 @@ public sealed class AuthServiceTests
             {
                 ClientBaseUrl = "https://bakonykincse.hu",
                 ConfirmEmailPath = "/email-megerosites",
+                ResetPasswordPath = "/jelszo-visszaallitas",
                 UnconfirmedAccountRetentionDays = 14
             }));
     }
@@ -211,6 +212,116 @@ public sealed class AuthServiceTests
             service => service.SendAsync(
                 It.IsAny<EmailMessage>(),
                 It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public async Task ForgotPasswordAsync_WhenUserExistsAndIsActive_SendsResetEmail()
+    {
+        var user = new ApplicationUser
+        {
+            Id = Guid.NewGuid(),
+            Email = "vasarlo@example.com",
+            EmailConfirmed = true
+        };
+
+        _userManager
+            .Setup(manager => manager.FindByEmailAsync("vasarlo@example.com"))
+            .ReturnsAsync(user);
+        _userManager
+            .Setup(manager => manager.GeneratePasswordResetTokenAsync(user))
+            .ReturnsAsync("reset token");
+        _emailTemplateService
+            .Setup(service => service.BuildPasswordResetMessage(
+                "vasarlo@example.com",
+                It.Is<string>(url =>
+                    url.Contains("https://bakonykincse.hu/jelszo-visszaallitas")
+                    && url.Contains("reset%20token"))))
+            .Returns(new EmailMessage
+            {
+                To = "vasarlo@example.com",
+                Subject = "Jelszó visszaállítása - Bakony Kincse Biokertészet",
+                PlainTextBody = "reset email",
+                HtmlBody = "<p>reset email</p>"
+            });
+        _emailService
+            .Setup(service => service.SendAsync(
+                It.Is<EmailMessage>(message =>
+                    message.To == "vasarlo@example.com"
+                    && message.Subject.Contains("Jelszó visszaállítása")),
+                It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        await _service.ForgotPasswordAsync(new ForgotPasswordRequestDto
+        {
+            Email = " vasarlo@example.com "
+        });
+
+        _emailService.VerifyAll();
+        _emailTemplateService.VerifyAll();
+    }
+
+    [Fact]
+    public async Task ForgotPasswordAsync_WhenUserDoesNotExist_ReturnsNeutralSuccess()
+    {
+        _userManager
+            .Setup(manager => manager.FindByEmailAsync("missing@example.com"))
+            .ReturnsAsync((ApplicationUser?)null);
+
+        await _service.ForgotPasswordAsync(new ForgotPasswordRequestDto
+        {
+            Email = "missing@example.com"
+        });
+
+        _emailService.Verify(
+            service => service.SendAsync(
+                It.IsAny<EmailMessage>(),
+                It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public async Task ResetPasswordAsync_WhenTokenIsValid_ResetsPassword()
+    {
+        var user = new ApplicationUser
+        {
+            Id = Guid.NewGuid(),
+            Email = "vasarlo@example.com"
+        };
+
+        _userManager
+            .Setup(manager => manager.FindByIdAsync(user.Id.ToString()))
+            .ReturnsAsync(user);
+        _userManager
+            .Setup(manager => manager.ResetPasswordAsync(user, "valid-token", "Password1"))
+            .ReturnsAsync(IdentityResult.Success);
+
+        var result = await _service.ResetPasswordAsync(new ResetPasswordRequestDto
+        {
+            UserId = user.Id,
+            Token = "valid-token",
+            Password = "Password1",
+            ConfirmPassword = "Password1"
+        });
+
+        Assert.True(result.Succeeded);
+    }
+
+    [Fact]
+    public async Task ResetPasswordAsync_WhenPasswordsDoNotMatch_ReturnsFailureBeforeUserLookup()
+    {
+        var result = await _service.ResetPasswordAsync(new ResetPasswordRequestDto
+        {
+            UserId = Guid.NewGuid(),
+            Token = "token",
+            Password = "Password1",
+            ConfirmPassword = "Password2"
+        });
+
+        Assert.False(result.Succeeded);
+        Assert.Equal("A jelszavak nem egyeznek.", result.ErrorMessage);
+        _userManager.Verify(
+            manager => manager.FindByIdAsync(It.IsAny<string>()),
             Times.Never);
     }
 

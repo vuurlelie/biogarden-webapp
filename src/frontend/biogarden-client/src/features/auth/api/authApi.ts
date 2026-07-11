@@ -1,8 +1,10 @@
 import type {
   AuthResponse,
   ConfirmEmailRequest,
+  ForgotPasswordRequest,
   LoginRequest,
   RegisterRequest,
+  ResetPasswordRequest,
   ResendEmailConfirmationRequest,
 } from "../types/auth.types";
 
@@ -74,6 +76,30 @@ export async function resendEmailConfirmation(
   request: ResendEmailConfirmationRequest,
 ): Promise<void> {
   const response = await fetch(`${API_BASE_URL}/api/auth/resend-email-confirmation`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(request),
+  });
+
+  if (!response.ok) {
+    throw new AuthApiError(await getErrorMessage(response), response.status);
+  }
+}
+
+export async function forgotPassword(request: ForgotPasswordRequest): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/api/auth/forgot-password`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(request),
+  });
+
+  if (!response.ok) {
+    throw new AuthApiError(await getErrorMessage(response), response.status);
+  }
+}
+
+export async function resetPassword(request: ResetPasswordRequest): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/api/auth/reset-password`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(request),

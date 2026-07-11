@@ -174,6 +174,73 @@ public class AuthService : IAuthService
         await SendEmailConfirmationAsync(user);
     }
 
+    public async Task ForgotPasswordAsync(ForgotPasswordRequestDto forgotPasswordRequestDto)
+    {
+        var normalizedEmail = forgotPasswordRequestDto.Email.Trim();
+
+        if (string.IsNullOrWhiteSpace(normalizedEmail))
+        {
+            return;
+        }
+
+        var user = await _userManager.FindByEmailAsync(normalizedEmail);
+
+        if (user is null
+            || !user.EmailConfirmed
+            || user.RecordStatus == RecordStatus.Deleted
+            || user.DeactivatedAtUtc is not null
+            || user.AnonymizedAtUtc is not null
+            || string.IsNullOrWhiteSpace(user.Email))
+        {
+            return;
+        }
+
+        var token = await _userManager.GeneratePasswordResetTokenAsync(user);
+        var resetUrl = BuildPasswordResetUrl(user.Id, token);
+        var message = _emailTemplateService.BuildPasswordResetMessage(user.Email, resetUrl);
+
+        await _emailService.SendAsync(message);
+    }
+
+    public async Task<AuthOperationResultDto> ResetPasswordAsync(
+        ResetPasswordRequestDto resetPasswordRequestDto)
+    {
+        if (resetPasswordRequestDto.Password != resetPasswordRequestDto.ConfirmPassword)
+        {
+            return AuthOperationResultDto.Failure("A jelszavak nem egyeznek.");
+        }
+
+        var user = await _userManager.FindByIdAsync(
+            resetPasswordRequestDto.UserId.ToString());
+
+        if (user is null
+            || user.RecordStatus == RecordStatus.Deleted
+            || user.DeactivatedAtUtc is not null
+            || user.AnonymizedAtUtc is not null)
+        {
+            return AuthOperationResultDto.Failure("A jelszó visszaállítása nem sikerült.");
+        }
+
+        var result = await _userManager.ResetPasswordAsync(
+            user,
+            resetPasswordRequestDto.Token,
+            resetPasswordRequestDto.Password);
+
+        if (!result.Succeeded)
+        {
+            var errors = string.Join(
+                ", ",
+                result.Errors.Select(error => error.Description));
+
+            return AuthOperationResultDto.Failure(
+                string.IsNullOrWhiteSpace(errors)
+                    ? "A jelszó visszaállítása nem sikerült."
+                    : errors);
+        }
+
+        return AuthOperationResultDto.Success();
+    }
+
     private async Task SendEmailConfirmationAsync(ApplicationUser user)
     {
         if (string.IsNullOrWhiteSpace(user.Email))
@@ -198,6 +265,16 @@ public class AuthService : IAuthService
             : $"/{_authEmailOptions.ConfirmEmailPath}";
 
         return $"{clientBaseUrl}{confirmEmailPath}?userId={userId}&token={Uri.EscapeDataString(token)}";
+    }
+
+    private string BuildPasswordResetUrl(Guid userId, string token)
+    {
+        var clientBaseUrl = _authEmailOptions.ClientBaseUrl.TrimEnd('/');
+        var resetPasswordPath = _authEmailOptions.ResetPasswordPath.StartsWith('/')
+            ? _authEmailOptions.ResetPasswordPath
+            : $"/{_authEmailOptions.ResetPasswordPath}";
+
+        return $"{clientBaseUrl}{resetPasswordPath}?userId={userId}&token={Uri.EscapeDataString(token)}";
     }
 
     private async Task DeleteExpiredUnconfirmedUsersAsync()

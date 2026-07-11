@@ -13,6 +13,8 @@ export const ROUTES = {
   login: "/bejelentkezes",
   register: "/regisztracio",
   emailConfirmation: "/email-megerosites",
+  forgotPassword: "/elfelejtett-jelszo",
+  resetPassword: "/jelszo-visszaallitas",
 
   cart: "/kosar",
   checkout: "/penztar",

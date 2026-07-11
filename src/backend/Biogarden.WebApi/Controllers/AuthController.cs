@@ -84,4 +84,33 @@ public class AuthController : ControllerBase
 
         return Ok();
     }
+
+    [HttpPost("forgot-password")]
+    public async Task<IActionResult> ForgotPasswordAsync(
+        [FromBody] ForgotPasswordRequestDto forgotPasswordRequestDto)
+    {
+        await _authService.ForgotPasswordAsync(forgotPasswordRequestDto);
+
+        return Ok();
+    }
+
+    [HttpPost("reset-password")]
+    public async Task<IActionResult> ResetPasswordAsync(
+        [FromBody] ResetPasswordRequestDto resetPasswordRequestDto)
+    {
+        var result = await _authService.ResetPasswordAsync(resetPasswordRequestDto);
+
+        if (!result.Succeeded)
+        {
+            return BadRequest(new ApiErrorResponse
+            {
+                Title = "Password reset failed.",
+                Status = StatusCodes.Status400BadRequest,
+                Detail = result.ErrorMessage,
+                TraceId = HttpContext.TraceIdentifier
+            });
+        }
+
+        return Ok();
+    }
 }

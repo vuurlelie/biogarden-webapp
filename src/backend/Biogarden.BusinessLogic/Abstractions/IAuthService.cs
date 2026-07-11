@@ -8,4 +8,6 @@ public interface IAuthService
     Task<LoginResultDto> LoginAsync(LoginRequestDto loginRequestDto);
     Task<AuthOperationResultDto> ConfirmEmailAsync(ConfirmEmailRequestDto confirmEmailRequestDto);
     Task ResendEmailConfirmationAsync(ResendEmailConfirmationRequestDto resendEmailConfirmationRequestDto);
+    Task ForgotPasswordAsync(ForgotPasswordRequestDto forgotPasswordRequestDto);
+    Task<AuthOperationResultDto> ResetPasswordAsync(ResetPasswordRequestDto resetPasswordRequestDto);
 }

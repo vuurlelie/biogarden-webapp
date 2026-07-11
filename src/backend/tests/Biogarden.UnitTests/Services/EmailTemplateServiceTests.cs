@@ -49,4 +49,30 @@ public sealed class EmailTemplateServiceTests
 
         Assert.Contains(">BK<", message.HtmlBody);
     }
+
+    [Fact]
+    public void BuildPasswordResetMessage_CreatesBrandedHtmlAndPlainTextBodies()
+    {
+        var service = new EmailTemplateService(Options.Create(new EmailBrandingOptions
+        {
+            CompanyName = "Bakony Kincse BiokertÃ©szet",
+            WebsiteUrl = "https://bakonykincse.hu",
+            ContactEmail = "info@bakonykincse.hu",
+            PhoneNumber = "+36 20 800 56 06",
+            Address = "8431 BakonyszentlÃ¡szlÃ³, JÃ³kai utca 22.",
+            LogoUrl = "https://bakonykincse.hu/logo.png"
+        }));
+
+        var message = service.BuildPasswordResetMessage(
+            "vasarlo@example.com",
+            "https://bakonykincse.hu/jelszo-visszaallitas?token=abc");
+
+        Assert.Equal("vasarlo@example.com", message.To);
+        Assert.Contains("Jelszó visszaállítása", message.Subject);
+        Assert.Contains("https://bakonykincse.hu/jelszo-visszaallitas?token=abc", message.PlainTextBody);
+        Assert.Contains("Új jelszó beállítása", message.PlainTextBody);
+        Assert.Contains("<!doctype html>", message.HtmlBody);
+        Assert.Contains("href=\"https://bakonykincse.hu/jelszo-visszaallitas?token=abc\"", message.HtmlBody);
+        Assert.Contains("https://bakonykincse.hu/logo.png", message.HtmlBody);
+    }
 }

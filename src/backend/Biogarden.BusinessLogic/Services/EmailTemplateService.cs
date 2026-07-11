@@ -24,7 +24,7 @@ public sealed class EmailTemplateService : IEmailTemplateService
         const string buttonText = "Email cím megerősítése";
 
         var plainTextBody = BuildPlainTextBody(
-            greeting: "Kedves Vásárlónk!",
+            greeting: "Kedves Felhasználónk!",
             bodyLines:
             [
                 "Köszönjük a regisztrációt a Bakony Kincse Biokertészet webshopjában.",
@@ -37,7 +37,7 @@ public sealed class EmailTemplateService : IEmailTemplateService
         var htmlBody = BuildHtmlBody(
             title: title,
             preheader: preheader,
-            greeting: "Kedves Vásárlónk!",
+            greeting: "Kedves Felhasználónk!",
             bodyParagraphs:
             [
                 "Köszönjük a regisztrációt a Bakony Kincse Biokertészet webshopjában.",
@@ -46,6 +46,47 @@ public sealed class EmailTemplateService : IEmailTemplateService
             actionText: buttonText,
             actionUrl: confirmationUrl,
             note: "Ha nem te kezdeményezted a regisztrációt, nincs további teendőd.");
+
+        return new EmailMessage
+        {
+            To = recipientEmail,
+            Subject = $"{title} - {_brandingOptions.CompanyName}",
+            PlainTextBody = plainTextBody,
+            HtmlBody = htmlBody
+        };
+    }
+
+    public EmailMessage BuildPasswordResetMessage(
+        string recipientEmail,
+        string resetUrl)
+    {
+        const string title = "Jelszó visszaállítása";
+        const string preheader = "Állítsd be az új jelszavadat a Bakony Kincse Biokertészet fiókodhoz.";
+        const string buttonText = "Új jelszó beállítása";
+
+        var plainTextBody = BuildPlainTextBody(
+            greeting: "Kedves Felhasználónk!",
+            bodyLines:
+            [
+                "Jelszó-visszaállítást kértél a Bakony Kincse Biokertészet webshop fiókodhoz.",
+                "Az új jelszó beállításához kérjük, nyisd meg az alábbi linket:"
+            ],
+            actionText: buttonText,
+            actionUrl: resetUrl,
+            note: "Ha nem te kérted a jelszó visszaállítását, ezt az üzenetet hagyd figyelmen kívül. A jelszavad nem változik meg.");
+
+        var htmlBody = BuildHtmlBody(
+            title: title,
+            preheader: preheader,
+            greeting: "Kedves Felhasználónk!",
+            bodyParagraphs:
+            [
+                "Jelszó-visszaállítást kértél a Bakony Kincse Biokertészet webshop fiókodhoz.",
+                "Az új jelszó beállításához kattints az alábbi gombra."
+            ],
+            actionText: buttonText,
+            actionUrl: resetUrl,
+            note: "Ha nem te kérted a jelszó visszaállítását, nincs további teendőd. A jelszavad nem változik meg.");
 
         return new EmailMessage
         {

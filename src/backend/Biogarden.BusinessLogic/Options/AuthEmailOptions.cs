@@ -6,5 +6,6 @@ public sealed class AuthEmailOptions
 
     public string ClientBaseUrl { get; init; } = "http://localhost:5173";
     public string ConfirmEmailPath { get; init; } = "/email-megerosites";
+    public string ResetPasswordPath { get; init; } = "/jelszo-visszaallitas";
     public int UnconfirmedAccountRetentionDays { get; init; } = 14;
 }

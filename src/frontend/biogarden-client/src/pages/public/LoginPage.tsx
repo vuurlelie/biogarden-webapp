@@ -136,9 +136,14 @@ export default function LoginPage() {
           </div>
 
           <div>
-            <label htmlFor="login-password" className="block text-sm font-semibold text-site-heading">
-              Jelszó <span className="text-site-danger">*</span>
-            </label>
+            <div className="flex items-center justify-between gap-3">
+              <label htmlFor="login-password" className="block text-sm font-semibold text-site-heading">
+                Jelszó <span className="text-site-danger">*</span>
+              </label>
+              <Link to={ROUTES.forgotPassword} className="text-sm font-semibold text-site-green-dark hover:underline">
+                Elfelejtett jelszó?
+              </Link>
+            </div>
             <input
               id="login-password"
               type="password"
