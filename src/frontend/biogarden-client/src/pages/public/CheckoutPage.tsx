@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { createOrder, createStripeCheckoutSession } from "../../features/account/api/ordersApi";
 import { getAddresses, getProfile } from "../../features/account/api/profileApi";
 import type { UserAddresses } from "../../features/account/types/address.types";
@@ -204,6 +204,7 @@ function paymentLabel(paymentMethod: PaymentMethod | null): string {
 
 export default function CheckoutPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { cart, isLoading: cartLoading, refresh } = useCart();
   const authenticated = Boolean(getAuthSession());
   const [addresses, setAddresses] = useState<UserAddresses | null>(null);
@@ -230,6 +231,9 @@ export default function CheckoutPage() {
   const deliveryFee = method === 1 ? 1500 : method === 2 ? 1000 : 0;
   const paymentFee = paymentMethod === "cash-on-delivery" ? 500 : 0;
   const grandTotal = (cart?.totalPrice ?? 0) + deliveryFee + paymentFee;
+  const cancelledStripeOrderId = searchParams.get("stripe") === "cancelled"
+    ? searchParams.get("orderId")
+    : null;
 
   useEffect(() => {
     sessionStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
@@ -537,11 +541,57 @@ export default function CheckoutPage() {
     }
   }
 
+  async function retryStripePayment(orderId: string) {
+    setSubmitting(true);
+    setError("");
+
+    try {
+      const checkoutSession = await createStripeCheckoutSession(orderId);
+      window.location.assign(checkoutSession.url);
+    } catch (retryError) {
+      setError(retryError instanceof Error ? retryError.message : "A fizetés újraindítása nem sikerült.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
   if (loading || cartLoading) {
     return (
       <div className="mx-auto max-w-7xl px-4 py-12 text-center">
         A pénztár betöltése...
       </div>
+    );
+  }
+
+  if (!cart?.items.length && cancelledStripeOrderId) {
+    return (
+      <main className="mx-auto max-w-2xl px-4 py-16 text-center">
+        <h1 className="text-3xl font-bold text-site-heading">A fizetés megszakadt</h1>
+        <p className="mt-4 text-site-text">
+          A rendelést rögzítettük, de az online bankkártyás fizetés nem fejeződött be.
+        </p>
+        {error && (
+          <div role="alert" className="mt-5 rounded-sm bg-site-danger-soft p-4 text-site-danger">
+            {error}
+          </div>
+        )}
+        <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
+          <button
+            type="button"
+            onClick={() => void retryStripePayment(cancelledStripeOrderId)}
+            disabled={submitting}
+            className="rounded-sm bg-site-green px-5 py-3 font-semibold text-white disabled:opacity-50"
+          >
+            {submitting ? "Átirányítás..." : "Fizetés újrapróbálása"}
+          </button>
+          <Link
+            to={ROUTES.products}
+            className="rounded-sm border border-site-border bg-white px-5 py-3 font-semibold text-site-heading"
+          >
+            Vissza a termékekhez
+          </Link>
+        </div>
+      </main>
     );
   }
 
@@ -562,6 +612,19 @@ export default function CheckoutPage() {
   return (
     <main className="mx-auto w-full max-w-7xl px-4 py-8">
       <h1 className="text-3xl font-bold text-site-heading">Pénztár</h1>
+      {cancelledStripeOrderId && (
+        <div role="status" className="mt-5 rounded-sm border border-site-green/30 bg-site-surface-soft p-4 text-site-green-dark">
+          Az online fizetés megszakadt. A rendelésedet rögzítettük; innen újraindíthatod a fizetést.
+          <button
+            type="button"
+            onClick={() => void retryStripePayment(cancelledStripeOrderId)}
+            disabled={submitting}
+            className="mt-3 block rounded-sm bg-site-green px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+          >
+            {submitting ? "Átirányítás..." : "Fizetés újrapróbálása"}
+          </button>
+        </div>
+      )}
       {error && (
         <div role="alert" className="mt-5 rounded-sm bg-site-danger-soft p-4 text-site-danger">
           {error}
