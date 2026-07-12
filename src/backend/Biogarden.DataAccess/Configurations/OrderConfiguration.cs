@@ -53,6 +53,20 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
             .HasDefaultValue(FulfillmentMethod.PersonalPickup)
             .IsRequired();
 
+        orderBuilder.Property(order => order.StripeCheckoutSessionId)
+            .HasMaxLength(200);
+
+        orderBuilder.Property(order => order.StripePaymentIntentId)
+            .HasMaxLength(200);
+
+        orderBuilder.HasIndex(order => order.StripeCheckoutSessionId)
+            .IsUnique()
+            .HasFilter("[StripeCheckoutSessionId] IS NOT NULL");
+
+        orderBuilder.HasIndex(order => order.StripePaymentIntentId)
+            .IsUnique()
+            .HasFilter("[StripePaymentIntentId] IS NOT NULL");
+
         orderBuilder.Property(order => order.CancellationReason)
             .HasMaxLength(500);
 

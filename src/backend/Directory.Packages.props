@@ -20,6 +20,9 @@
 		<!-- JWT -->
 		<PackageVersion Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="9.0.8" />
 
+		<!-- Stripe -->
+		<PackageVersion Include="Stripe.net" Version="52.1.0" />
+
 		<!-- OpenAPI / Swagger -->
 		<PackageVersion Include="Swashbuckle.AspNetCore" Version="6.6.2" />
 

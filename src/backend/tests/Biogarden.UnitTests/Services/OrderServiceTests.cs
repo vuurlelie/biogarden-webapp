@@ -1,5 +1,6 @@
 using Biogarden.BusinessLogic.Abstractions;
 using Biogarden.BusinessLogic.Models.Email;
+using Biogarden.BusinessLogic.Models.Payments;
 using Biogarden.BusinessLogic.Options;
 using Biogarden.BusinessLogic.DTOs.Orders;
 using Biogarden.BusinessLogic.Services;
@@ -21,6 +22,7 @@ public sealed class OrderServiceTests
     private readonly Mock<ICartService> _cartService = new(MockBehavior.Strict);
     private readonly Mock<IEmailService> _emailService = new(MockBehavior.Strict);
     private readonly Mock<IEmailTemplateService> _emailTemplateService = new(MockBehavior.Strict);
+    private readonly Mock<IStripeCheckoutService> _stripeCheckoutService = new(MockBehavior.Strict);
     private readonly OrderService _service;
 
     public OrderServiceTests()
@@ -38,6 +40,7 @@ public sealed class OrderServiceTests
             userManager.Object,
             _emailService.Object,
             _emailTemplateService.Object,
+            _stripeCheckoutService.Object,
             Options.Create(new EmailBrandingOptions
             {
                 ContactEmail = "info@bakonykincse.hu"
@@ -146,6 +149,77 @@ public sealed class OrderServiceTests
     }
 
     [Fact]
+    public async Task CreateStripeCheckoutSessionAsync_AsGuestWithMatchingCartSession_StoresSessionId()
+    {
+        const string sessionId = "guest-session";
+        var order = CreateOrder(null);
+        order.Cart = new Cart
+        {
+            Id = order.CartId,
+            SessionId = sessionId,
+            IsCheckedOut = true
+        };
+        order.Items.Add(new OrderItem
+        {
+            Id = Guid.NewGuid(),
+            OrderId = order.Id,
+            ProductId = 1,
+            ProductName = "Levendula",
+            Unit = UnitOfMeasure.Piece,
+            UnitPrice = 1800,
+            Quantity = 2,
+            LineTotal = 3600
+        });
+
+        _orders
+            .Setup(x => x.GetByIdWithItemsAndCartAsync(order.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(order);
+        _stripeCheckoutService
+            .Setup(x => x.CreateCheckoutSessionAsync(
+                It.Is<OrderDto>(dto => dto.Id == order.Id),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new StripeCheckoutSessionResult(
+                "cs_test_123",
+                "https://checkout.stripe.com/c/pay/cs_test_123",
+                "pi_test_123"));
+        _orders.Setup(x => x.Update(order));
+        _unitOfWork.Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
+
+        var result = await _service.CreateStripeCheckoutSessionAsync(
+            null,
+            sessionId,
+            order.Id);
+
+        Assert.Equal(order.Id, result.OrderId);
+        Assert.Equal("cs_test_123", result.SessionId);
+        Assert.Equal("https://checkout.stripe.com/c/pay/cs_test_123", result.Url);
+        Assert.Equal("cs_test_123", order.StripeCheckoutSessionId);
+        Assert.Equal("pi_test_123", order.StripePaymentIntentId);
+    }
+
+    [Fact]
+    public async Task ConfirmStripeCheckoutSessionAsync_MarksOrderPaidAndConfirmed()
+    {
+        var order = CreateOrder(null);
+        order.StripeCheckoutSessionId = "cs_test_123";
+
+        _orders
+            .Setup(x => x.GetByStripeCheckoutSessionIdAsync("cs_test_123", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(order);
+        _orders.Setup(x => x.Update(order));
+        _unitOfWork.Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
+
+        var result = await _service.ConfirmStripeCheckoutSessionAsync(
+            "cs_test_123",
+            "pi_test_123");
+
+        Assert.Equal(PaymentStatus.Paid, result.PaymentStatus);
+        Assert.Equal(OrderStatus.Confirmed, result.Status);
+        Assert.Equal("pi_test_123", order.StripePaymentIntentId);
+        Assert.NotNull(order.ConfirmedAtUtc);
+    }
+
+    [Fact]
     public async Task CancelOrderAsync_WhenPaid_RestoresStockAndMarksRefundPending()
     {
         var userId = Guid.NewGuid();
@@ -212,7 +286,7 @@ public sealed class OrderServiceTests
         _unitOfWork.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
     }
 
-    private static Order CreateOrder(Guid userId) => new()
+    private static Order CreateOrder(Guid? userId) => new()
     {
         Id = Guid.NewGuid(),
         OrderNumber = "BK-TEST-0001",

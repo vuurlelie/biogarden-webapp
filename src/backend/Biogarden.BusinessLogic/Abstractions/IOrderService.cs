@@ -1,4 +1,5 @@
-﻿using Biogarden.BusinessLogic.DTOs.Orders;
+using Biogarden.BusinessLogic.DTOs.Orders;
+using Biogarden.BusinessLogic.DTOs.Payments;
 
 namespace Biogarden.BusinessLogic.Abstractions;
 
@@ -13,6 +14,22 @@ public interface IOrderService
     Task<OrderDto> ConfirmOrderPaymentAsync(
         Guid userId,
         Guid orderId,
+        CancellationToken cancellationToken = default);
+
+    Task<StripeCheckoutSessionDto> CreateStripeCheckoutSessionAsync(
+        Guid? userId,
+        string? sessionId,
+        Guid orderId,
+        CancellationToken cancellationToken = default);
+
+    Task<OrderDto> ConfirmStripeCheckoutSessionAsync(
+        string stripeCheckoutSessionId,
+        string? stripePaymentIntentId,
+        CancellationToken cancellationToken = default);
+
+    Task<OrderDto?> MarkStripePaymentFailedAsync(
+        string stripeCheckoutSessionId,
+        string? stripePaymentIntentId,
         CancellationToken cancellationToken = default);
 
     Task<OrderDto> CancelOrderAsync(

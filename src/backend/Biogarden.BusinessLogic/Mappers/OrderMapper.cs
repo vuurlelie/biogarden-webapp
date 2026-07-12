@@ -42,6 +42,8 @@ public static class OrderMapper
             Status = order.Status,
             PaymentStatus = order.PaymentStatus,
             FulfillmentMethod = order.FulfillmentMethod,
+            StripeCheckoutSessionId = order.StripeCheckoutSessionId,
+            StripePaymentIntentId = order.StripePaymentIntentId,
             CancellationReason = order.CancellationReason,
             Items = order.Items.Select(item => new OrderItemDto
             {

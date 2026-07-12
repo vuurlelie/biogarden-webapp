@@ -72,6 +72,15 @@ public static class ServiceCollectionExtensions
             })
             .ValidateOnStart();
 
+        services.AddOptions<StripeOptions>()
+            .Bind(configuration.GetSection(StripeOptions.SectionName))
+            .Validate(options =>
+            {
+                options.ValidateForStartup();
+                return true;
+            })
+            .ValidateOnStart();
+
         var jwtSettings = configuration
             .GetSection(JwtSettings.SectionName)
             .Get<JwtSettings>()
@@ -139,6 +148,9 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ITokenService, JwtTokenService>();
         services.AddScoped<IEmailService, SmtpEmailService>();
         services.AddScoped<IEmailTemplateService, EmailTemplateService>();
+        services.AddScoped<IStripeCheckoutSessionClient, StripeCheckoutSessionClient>();
+        services.AddScoped<IStripeCheckoutService, StripeCheckoutService>();
+        services.AddScoped<IStripeWebhookService, StripeWebhookService>();
 
         services.AddScoped<ICartService, CartService>();
         services.AddScoped<IOrderService, OrderService>();

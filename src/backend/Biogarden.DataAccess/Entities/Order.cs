@@ -54,6 +54,9 @@ public class Order
 
     public FulfillmentMethod FulfillmentMethod { get; set; } = FulfillmentMethod.PersonalPickup;
 
+    public string? StripeCheckoutSessionId { get; set; }
+    public string? StripePaymentIntentId { get; set; }
+
     public string? CancellationReason { get; set; }
 
     public ICollection<OrderItem> Items { get; set; } = new List<OrderItem>();
