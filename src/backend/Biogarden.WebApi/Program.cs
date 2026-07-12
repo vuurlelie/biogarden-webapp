@@ -1,13 +1,35 @@
 using Biogarden.WebApi.Extensions;
+using Serilog;
 
-var builder = WebApplication.CreateBuilder(args);
+Log.Logger = new LoggerConfiguration()
+    .WriteTo.Console()
+    .CreateBootstrapLogger();
 
-builder.Services.AddAppInfrastructure(builder.Configuration);
-builder.Services.AddApplicationServices();
-builder.Services.AddSwaggerDocumentation();
+try
+{
+    var builder = WebApplication.CreateBuilder(args);
 
-var app = builder.Build();
+    builder.Host.UseSerilog((context, services, loggerConfiguration) =>
+        loggerConfiguration
+            .ReadFrom.Configuration(context.Configuration)
+            .ReadFrom.Services(services)
+            .Enrich.FromLogContext());
 
-app.UseAppPipeline();
+    builder.Services.AddAppInfrastructure(builder.Configuration);
+    builder.Services.AddApplicationServices();
+    builder.Services.AddSwaggerDocumentation();
 
-app.Run();
+    var app = builder.Build();
+
+    app.UseAppPipeline();
+
+    app.Run();
+}
+catch (Exception exception)
+{
+    Log.Fatal(exception, "Application terminated unexpectedly.");
+}
+finally
+{
+    Log.CloseAndFlush();
+}
