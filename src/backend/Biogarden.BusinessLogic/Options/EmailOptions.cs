@@ -22,6 +22,22 @@ public sealed class EmailOptions
         && !string.IsNullOrWhiteSpace(SmtpHost)
         && SmtpPort > 0;
 
+    public void ValidateForStartup()
+    {
+        if (!Enabled)
+        {
+            if (string.IsNullOrWhiteSpace(DisabledDeliveryPreviewDirectory))
+            {
+                throw new InvalidOperationException(
+                    "Email sending is disabled, but Email:DisabledDeliveryPreviewDirectory is not configured.");
+            }
+
+            return;
+        }
+
+        ValidateForSending();
+    }
+
     public void ValidateForSending()
     {
         if (!Enabled)
