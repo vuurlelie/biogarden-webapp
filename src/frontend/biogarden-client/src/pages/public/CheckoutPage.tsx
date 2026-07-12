@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { createOrder } from "../../features/account/api/ordersApi";
+import { createOrder, createStripeCheckoutSession } from "../../features/account/api/ordersApi";
 import { getAddresses, getProfile } from "../../features/account/api/profileApi";
 import type { UserAddresses } from "../../features/account/types/address.types";
 import type { UserProfile } from "../../features/account/types/profile.types";
@@ -520,6 +520,13 @@ export default function CheckoutPage() {
       });
 
       sessionStorage.removeItem(DRAFT_KEY);
+
+      if (paymentMethod === "online-card") {
+        const checkoutSession = await createStripeCheckoutSession(order.id);
+        window.location.assign(checkoutSession.url);
+        return;
+      }
+
       await refresh();
       navigate(ROUTES.orderSuccess, { replace: true, state: { order } });
     } catch (submitError) {
@@ -747,7 +754,7 @@ export default function CheckoutPage() {
                   />
                   <strong>Online bankkártyás fizetés</strong>
                   <span className="mt-1 block text-sm text-site-muted">
-                    Biztonságos online kártyás fizetés – hamarosan elérhető.
+                    Biztonságos online kártyás fizetés Stripe-on keresztül.
                   </span>
                 </label>
 
@@ -782,10 +789,10 @@ export default function CheckoutPage() {
 
               {paymentMethod === "online-card" && (
                 <div className="mt-5 rounded-sm border border-dashed border-site-green p-5 text-sm">
-                  <strong>Bankkártyás fizetési felület helye</strong>
+                  <strong>Biztonságos Stripe fizetés</strong>
                   <p className="mt-1 text-site-muted">
-                    Itt fog megjelenni a fizetési szolgáltató biztonságos kártyaeleme. Kártyaadatot
-                    a saját szerverünk nem kezelhet.
+                    A rendelés elküldése után átirányítunk a Stripe fizetési oldalára. Kártyaadatot
+                    a saját szerverünk nem kezel.
                   </p>
                 </div>
               )}
@@ -826,7 +833,7 @@ export default function CheckoutPage() {
 
           <button
             type="submit"
-            disabled={submitting || (step === "payment" && (paymentMethod === null || paymentMethod === "online-card"))}
+            disabled={submitting || (step === "payment" && paymentMethod === null)}
             className="mt-5 w-full rounded-sm bg-site-green px-5 py-3 font-semibold text-white disabled:opacity-50"
           >
             {submitting ? "Ellenőrzés..." : step === "details" ? "Tovább a pénztárhoz" : "Rendelés áttekintése"}
@@ -834,11 +841,6 @@ export default function CheckoutPage() {
 
           {step === "payment" && paymentMethod === null && (
             <p className="mt-2 text-xs text-site-muted">Válassz fizetési módot a folytatáshoz.</p>
-          )}
-          {step === "payment" && paymentMethod === "online-card" && (
-            <p className="mt-2 text-xs text-site-muted">
-              Az online fizetés jelenleg csak bemutató; válassz másik fizetési módot a tesztrendeléshez.
-            </p>
           )}
         </aside>
       </form>
@@ -1009,7 +1011,13 @@ export default function CheckoutPage() {
                 disabled={submitting}
                 className="rounded-sm bg-site-green px-5 py-3 font-semibold text-white disabled:opacity-50"
               >
-                {submitting ? "Rendelés elküldése..." : "Megrendelés elküldése"}
+                {submitting
+                  ? paymentMethod === "online-card"
+                    ? "Átirányítás..."
+                    : "Rendelés elküldése..."
+                  : paymentMethod === "online-card"
+                    ? "Tovább a fizetéshez"
+                    : "Megrendelés elküldése"}
               </button>
             </div>
           </section>

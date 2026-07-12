@@ -58,11 +58,11 @@ public sealed class EmailTemplateServiceTests
     {
         var service = new EmailTemplateService(Options.Create(new EmailBrandingOptions
         {
-            CompanyName = "Bakony Kincse BiokertÃ©szet",
+            CompanyName = "Bakony Kincse Biokertészet",
             WebsiteUrl = "https://bakonykincse.hu",
             ContactEmail = "info@bakonykincse.hu",
             PhoneNumber = "+36 20 800 56 06",
-            Address = "8431 BakonyszentlÃ¡szlÃ³, JÃ³kai utca 22.",
+            Address = "8431 Bakonyszentlászló, Jókai utca 22.",
             LogoUrl = "https://bakonykincse.hu/logo.png"
         }));
 

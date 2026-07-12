@@ -24,6 +24,12 @@ export class OrdersApiError extends Error {
   }
 }
 
+export type StripeCheckoutSession = {
+  orderId: string;
+  sessionId: string;
+  url: string;
+};
+
 async function getErrorMessage(response: Response): Promise<string> {
   try {
     const body = (await response.json()) as ApiErrorBody;
@@ -123,5 +129,27 @@ export async function createOrder(
   }
 
   return response.json() as Promise<Order>;
+}
+
+export async function createStripeCheckoutSession(orderId: string): Promise<StripeCheckoutSession> {
+  const auth = getAuthSession();
+
+  const response = await fetch(
+    `${API_BASE_URL}/api/orders/${encodeURIComponent(orderId)}/stripe-checkout-session`,
+    {
+      method: "POST",
+      headers: {
+        ...(auth ? { Authorization: `Bearer ${auth.token}` } : {}),
+      },
+      credentials: "include",
+    },
+  );
+
+  if (response.status === 401) clearAuthSession();
+  if (!response.ok) {
+    throw new OrdersApiError(await getErrorMessage(response), response.status);
+  }
+
+  return response.json() as Promise<StripeCheckoutSession>;
 }
 
