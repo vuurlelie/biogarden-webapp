@@ -19,6 +19,7 @@ public sealed class StripeCheckoutSessionClient : IStripeCheckoutSessionClient
 
         return new StripeCheckoutSessionResult(
             session.Id,
-            session.Url);
+            session.Url,
+            session.PaymentIntentId);
     }
 }

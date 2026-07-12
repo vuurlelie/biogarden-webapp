@@ -1,5 +1,6 @@
 ﻿using Biogarden.BusinessLogic.Abstractions;
 using Biogarden.BusinessLogic.DTOs.Orders;
+using Biogarden.BusinessLogic.DTOs.Payments;
 using Biogarden.BusinessLogic.Mappers;
 using Biogarden.DataAccess.Abstractions;
 using Biogarden.DataAccess.Entities;
@@ -17,6 +18,7 @@ public class OrderService : IOrderService
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly IEmailService _emailService;
     private readonly IEmailTemplateService _emailTemplateService;
+    private readonly IStripeCheckoutService _stripeCheckoutService;
     private readonly EmailBrandingOptions _emailBrandingOptions;
 
     public OrderService(
@@ -25,6 +27,7 @@ public class OrderService : IOrderService
         UserManager<ApplicationUser> userManager,
         IEmailService emailService,
         IEmailTemplateService emailTemplateService,
+        IStripeCheckoutService stripeCheckoutService,
         IOptions<EmailBrandingOptions> emailBrandingOptions)
     {
         _unitOfWork = unitOfWork;
@@ -32,6 +35,7 @@ public class OrderService : IOrderService
         _userManager = userManager;
         _emailService = emailService;
         _emailTemplateService = emailTemplateService;
+        _stripeCheckoutService = stripeCheckoutService;
         _emailBrandingOptions = emailBrandingOptions.Value;
     }
 
@@ -260,6 +264,112 @@ public class OrderService : IOrderService
         return confirmedOrder!.ToDto();
     }
 
+    public async Task<StripeCheckoutSessionDto> CreateStripeCheckoutSessionAsync(
+        Guid? userId,
+        string? sessionId,
+        Guid orderId,
+        CancellationToken cancellationToken = default)
+    {
+        var order = await _unitOfWork.OrderRepository.GetByIdWithItemsAndCartAsync(
+            orderId,
+            cancellationToken)
+            ?? throw new KeyNotFoundException("Order not found.");
+
+        EnsureCanAccessOrderPayment(order, userId, sessionId);
+
+        if (order.Status == OrderStatus.Cancelled)
+        {
+            throw new InvalidOperationException("Cancelled order cannot be paid.");
+        }
+
+        if (order.PaymentStatus == PaymentStatus.Paid)
+        {
+            throw new InvalidOperationException("Order is already paid.");
+        }
+
+        var checkoutSession = await _stripeCheckoutService.CreateCheckoutSessionAsync(
+            order.ToDto(),
+            cancellationToken);
+
+        order.StripeCheckoutSessionId = checkoutSession.SessionId;
+        order.StripePaymentIntentId = checkoutSession.PaymentIntentId;
+        order.PaymentStatus = PaymentStatus.Pending;
+
+        _unitOfWork.OrderRepository.Update(order);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        return new StripeCheckoutSessionDto
+        {
+            OrderId = order.Id,
+            SessionId = checkoutSession.SessionId,
+            Url = checkoutSession.Url
+        };
+    }
+
+    public async Task<OrderDto> ConfirmStripeCheckoutSessionAsync(
+        string stripeCheckoutSessionId,
+        string? stripePaymentIntentId,
+        CancellationToken cancellationToken = default)
+    {
+        var order = await _unitOfWork.OrderRepository.GetByStripeCheckoutSessionIdAsync(
+            stripeCheckoutSessionId,
+            cancellationToken)
+            ?? throw new KeyNotFoundException("Order not found.");
+
+        if (order.Status == OrderStatus.Cancelled)
+        {
+            throw new InvalidOperationException("Cancelled order cannot be confirmed.");
+        }
+
+        if (order.PaymentStatus != PaymentStatus.Paid)
+        {
+            order.PaymentStatus = PaymentStatus.Paid;
+            order.Status = OrderStatus.Confirmed;
+            order.ConfirmedAtUtc ??= DateTime.UtcNow;
+        }
+
+        order.StripePaymentIntentId = NormalizeOptional(stripePaymentIntentId) ?? order.StripePaymentIntentId;
+
+        _unitOfWork.OrderRepository.Update(order);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        return order.ToDto();
+    }
+
+    public async Task<OrderDto?> MarkStripePaymentFailedAsync(
+        string stripeCheckoutSessionId,
+        string? stripePaymentIntentId,
+        CancellationToken cancellationToken = default)
+    {
+        var order = await _unitOfWork.OrderRepository.GetByStripeCheckoutSessionIdAsync(
+            stripeCheckoutSessionId,
+            cancellationToken);
+
+        if (order is null && !string.IsNullOrWhiteSpace(stripePaymentIntentId))
+        {
+            order = await _unitOfWork.OrderRepository.GetByStripePaymentIntentIdAsync(
+                stripePaymentIntentId,
+                cancellationToken);
+        }
+
+        if (order is null)
+        {
+            return null;
+        }
+
+        if (order.PaymentStatus is not PaymentStatus.Paid and not PaymentStatus.Refunded)
+        {
+            order.PaymentStatus = PaymentStatus.Failed;
+        }
+
+        order.StripePaymentIntentId = NormalizeOptional(stripePaymentIntentId) ?? order.StripePaymentIntentId;
+
+        _unitOfWork.OrderRepository.Update(order);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        return order.ToDto();
+    }
+
     public async Task<OrderDto> CancelOrderAsync(
         Guid userId,
         Guid orderId,
@@ -366,6 +476,24 @@ public class OrderService : IOrderService
 
         var deletedAtUtc = order.DeletedAtUtc ?? order.CancelledAtUtc;
         return deletedAtUtc.HasValue && deletedAtUtc.Value >= visibleFromUtc;
+    }
+
+    private static void EnsureCanAccessOrderPayment(Order order, Guid? userId, string? sessionId)
+    {
+        if (order.UserId.HasValue)
+        {
+            if (userId != order.UserId)
+            {
+                throw new KeyNotFoundException("Order not found.");
+            }
+
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(sessionId) || order.Cart?.SessionId != sessionId)
+        {
+            throw new KeyNotFoundException("Order not found.");
+        }
     }
 
     private static void ValidateGuestContactDetails(PlaceOrderDto dto)

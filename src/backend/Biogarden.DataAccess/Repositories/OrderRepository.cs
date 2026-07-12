@@ -28,6 +28,40 @@ public class OrderRepository : IOrderRepository
             .FirstOrDefaultAsync(order => order.Id == orderId, cancellationToken);
     }
 
+    public async Task<Order?> GetByIdWithItemsAndCartAsync(Guid orderId, CancellationToken cancellationToken = default)
+    {
+        return await _context.Orders
+            .Include(order => order.Items)
+            .ThenInclude(orderItem => orderItem.Product)
+            .Include(order => order.Cart)
+            .AsSplitQuery()
+            .FirstOrDefaultAsync(order => order.Id == orderId, cancellationToken);
+    }
+
+    public async Task<Order?> GetByStripeCheckoutSessionIdAsync(
+        string stripeCheckoutSessionId,
+        CancellationToken cancellationToken = default)
+    {
+        return await _context.Orders
+            .Include(order => order.Items)
+            .AsSplitQuery()
+            .FirstOrDefaultAsync(
+                order => order.StripeCheckoutSessionId == stripeCheckoutSessionId,
+                cancellationToken);
+    }
+
+    public async Task<Order?> GetByStripePaymentIntentIdAsync(
+        string stripePaymentIntentId,
+        CancellationToken cancellationToken = default)
+    {
+        return await _context.Orders
+            .Include(order => order.Items)
+            .AsSplitQuery()
+            .FirstOrDefaultAsync(
+                order => order.StripePaymentIntentId == stripePaymentIntentId,
+                cancellationToken);
+    }
+
     public async Task<List<Order>> GetByUserIdAsync(Guid userId, CancellationToken cancellationToken = default)
     {
         return await _context.Orders

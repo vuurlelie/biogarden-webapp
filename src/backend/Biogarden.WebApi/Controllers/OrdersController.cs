@@ -1,6 +1,7 @@
-﻿using System.Security.Claims;
+using System.Security.Claims;
 using Biogarden.BusinessLogic.Abstractions;
 using Biogarden.BusinessLogic.DTOs.Orders;
+using Biogarden.BusinessLogic.DTOs.Payments;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -51,6 +52,22 @@ public class OrdersController : ControllerBase
             cancellationToken);
 
         return Ok(order);
+    }
+
+    [HttpPost("{orderId:guid}/stripe-checkout-session")]
+    [AllowAnonymous]
+    [ProducesResponseType(typeof(StripeCheckoutSessionDto), StatusCodes.Status200OK)]
+    public async Task<ActionResult<StripeCheckoutSessionDto>> CreateStripeCheckoutSession(
+        Guid orderId,
+        CancellationToken cancellationToken)
+    {
+        var checkoutSession = await _orderService.CreateStripeCheckoutSessionAsync(
+            GetCurrentUserIdOrNull(),
+            GetCartSessionId(),
+            orderId,
+            cancellationToken);
+
+        return Ok(checkoutSession);
     }
 
     [HttpPost("{orderId:guid}/cancel")]
