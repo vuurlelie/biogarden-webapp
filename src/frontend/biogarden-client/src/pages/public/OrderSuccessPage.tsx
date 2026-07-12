@@ -26,7 +26,7 @@ export default function OrderSuccessPage() {
             Az online fizetés sikeresen visszairányított minket a Stripe oldaláról.
           </p>
           <p className="mt-3 text-sm text-site-muted">
-            A fizetés véglegesítését a Stripe webhook erősíti meg. Ha néhány percen belül nem érkezik
+            A fizetés feldolgozása folyamatban van. Ha néhány percen belül nem érkezik
             visszaigazolás, kérjük, vedd fel velünk a kapcsolatot.
           </p>
           {orderId && (
