@@ -910,12 +910,12 @@ export default function CheckoutPage() {
 
       {showReview && (
         <div
-          className="fixed inset-0 z-[80] flex items-center justify-center bg-black/50 p-3"
+          className="fixed inset-0 z-40 flex items-start justify-center overflow-y-auto bg-black/50 p-3 pt-24 sm:pt-28"
           role="dialog"
           aria-modal="true"
           aria-labelledby="review-title"
         >
-          <section className="max-h-[96vh] w-full max-w-5xl overflow-y-auto rounded-sm bg-white p-4 shadow-xl sm:p-5">
+          <section className="max-h-[calc(100vh-7rem)] w-full max-w-5xl overflow-y-auto rounded-sm bg-white p-4 shadow-xl sm:max-h-[calc(100vh-8rem)] sm:p-5">
             <div className="flex items-start justify-between gap-4">
               <h2 id="review-title" className="text-2xl font-bold text-site-heading">
                 Megrendelés áttekintése

@@ -28,11 +28,13 @@ export default function PictureGrid({ posts }: PictureGridProps) {
               <NavLink
                 key={post.id}
                 to={`${ROUTES.posts}/${post.id}`}
+                title={post.title}
                 className="group overflow-hidden rounded-sm"
               >
                 <img
                   src={imageUrl}
                   alt={post.title}
+                  title={post.title}
                   className="h-full w-full object-cover shadow-lg transition duration-300 group-hover:scale-105"
                   loading="lazy"
                 />

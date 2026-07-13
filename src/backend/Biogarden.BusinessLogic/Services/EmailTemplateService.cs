@@ -30,8 +30,9 @@ public sealed class EmailTemplateService : IEmailTemplateService
             greeting: "Kedves Felhasználónk!",
             bodyLines:
             [
-                "Köszönjük a regisztrációt a Bakony Kincse Biokertészet webshopjában.",
-                "A fiókod aktiválásához kérjük, nyisd meg az alábbi linket:"
+                "Köszönjük a regisztrációt a Bakony Kincse Biokertészet weboldalán.",
+                "A fiókod aktiválásához kérjük, nyisd meg az alábbi linket:",
+                "A megerősítés után erre az email címre küldjük a fiókodhoz kapcsolódó fontos értesítéseket."
             ],
             actionText: buttonText,
             actionUrl: confirmationUrl,
@@ -43,8 +44,9 @@ public sealed class EmailTemplateService : IEmailTemplateService
             greeting: "Kedves Felhasználónk!",
             bodyParagraphs:
             [
-                "Köszönjük a regisztrációt a Bakony Kincse Biokertészet webshopjában.",
-                "A fiókod aktiválásához kérjük, erősítsd meg az email címedet az alábbi gombra kattintva."
+                "Köszönjük a regisztrációt a Bakony Kincse Biokertészet weboldalán.",
+                "A fiókod aktiválásához kérjük, erősítsd meg az email címedet az alábbi gombra kattintva.",
+                "A megerősítés után erre az email címre küldjük a fiókodhoz kapcsolódó fontos értesítéseket."
             ],
             actionText: buttonText,
             actionUrl: confirmationUrl,
@@ -71,8 +73,9 @@ public sealed class EmailTemplateService : IEmailTemplateService
             greeting: "Kedves Felhasználónk!",
             bodyLines:
             [
-                "Jelszó-visszaállítást kértél a Bakony Kincse Biokertészet webshop fiókodhoz.",
-                "Az új jelszó beállításához kérjük, nyisd meg az alábbi linket:"
+                "Jelszó-visszaállítást kértél a Bakony Kincse Biokertészet fiókodhoz.",
+                "Az új jelszó beállításához kérjük, nyisd meg az alábbi linket:",
+                "A jelszavad csak akkor változik meg, ha ezen a linken új jelszót állítasz be."
             ],
             actionText: buttonText,
             actionUrl: resetUrl,
@@ -84,8 +87,9 @@ public sealed class EmailTemplateService : IEmailTemplateService
             greeting: "Kedves Felhasználónk!",
             bodyParagraphs:
             [
-                "Jelszó-visszaállítást kértél a Bakony Kincse Biokertészet webshop fiókodhoz.",
-                "Az új jelszó beállításához kattints az alábbi gombra."
+                "Jelszó-visszaállítást kértél a Bakony Kincse Biokertészet fiókodhoz.",
+                "Az új jelszó beállításához kattints az alábbi gombra.",
+                "A jelszavad csak akkor változik meg, ha ezen a linken új jelszót állítasz be."
             ],
             actionText: buttonText,
             actionUrl: resetUrl,
@@ -108,10 +112,10 @@ public sealed class EmailTemplateService : IEmailTemplateService
             preheader: "Sikeresen megváltozott a Bakony Kincse Biokertészet fiókod jelszava.",
             bodyLines:
             [
-                "Ezúton jelezzük, hogy a Bakony Kincse Biokertészet webshop fiókod jelszava sikeresen megváltozott.",
+                "Ezúton jelezzük, hogy a Bakony Kincse Biokertészet fiókod jelszava sikeresen megváltozott.",
                 "Ha te végezted a műveletet, nincs további teendőd."
             ],
-            note: "Ha nem te kezdeményezted a jelszóváltoztatást, kérjük, minél előbb vedd fel velünk a kapcsolatot.");
+            note: "Ha nem te kezdeményezted a jelszóváltoztatást, kérj jelszó-visszaállítást, és minél előbb vedd fel velünk a kapcsolatot.");
     }
 
     public EmailMessage BuildAccountDeactivatedMessage(string recipientEmail)
@@ -122,8 +126,9 @@ public sealed class EmailTemplateService : IEmailTemplateService
             preheader: "A Bakony Kincse Biokertészet fiókod jelenleg nem aktív.",
             bodyLines:
             [
-                "A Bakony Kincse Biokertészet webshop fiókod deaktiválva lett.",
-                "A fiókba jelenleg nem lehet bejelentkezni, de az adatok megmaradnak, ezért a fiók később újraaktiválható."
+                "A Bakony Kincse Biokertészet fiókod deaktiválva lett.",
+                "A fiókba jelenleg nem lehet bejelentkezni, de az adatok megmaradnak, ezért a fiók később újraaktiválható.",
+                "Ha folyamatban lévő rendelésed van, annak teljesítéséről továbbra is egyeztetünk."
             ],
             note: "Ha szeretnéd újraaktiválni a fiókodat, kérjük, vedd fel velünk a kapcsolatot.");
     }
@@ -136,8 +141,9 @@ public sealed class EmailTemplateService : IEmailTemplateService
             preheader: "A Bakony Kincse Biokertészet fiókod újra használható.",
             bodyLines:
             [
-                "A Bakony Kincse Biokertészet webshop fiókod újra aktiválva lett.",
-                "Mostantól ismét be tudsz jelentkezni a fiókodba."
+                "A Bakony Kincse Biokertészet fiókod újra aktiválva lett.",
+                "Mostantól ismét be tudsz jelentkezni a fiókodba.",
+                "A korábban mentett adataid a fiókodban ismét elérhetők."
             ],
             note: "Ha nem te kérted a fiók újraaktiválását, kérjük, jelezd felénk.");
     }
@@ -150,7 +156,7 @@ public sealed class EmailTemplateService : IEmailTemplateService
             preheader: "A Bakony Kincse Biokertészet fiókod és mentett személyes adataid törlésre kerültek.",
             bodyLines:
             [
-                "A Bakony Kincse Biokertészet webshop fiókod törlésre került.",
+                "A Bakony Kincse Biokertészet fiókod törlésre került.",
                 "Mivel nem tartozott hozzá rendelési előzmény, a fiókot és a mentett személyes adatokat töröltük."
             ],
             note: "Ha kérdésed van a törléssel kapcsolatban, kérjük, vedd fel velünk a kapcsolatot.");
@@ -164,7 +170,7 @@ public sealed class EmailTemplateService : IEmailTemplateService
             preheader: "A Bakony Kincse Biokertészet fiókod mentett személyes adatait anonimizáltuk.",
             bodyLines:
             [
-                "A Bakony Kincse Biokertészet webshop fiókod mentett személyes adatait anonimizáltuk.",
+                "A Bakony Kincse Biokertészet fiókod mentett személyes adatait anonimizáltuk.",
                 "A korábbi rendelési és számlázási adatok a jogszabályi megőrzési kötelezettségek miatt megmaradnak."
             ],
             note: "Az anonimizált fiók már nem használható bejelentkezésre.");
@@ -179,7 +185,7 @@ public sealed class EmailTemplateService : IEmailTemplateService
             : $"Új kapcsolatfelvételi üzenet: {request.Subject}";
 
         var plainTextBody = $"""
-            Új üzenet érkezett a webshop Kapcsolat űrlapjáról.
+            Új üzenet érkezett a weboldal Kapcsolat űrlapjáról.
 
             Név: {request.Name}
             Email: {request.Email}
@@ -190,13 +196,13 @@ public sealed class EmailTemplateService : IEmailTemplateService
             {request.Message}
             """;
 
-        var htmlBody = BuildHtmlBody(
+        var htmlBody = BuildInternalHtmlBody(
             title: "Új kapcsolatfelvételi üzenet",
             preheader: $"Új üzenet érkezett: {request.Name}",
             greeting: "Új üzenet érkezett",
             bodyParagraphs:
             [
-                "A webshop Kapcsolat űrlapján keresztül új megkeresés érkezett.",
+                "A weboldal Kapcsolat űrlapján keresztül új megkeresés érkezett.",
                 $"Név: {request.Name}",
                 $"Email: {request.Email}",
                 $"Telefon: {request.Phone ?? "Nincs megadva"}",
@@ -221,11 +227,14 @@ public sealed class EmailTemplateService : IEmailTemplateService
         ContactMessageRequestDto request)
     {
         const string title = "Megkaptuk az üzenetedet";
+        var submittedDetails = FormatContactSubmittedDetails(request);
 
         var plainTextBody = $"""
             Kedves {request.Name}!
 
             Köszönjük, hogy írtál nekünk. Megkaptuk az üzenetedet, és hamarosan válaszolunk a megadott elérhetőségeden.
+
+            {submittedDetails}
 
             Az elküldött üzeneted:
             {request.Message}
@@ -246,9 +255,10 @@ public sealed class EmailTemplateService : IEmailTemplateService
             bodyParagraphs:
             [
                 "Köszönjük, hogy írtál nekünk. Megkaptuk az üzenetedet, és hamarosan válaszolunk a megadott elérhetőségeden.",
+                submittedDetails,
                 $"Az elküldött üzeneted: {request.Message}"
             ],
-            actionText: "Webshop megnyitása",
+            actionText: "Weboldal megnyitása",
             actionUrl: _brandingOptions.WebsiteUrl,
             note: "Ez egy automatikus visszaigazolás, válaszolnod nem szükséges.");
 
@@ -270,15 +280,19 @@ public sealed class EmailTemplateService : IEmailTemplateService
             "Köszönjük a rendelésedet. A rendelésedet megkaptuk, feldolgozása hamarosan megkezdődik.",
             $"Rendelésszám: {order.OrderNumber}",
             $"Rendelés állapota: {FormatOrderStatus(order.Status)}",
+            $"Fizetés állapota: {FormatPaymentStatus(order.PaymentStatus)}",
             $"Átvétel módja: {FormatFulfillmentMethod(order.FulfillmentMethod)}",
+            FormatCustomerDetails(order),
+            FormatBillingDetails(order),
+            FormatDeliveryDetails(order),
             $"Végösszeg: {FormatPrice(order.TotalPrice)}",
-            $"Termékek: {FormatOrderItems(order)}"
+            FormatOrderItemsList(order)
         };
 
         var plainTextBody = BuildPlainTextBody(
             greeting: "Kedves Felhasználónk!",
             bodyLines: bodyLines,
-            actionText: "Webshop megnyitása",
+            actionText: "Weboldal megnyitása",
             actionUrl: _brandingOptions.WebsiteUrl,
             note: "A rendelés feldolgozásáról és állapotváltozásairól emailben értesítünk.");
 
@@ -287,7 +301,7 @@ public sealed class EmailTemplateService : IEmailTemplateService
             preheader: $"Megkaptuk a rendelésedet: {order.OrderNumber}.",
             greeting: "Kedves Felhasználónk!",
             bodyParagraphs: bodyLines,
-            actionText: "Webshop megnyitása",
+            actionText: "Weboldal megnyitása",
             actionUrl: _brandingOptions.WebsiteUrl,
             note: "A rendelés feldolgozásáról és állapotváltozásairól emailben értesítünk.");
 
@@ -302,33 +316,33 @@ public sealed class EmailTemplateService : IEmailTemplateService
 
     public EmailMessage BuildOrderBusinessNotificationMessage(string recipientEmail, OrderDto order)
     {
+        var adminUrl = BuildAdminDashboardUrl();
         var bodyLines = new[]
         {
-            "Új rendelés érkezett a webshopban.",
+            "Új rendelés érkezett a weboldalon.",
+            "A rendelést az admin felületen tudod feldolgozni.",
             $"Rendelésszám: {order.OrderNumber}",
-            $"Vásárló: {order.CustomerName}",
-            $"Email: {order.CustomerEmail}",
-            $"Telefon: {order.CustomerPhone}",
+            FormatCustomerDetails(order),
             $"Átvétel módja: {FormatFulfillmentMethod(order.FulfillmentMethod)}",
             $"Végösszeg: {FormatPrice(order.TotalPrice)}",
-            $"Termékek: {FormatOrderItems(order)}"
+            FormatOrderItemsList(order)
         };
 
-        var plainTextBody = BuildPlainTextBody(
+        var plainTextBody = BuildInternalPlainTextBody(
             greeting: "Új rendelés érkezett",
             bodyLines: bodyLines,
             actionText: "Admin felület megnyitása",
-            actionUrl: _brandingOptions.WebsiteUrl,
-            note: "A rendelést az admin felületen tudod feldolgozni.");
+            actionUrl: adminUrl,
+            note: "Ha a gomb nem működik, használd a fenti admin linket.");
 
-        var htmlBody = BuildHtmlBody(
+        var htmlBody = BuildInternalHtmlBody(
             title: "Új rendelés érkezett",
             preheader: $"Új rendelés érkezett: {order.OrderNumber}.",
             greeting: "Új rendelés érkezett",
             bodyParagraphs: bodyLines,
             actionText: "Admin felület megnyitása",
-            actionUrl: _brandingOptions.WebsiteUrl,
-            note: "A rendelést az admin felületen tudod feldolgozni.");
+            actionUrl: adminUrl,
+            note: "Ha a gomb nem működik, használd a fenti admin linket.");
 
         return new EmailMessage
         {
@@ -347,6 +361,8 @@ public sealed class EmailTemplateService : IEmailTemplateService
         {
             $"A rendelésed állapota megváltozott: {FormatOrderStatus(order.Status)}.",
             $"Rendelésszám: {order.OrderNumber}",
+            $"Fizetés állapota: {FormatPaymentStatus(order.PaymentStatus)}",
+            $"Átvétel módja: {FormatFulfillmentMethod(order.FulfillmentMethod)}",
             $"Végösszeg: {FormatPrice(order.TotalPrice)}"
         };
 
@@ -406,6 +422,29 @@ public sealed class EmailTemplateService : IEmailTemplateService
             """;
     }
 
+    private static string BuildInternalPlainTextBody(
+        string greeting,
+        IReadOnlyList<string> bodyLines,
+        string actionText,
+        string actionUrl,
+        string note)
+    {
+        var body = string.Join(
+            $"{Environment.NewLine}{Environment.NewLine}",
+            bodyLines);
+
+        return $"""
+            {greeting}
+
+            {body}
+
+            {actionText}:
+            {actionUrl}
+
+            {note}
+            """;
+    }
+
     private EmailMessage BuildAccountNotificationMessage(
         string recipientEmail,
         string title,
@@ -450,7 +489,7 @@ public sealed class EmailTemplateService : IEmailTemplateService
         var paragraphs = string.Join(
             Environment.NewLine,
             bodyParagraphs.Select(paragraph =>
-                $"""<p style="margin:0 0 16px;color:#4f584b;font-size:16px;line-height:1.65;">{HtmlEncode(paragraph)}</p>"""));
+                $"""<p style="margin:0 0 16px;color:#4f584b;font-size:16px;line-height:1.65;">{FormatHtmlParagraph(paragraph)}</p>"""));
 
         return $$"""
             <!doctype html>
@@ -502,6 +541,59 @@ public sealed class EmailTemplateService : IEmailTemplateService
             """;
     }
 
+    private static string BuildInternalHtmlBody(
+        string title,
+        string preheader,
+        string greeting,
+        IReadOnlyList<string> bodyParagraphs,
+        string actionText,
+        string actionUrl,
+        string note)
+    {
+        var paragraphs = string.Join(
+            Environment.NewLine,
+            bodyParagraphs.Select(paragraph =>
+                $"""<p style="margin:0 0 16px;color:#4f584b;font-size:16px;line-height:1.65;">{FormatHtmlParagraph(paragraph)}</p>"""));
+
+        return $$"""
+            <!doctype html>
+            <html lang="hu">
+            <head>
+              <meta charset="utf-8">
+              <meta name="viewport" content="width=device-width,initial-scale=1">
+              <title>{{HtmlEncode(title)}}</title>
+            </head>
+            <body style="margin:0;padding:0;background:#f3f5ef;font-family:Arial,Helvetica,sans-serif;">
+              <span style="display:none!important;visibility:hidden;opacity:0;color:transparent;height:0;width:0;overflow:hidden;">{{HtmlEncode(preheader)}}</span>
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f3f5ef;margin:0;padding:32px 12px;">
+                <tr>
+                  <td align="center">
+                    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:620px;background:#ffffff;border:1px solid #d9dfd1;border-radius:8px;overflow:hidden;">
+                      <tr>
+                        <td style="padding:30px 28px 26px;">
+                          <h1 style="margin:0 0 18px;color:#263124;font-size:26px;line-height:1.25;font-weight:700;">{{HtmlEncode(greeting)}}</h1>
+                          {{paragraphs}}
+                          <table role="presentation" cellspacing="0" cellpadding="0" style="margin:26px 0;">
+                            <tr>
+                              <td style="border-radius:4px;background:#6f8b22;">
+                                <a href="{{HtmlAttributeEncode(actionUrl)}}" style="display:inline-block;padding:13px 22px;color:#ffffff;text-decoration:none;font-weight:700;font-size:16px;">{{HtmlEncode(actionText)}}</a>
+                              </td>
+                            </tr>
+                          </table>
+                          <p style="margin:0 0 16px;color:#4f584b;font-size:14px;line-height:1.65;">Ha a gomb nem működik, másold be ezt a linket a böngésződbe:</p>
+                          <p style="margin:0 0 22px;word-break:break-all;color:#557018;font-size:13px;line-height:1.6;">{{HtmlEncode(actionUrl)}}</p>
+                          <p style="margin:0;color:#65705f;font-size:14px;line-height:1.65;">{{HtmlEncode(note)}}</p>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+            </body>
+            </html>
+            """;
+    }
+
     private string BuildHtmlSignature()
     {
         var logoMarkup = string.IsNullOrWhiteSpace(_brandingOptions.LogoUrl)
@@ -540,6 +632,166 @@ public sealed class EmailTemplateService : IEmailTemplateService
         return WebUtility.HtmlEncode(value);
     }
 
+    private static string FormatHtmlParagraph(string value)
+    {
+        return HtmlEncode(value)
+            .Replace(Environment.NewLine, "<br>", StringComparison.Ordinal);
+    }
+
+    private string BuildAdminDashboardUrl()
+    {
+        return $"{_brandingOptions.WebsiteUrl.TrimEnd('/')}/admin";
+    }
+
+    private static string FormatCustomerDetails(OrderDto order)
+    {
+        return string.Join(Environment.NewLine, new[]
+        {
+            "Vevő adatai:",
+            $"- Név: {order.CustomerName}",
+            $"- Email: {order.CustomerEmail}",
+            $"- Telefon: {order.CustomerPhone}"
+        });
+    }
+
+    private static string FormatBillingDetails(OrderDto order)
+    {
+        var lines = new List<string>
+        {
+            "Számlázási adatok:"
+        };
+
+        if (!string.IsNullOrWhiteSpace(order.BillingCompanyName))
+        {
+            lines.Add($"- Cégnév: {order.BillingCompanyName}");
+        }
+
+        if (!string.IsNullOrWhiteSpace(order.BillingTaxNumber))
+        {
+            lines.Add($"- Adószám: {order.BillingTaxNumber}");
+        }
+
+        lines.Add($"- Cím: {FormatAddress(
+            order.PostalCode,
+            order.City,
+            order.Street,
+            order.HouseNumber,
+            order.Building,
+            order.Floor,
+            order.Door,
+            order.Doorbell)}");
+
+        return string.Join(Environment.NewLine, lines);
+    }
+
+    private static string FormatDeliveryDetails(OrderDto order)
+    {
+        if (order.FulfillmentMethod == FulfillmentMethod.PersonalPickup)
+        {
+            return string.Join(Environment.NewLine, new[]
+            {
+                "Átvételi adatok:",
+                "- Személyes átvétel"
+            });
+        }
+
+        return string.Join(Environment.NewLine, new[]
+        {
+            "Szállítási adatok:",
+            $"- Cím: {FormatAddress(
+                order.DeliveryPostalCode,
+                order.DeliveryCity,
+                order.DeliveryStreet,
+                order.DeliveryHouseNumber,
+                order.DeliveryBuilding,
+                order.DeliveryFloor,
+                order.DeliveryDoor,
+                order.DeliveryDoorbell)}"
+        });
+    }
+
+    private static string FormatAddress(
+        string? postalCode,
+        string? city,
+        string? street,
+        string? houseNumber,
+        string? building,
+        string? floor,
+        string? door,
+        string? doorbell)
+    {
+        var streetLine = string.Join(
+            " ",
+            new[] { street, houseNumber }.Where(value => !string.IsNullOrWhiteSpace(value)));
+
+        var mainAddress = string.Join(
+            " ",
+            new[] { postalCode, city, streetLine }.Where(value => !string.IsNullOrWhiteSpace(value)));
+
+        var extras = new List<string>();
+
+        if (!string.IsNullOrWhiteSpace(building))
+        {
+            extras.Add($"épület: {building}");
+        }
+
+        if (!string.IsNullOrWhiteSpace(floor))
+        {
+            extras.Add($"emelet: {floor}");
+        }
+
+        if (!string.IsNullOrWhiteSpace(door))
+        {
+            extras.Add($"ajtó: {door}");
+        }
+
+        if (!string.IsNullOrWhiteSpace(doorbell))
+        {
+            extras.Add($"kapucsengő: {doorbell}");
+        }
+
+        if (extras.Count == 0)
+        {
+            return string.IsNullOrWhiteSpace(mainAddress) ? "Nincs megadva" : mainAddress;
+        }
+
+        return $"{mainAddress} ({string.Join(", ", extras)})";
+    }
+
+    private static string FormatOrderItemsList(OrderDto order)
+    {
+        if (order.Items.Count == 0)
+        {
+            return string.Join(Environment.NewLine, new[]
+            {
+                "Termékek:",
+                "- Nincs termékadat."
+            });
+        }
+
+        return string.Join(
+            Environment.NewLine,
+            new[] { "Termékek:" }.Concat(order.Items.Select(item =>
+                $"- {item.ProductName} - {item.Quantity} {FormatUnit(item.Unit)}, {FormatPrice(item.LineTotal)}")));
+    }
+
+    private static string FormatContactSubmittedDetails(ContactMessageRequestDto request)
+    {
+        var lines = new List<string>
+        {
+            "Megadott adataid:",
+            $"- Név: {request.Name}",
+            $"- Email: {request.Email}"
+        };
+
+        if (!string.IsNullOrWhiteSpace(request.Phone))
+        {
+            lines.Add($"- Telefon: {request.Phone}");
+        }
+
+        return string.Join(Environment.NewLine, lines);
+    }
+
     private static string FormatOrderItems(OrderDto order)
     {
         if (order.Items.Count == 0)
@@ -569,6 +821,18 @@ public sealed class EmailTemplateService : IEmailTemplateService
         FulfillmentMethod.HomeDelivery => "Házhozszállítás",
         FulfillmentMethod.ParcelLocker => "Csomagautomata",
         _ => fulfillmentMethod.ToString()
+    };
+
+    private static string FormatPaymentStatus(PaymentStatus paymentStatus) => paymentStatus switch
+    {
+        PaymentStatus.Pending => "Fizetésre vár",
+        PaymentStatus.Authorized => "Engedélyezve",
+        PaymentStatus.Paid => "Fizetve",
+        PaymentStatus.Failed => "Sikertelen",
+        PaymentStatus.RefundPending => "Visszatérítés folyamatban",
+        PaymentStatus.Refunded => "Visszatérítve",
+        PaymentStatus.PartiallyRefunded => "Részben visszatérítve",
+        _ => paymentStatus.ToString()
     };
 
     private static string FormatUnit(UnitOfMeasure unit) => unit switch

@@ -112,7 +112,9 @@ function OrderCard({
             {formatOrderDate(order.createdAtUtc)} · {order.customerName}
           </p>
         </div>
-        <strong className="shrink-0 text-xl text-site-heading">{formatOrderPrice(order.totalPrice)}</strong>
+        <strong className="min-w-0 break-words text-xl text-site-heading sm:text-right">
+          {formatOrderPrice(order.totalPrice)}
+        </strong>
       </div>
 
       <dl className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -148,23 +150,23 @@ function OrderCard({
               {order.items.map((item) => (
                 <div
                   key={`${order.id}-${item.productId}`}
-                  className="grid min-w-0 gap-1 rounded-sm bg-site-surface-soft p-3 text-sm sm:grid-cols-[minmax(10rem,1fr)_8rem_6.5rem] sm:gap-4"
+                  className="grid min-w-0 gap-1 rounded-sm bg-site-surface-soft p-3 text-sm sm:grid-cols-[minmax(10rem,1fr)_minmax(7rem,8rem)_minmax(5.5rem,6.5rem)] sm:gap-4"
                 >
                   <span className="min-w-0 break-words">{item.productName} × {item.quantity}</span>
-                  <span className="text-site-muted">
+                  <span className="min-w-0 break-words text-site-muted">
                     {formatOrderPrice(item.unitPrice)} / {getUnitLabel(item.unit)}
                   </span>
-                  <strong className="sm:text-right">{formatOrderPrice(item.lineTotal)}</strong>
+                  <strong className="min-w-0 break-words sm:text-right">{formatOrderPrice(item.lineTotal)}</strong>
                 </div>
               ))}
             </div>
           </section>
 
-          <div className="grid min-w-0 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          <div className="grid min-w-0 gap-4 lg:grid-cols-3">
             <DetailCard title="Vevő">
               <p>{order.customerName}</p>
-              <p>{order.customerEmail}</p>
-              <p>{order.customerPhone}</p>
+              <p className="break-all">{order.customerEmail}</p>
+              <p className="break-words">{order.customerPhone}</p>
             </DetailCard>
 
             <DetailCard title="Számlázási cím">
@@ -420,7 +422,7 @@ export default function AdminOrdersPage() {
       </section>
 
       {loading ? (
-        <div className="grid gap-5 xl:grid-cols-2">
+        <div className="grid gap-5">
           {Array.from({ length: 6 }, (_, index) => (
             <div key={index} className="h-64 animate-pulse rounded-sm bg-white" />
           ))}
@@ -428,7 +430,7 @@ export default function AdminOrdersPage() {
       ) : shown.length === 0 ? (
         <div className="rounded-sm border border-site-border bg-white p-8 text-center">Nincs találat.</div>
       ) : (
-        <section className="grid min-w-0 items-start gap-5 xl:grid-cols-2">
+        <section className="grid min-w-0 items-start gap-5">
           {shown.map((order) => (
             <OrderCard key={order.id} order={order} onUpdated={updated} />
           ))}
