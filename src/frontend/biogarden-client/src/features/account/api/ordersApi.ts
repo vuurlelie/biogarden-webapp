@@ -96,6 +96,28 @@ export async function requestOrderWithdrawal(orderId: string, reason: string) {
   return response.json() as Promise<Order["withdrawalRequests"][number]>;
 }
 
+export async function requestPublicOrderWithdrawal(request: {
+  orderNumber: string;
+  customerEmail: string;
+  reason: string;
+}) {
+  const response = await fetch(`${API_BASE_URL}/api/orders/withdrawal-requests`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      orderNumber: request.orderNumber.trim(),
+      customerEmail: request.customerEmail.trim(),
+      reason: request.reason.trim(),
+    }),
+  });
+
+  if (!response.ok) {
+    throw new OrdersApiError(await getErrorMessage(response), response.status);
+  }
+
+  return response.json() as Promise<Order["withdrawalRequests"][number]>;
+}
+
 export async function createOrder(
   order: {
     addressId?: number | null;

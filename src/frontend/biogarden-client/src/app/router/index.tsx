@@ -25,6 +25,7 @@ const ResetPasswordPage = lazy(() => import("../../pages/public/ResetPasswordPag
 const CartPage = lazy(() => import("../../pages/public/CartPage"));
 const CheckoutPage = lazy(() => import("../../pages/public/CheckoutPage"));
 const OrderSuccessPage = lazy(() => import("../../pages/public/OrderSuccessPage"));
+const OrderWithdrawalRequestPage = lazy(() => import("../../pages/public/OrderWithdrawalRequestPage"));
 const NotFoundPage = lazy(() => import("../../pages/public/NotFoundPage"));
 
 const AccountDashboardPage = lazy(() => import("../../pages/account/AccountDashboardPage"));
@@ -73,6 +74,7 @@ export const router = createBrowserRouter([
       { path: ROUTES.cart.slice(1), element: routeElement(<CartPage />) },
       { path: ROUTES.checkout.slice(1), element: routeElement(<CheckoutPage />) },
       { path: ROUTES.orderSuccess.slice(1), element: routeElement(<OrderSuccessPage />) },
+      { path: ROUTES.orderWithdrawalRequest.slice(1), element: routeElement(<OrderWithdrawalRequestPage />) },
     ],
   },
 

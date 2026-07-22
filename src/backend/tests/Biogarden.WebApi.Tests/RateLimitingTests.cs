@@ -443,6 +443,22 @@ public sealed class RateLimitingTests
             });
         }
 
+        public Task<OrderWithdrawalRequestDto> RequestWithdrawalByOrderLookupAsync(
+            PublicOrderWithdrawalRequestDto dto,
+            CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult(new OrderWithdrawalRequestDto
+            {
+                Id = 1,
+                OrderId = Guid.NewGuid(),
+                CustomerName = "Teszt Elek",
+                CustomerEmail = dto.CustomerEmail,
+                Reason = dto.Reason,
+                Status = OrderWithdrawalRequestStatus.Pending,
+                RequestedAtUtc = DateTime.UtcNow
+            });
+        }
+
         public Task<List<OrderDto>> GetMyOrdersAsync(
             Guid userId,
             CancellationToken cancellationToken = default)

@@ -53,3 +53,36 @@ test("password recovery screens expose invalid and failed request states", async
 
   await expect(page.getByRole("alert")).toContainText("A levélküldés átmenetileg nem elérhető.");
 });
+
+test("public order request form confirms successful submission", async ({ page }) => {
+  await mockEmptyCartApi(page);
+  await page.route(`${apiBaseUrl}/api/orders/withdrawal-requests`, async (route) => {
+    expect(route.request().method()).toBe("POST");
+    expect(await route.request().postDataJSON()).toMatchObject({
+      orderNumber: "BK-20260722-TEST",
+      customerEmail: "teszt@example.com",
+      reason: "Szeretnék elállási kérelmet rögzíteni.",
+    });
+
+    await route.fulfill({
+      json: {
+        id: 1,
+        orderId: "11111111-1111-1111-1111-111111111111",
+        customerName: "Teszt Elek",
+        customerEmail: "teszt@example.com",
+        reason: "Szeretnék elállási kérelmet rögzíteni.",
+        status: 1,
+        requestedAtUtc: "2026-07-22T10:00:00Z",
+        handledAtUtc: null,
+      },
+    });
+  });
+
+  await page.goto("/rendelessel-kapcsolatos-keres");
+  await page.getByLabel(/Rendeles azonositója|Rendelés azonosítója/).fill("BK-20260722-TEST");
+  await page.getByLabel(/email cim|email cím/i).fill("teszt@example.com");
+  await page.getByLabel(/Keres leirasa|Kérés leírása/).fill("Szeretnék elállási kérelmet rögzíteni.");
+  await page.getByRole("button", { name: /Keres elkuldese|Kérés elküldése/ }).click();
+
+  await expect(page.getByRole("status")).toContainText("A kérésedet rögzítettük");
+});

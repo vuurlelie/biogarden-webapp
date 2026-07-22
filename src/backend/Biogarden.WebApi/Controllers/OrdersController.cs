@@ -110,6 +110,21 @@ public class OrdersController : ControllerBase
         return Ok(request);
     }
 
+    [HttpPost("withdrawal-requests")]
+    [AllowAnonymous]
+    [EnableRateLimiting(RateLimitPolicyNames.PublicForm)]
+    [ProducesResponseType(typeof(OrderWithdrawalRequestDto), StatusCodes.Status200OK)]
+    public async Task<ActionResult<OrderWithdrawalRequestDto>> RequestWithdrawalByOrderLookup(
+        [FromBody] PublicOrderWithdrawalRequestDto requestDto,
+        CancellationToken cancellationToken)
+    {
+        var request = await _orderService.RequestWithdrawalByOrderLookupAsync(
+            requestDto,
+            cancellationToken);
+
+        return Ok(request);
+    }
+
     [HttpGet]
     [ProducesResponseType(typeof(List<OrderDto>), StatusCodes.Status200OK)]
     public async Task<ActionResult<List<OrderDto>>> GetMyOrders(

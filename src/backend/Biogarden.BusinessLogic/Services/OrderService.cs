@@ -528,12 +528,45 @@ public class OrderService : IOrderService
             throw new KeyNotFoundException("Order not found.");
         }
 
+        return await CreateWithdrawalRequestAsync(order, userId, dto.Reason, cancellationToken);
+    }
+
+    public async Task<OrderWithdrawalRequestDto> RequestWithdrawalByOrderLookupAsync(
+        PublicOrderWithdrawalRequestDto dto,
+        CancellationToken cancellationToken = default)
+    {
+        var orderNumber = NormalizeRequired(dto.OrderNumber, "A rendelés azonosítója", 3, 32).ToUpperInvariant();
+        var customerEmail = NormalizeRequired(dto.CustomerEmail, "Az email cím", 5, 256).ToLowerInvariant();
+        if (!System.Net.Mail.MailAddress.TryCreate(customerEmail, out _))
+        {
+            throw new ArgumentException("Az email cím formátuma hibás.");
+        }
+
+        var order = await _unitOfWork.OrderRepository.GetByOrderNumberAndEmailWithItemsAsync(
+            orderNumber,
+            customerEmail,
+            cancellationToken);
+
+        if (order is null)
+        {
+            throw new KeyNotFoundException("Nem találtunk ilyen rendelést ezzel az email címmel.");
+        }
+
+        return await CreateWithdrawalRequestAsync(order, order.UserId, dto.Reason, cancellationToken);
+    }
+
+    private async Task<OrderWithdrawalRequestDto> CreateWithdrawalRequestAsync(
+        Order order,
+        Guid? userId,
+        string reasonValue,
+        CancellationToken cancellationToken)
+    {
         if (order.WithdrawalRequests.Any(request => request.Status == OrderWithdrawalRequestStatus.Pending))
         {
             throw new InvalidOperationException("Ehhez a rendeléshez már van folyamatban lévő elállási vagy fogyasztói kérés.");
         }
 
-        var reason = NormalizeRequired(dto.Reason, "Az elállási vagy fogyasztói kérés leírása", 10, 1000);
+        var reason = NormalizeRequired(reasonValue, "Az elállási vagy fogyasztói kérés leírása", 10, 1000);
         var request = new OrderWithdrawalRequest
         {
             OrderId = order.Id,

@@ -146,6 +146,13 @@ export default function Footer() {
                   >
                     Általános Szerződési Feltételek
                   </NavLink>
+                  <NavLink
+                    to={ROUTES.orderWithdrawalRequest}
+                    onClick={scrollToTopOnCurrentPage(ROUTES.orderWithdrawalRequest)}
+                    className="block font-semibold text-site-green-dark underline underline-offset-4 transition hover:text-site-green-hover"
+                  >
+                    Elállási vagy fogyasztói kérés
+                  </NavLink>
                 </div>
               </section>
 

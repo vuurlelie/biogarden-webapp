@@ -504,6 +504,68 @@ public sealed class OrderServiceTests
         _emailService.Verify(x => x.SendAsync(customerMessage, It.IsAny<CancellationToken>()), Times.Once);
     }
 
+    [Fact]
+    public async Task RequestWithdrawalByOrderLookupAsync_ForGuestOrder_StoresRequestAndSendsNotifications()
+    {
+        var order = CreateOrder(null);
+        order.CustomerName = "Vendég Vásárló";
+        order.CustomerEmail = "guest@example.com";
+        var businessMessage = new EmailMessage { To = "info@bakonykincse.hu", Subject = "Új kérés" };
+        var customerMessage = new EmailMessage { To = "guest@example.com", Subject = "Kérés rögzítve" };
+        OrderWithdrawalRequest? savedRequest = null;
+
+        _orders
+            .Setup(x => x.GetByOrderNumberAndEmailWithItemsAsync(
+                "BK-TEST-0001",
+                "guest@example.com",
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(order);
+        _orders
+            .Setup(x => x.AddWithdrawalRequestAsync(It.IsAny<OrderWithdrawalRequest>(), It.IsAny<CancellationToken>()))
+            .Callback<OrderWithdrawalRequest, CancellationToken>((request, _) =>
+            {
+                request.Id = 13;
+                savedRequest = request;
+            })
+            .Returns(Task.CompletedTask);
+        _unitOfWork
+            .Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(1);
+        _emailTemplateService
+            .Setup(x => x.BuildOrderWithdrawalBusinessNotificationMessage(
+                "info@bakonykincse.hu",
+                It.IsAny<OrderDto>(),
+                It.IsAny<OrderWithdrawalRequestDto>()))
+            .Returns(businessMessage);
+        _emailTemplateService
+            .Setup(x => x.BuildOrderWithdrawalCustomerConfirmationMessage(
+                "guest@example.com",
+                It.IsAny<OrderDto>(),
+                It.IsAny<OrderWithdrawalRequestDto>()))
+            .Returns(customerMessage);
+        _emailService
+            .Setup(x => x.SendAsync(businessMessage, It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+        _emailService
+            .Setup(x => x.SendAsync(customerMessage, It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        var result = await _service.RequestWithdrawalByOrderLookupAsync(new PublicOrderWithdrawalRequestDto
+        {
+            OrderNumber = "bk-test-0001",
+            CustomerEmail = "GUEST@example.com",
+            Reason = "Szeretnék elállási kérelmet rögzíteni."
+        });
+
+        Assert.Equal(13, result.Id);
+        Assert.Equal(order.Id, result.OrderId);
+        Assert.Null(savedRequest!.UserId);
+        Assert.Equal("Szeretnék elállási kérelmet rögzíteni.", result.Reason);
+        Assert.Equal(OrderWithdrawalRequestStatus.Pending, result.Status);
+        _emailService.Verify(x => x.SendAsync(businessMessage, It.IsAny<CancellationToken>()), Times.Once);
+        _emailService.Verify(x => x.SendAsync(customerMessage, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
     private static Order CreateOrder(Guid? userId) => new()
     {
         Id = Guid.NewGuid(),
