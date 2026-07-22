@@ -51,6 +51,10 @@ public sealed class OrderServiceTests
             Options.Create(new EmailBrandingOptions
             {
                 ContactEmail = "info@bakonykincse.hu"
+            }),
+            Options.Create(new SumUpOptions
+            {
+                Currency = "HUF"
             }));
     }
 
@@ -293,6 +297,7 @@ public sealed class OrderServiceTests
     {
         var order = CreateOrder(null);
         order.SumUpCheckoutId = "checkout_123";
+        order.TotalPrice = 3600;
 
         _orders
             .Setup(x => x.GetBySumUpCheckoutIdAsync("checkout_123", It.IsAny<CancellationToken>()))
@@ -302,12 +307,37 @@ public sealed class OrderServiceTests
 
         var result = await _service.ConfirmSumUpCheckoutAsync(
             "checkout_123",
-            "txn_123");
+            "txn_123",
+            3600,
+            "HUF");
 
         Assert.Equal(PaymentStatus.Paid, result.PaymentStatus);
         Assert.Equal(OrderStatus.Confirmed, result.Status);
         Assert.Equal("txn_123", order.SumUpTransactionId);
         Assert.NotNull(order.ConfirmedAtUtc);
+    }
+
+    [Fact]
+    public async Task ConfirmSumUpCheckoutAsync_WhenAmountDoesNotMatch_ThrowsAndDoesNotSave()
+    {
+        var order = CreateOrder(null);
+        order.SumUpCheckoutId = "checkout_123";
+        order.TotalPrice = 3600;
+
+        _orders
+            .Setup(x => x.GetBySumUpCheckoutIdAsync("checkout_123", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(order);
+
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _service.ConfirmSumUpCheckoutAsync(
+                "checkout_123",
+                "txn_123",
+                3500,
+                "HUF"));
+
+        Assert.Contains("amount", exception.Message);
+        _orders.Verify(x => x.Update(It.IsAny<Order>()), Times.Never);
+        _unitOfWork.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]

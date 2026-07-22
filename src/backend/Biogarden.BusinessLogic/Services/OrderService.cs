@@ -21,6 +21,7 @@ public class OrderService : IOrderService
     private readonly IEmailTemplateService _emailTemplateService;
     private readonly ISumUpCheckoutService _sumUpCheckoutService;
     private readonly EmailBrandingOptions _emailBrandingOptions;
+    private readonly SumUpOptions _sumUpOptions;
 
     public OrderService(
         IUnitOfWork unitOfWork,
@@ -29,7 +30,8 @@ public class OrderService : IOrderService
         IEmailService emailService,
         IEmailTemplateService emailTemplateService,
         ISumUpCheckoutService sumUpCheckoutService,
-        IOptions<EmailBrandingOptions> emailBrandingOptions)
+        IOptions<EmailBrandingOptions> emailBrandingOptions,
+        IOptions<SumUpOptions> sumUpOptions)
     {
         _unitOfWork = unitOfWork;
         _cartService = cartService;
@@ -38,6 +40,7 @@ public class OrderService : IOrderService
         _emailTemplateService = emailTemplateService;
         _sumUpCheckoutService = sumUpCheckoutService;
         _emailBrandingOptions = emailBrandingOptions.Value;
+        _sumUpOptions = sumUpOptions.Value;
     }
 
     public async Task<OrderDto> CreateOrderFromCartAsync(
@@ -377,6 +380,8 @@ public class OrderService : IOrderService
     public async Task<OrderDto> ConfirmSumUpCheckoutAsync(
         string sumUpCheckoutId,
         string? sumUpTransactionId,
+        decimal? amount = null,
+        string? currency = null,
         CancellationToken cancellationToken = default)
     {
         var order = await _unitOfWork.OrderRepository.GetBySumUpCheckoutIdAsync(
@@ -388,6 +393,8 @@ public class OrderService : IOrderService
         {
             throw new InvalidOperationException("Cancelled order cannot be confirmed.");
         }
+
+        EnsureSumUpCheckoutMatchesOrder(order, amount, currency);
 
         if (order.PaymentStatus != PaymentStatus.Paid)
         {
@@ -612,6 +619,29 @@ public class OrderService : IOrderService
 
     private static string? NormalizeOptional(string? value) =>
         string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
+    private void EnsureSumUpCheckoutMatchesOrder(Order order, decimal? amount, string? currency)
+    {
+        if (!amount.HasValue)
+        {
+            throw new InvalidOperationException("SumUp checkout amount is missing.");
+        }
+
+        if (amount.Value != order.TotalPrice)
+        {
+            throw new InvalidOperationException("SumUp checkout amount does not match the order total.");
+        }
+
+        if (string.IsNullOrWhiteSpace(currency))
+        {
+            throw new InvalidOperationException("SumUp checkout currency is missing.");
+        }
+
+        if (!string.Equals(currency.Trim(), _sumUpOptions.Currency, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException("SumUp checkout currency does not match the configured currency.");
+        }
+    }
 
     private static string GenerateOrderNumber()
     {

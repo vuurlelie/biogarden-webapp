@@ -12,6 +12,7 @@ public sealed class UnitOfWork : IUnitOfWork
     private IAddressRepository? _addressRepository;
     private ICartRepository? _cartRepository;
     private IOrderRepository? _orderRepository;
+    private IPaymentProviderEventRepository? _paymentProviderEventRepository;
 
 
     public UnitOfWork(IAppDbContext databaseContext)
@@ -30,6 +31,8 @@ public sealed class UnitOfWork : IUnitOfWork
         _cartRepository ??= new CartRepository(_databaseContext);
     public IOrderRepository OrderRepository =>
         _orderRepository ??= new OrderRepository(_databaseContext);
+    public IPaymentProviderEventRepository PaymentProviderEventRepository =>
+        _paymentProviderEventRepository ??= new PaymentProviderEventRepository(_databaseContext);
 
     public async Task<TResult> ExecuteInTransactionAsync<TResult>(
         Func<CancellationToken, Task<TResult>> operation,

@@ -25,6 +25,8 @@ public interface IOrderService
     Task<OrderDto> ConfirmSumUpCheckoutAsync(
         string sumUpCheckoutId,
         string? sumUpTransactionId,
+        decimal? amount = null,
+        string? currency = null,
         CancellationToken cancellationToken = default);
 
     Task<OrderDto?> MarkSumUpPaymentFailedAsync(

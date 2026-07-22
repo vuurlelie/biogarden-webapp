@@ -557,6 +557,56 @@ namespace Biogarden.DataAccess.Migrations
                         });
                 });
 
+            modelBuilder.Entity("Biogarden.DataAccess.Entities.PaymentProviderEvent", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("CheckoutId")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("EventKey")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.Property<string>("EventType")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime?>("ProcessedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Provider")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<DateTime>("ReceivedAtUtc")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasDefaultValueSql("SYSUTCDATETIME()");
+
+                    b.Property<string>("Status")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CheckoutId");
+
+                    b.HasIndex("ReceivedAtUtc");
+
+                    b.HasIndex("Provider", "EventKey")
+                        .IsUnique();
+
+                    b.ToTable("PaymentProviderEvents", (string)null);
+                });
+
             modelBuilder.Entity("Biogarden.DataAccess.Entities.Post", b =>
                 {
                     b.Property<int>("Id")
