@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   getAddresses,
+  getProfile,
   ProfileApiError,
   updateAddresses,
 } from "../../features/account/api/profileApi";
@@ -53,6 +54,7 @@ function normalizeAddress(address: AddressFormData): AddressFormData {
 
 export default function AccountAddressesPage() {
   const navigate = useNavigate();
+  const [customerType, setCustomerType] = useState<0 | 1>(0);
   const [shippingAddress, setShippingAddress] = useState<AddressFormData>({ ...EMPTY_ADDRESS });
   const [billingAddress, setBillingAddress] = useState<AddressFormData>({ ...EMPTY_ADDRESS });
   const [useShippingAsBilling, setUseShippingAsBilling] = useState(true);
@@ -66,9 +68,10 @@ export default function AccountAddressesPage() {
 
     async function loadAddresses() {
       try {
-        const addresses = await getAddresses();
+        const [addresses, profile] = await Promise.all([getAddresses(), getProfile()]);
         if (shouldIgnoreResult) return;
 
+        setCustomerType(profile.customerType);
         setShippingAddress(toFormData(addresses.shippingAddress));
         setBillingAddress(toFormData(addresses.billingAddress));
         setUseShippingAsBilling(
@@ -102,8 +105,8 @@ export default function AccountAddressesPage() {
       setIsSaving(true);
       await updateAddresses({
         shippingAddress: normalizeAddress(shippingAddress),
-        billingAddress: useShippingAsBilling ? null : normalizeAddress(billingAddress),
-        useShippingAsBilling,
+        billingAddress: customerType === 1 && !useShippingAsBilling ? normalizeAddress(billingAddress) : null,
+        useShippingAsBilling: customerType === 1 && useShippingAsBilling,
       });
       setSuccess("A szállítási és számlázási cím mentése sikerült.");
     } catch (saveError) {
@@ -138,6 +141,13 @@ export default function AccountAddressesPage() {
           <AddressFields idPrefix="shipping" value={shippingAddress} onChange={setShippingAddress} />
         </fieldset>
 
+        {customerType === 0 ? (
+          <div className="border-t border-site-border pt-6">
+            <p className="rounded-sm bg-site-surface-soft p-4 text-sm leading-6 text-site-text">
+              Magánszemélyként nem szükséges számlázási címet megadnod. A rendeléshez papíralapú nyugtát mellékelünk.
+            </p>
+          </div>
+        ) : (
         <div className="border-t border-site-border pt-6">
           <label className="flex items-start gap-3 rounded-sm bg-site-surface-soft p-4 text-sm text-site-text">
             <input
@@ -149,8 +159,9 @@ export default function AccountAddressesPage() {
             <span>A számlázási cím megegyezik a szállítási címmel.</span>
           </label>
         </div>
+        )}
 
-        {!useShippingAsBilling && (
+        {customerType === 1 && !useShippingAsBilling && (
           <fieldset className="border-t border-site-border pt-7">
             <legend className="mb-5 text-xl font-bold text-site-heading">Számlázási cím</legend>
             <AddressFields idPrefix="billing" value={billingAddress} onChange={setBillingAddress} />

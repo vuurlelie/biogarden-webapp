@@ -26,6 +26,8 @@ public static class OrderMapper
             Doorbell = order.Doorbell,
             BillingCompanyName = order.BillingCompanyName,
             BillingTaxNumber = order.BillingTaxNumber,
+            CustomerType = order.CustomerType,
+            PrintedInvoiceRequested = order.PrintedInvoiceRequested,
             DeliveryPostalCode = order.DeliveryPostalCode,
             DeliveryCity = order.DeliveryCity,
             DeliveryStreet = order.DeliveryStreet,

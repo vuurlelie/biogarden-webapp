@@ -97,18 +97,42 @@ public class OrderService : IOrderService
             !string.IsNullOrWhiteSpace(dto.CustomerPhone);
         if (user is null || useManualContact) ValidateGuestContactDetails(dto); else ValidateAccountContactDetails(user);
 
-        Address? billingAddress = null;
-        if (dto.AddressId.HasValue)
+        var customerType = user?.CustomerType ?? dto.CustomerType;
+        if (!Enum.IsDefined(customerType))
         {
-            billingAddress = await _unitOfWork.AddressRepository.GetByIdAsync(dto.AddressId.Value, cancellationToken);
-            if (user is null || billingAddress is null || user.BillingAddressId != dto.AddressId)
-                throw new InvalidOperationException("The selected billing address does not belong to the user.");
+            throw new InvalidOperationException("Invalid customer type.");
+        }
+
+        var billingCompanyName = user is not null && !useManualContact
+            ? user.CompanyName
+            : dto.BillingCompanyName;
+        var billingTaxNumber = user is not null && !useManualContact
+            ? user.TaxNumber
+            : dto.BillingTaxNumber;
+        var printedInvoiceRequested = customerType == CustomerType.Company &&
+            (user?.PrintedInvoiceRequested ?? dto.PrintedInvoiceRequested);
+
+        Address? billingAddress = null;
+        if (customerType == CustomerType.Company)
+        {
+            if (dto.AddressId.HasValue)
+            {
+                billingAddress = await _unitOfWork.AddressRepository.GetByIdAsync(dto.AddressId.Value, cancellationToken);
+                if (user is null || billingAddress is null || user.BillingAddressId != dto.AddressId)
+                    throw new InvalidOperationException("The selected billing address does not belong to the user.");
+            }
+            else
+            {
+                ValidateManualAddress(dto.PostalCode, dto.City, dto.Street, dto.HouseNumber, "billing");
+            }
+
+            ValidateCompanyBilling(billingCompanyName, billingTaxNumber);
         }
         else
         {
-            ValidateManualAddress(dto.PostalCode, dto.City, dto.Street, dto.HouseNumber, "billing");
+            billingCompanyName = null;
+            billingTaxNumber = null;
         }
-        ValidateCompanyBilling(dto.BillingCompanyName, dto.BillingTaxNumber);
 
         Address? deliveryAddress = null;
         if (dto.FulfillmentMethod != FulfillmentMethod.PersonalPickup)
@@ -130,22 +154,24 @@ public class OrderService : IOrderService
             Id = Guid.NewGuid(),
             OrderNumber = GenerateOrderNumber(),
             UserId = userId,
-            AddressId = dto.AddressId,
+            AddressId = customerType == CustomerType.Company ? dto.AddressId : null,
             CustomerName = user is null || useManualContact
                 ? dto.CustomerName!.Trim()
                 : $"{user.LastName} {user.FirstName}".Trim(),
             CustomerEmail = user is null || useManualContact ? dto.CustomerEmail!.Trim() : user.Email!.Trim(),
             CustomerPhone = user is null || useManualContact ? dto.CustomerPhone!.Trim() : user.PhoneNumber!.Trim(),
-            PostalCode = billingAddress?.PostalCode ?? dto.PostalCode!.Trim(),
-            City = billingAddress?.City ?? dto.City!.Trim(),
-            Street = billingAddress?.Street ?? dto.Street!.Trim(),
-            HouseNumber = billingAddress?.HouseNumber ?? dto.HouseNumber!.Trim(),
+            PostalCode = billingAddress?.PostalCode ?? NormalizeOptional(dto.PostalCode) ?? string.Empty,
+            City = billingAddress?.City ?? NormalizeOptional(dto.City) ?? string.Empty,
+            Street = billingAddress?.Street ?? NormalizeOptional(dto.Street) ?? string.Empty,
+            HouseNumber = billingAddress?.HouseNumber ?? NormalizeOptional(dto.HouseNumber) ?? string.Empty,
             Building = billingAddress?.Building ?? NormalizeOptional(dto.Building),
             Floor = billingAddress?.Floor ?? NormalizeOptional(dto.Floor),
             Door = billingAddress?.Door ?? NormalizeOptional(dto.Door),
             Doorbell = billingAddress?.Doorbell ?? NormalizeOptional(dto.Doorbell),
-            BillingCompanyName = NormalizeOptional(dto.BillingCompanyName),
-            BillingTaxNumber = NormalizeOptional(dto.BillingTaxNumber),
+            BillingCompanyName = NormalizeOptional(billingCompanyName),
+            BillingTaxNumber = NormalizeOptional(billingTaxNumber),
+            CustomerType = customerType,
+            PrintedInvoiceRequested = printedInvoiceRequested,
             DeliveryPostalCode = deliveryAddress?.PostalCode ?? NormalizeOptional(dto.DeliveryPostalCode),
             DeliveryCity = deliveryAddress?.City ?? NormalizeOptional(dto.DeliveryCity),
             DeliveryStreet = deliveryAddress?.Street ?? NormalizeOptional(dto.DeliveryStreet),

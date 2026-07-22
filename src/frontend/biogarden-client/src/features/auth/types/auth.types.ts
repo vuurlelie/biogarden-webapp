@@ -1,3 +1,5 @@
+import type { AddressFormData } from "../../account/types/address.types";
+
 export type LoginRequest = {
   email: string;
   password: string;
@@ -5,6 +7,11 @@ export type LoginRequest = {
 
 export type RegisterRequest = LoginRequest & {
   confirmPassword: string;
+  customerType: 0 | 1;
+  companyName: string | null;
+  taxNumber: string | null;
+  billingAddress: AddressFormData | null;
+  printedInvoiceRequested: boolean;
 };
 
 export type ConfirmEmailRequest = {

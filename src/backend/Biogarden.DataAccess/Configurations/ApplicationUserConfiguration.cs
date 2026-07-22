@@ -13,8 +13,17 @@ public class ApplicationUserConfiguration
         userBuilder.Property(user => user.FirstName)
             .HasMaxLength(100);
 
+        userBuilder.Property(user => user.CustomerType)
+            .HasConversion<byte>()
+            .HasDefaultValue(CustomerType.Private)
+            .IsRequired();
+
         userBuilder.Property(user => user.CompanyName).HasMaxLength(200);
         userBuilder.Property(user => user.TaxNumber).HasMaxLength(20);
+
+        userBuilder.Property(user => user.PrintedInvoiceRequested)
+            .HasDefaultValue(false)
+            .IsRequired();
 
         userBuilder.Property(user => user.LastName)
             .HasMaxLength(100);

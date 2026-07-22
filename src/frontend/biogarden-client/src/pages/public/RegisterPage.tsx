@@ -1,13 +1,45 @@
 import { useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { register } from "../../features/auth/api/authApi";
+import AddressFields from "../../features/account/components/AddressFields";
+import type { AddressFormData } from "../../features/account/types/address.types";
 import { ROUTES } from "../../shared/constants/routes";
 
 const PASSWORD_PATTERN = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/;
 
+const EMPTY_ADDRESS: AddressFormData = {
+  postalCode: "",
+  city: "",
+  street: "",
+  houseNumber: "",
+  building: null,
+  floor: null,
+  door: null,
+  doorbell: null,
+};
+
+function normalizeAddress(address: AddressFormData): AddressFormData {
+  const normalizeOptional = (value: string | null) => value?.trim() || null;
+  return {
+    postalCode: address.postalCode.trim(),
+    city: address.city.trim(),
+    street: address.street.trim(),
+    houseNumber: address.houseNumber.trim(),
+    building: normalizeOptional(address.building),
+    floor: normalizeOptional(address.floor),
+    door: normalizeOptional(address.door),
+    doorbell: normalizeOptional(address.doorbell),
+  };
+}
+
 export default function RegisterPage() {
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
+  const [customerType, setCustomerType] = useState<0 | 1>(0);
+  const [companyName, setCompanyName] = useState("");
+  const [taxNumber, setTaxNumber] = useState("");
+  const [billingAddress, setBillingAddress] = useState<AddressFormData>({ ...EMPTY_ADDRESS });
+  const [printedInvoiceRequested, setPrintedInvoiceRequested] = useState(false);
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [acceptedTerms, setAcceptedTerms] = useState(false);
@@ -33,9 +65,40 @@ export default function RegisterPage() {
       return;
     }
 
+    if (customerType === 1) {
+      if (!companyName.trim() || !taxNumber.trim()) {
+        setError("Céges fiókhoz a cégnév és az adószám megadása kötelező.");
+        return;
+      }
+
+      if (!/^\d{8}(-\d-\d{2})?$/.test(taxNumber.trim())) {
+        setError("Az adószám formátuma hibás. Példa: 12345678-1-12.");
+        return;
+      }
+
+      if (
+        !billingAddress.postalCode.trim() ||
+        !billingAddress.city.trim() ||
+        !billingAddress.street.trim() ||
+        !billingAddress.houseNumber.trim()
+      ) {
+        setError("Céges fiókhoz a számlázási cím megadása kötelező.");
+        return;
+      }
+    }
+
     try {
       setIsSubmitting(true);
-      await register({ email: email.trim(), password, confirmPassword });
+      await register({
+        email: email.trim(),
+        password,
+        confirmPassword,
+        customerType,
+        companyName: customerType === 1 ? companyName.trim() : null,
+        taxNumber: customerType === 1 ? taxNumber.trim() : null,
+        billingAddress: customerType === 1 ? normalizeAddress(billingAddress) : null,
+        printedInvoiceRequested: customerType === 1 && printedInvoiceRequested,
+      });
       navigate(ROUTES.login, {
         replace: true,
         state: { registrationRequiresConfirmation: true },
@@ -69,6 +132,91 @@ export default function RegisterPage() {
         )}
 
         <form onSubmit={handleSubmit} className="mt-6 space-y-5">
+          <fieldset className="rounded-sm border border-site-border p-4">
+            <legend className="px-2 text-sm font-bold text-site-heading">Fiók típusa</legend>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label className="flex cursor-pointer gap-3 rounded-sm border border-site-border p-3 text-sm text-site-text">
+                <input
+                  type="radio"
+                  name="customerType"
+                  checked={customerType === 0}
+                  onChange={() => {
+                    setCustomerType(0);
+                    setPrintedInvoiceRequested(false);
+                  }}
+                  className="mt-1 h-4 w-4 accent-site-green"
+                />
+                <span>
+                  <strong className="block text-site-heading">Magánszemély</strong>
+                  Papíralapú nyugtát kapsz a rendelés mellé.
+                </span>
+              </label>
+              <label className="flex cursor-pointer gap-3 rounded-sm border border-site-border p-3 text-sm text-site-text">
+                <input
+                  type="radio"
+                  name="customerType"
+                  checked={customerType === 1}
+                  onChange={() => setCustomerType(1)}
+                  className="mt-1 h-4 w-4 accent-site-green"
+                />
+                <span>
+                  <strong className="block text-site-heading">Cég</strong>
+                  Céges rendeléshez számlázási adatok szükségesek.
+                </span>
+              </label>
+            </div>
+          </fieldset>
+
+          {customerType === 1 && (
+            <fieldset className="rounded-sm border border-site-border p-4">
+              <legend className="px-2 text-sm font-bold text-site-heading">Céges számlázási adatok</legend>
+              <p className="mb-4 text-xs leading-5 text-site-muted">
+                Alapértelmezetten elektronikus számlát küldünk a megadott email címre.
+              </p>
+              <div className="grid gap-5 sm:grid-cols-2">
+                <label className="text-sm font-semibold text-site-heading">
+                  Cégnév <span className="text-site-danger">*</span>
+                  <input
+                    value={companyName}
+                    onChange={(event) => setCompanyName(event.target.value)}
+                    autoComplete="organization"
+                    className="mt-2 block w-full rounded-sm border border-site-border px-3 py-2.5"
+                    required={customerType === 1}
+                  />
+                </label>
+                <label className="text-sm font-semibold text-site-heading">
+                  Adószám <span className="text-site-danger">*</span>
+                  <input
+                    value={taxNumber}
+                    onChange={(event) => setTaxNumber(event.target.value)}
+                    placeholder="12345678-1-12"
+                    className="mt-2 block w-full rounded-sm border border-site-border px-3 py-2.5"
+                    required={customerType === 1}
+                  />
+                </label>
+              </div>
+              <div className="mt-5">
+                <h2 className="text-sm font-bold text-site-heading">Számlázási cím</h2>
+                <div className="mt-3">
+                  <AddressFields
+                    idPrefix="register-billing"
+                    value={billingAddress}
+                    onChange={setBillingAddress}
+                  />
+                </div>
+              </div>
+              <label className="mt-4 flex items-start gap-3 rounded-sm bg-site-surface-soft p-3 text-sm text-site-text">
+                <input
+                  type="checkbox"
+                  checked={printedInvoiceRequested}
+                  onChange={(event) => setPrintedInvoiceRequested(event.target.checked)}
+                  className="mt-1 h-4 w-4 accent-site-green"
+                />
+                <span>Nyomtatott számlát is kérek a rendelés mellé.</span>
+              </label>
+            </fieldset>
+          )}
+
           <div>
             <label htmlFor="register-email" className="block text-sm font-semibold text-site-heading">Email cím <span className="text-site-danger">*</span></label>
             <input

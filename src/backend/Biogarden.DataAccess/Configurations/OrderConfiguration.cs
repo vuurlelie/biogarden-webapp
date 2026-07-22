@@ -83,6 +83,13 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
         orderBuilder.Property(order => order.Doorbell).HasMaxLength(50);
         orderBuilder.Property(order => order.BillingCompanyName).HasMaxLength(200);
         orderBuilder.Property(order => order.BillingTaxNumber).HasMaxLength(20);
+        orderBuilder.Property(order => order.CustomerType)
+            .HasConversion<byte>()
+            .HasDefaultValue(CustomerType.Private)
+            .IsRequired();
+        orderBuilder.Property(order => order.PrintedInvoiceRequested)
+            .HasDefaultValue(false)
+            .IsRequired();
         orderBuilder.Property(order => order.DeliveryPostalCode).HasMaxLength(20);
         orderBuilder.Property(order => order.DeliveryCity).HasMaxLength(100);
         orderBuilder.Property(order => order.DeliveryStreet).HasMaxLength(200);

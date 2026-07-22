@@ -235,6 +235,10 @@ public sealed class EmailTemplateServiceTests
         Assert.Contains("- Név: Teszt Elek", message.PlainTextBody);
         Assert.Contains("- Email: customer@example.com", message.PlainTextBody);
         Assert.Contains("- Telefon: +36 20 123 4567", message.PlainTextBody);
+        Assert.Contains("Kiállítandó bizonylat:", message.PlainTextBody);
+        Assert.Contains("Admin teendő: Elektronikus számla szükséges.", message.PlainTextBody);
+        Assert.Contains("- Cégnév: Teszt Kft.", message.PlainTextBody);
+        Assert.Contains("- Adószám: 12345678-1-12", message.PlainTextBody);
         Assert.Contains("Termékek:", message.PlainTextBody);
         Assert.Contains("- Levendula - 2 db, 3600 Ft", message.PlainTextBody);
         Assert.Contains("Teszt Elek", message.PlainTextBody);
@@ -326,6 +330,9 @@ public sealed class EmailTemplateServiceTests
             CustomerName = "Teszt Elek",
             CustomerEmail = "customer@example.com",
             CustomerPhone = "+36 20 123 4567",
+            CustomerType = CustomerType.Company,
+            BillingCompanyName = "Teszt Kft.",
+            BillingTaxNumber = "12345678-1-12",
             PostalCode = "2112",
             City = "Veresegyház",
             Street = "Szemere Pál utca",

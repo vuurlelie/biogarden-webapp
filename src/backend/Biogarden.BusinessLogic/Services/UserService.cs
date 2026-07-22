@@ -44,11 +44,13 @@ public class UserService : IUserService
         return new UserProfileDto
         {
             Email = user.Email ?? string.Empty,
+            CustomerType = user.CustomerType,
             FirstName = user.FirstName,
             LastName = user.LastName,
             PhoneNumber = user.PhoneNumber,
             CompanyName = user.CompanyName,
-            TaxNumber = user.TaxNumber
+            TaxNumber = user.TaxNumber,
+            PrintedInvoiceRequested = user.PrintedInvoiceRequested
         };
     }
 
@@ -64,13 +66,43 @@ public class UserService : IUserService
                 $"User with id {userId} was not found.");
         }
 
+        if (!Enum.IsDefined(dto.CustomerType))
+        {
+            throw new ArgumentException("Érvénytelen vásárlói típus.");
+        }
+
+        var companyName = NormalizeOptional(dto.CompanyName);
+        var taxNumber = NormalizeOptional(dto.TaxNumber);
+
+        if (dto.CustomerType == CustomerType.Company)
+        {
+            if (companyName is null || taxNumber is null)
+            {
+                throw new ArgumentException("Céges fiókhoz a cégnév és az adószám megadása kötelező.");
+            }
+
+            if (!IsValidTaxNumber(taxNumber))
+            {
+                throw new ArgumentException("Az adószám formátuma hibás. Példa: 12345678-1-12.");
+            }
+        }
+        else
+        {
+            companyName = null;
+            taxNumber = null;
+            dto.PrintedInvoiceRequested = false;
+            user.BillingAddressId = null;
+        }
+
+        user.CustomerType = dto.CustomerType;
         user.FirstName = NormalizeOptional(dto.FirstName);
         user.LastName = NormalizeOptional(dto.LastName);
         user.PhoneNumber = NormalizeOptional(dto.PhoneNumber);
-        user.CompanyName = NormalizeOptional(dto.CompanyName);
-        user.TaxNumber = NormalizeOptional(dto.TaxNumber);
+        user.CompanyName = companyName;
+        user.TaxNumber = taxNumber;
+        user.PrintedInvoiceRequested = dto.PrintedInvoiceRequested;
 
-        if ((user.CompanyName is null) != (user.TaxNumber is null))
+        if (companyName != user.CompanyName && false)
             throw new ArgumentException("Céges számlázáshoz a cégnév és az adószám együttes megadása szükséges.");
 
         var result = await _userManager.UpdateAsync(user);
@@ -130,7 +162,11 @@ public class UserService : IUserService
         await _unitOfWork.SaveChangesAsync();
         user.ShippingAddressId = shippingAddress.Id;
 
-        if (dto.UseShippingAsBilling)
+        if (user.CustomerType == CustomerType.Private)
+        {
+            user.BillingAddressId = null;
+        }
+        else if (dto.UseShippingAsBilling)
         {
             user.BillingAddressId = shippingAddress.Id;
         }
@@ -283,8 +319,10 @@ public class UserService : IUserService
         user.FirstName = "Törölt";
         user.LastName = "Felhasználó";
         user.PhoneNumber = null;
+        user.CustomerType = CustomerType.Private;
         user.CompanyName = null;
         user.TaxNumber = null;
+        user.PrintedInvoiceRequested = false;
         user.EmailConfirmed = false;
         user.PhoneNumberConfirmed = false;
         user.RecordStatus = RecordStatus.Deleted;
@@ -359,6 +397,13 @@ public class UserService : IUserService
         }
 
         return value.Trim();
+    }
+
+    private static bool IsValidTaxNumber(string taxNumber)
+    {
+        return System.Text.RegularExpressions.Regex.IsMatch(
+            taxNumber,
+            @"^\d{8}(-\d-\d{2})?$");
     }
 
     private static readonly OrderStatus[] ActiveOrderStatuses =

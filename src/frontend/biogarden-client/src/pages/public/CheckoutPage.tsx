@@ -33,8 +33,10 @@ type Draft = {
   floor: string;
   door: string;
   doorbell: string;
+  customerType: 0 | 1;
   billingCompanyName: string;
   billingTaxNumber: string;
+  printedInvoiceRequested: boolean;
   deliveryPostalCode: string;
   deliveryCity: string;
   deliveryStreet: string;
@@ -52,7 +54,11 @@ type FieldErrors = Partial<
   >
 >;
 
-type FieldDefinition = [keyof Draft, string, string];
+type DraftTextField = {
+  [Key in keyof Draft]: Draft[Key] extends string ? Key : never;
+}[keyof Draft];
+
+type FieldDefinition = [DraftTextField, string, string];
 
 const EMPTY_DRAFT: Draft = {
   customerName: "",
@@ -66,8 +72,10 @@ const EMPTY_DRAFT: Draft = {
   floor: "",
   door: "",
   doorbell: "",
+  customerType: 0,
   billingCompanyName: "",
   billingTaxNumber: "",
+  printedInvoiceRequested: false,
   deliveryPostalCode: "",
   deliveryCity: "",
   deliveryStreet: "",
@@ -85,7 +93,7 @@ const CONTACT_FIELDS: FieldDefinition[] = [
 ];
 
 const BILLING_FIELDS: FieldDefinition[] = [
-  ["billingCompanyName", "Cégnév (opcionális)", "organization"],
+  ["billingCompanyName", "Cégnév", "organization"],
   ["billingTaxNumber", "Adószám (céges számlához)", "off"],
   ["postalCode", "Irányítószám", "postal-code"],
   ["city", "Település", "address-level2"],
@@ -109,6 +117,8 @@ const DELIVERY_FIELDS: FieldDefinition[] = [
 ];
 
 const REQUIRED_BILLING_FIELDS: Array<keyof Draft> = [
+  "billingCompanyName",
+  "billingTaxNumber",
   "postalCode",
   "city",
   "street",
@@ -231,6 +241,7 @@ export default function CheckoutPage() {
   const deliveryFee = method === 1 ? 1500 : method === 2 ? 1000 : 0;
   const paymentFee = paymentMethod === "cash-on-delivery" ? 500 : 0;
   const grandTotal = (cart?.totalPrice ?? 0) + deliveryFee + paymentFee;
+  const effectiveCustomerType = authenticated && profile ? profile.customerType : draft.customerType;
   const cancelledSumUpOrderId = searchParams.get("sumup") === "cancelled"
     ? searchParams.get("orderId")
     : null;
@@ -263,8 +274,10 @@ export default function CheckoutPage() {
             customerName: buildCustomerName(loadedProfile),
             customerEmail: loadedProfile.email ?? "",
             customerPhone: loadedProfile.phoneNumber ?? "",
+            customerType: loadedProfile.customerType,
             billingCompanyName: loadedProfile.companyName ?? "",
             billingTaxNumber: loadedProfile.taxNumber ?? "",
+            printedInvoiceRequested: loadedProfile.printedInvoiceRequested,
             ...(loadedAddresses.billingAddress ? billingAddressDraft(loadedAddresses.billingAddress) : {}),
             ...(loadedAddresses.shippingAddress ? deliveryAddressDraft(loadedAddresses.shippingAddress) : {}),
           }));
@@ -292,12 +305,12 @@ export default function CheckoutPage() {
     setPaymentMethod(null);
   }, [method]);
 
-  function update(field: keyof Draft, value: string) {
+  function update(field: DraftTextField, value: string) {
     setDraft((current) => ({ ...current, [field]: value }));
     setFieldErrors((current) => ({ ...current, [field]: undefined }));
   }
 
-  function fieldClass(field: keyof Draft): string {
+  function fieldClass(field: DraftTextField): string {
     const base = "mt-2 block w-full rounded-sm border px-3 py-2.5 disabled:cursor-default";
     if (fieldErrors[field]) return `${base} border-site-danger bg-white`;
 
@@ -399,6 +412,7 @@ export default function CheckoutPage() {
     if (draft.customerPhone.replace(/\D/g, "").length < 9) {
       errors.customerPhone = "Adj meg egy érvényes telefonszámot.";
     }
+    if (effectiveCustomerType === 1) {
     if (!/^\d{4}$/.test(draft.postalCode.trim())) {
       errors.postalCode = "Az irányítószám 4 számjegyből álljon.";
     }
@@ -419,6 +433,8 @@ export default function CheckoutPage() {
       errors.billingTaxNumber = "Céges számlázáshoz a cégnév és az adószám együtt szükséges.";
     } else if (hasTaxNumber && !/^\d{8}(-\d-\d{2})?$/.test(draft.billingTaxNumber.trim())) {
       errors.billingTaxNumber = "Hibás adószám. Példa: 12345678-1-12.";
+    }
+
     }
 
     if (method !== 0) {
@@ -497,17 +513,19 @@ export default function CheckoutPage() {
         customerName: draft.customerName,
         customerEmail: draft.customerEmail,
         customerPhone: draft.customerPhone,
+        customerType: effectiveCustomerType,
         addressId: null,
-        postalCode: draft.postalCode,
-        city: draft.city,
-        street: draft.street,
-        houseNumber: draft.houseNumber,
-        building: draft.building,
-        floor: draft.floor,
-        door: draft.door,
-        doorbell: draft.doorbell,
-        billingCompanyName: draft.billingCompanyName,
-        billingTaxNumber: draft.billingTaxNumber,
+        postalCode: effectiveCustomerType === 1 ? draft.postalCode : "",
+        city: effectiveCustomerType === 1 ? draft.city : "",
+        street: effectiveCustomerType === 1 ? draft.street : "",
+        houseNumber: effectiveCustomerType === 1 ? draft.houseNumber : "",
+        building: effectiveCustomerType === 1 ? draft.building : "",
+        floor: effectiveCustomerType === 1 ? draft.floor : "",
+        door: effectiveCustomerType === 1 ? draft.door : "",
+        doorbell: effectiveCustomerType === 1 ? draft.doorbell : "",
+        billingCompanyName: effectiveCustomerType === 1 ? draft.billingCompanyName : "",
+        billingTaxNumber: effectiveCustomerType === 1 ? draft.billingTaxNumber : "",
+        printedInvoiceRequested: effectiveCustomerType === 1 && draft.printedInvoiceRequested,
         deliveryAddressId: null,
         ...(method !== 0
           ? {
@@ -633,6 +651,48 @@ export default function CheckoutPage() {
 
       <form onSubmit={submit} className="mt-7 grid items-start gap-7 lg:grid-cols-[minmax(0,1fr)_22rem]">
         <div className={`space-y-6 ${step === "payment" ? "hidden" : ""}`}>
+          {!authenticated && (
+            <fieldset className="rounded-sm border border-site-border bg-white p-6 shadow-md">
+              <legend className="px-2 text-xl font-bold">Vásárlói típus</legend>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <label className="flex cursor-pointer gap-3 rounded-sm border border-site-border p-3 text-sm text-site-text">
+                  <input
+                    type="radio"
+                    name="checkoutCustomerType"
+                    checked={draft.customerType === 0}
+                    onChange={() => {
+                      setDraft((current) => ({
+                        ...current,
+                        customerType: 0,
+                        billingCompanyName: "",
+                        billingTaxNumber: "",
+                        printedInvoiceRequested: false,
+                      }));
+                    }}
+                    className="mt-1 h-4 w-4 accent-site-green"
+                  />
+                  <span>
+                    <strong className="block text-site-heading">Magánszemély</strong>
+                    Papíralapú nyugtát kapsz a rendelés mellé.
+                  </span>
+                </label>
+                <label className="flex cursor-pointer gap-3 rounded-sm border border-site-border p-3 text-sm text-site-text">
+                  <input
+                    type="radio"
+                    name="checkoutCustomerType"
+                    checked={draft.customerType === 1}
+                    onChange={() => setDraft((current) => ({ ...current, customerType: 1 }))}
+                    className="mt-1 h-4 w-4 accent-site-green"
+                  />
+                  <span>
+                    <strong className="block text-site-heading">Cég</strong>
+                    Céges rendeléshez számlázási adatok szükségesek.
+                  </span>
+                </label>
+              </div>
+            </fieldset>
+          )}
+
           <fieldset className="rounded-sm border border-site-border bg-white p-6 shadow-md">
             <legend className="px-2 text-xl font-bold">Átvételi mód</legend>
             <div className="grid gap-3 sm:grid-cols-2">
@@ -710,6 +770,14 @@ export default function CheckoutPage() {
             </div>
           </fieldset>
 
+          {effectiveCustomerType === 0 ? (
+            <section className="rounded-sm border border-site-border bg-white p-6 shadow-md">
+              <h2 className="text-xl font-bold text-site-heading">Bizonylat</h2>
+              <p className="mt-3 text-sm leading-6 text-site-text">
+                Magánszemélyként nem kell számlázási címet megadnod. A rendeléshez papíralapú nyugtát mellékelünk.
+              </p>
+            </section>
+          ) : (
           <fieldset className="rounded-sm border border-site-border bg-white p-6 shadow-md">
             <legend className="px-2 text-xl font-bold">Számlázási cím</legend>
             {authenticated && (
@@ -748,7 +816,22 @@ export default function CheckoutPage() {
                 </label>
               ))}
             </div>
+            <label className="mt-4 flex items-start gap-3 rounded-sm bg-site-surface-soft p-3 text-sm text-site-text">
+              <input
+                type="checkbox"
+                checked={draft.printedInvoiceRequested}
+                onChange={(event) =>
+                  setDraft((current) => ({
+                    ...current,
+                    printedInvoiceRequested: event.target.checked,
+                  }))
+                }
+                className="mt-1 h-4 w-4 accent-site-green"
+              />
+              <span>Nyomtatott számlát is kérek. Alapértelmezetten elektronikus számlát küldünk emailben.</span>
+            </label>
           </fieldset>
+          )}
 
           {method !== 0 && (
             <fieldset className="rounded-sm border border-site-border bg-white p-6 shadow-md">
@@ -959,12 +1042,23 @@ export default function CheckoutPage() {
                 <div className="space-y-3">
                   <div className="rounded-sm bg-site-surface-soft p-3">
                     <strong className="block">Számlázási cím</strong>
-                    {draft.billingCompanyName && (
+                    {effectiveCustomerType === 1 && draft.billingCompanyName && (
                       <p>
                         {draft.billingCompanyName} · {draft.billingTaxNumber}
                       </p>
                     )}
-                    <p>{`${draft.postalCode} ${draft.city}, ${draft.street} ${draft.houseNumber}`}</p>
+                    <p>
+                      {effectiveCustomerType === 1
+                        ? `${draft.postalCode} ${draft.city}, ${draft.street} ${draft.houseNumber}`
+                        : "Papíralapú nyugta a rendelés mellé."}
+                    </p>
+                    {effectiveCustomerType === 1 && (
+                      <p>
+                        {draft.printedInvoiceRequested
+                          ? "Elektronikus és nyomtatott számla"
+                          : "Elektronikus számla"}
+                      </p>
+                    )}
                   </div>
                   <div
                     className={`rounded-sm p-3 ${method !== 0 ? "bg-site-surface-soft" : "invisible"}`}
