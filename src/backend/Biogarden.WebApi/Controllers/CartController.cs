@@ -1,7 +1,9 @@
 ﻿using System.Security.Claims;
 using Biogarden.BusinessLogic.Abstractions;
 using Biogarden.BusinessLogic.DTOs.Carts;
+using Biogarden.WebApi.Constants;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Biogarden.WebApi.Controllers;
@@ -38,6 +40,7 @@ public class CartController : ControllerBase
     }
 
     [HttpPost("items")]
+    [EnableRateLimiting(RateLimitPolicyNames.CartMutation)]
     [ProducesResponseType(typeof(CartDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<ActionResult<CartDto>> AddItem(
@@ -93,6 +96,7 @@ public class CartController : ControllerBase
     }
 
     [HttpPut("items/{cartItemId:guid}")]
+    [EnableRateLimiting(RateLimitPolicyNames.CartMutation)]
     [ProducesResponseType(typeof(CartDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -132,6 +136,7 @@ public class CartController : ControllerBase
     }
 
     [HttpDelete("items/{cartItemId:guid}")]
+    [EnableRateLimiting(RateLimitPolicyNames.CartMutation)]
     [ProducesResponseType(typeof(CartDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<CartDto>> RemoveItem(
@@ -160,6 +165,7 @@ public class CartController : ControllerBase
     }
 
     [HttpDelete]
+    [EnableRateLimiting(RateLimitPolicyNames.CartMutation)]
     [ProducesResponseType(typeof(CartDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<CartDto>> ClearCart(CancellationToken cancellationToken)
@@ -204,6 +210,7 @@ public class CartController : ControllerBase
 
     [Authorize]
     [HttpPost("merge")]
+    [EnableRateLimiting(RateLimitPolicyNames.CartMutation)]
     [ProducesResponseType(typeof(CartDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<ActionResult<CartDto>> MergeGuestCartIntoUserCart(

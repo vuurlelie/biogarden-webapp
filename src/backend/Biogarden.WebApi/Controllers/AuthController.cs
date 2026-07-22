@@ -1,6 +1,8 @@
 using Biogarden.BusinessLogic.Abstractions;
 using Biogarden.BusinessLogic.DTOs.Auth;
+using Biogarden.WebApi.Constants;
 using Biogarden.WebApi.Contracts;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Biogarden.WebApi.Controllers;
@@ -17,6 +19,7 @@ public class AuthController : ControllerBase
     }
 
     [HttpPost("register")]
+    [EnableRateLimiting(RateLimitPolicyNames.SensitiveAuth)]
     public async Task<IActionResult> RegisterAsync(
         [FromBody] RegisterRequestDto registerRequestDto)
     {
@@ -37,6 +40,7 @@ public class AuthController : ControllerBase
     }
 
     [HttpPost("login")]
+    [EnableRateLimiting(RateLimitPolicyNames.SensitiveAuth)]
     public async Task<ActionResult<AuthResponseDto>> LoginAsync(
         [FromBody] LoginRequestDto loginRequestDto)
     {
@@ -57,6 +61,7 @@ public class AuthController : ControllerBase
     }
 
     [HttpPost("confirm-email")]
+    [EnableRateLimiting(RateLimitPolicyNames.SensitiveAuth)]
     public async Task<IActionResult> ConfirmEmailAsync(
         [FromBody] ConfirmEmailRequestDto confirmEmailRequestDto)
     {
@@ -77,6 +82,7 @@ public class AuthController : ControllerBase
     }
 
     [HttpPost("resend-email-confirmation")]
+    [EnableRateLimiting(RateLimitPolicyNames.SensitiveAuth)]
     public async Task<IActionResult> ResendEmailConfirmationAsync(
         [FromBody] ResendEmailConfirmationRequestDto resendEmailConfirmationRequestDto)
     {
@@ -86,6 +92,7 @@ public class AuthController : ControllerBase
     }
 
     [HttpPost("forgot-password")]
+    [EnableRateLimiting(RateLimitPolicyNames.SensitiveAuth)]
     public async Task<IActionResult> ForgotPasswordAsync(
         [FromBody] ForgotPasswordRequestDto forgotPasswordRequestDto)
     {
@@ -95,6 +102,7 @@ public class AuthController : ControllerBase
     }
 
     [HttpPost("reset-password")]
+    [EnableRateLimiting(RateLimitPolicyNames.SensitiveAuth)]
     public async Task<IActionResult> ResetPasswordAsync(
         [FromBody] ResetPasswordRequestDto resetPasswordRequestDto)
     {

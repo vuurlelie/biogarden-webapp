@@ -1,5 +1,7 @@
 using Biogarden.BusinessLogic.Abstractions;
+using Biogarden.WebApi.Constants;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Biogarden.WebApi.Controllers;
@@ -17,6 +19,7 @@ public sealed class SumUpCheckoutStatusController : ControllerBase
     }
 
     [HttpPost]
+    [EnableRateLimiting(RateLimitPolicyNames.Payment)]
     public async Task<IActionResult> Handle(CancellationToken cancellationToken)
     {
         var payload = await new StreamReader(Request.Body).ReadToEndAsync(cancellationToken);

@@ -1,5 +1,7 @@
 using Biogarden.BusinessLogic.Abstractions;
 using Biogarden.BusinessLogic.DTOs.Contact;
+using Biogarden.WebApi.Constants;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Biogarden.WebApi.Controllers;
@@ -16,6 +18,7 @@ public sealed class ContactController : ControllerBase
     }
 
     [HttpPost]
+    [EnableRateLimiting(RateLimitPolicyNames.PublicForm)]
     public async Task<IActionResult> SendMessageAsync(
         [FromBody] ContactMessageRequestDto contactMessageRequestDto,
         CancellationToken cancellationToken)

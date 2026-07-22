@@ -2,7 +2,9 @@ using System.Security.Claims;
 using Biogarden.BusinessLogic.Abstractions;
 using Biogarden.BusinessLogic.DTOs.Orders;
 using Biogarden.BusinessLogic.DTOs.Payments;
+using Biogarden.WebApi.Constants;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Biogarden.WebApi.Controllers;
@@ -21,6 +23,7 @@ public class OrdersController : ControllerBase
 
     [HttpPost]
     [AllowAnonymous]
+    [EnableRateLimiting(RateLimitPolicyNames.PublicForm)]
     [ProducesResponseType(typeof(OrderDto), StatusCodes.Status200OK)]
     public async Task<ActionResult<OrderDto>> CreateOrderFromCart(
         [FromBody] PlaceOrderDto placeOrderDto,
@@ -56,6 +59,7 @@ public class OrdersController : ControllerBase
 
     [HttpPost("{orderId:guid}/sumup-checkout")]
     [AllowAnonymous]
+    [EnableRateLimiting(RateLimitPolicyNames.Payment)]
     [ProducesResponseType(typeof(SumUpCheckoutDto), StatusCodes.Status200OK)]
     public async Task<ActionResult<SumUpCheckoutDto>> CreateSumUpCheckout(
         Guid orderId,

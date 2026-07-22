@@ -1,13 +1,8 @@
 import { clearAuthSession, getAuthSession } from "../../auth/utils/authStorage";
 import type { Cart, CartValidationResult } from "../types/cart.types";
+import { getApiErrorMessage } from "../../../shared/api/httpClient";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
-
-type ApiErrorBody = {
-  message?: string;
-  detail?: string;
-  Detail?: string;
-};
 
 export class CartApiError extends Error {
   readonly status: number;
@@ -20,12 +15,10 @@ export class CartApiError extends Error {
 }
 
 async function getErrorMessage(response: Response): Promise<string> {
-  try {
-    const body = (await response.json()) as ApiErrorBody;
-    return body.message ?? body.detail ?? body.Detail ?? "A művelet nem sikerült.";
-  } catch {
-    return "A művelet nem sikerült. Kérjük, próbáld újra.";
-  }
+  return getApiErrorMessage(
+    response,
+    "A művelet nem sikerült. Kérjük, próbáld újra.",
+  );
 }
 
 async function cartRequest(path = "", init: RequestInit = {}): Promise<Response> {

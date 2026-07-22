@@ -3,6 +3,7 @@ import {
   getAuthSession,
 } from "../../auth/utils/authStorage";
 import type { Order } from "../types/order.types";
+import { TOO_MANY_REQUESTS_MESSAGE } from "../../../shared/api/httpClient";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
@@ -31,6 +32,10 @@ export type SumUpCheckout = {
 };
 
 async function getErrorMessage(response: Response): Promise<string> {
+  if (response.status === 429) {
+    return TOO_MANY_REQUESTS_MESSAGE;
+  }
+
   try {
     const body = (await response.json()) as ApiErrorBody;
     const validationMessage = body.errors ? Object.values(body.errors).flat().join(" ") : undefined;
