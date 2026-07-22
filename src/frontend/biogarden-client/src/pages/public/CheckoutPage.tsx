@@ -7,10 +7,12 @@ import type { UserProfile } from "../../features/account/types/profile.types";
 import { getAuthSession } from "../../features/auth/utils/authStorage";
 import { validateCart } from "../../features/cart/api/cartApi";
 import { useCart } from "../../features/cart/context/useCart";
+import type { CartItem } from "../../features/cart/types/cart.types";
 import { getUnitLabel } from "../../features/products/utils/productLabels";
 import { ROUTES } from "../../shared/constants/routes";
 
 const DRAFT_KEY = "biogarden_checkout_draft";
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 const PRICE = new Intl.NumberFormat("hu-HU", {
   style: "currency",
   currency: "HUF",
@@ -59,6 +61,11 @@ type DraftTextField = {
 }[keyof Draft];
 
 type FieldDefinition = [DraftTextField, string, string];
+
+type SummaryCartItemProps = {
+  item: CartItem;
+  compact?: boolean;
+};
 
 const EMPTY_DRAFT: Draft = {
   customerName: "",
@@ -210,6 +217,46 @@ function paymentLabel(paymentMethod: PaymentMethod | null): string {
   if (paymentMethod === "pay-at-pickup") return "Fizetés átvételkor";
   if (paymentMethod === "cash-on-delivery") return "Utánvét";
   return "Online bankkártya";
+}
+
+function getCartImageUrl(image: string | null): string | null {
+  return image ? `${API_BASE_URL}/${image.replace(/^\/+/, "")}` : null;
+}
+
+function SummaryCartItem({ item, compact = false }: SummaryCartItemProps) {
+  const imageUrl = getCartImageUrl(item.image);
+  const description = item.productDescription?.trim();
+
+  return (
+    <li className="grid grid-cols-[4.25rem_minmax(0,1fr)_auto] gap-3 py-3 text-sm first:pt-0 last:pb-0">
+      <div className="relative h-16 w-16 shrink-0 overflow-visible">
+        <div className="h-full w-full overflow-hidden rounded-sm bg-white">
+          {imageUrl ? (
+            <img src={imageUrl} alt={item.productName} className="h-full w-full object-cover" />
+          ) : (
+            <div className="flex h-full w-full items-center justify-center text-[0.65rem] text-site-muted">
+              Nincs kép
+            </div>
+          )}
+        </div>
+        <span className="absolute -right-2 -top-2 flex h-7 min-w-7 items-center justify-center rounded-full border border-site-border bg-white px-2 text-sm font-bold text-site-heading shadow-sm">
+          {item.quantity}
+        </span>
+      </div>
+
+      <div className="min-w-0">
+        <h3 className="font-bold leading-snug text-site-heading">{item.productName}</h3>
+        <p className="mt-1 text-site-text">
+          {PRICE.format(item.unitPrice)} / {getUnitLabel(item.unit)}
+        </p>
+        {description && !compact && (
+          <p className="mt-1 max-h-10 overflow-hidden text-site-muted">{description}</p>
+        )}
+      </div>
+
+      <strong className="whitespace-nowrap text-right text-site-heading">{PRICE.format(item.lineTotal)}</strong>
+    </li>
+  );
 }
 
 export default function CheckoutPage() {
@@ -948,14 +995,9 @@ export default function CheckoutPage() {
 
         <aside className="rounded-sm bg-site-surface-soft p-5 shadow-md lg:sticky lg:top-28">
           <h2 className="text-xl font-bold">Rendelés összesítése</h2>
-          <ul className="mt-4 space-y-3 border-b pb-4">
+          <ul className="mt-4 divide-y divide-site-border border-b border-site-border pb-4">
             {cart.items.map((item) => (
-              <li key={item.id} className="flex justify-between text-sm">
-                <span>
-                  {item.productName} × {item.quantity}
-                </span>
-                <strong>{PRICE.format(item.lineTotal)}</strong>
-              </li>
+              <SummaryCartItem key={item.id} item={item} />
             ))}
           </ul>
 
@@ -1075,25 +1117,9 @@ export default function CheckoutPage() {
               </div>
 
               <div className="border-y border-site-border py-3">
-                <div className="mb-2 hidden grid-cols-[minmax(10rem,1fr)_8rem_6.5rem] gap-4 text-xs font-bold uppercase text-site-muted sm:grid">
-                  <span>Termék</span>
-                  <span>Egységár</span>
-                  <span className="text-right">Összeg</span>
-                </div>
-                <ul className="space-y-1">
+                <ul className="divide-y divide-site-border">
                   {cart.items.map((item) => (
-                    <li
-                      key={item.id}
-                      className="grid gap-1 sm:grid-cols-[minmax(10rem,1fr)_8rem_6.5rem] sm:gap-4"
-                    >
-                      <span>
-                        {item.productName} × {item.quantity}
-                      </span>
-                      <span className="text-site-muted">
-                        {PRICE.format(item.unitPrice)} / {getUnitLabel(item.unit)}
-                      </span>
-                      <strong className="sm:text-right">{PRICE.format(item.lineTotal)}</strong>
-                    </li>
+                    <SummaryCartItem key={item.id} item={item} compact />
                   ))}
                 </ul>
               </div>

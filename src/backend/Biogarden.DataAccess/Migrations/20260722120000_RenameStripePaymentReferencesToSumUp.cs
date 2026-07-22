@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
@@ -5,6 +6,8 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace Biogarden.DataAccess.Migrations
 {
     /// <inheritdoc />
+    [DbContext(typeof(AppDbContext))]
+    [Migration("20260722120000_RenameStripePaymentReferencesToSumUp")]
     public partial class RenameStripePaymentReferencesToSumUp : Migration
     {
         /// <inheritdoc />
