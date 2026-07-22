@@ -135,8 +135,14 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IAppDbContext>(serviceProvider =>
             serviceProvider.GetRequiredService<AppDbContext>());
 
-        services.Configure<JwtSettings>(
-            configuration.GetSection(JwtSettings.SectionName));
+        services.AddOptions<JwtSettings>()
+            .Bind(configuration.GetSection(JwtSettings.SectionName))
+            .Validate(options =>
+            {
+                options.ValidateForStartup();
+                return true;
+            })
+            .ValidateOnStart();
 
         services.AddOptions<EmailOptions>()
             .Bind(configuration.GetSection(EmailOptions.SectionName))
@@ -188,6 +194,8 @@ public static class ServiceCollectionExtensions
             .Get<JwtSettings>()
             ?? throw new InvalidOperationException(
                 "JWT settings are not configured.");
+
+        jwtSettings.ValidateForStartup();
 
         services.AddIdentity<ApplicationUser, IdentityRole<Guid>>(options =>
         {
