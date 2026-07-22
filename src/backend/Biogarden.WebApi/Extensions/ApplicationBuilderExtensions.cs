@@ -1,4 +1,5 @@
-﻿using Biogarden.WebApi.Middleware;
+using Biogarden.WebApi.Middleware;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Serilog;
 
 namespace Biogarden.WebApi.Extensions;
@@ -13,6 +14,8 @@ public static class ApplicationBuilderExtensions
             app.UseSwaggerUI();
         }
 
+        app.UseMiddleware<CorrelationIdMiddleware>();
+
         app.UseMiddleware<ExceptionHandlingMiddleware>();
 
         app.UseSerilogRequestLogging();
@@ -26,6 +29,16 @@ public static class ApplicationBuilderExtensions
         app.UseAuthentication();
 
         app.UseAuthorization();
+
+        app.MapHealthChecks("/health/live", new HealthCheckOptions
+        {
+            Predicate = registration => registration.Tags.Contains("live")
+        });
+
+        app.MapHealthChecks("/health/ready", new HealthCheckOptions
+        {
+            Predicate = registration => registration.Tags.Contains("ready")
+        });
 
         app.MapControllers();
 
