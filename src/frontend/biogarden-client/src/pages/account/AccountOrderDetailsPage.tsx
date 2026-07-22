@@ -4,6 +4,7 @@ import {
   cancelOrder,
   getOrderById,
   OrdersApiError,
+  requestOrderWithdrawal,
 } from "../../features/account/api/ordersApi";
 import type { Order } from "../../features/account/types/order.types";
 import {
@@ -27,6 +28,29 @@ export default function AccountOrderDetailsPage() {
   const [cancellationReason, setCancellationReason] = useState("");
   const [isCancelling, setIsCancelling] = useState(false);
   const [cancellationSuccess, setCancellationSuccess] = useState<string | null>(null);
+  const [withdrawalReason, setWithdrawalReason] = useState("");
+  const [isRequestingWithdrawal, setIsRequestingWithdrawal] = useState(false);
+  const [withdrawalSuccess, setWithdrawalSuccess] = useState<string | null>(null);
+
+  async function handleWithdrawalRequest() {
+    if (!order) return;
+    setIsRequestingWithdrawal(true);
+    setError("");
+    setWithdrawalSuccess(null);
+    try {
+      const request = await requestOrderWithdrawal(order.id, withdrawalReason);
+      setOrder({
+        ...order,
+        withdrawalRequests: [request, ...order.withdrawalRequests],
+      });
+      setWithdrawalReason("");
+      setWithdrawalSuccess("A kérésedet rögzítettük, és emailben is visszaigazoltuk.");
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : "A kérés elküldése nem sikerült.");
+    } finally {
+      setIsRequestingWithdrawal(false);
+    }
+  }
 
   async function handleCancelOrder() {
     if (!order) return;
@@ -92,6 +116,9 @@ export default function AccountOrderDetailsPage() {
   if (!order) {
     return <div className="rounded-sm bg-site-danger-soft p-8 text-center text-site-danger shadow-md">{error || "A rendelés betöltése nem sikerült."}</div>;
   }
+
+  const latestWithdrawalRequest = order.withdrawalRequests[0] ?? null;
+  const hasPendingWithdrawalRequest = order.withdrawalRequests.some((request) => request.status === 1);
 
   return (
     <div className="rounded-sm border border-site-border bg-white p-6 shadow-lg sm:p-8">
@@ -175,6 +202,44 @@ export default function AccountOrderDetailsPage() {
           <span className="font-bold">Törlés oka:</span> {order.cancellationReason}
         </div>
       )}
+
+      <section className="mt-8 rounded-sm border border-site-border p-5">
+        <h2 className="text-xl font-bold text-site-heading">Elállási vagy fogyasztói kérés</h2>
+        <p className="mt-2 text-sm leading-6 text-site-text">
+          Ha a rendeléshez kapcsolódóan elállást, panaszt vagy egyéb fogyasztói kérést szeretnél jelezni,
+          itt rögzítheted. A kérés nem automatikus lemondás, a feldolgozásáról külön egyeztetünk.
+        </p>
+        {latestWithdrawalRequest && (
+          <div className="mt-4 rounded-sm bg-site-surface-soft p-4 text-sm text-site-text">
+            <strong>Folyamatban lévő / korábbi kérés:</strong>
+            <p className="mt-2">{latestWithdrawalRequest.reason}</p>
+          </div>
+        )}
+        {withdrawalSuccess && (
+          <div role="status" className="mt-4 rounded-sm bg-site-surface-soft p-3 text-sm font-semibold text-site-green-dark">
+            {withdrawalSuccess}
+          </div>
+        )}
+        <label className="mt-4 block text-sm font-semibold text-site-heading">
+          Kérés leírása
+          <textarea
+            value={withdrawalReason}
+            onChange={(event) => setWithdrawalReason(event.target.value)}
+            disabled={hasPendingWithdrawalRequest}
+            maxLength={1000}
+            rows={4}
+            className="mt-2 block w-full rounded-sm border border-site-border bg-white px-3 py-2.5 disabled:cursor-not-allowed disabled:bg-site-surface-soft"
+          />
+        </label>
+        <button
+          type="button"
+          onClick={() => void handleWithdrawalRequest()}
+          disabled={hasPendingWithdrawalRequest || isRequestingWithdrawal || withdrawalReason.trim().length < 10}
+          className="mt-4 rounded-sm bg-site-green px-5 py-2.5 font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {hasPendingWithdrawalRequest ? "Kérés feldolgozás alatt" : isRequestingWithdrawal ? "Küldés..." : "Kérés elküldése"}
+        </button>
+      </section>
 
       {(order.status === 0 || order.status === 1) && (
         <section className="mt-8 border-t border-site-border pt-6">

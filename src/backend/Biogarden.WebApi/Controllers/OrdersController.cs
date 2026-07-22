@@ -92,6 +92,24 @@ public class OrdersController : ControllerBase
         return Ok(order);
     }
 
+    [HttpPost("{orderId:guid}/withdrawal-requests")]
+    [ProducesResponseType(typeof(OrderWithdrawalRequestDto), StatusCodes.Status200OK)]
+    public async Task<ActionResult<OrderWithdrawalRequestDto>> RequestWithdrawal(
+        Guid orderId,
+        [FromBody] CreateOrderWithdrawalRequestDto requestDto,
+        CancellationToken cancellationToken)
+    {
+        var userId = GetCurrentUserId();
+
+        var request = await _orderService.RequestWithdrawalAsync(
+            userId,
+            orderId,
+            requestDto,
+            cancellationToken);
+
+        return Ok(request);
+    }
+
     [HttpGet]
     [ProducesResponseType(typeof(List<OrderDto>), StatusCodes.Status200OK)]
     public async Task<ActionResult<List<OrderDto>>> GetMyOrders(

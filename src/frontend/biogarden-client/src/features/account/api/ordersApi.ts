@@ -88,6 +88,14 @@ export async function cancelOrder(orderId: string, reason: string): Promise<Orde
   return response.json() as Promise<Order>;
 }
 
+export async function requestOrderWithdrawal(orderId: string, reason: string) {
+  const response = await ordersRequest(`/${encodeURIComponent(orderId)}/withdrawal-requests`, {
+    method: "POST",
+    body: JSON.stringify({ reason: reason.trim() }),
+  });
+  return response.json() as Promise<Order["withdrawalRequests"][number]>;
+}
+
 export async function createOrder(
   order: {
     addressId?: number | null;

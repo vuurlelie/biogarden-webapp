@@ -24,6 +24,7 @@ public class OrderRepository : IOrderRepository
         return await _context.Orders
             .Include(order => order.Items)
             .ThenInclude(orderItem => orderItem.Product)
+            .Include(order => order.WithdrawalRequests)
             .AsSplitQuery()
             .FirstOrDefaultAsync(order => order.Id == orderId, cancellationToken);
     }
@@ -75,6 +76,7 @@ public class OrderRepository : IOrderRepository
     {
         return await _context.Orders
             .Include(order => order.Items)
+            .Include(order => order.WithdrawalRequests)
             .AsSplitQuery()
             .Where(order => order.UserId == userId)
             .OrderByDescending(order => order.CreatedAtUtc)
@@ -84,6 +86,13 @@ public class OrderRepository : IOrderRepository
     public async Task AddAsync(Order order, CancellationToken cancellationToken = default)
     {
         await _context.Orders.AddAsync(order, cancellationToken);
+    }
+
+    public async Task AddWithdrawalRequestAsync(
+        OrderWithdrawalRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        await _context.OrderWithdrawalRequests.AddAsync(request, cancellationToken);
     }
 
     public void Update(Order order)

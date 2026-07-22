@@ -64,4 +64,5 @@ public class Order
     public string? CancellationReason { get; set; }
 
     public ICollection<OrderItem> Items { get; set; } = new List<OrderItem>();
+    public ICollection<OrderWithdrawalRequest> WithdrawalRequests { get; set; } = new List<OrderWithdrawalRequest>();
 }

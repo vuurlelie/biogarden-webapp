@@ -24,5 +24,9 @@ public interface IOrderRepository
 
     Task AddAsync(Order order, CancellationToken cancellationToken = default);
 
+    Task AddWithdrawalRequestAsync(
+        OrderWithdrawalRequest request,
+        CancellationToken cancellationToken = default);
+
     void Update(Order order);
 }

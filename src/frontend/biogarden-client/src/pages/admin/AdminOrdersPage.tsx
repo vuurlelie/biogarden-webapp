@@ -209,6 +209,22 @@ function OrderCard({
             </p>
           )}
 
+          {order.withdrawalRequests.length > 0 && (
+            <section className="rounded-sm border border-site-green/30 bg-site-surface-soft p-4">
+              <h3 className="font-bold text-site-heading">Elállási vagy fogyasztói kérések</h3>
+              <div className="mt-3 space-y-3">
+                {order.withdrawalRequests.map((request) => (
+                  <article key={request.id} className="rounded-sm bg-white p-3 text-sm text-site-text">
+                    <p className="font-semibold">
+                      {request.status === 1 ? "Folyamatban" : "Feldolgozva"} · {formatOrderDate(request.requestedAtUtc)}
+                    </p>
+                    <p className="mt-2 break-words">{request.reason}</p>
+                  </article>
+                ))}
+              </div>
+            </section>
+          )}
+
           {editing && (
             <section className="rounded-sm border border-site-green/30 bg-site-surface-soft p-4">
               <h3 className="font-bold text-site-heading">Rendelés módosítása</h3>

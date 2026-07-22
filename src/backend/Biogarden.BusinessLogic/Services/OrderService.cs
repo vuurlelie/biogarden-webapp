@@ -513,6 +513,61 @@ public class OrderService : IOrderService
         return cancelledOrder!.ToDto();
     }
 
+    public async Task<OrderWithdrawalRequestDto> RequestWithdrawalAsync(
+        Guid userId,
+        Guid orderId,
+        CreateOrderWithdrawalRequestDto dto,
+        CancellationToken cancellationToken = default)
+    {
+        var order = await _unitOfWork.OrderRepository.GetByIdWithItemsAsync(
+            orderId,
+            cancellationToken);
+
+        if (order is null || order.UserId != userId)
+        {
+            throw new KeyNotFoundException("Order not found.");
+        }
+
+        if (order.WithdrawalRequests.Any(request => request.Status == OrderWithdrawalRequestStatus.Pending))
+        {
+            throw new InvalidOperationException("Ehhez a rendeléshez már van folyamatban lévő elállási vagy fogyasztói kérés.");
+        }
+
+        var reason = NormalizeRequired(dto.Reason, "Az elállási vagy fogyasztói kérés leírása", 10, 1000);
+        var request = new OrderWithdrawalRequest
+        {
+            OrderId = order.Id,
+            UserId = userId,
+            CustomerName = order.CustomerName,
+            CustomerEmail = order.CustomerEmail,
+            Reason = reason,
+            RequestedAtUtc = DateTime.UtcNow,
+            Status = OrderWithdrawalRequestStatus.Pending
+        };
+
+        await _unitOfWork.OrderRepository.AddWithdrawalRequestAsync(request, cancellationToken);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        order.WithdrawalRequests.Add(request);
+        var orderDto = order.ToDto();
+        var requestDto = orderDto.WithdrawalRequests.First(item => item.Id == request.Id);
+
+        await _emailService.SendAsync(
+            _emailTemplateService.BuildOrderWithdrawalBusinessNotificationMessage(
+                _emailBrandingOptions.ContactEmail,
+                orderDto,
+                requestDto),
+            cancellationToken);
+        await _emailService.SendAsync(
+            _emailTemplateService.BuildOrderWithdrawalCustomerConfirmationMessage(
+                order.CustomerEmail,
+                orderDto,
+                requestDto),
+            cancellationToken);
+
+        return requestDto;
+    }
+
     public async Task<List<OrderDto>> GetMyOrdersAsync(
         Guid userId,
         CancellationToken cancellationToken = default)
@@ -637,6 +692,22 @@ public class OrderService : IOrderService
 
     private static string? NormalizeOptional(string? value) =>
         string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
+    private static string NormalizeRequired(string? value, string fieldName, int minLength, int maxLength)
+    {
+        var normalized = value?.Trim();
+        if (string.IsNullOrWhiteSpace(normalized) || normalized.Length < minLength)
+        {
+            throw new ArgumentException($"{fieldName} legalább {minLength} karakter legyen.");
+        }
+
+        if (normalized.Length > maxLength)
+        {
+            throw new ArgumentException($"{fieldName} legfeljebb {maxLength} karakter lehet.");
+        }
+
+        return normalized;
+    }
 
     private void EnsureSumUpCheckoutMatchesOrder(Order order, decimal? amount, string? currency)
     {

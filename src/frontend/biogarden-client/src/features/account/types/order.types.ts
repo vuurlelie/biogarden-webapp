@@ -14,6 +14,17 @@ export type OrderItem = {
   lineTotal: number;
 };
 
+export type OrderWithdrawalRequest = {
+  id: number;
+  orderId: string;
+  customerName: string;
+  customerEmail: string;
+  reason: string;
+  status: 1 | 2;
+  requestedAtUtc: string;
+  handledAtUtc: string | null;
+};
+
 export type Order = {
   id: string;
   orderNumber: string;
@@ -56,5 +67,6 @@ export type Order = {
   sumUpTransactionId: string | null;
   cancellationReason: string | null;
   items: OrderItem[];
+  withdrawalRequests: OrderWithdrawalRequest[];
 };
 

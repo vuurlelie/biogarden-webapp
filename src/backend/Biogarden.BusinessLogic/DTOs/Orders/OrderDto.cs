@@ -56,4 +56,5 @@ public class OrderDto
     public string? CancellationReason { get; set; }
 
     public List<OrderItemDto> Items { get; set; } = [];
+    public List<OrderWithdrawalRequestDto> WithdrawalRequests { get; set; } = [];
 }

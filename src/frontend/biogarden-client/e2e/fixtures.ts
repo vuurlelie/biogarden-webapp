@@ -89,6 +89,7 @@ export const successfulOrder = {
   sumUpCheckoutId: null,
   sumUpTransactionId: null,
   cancellationReason: null,
+  withdrawalRequests: [],
   items: [
     {
       productId: product.id,

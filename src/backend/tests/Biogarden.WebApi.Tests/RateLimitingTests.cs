@@ -7,6 +7,7 @@ using Biogarden.BusinessLogic.DTOs.Carts;
 using Biogarden.BusinessLogic.DTOs.Contact;
 using Biogarden.BusinessLogic.DTOs.Orders;
 using Biogarden.BusinessLogic.DTOs.Payments;
+using Biogarden.DataAccess.Enums;
 using Biogarden.WebApi.Contracts;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -422,6 +423,24 @@ public sealed class RateLimitingTests
             CancellationToken cancellationToken = default)
         {
             return Task.FromResult(CreateOrder());
+        }
+
+        public Task<OrderWithdrawalRequestDto> RequestWithdrawalAsync(
+            Guid userId,
+            Guid orderId,
+            CreateOrderWithdrawalRequestDto dto,
+            CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult(new OrderWithdrawalRequestDto
+            {
+                Id = 1,
+                OrderId = orderId,
+                CustomerName = "Test User",
+                CustomerEmail = "test@example.com",
+                Reason = dto.Reason,
+                Status = OrderWithdrawalRequestStatus.Pending,
+                RequestedAtUtc = DateTime.UtcNow
+            });
         }
 
         public Task<List<OrderDto>> GetMyOrdersAsync(
