@@ -1,7 +1,10 @@
 using System.Net;
+using System.Net.Http.Json;
 using System.Text;
 using Biogarden.BusinessLogic.Abstractions;
 using Biogarden.BusinessLogic.DTOs.Auth;
+using Biogarden.WebApi.Contracts;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
@@ -40,6 +43,15 @@ public sealed class RateLimitingTests
             CreateLoginRequestContent());
 
         Assert.Equal(HttpStatusCode.TooManyRequests, rejectedResponse.StatusCode);
+        Assert.NotNull(rejectedResponse.Headers.RetryAfter?.Delta);
+
+        var error = await rejectedResponse.Content.ReadFromJsonAsync<ApiErrorResponse>();
+
+        Assert.NotNull(error);
+        Assert.Equal(StatusCodes.Status429TooManyRequests, error.Status);
+        Assert.Equal("Too many requests.", error.Title);
+        Assert.Contains("Túl sok kérés", error.Detail);
+        Assert.False(string.IsNullOrWhiteSpace(error.TraceId));
     }
 
     private static StringContent CreateLoginRequestContent()

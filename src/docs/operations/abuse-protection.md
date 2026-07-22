@@ -4,7 +4,7 @@ This project uses ASP.NET Core rate limiting to reduce automated abuse against p
 
 ## Current Limits
 
-The API has a global fixed-window limit of 120 requests per minute for each authenticated user or IP address.
+The API has a configurable global fixed-window limit of 120 requests per minute for each authenticated user or IP address.
 
 Some endpoints have stricter limits:
 
@@ -19,6 +19,36 @@ When a limit is exceeded, the API returns:
 ```text
 429 Too Many Requests
 ```
+
+The response also includes a `Retry-After` header and a JSON error body with a `traceId`.
+
+## Configuration
+
+The limits are configured in `AbuseProtection` inside the API configuration:
+
+```json
+"AbuseProtection": {
+  "Global": {
+    "PermitLimit": 120,
+    "WindowSeconds": 60
+  },
+  "SensitiveAuth": {
+    "PermitLimit": 5,
+    "WindowSeconds": 60
+  },
+  "PublicForm": {
+    "PermitLimit": 3,
+    "WindowSeconds": 60
+  },
+  "Payment": {
+    "PermitLimit": 20,
+    "WindowSeconds": 60
+  },
+  "RetryAfterSeconds": 60
+}
+```
+
+All values must be positive. The API validates them on startup.
 
 ## Client Identity
 
@@ -46,6 +76,12 @@ done
 ```
 
 The first five requests should reach the login flow. The sixth request should return `429 Too Many Requests`.
+
+Check the response headers too:
+
+```text
+Retry-After: 60
+```
 
 ## What To Watch After Launch
 

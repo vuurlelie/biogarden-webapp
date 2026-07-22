@@ -6,15 +6,17 @@ using Biogarden.DataAccess;
 using Biogarden.DataAccess.Abstractions;
 using Biogarden.DataAccess.Entities;
 using Biogarden.DataAccess.Repositories;
+using Biogarden.WebApi.Constants;
+using Biogarden.WebApi.Contracts;
 using Biogarden.WebApi.Health;
-using Microsoft.AspNetCore.HttpOverrides;
+using Biogarden.WebApi.Options;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using System.Security.Claims;
 using System.Threading.RateLimiting;
-using Biogarden.WebApi.Constants;
 
 namespace Biogarden.WebApi.Extensions;
 
@@ -35,52 +37,72 @@ public static class ServiceCollectionExtensions
                 ForwardedHeaders.XForwardedProto;
         });
 
+        services.AddOptions<AbuseProtectionOptions>()
+            .Bind(configuration.GetSection(AbuseProtectionOptions.SectionName))
+            .Validate(options =>
+            {
+                options.ValidateForStartup();
+                return true;
+            })
+            .ValidateOnStart();
+
+        var abuseProtectionOptions = configuration
+            .GetSection(AbuseProtectionOptions.SectionName)
+            .Get<AbuseProtectionOptions>()
+            ?? new AbuseProtectionOptions();
+
+        abuseProtectionOptions.ValidateForStartup();
+
         services.AddRateLimiter(options =>
         {
             options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+            options.OnRejected = async (context, cancellationToken) =>
+            {
+                var retryAfter = TimeSpan.FromSeconds(abuseProtectionOptions.RetryAfterSeconds);
+
+                if (context.Lease.TryGetMetadata(
+                    MetadataName.RetryAfter,
+                    out var metadataRetryAfter))
+                {
+                    retryAfter = metadataRetryAfter;
+                }
+
+                context.HttpContext.Response.Headers.RetryAfter =
+                    Math.Ceiling(retryAfter.TotalSeconds).ToString();
+
+                await context.HttpContext.Response.WriteAsJsonAsync(
+                    new ApiErrorResponse
+                    {
+                        Title = "Too many requests.",
+                        Status = StatusCodes.Status429TooManyRequests,
+                        Detail = "Túl sok kérés érkezett. Kérjük, várj egy percet, majd próbáld újra.",
+                        TraceId = context.HttpContext.TraceIdentifier
+                    },
+                    cancellationToken);
+            };
 
             options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(
                 httpContext => RateLimitPartition.GetFixedWindowLimiter(
                     GetClientPartition(httpContext),
-                    _ => new FixedWindowRateLimiterOptions
-                    {
-                        PermitLimit = 120,
-                        Window = TimeSpan.FromMinutes(1),
-                        QueueLimit = 0
-                    }));
+                    _ => CreateFixedWindowOptions(abuseProtectionOptions.Global)));
 
             options.AddPolicy(
                 RateLimitPolicyNames.SensitiveAuth,
                 httpContext => RateLimitPartition.GetFixedWindowLimiter(
                     GetClientPartition(httpContext),
-                    _ => new FixedWindowRateLimiterOptions
-                    {
-                        PermitLimit = 5,
-                        Window = TimeSpan.FromMinutes(1),
-                        QueueLimit = 0
-                    }));
+                    _ => CreateFixedWindowOptions(abuseProtectionOptions.SensitiveAuth)));
 
             options.AddPolicy(
                 RateLimitPolicyNames.PublicForm,
                 httpContext => RateLimitPartition.GetFixedWindowLimiter(
                     GetClientPartition(httpContext),
-                    _ => new FixedWindowRateLimiterOptions
-                    {
-                        PermitLimit = 3,
-                        Window = TimeSpan.FromMinutes(1),
-                        QueueLimit = 0
-                    }));
+                    _ => CreateFixedWindowOptions(abuseProtectionOptions.PublicForm)));
 
             options.AddPolicy(
                 RateLimitPolicyNames.Payment,
                 httpContext => RateLimitPartition.GetFixedWindowLimiter(
                     GetClientPartition(httpContext),
-                    _ => new FixedWindowRateLimiterOptions
-                    {
-                        PermitLimit = 20,
-                        Window = TimeSpan.FromMinutes(1),
-                        QueueLimit = 0
-                    }));
+                    _ => CreateFixedWindowOptions(abuseProtectionOptions.Payment)));
         });
 
         services.AddCors(options =>
@@ -205,6 +227,17 @@ public static class ServiceCollectionExtensions
         services.AddAuthorization();
 
         return services;
+    }
+
+    private static FixedWindowRateLimiterOptions CreateFixedWindowOptions(
+        RateLimitRuleOptions rule)
+    {
+        return new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = rule.PermitLimit,
+            Window = TimeSpan.FromSeconds(rule.WindowSeconds),
+            QueueLimit = 0
+        };
     }
 
     private static string GetClientPartition(HttpContext httpContext)
