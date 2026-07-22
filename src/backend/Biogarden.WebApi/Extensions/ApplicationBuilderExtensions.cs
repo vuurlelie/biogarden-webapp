@@ -14,6 +14,8 @@ public static class ApplicationBuilderExtensions
             app.UseSwaggerUI();
         }
 
+        app.UseForwardedHeaders();
+
         app.UseMiddleware<CorrelationIdMiddleware>();
 
         app.UseMiddleware<ExceptionHandlingMiddleware>();
@@ -29,6 +31,8 @@ public static class ApplicationBuilderExtensions
         app.UseAuthentication();
 
         app.UseAuthorization();
+
+        app.UseRateLimiter();
 
         app.MapHealthChecks("/health/live", new HealthCheckOptions
         {

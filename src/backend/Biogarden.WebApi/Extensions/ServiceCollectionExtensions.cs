@@ -7,10 +7,14 @@ using Biogarden.DataAccess.Abstractions;
 using Biogarden.DataAccess.Entities;
 using Biogarden.DataAccess.Repositories;
 using Biogarden.WebApi.Health;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using System.Security.Claims;
+using System.Threading.RateLimiting;
+using Biogarden.WebApi.Constants;
 
 namespace Biogarden.WebApi.Extensions;
 
@@ -23,6 +27,61 @@ public static class ServiceCollectionExtensions
         services.AddControllers();
 
         services.AddEndpointsApiExplorer();
+
+        services.Configure<ForwardedHeadersOptions>(options =>
+        {
+            options.ForwardedHeaders =
+                ForwardedHeaders.XForwardedFor |
+                ForwardedHeaders.XForwardedProto;
+        });
+
+        services.AddRateLimiter(options =>
+        {
+            options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+
+            options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(
+                httpContext => RateLimitPartition.GetFixedWindowLimiter(
+                    GetClientPartition(httpContext),
+                    _ => new FixedWindowRateLimiterOptions
+                    {
+                        PermitLimit = 120,
+                        Window = TimeSpan.FromMinutes(1),
+                        QueueLimit = 0
+                    }));
+
+            options.AddPolicy(
+                RateLimitPolicyNames.SensitiveAuth,
+                httpContext => RateLimitPartition.GetFixedWindowLimiter(
+                    GetClientPartition(httpContext),
+                    _ => new FixedWindowRateLimiterOptions
+                    {
+                        PermitLimit = 5,
+                        Window = TimeSpan.FromMinutes(1),
+                        QueueLimit = 0
+                    }));
+
+            options.AddPolicy(
+                RateLimitPolicyNames.PublicForm,
+                httpContext => RateLimitPartition.GetFixedWindowLimiter(
+                    GetClientPartition(httpContext),
+                    _ => new FixedWindowRateLimiterOptions
+                    {
+                        PermitLimit = 3,
+                        Window = TimeSpan.FromMinutes(1),
+                        QueueLimit = 0
+                    }));
+
+            options.AddPolicy(
+                RateLimitPolicyNames.Payment,
+                httpContext => RateLimitPartition.GetFixedWindowLimiter(
+                    GetClientPartition(httpContext),
+                    _ => new FixedWindowRateLimiterOptions
+                    {
+                        PermitLimit = 20,
+                        Window = TimeSpan.FromMinutes(1),
+                        QueueLimit = 0
+                    }));
+        });
 
         services.AddCors(options =>
         {
@@ -146,6 +205,25 @@ public static class ServiceCollectionExtensions
         services.AddAuthorization();
 
         return services;
+    }
+
+    private static string GetClientPartition(HttpContext httpContext)
+    {
+        var userId = httpContext.User.FindFirstValue(ClaimTypes.NameIdentifier);
+
+        if (!string.IsNullOrWhiteSpace(userId))
+        {
+            return $"user:{userId}";
+        }
+
+        var remoteIpAddress = httpContext.Connection.RemoteIpAddress?.ToString();
+
+        if (!string.IsNullOrWhiteSpace(remoteIpAddress))
+        {
+            return $"ip:{remoteIpAddress}";
+        }
+
+        return "anonymous";
     }
 
     public static IServiceCollection AddApplicationServices(
