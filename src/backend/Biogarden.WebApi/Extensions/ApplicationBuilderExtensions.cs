@@ -20,6 +20,8 @@ public static class ApplicationBuilderExtensions
 
         app.UseMiddleware<ExceptionHandlingMiddleware>();
 
+        app.UseMiddleware<SecurityHeadersMiddleware>();
+
         app.UseSerilogRequestLogging();
 
         app.UseHttpsRedirection();

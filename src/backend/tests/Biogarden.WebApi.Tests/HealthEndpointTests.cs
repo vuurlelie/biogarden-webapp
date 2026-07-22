@@ -34,4 +34,32 @@ public sealed class HealthEndpointTests : IClassFixture<BiogardenWebApiFactory>
         Assert.True(response.Headers.TryGetValues("X-Correlation-ID", out var values));
         Assert.Equal(correlationId, Assert.Single(values));
     }
+
+    [Fact]
+    public async Task LiveHealthEndpoint_ReturnsSecurityHeaders()
+    {
+        using var client = _factory.CreateClient();
+
+        using var response = await client.GetAsync("/health/live");
+
+        response.EnsureSuccessStatusCode();
+        AssertHeader(response, "X-Content-Type-Options", "nosniff");
+        AssertHeader(response, "X-Frame-Options", "DENY");
+        AssertHeader(response, "Referrer-Policy", "strict-origin-when-cross-origin");
+        AssertHeader(
+            response,
+            "Permissions-Policy",
+            "camera=(), microphone=(), geolocation=(), payment=()");
+        Assert.True(response.Headers.TryGetValues("Content-Security-Policy", out var values));
+        Assert.Contains("frame-ancestors 'none'", Assert.Single(values));
+    }
+
+    private static void AssertHeader(
+        HttpResponseMessage response,
+        string headerName,
+        string expectedValue)
+    {
+        Assert.True(response.Headers.TryGetValues(headerName, out var values));
+        Assert.Equal(expectedValue, Assert.Single(values));
+    }
 }
