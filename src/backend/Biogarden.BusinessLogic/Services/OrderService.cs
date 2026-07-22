@@ -53,11 +53,25 @@ public class OrderService : IOrderService
 
         if (cart is null)
         {
+            var existingOrder = await GetLatestCheckedOutOrderAsync(userId, sessionId, cancellationToken);
+            if (existingOrder is not null)
+            {
+                return existingOrder.ToDto();
+            }
+
             throw new InvalidOperationException("Cart not found.");
         }
 
         if (cart.IsCheckedOut)
         {
+            var existingOrder = await _unitOfWork.OrderRepository.GetByCartIdWithItemsAsync(
+                cart.Id,
+                cancellationToken);
+            if (existingOrder is not null)
+            {
+                return existingOrder.ToDto();
+            }
+
             throw new InvalidOperationException("Cart already checked out.");
         }
 
@@ -574,6 +588,24 @@ public class OrderService : IOrderService
     private static string GenerateOrderNumber()
     {
         return $"BK-{DateTime.UtcNow:yyyyMMdd}-{Guid.NewGuid().ToString("N")[..8].ToUpperInvariant()}";
+    }
+
+    private async Task<Order?> GetLatestCheckedOutOrderAsync(
+        Guid? userId,
+        string? sessionId,
+        CancellationToken cancellationToken)
+    {
+        var checkedOutCart = userId.HasValue
+            ? await _unitOfWork.CartRepository.GetLatestCheckedOutByUserIdAsync(userId.Value, cancellationToken)
+            : string.IsNullOrWhiteSpace(sessionId)
+                ? null
+                : await _unitOfWork.CartRepository.GetLatestCheckedOutBySessionIdAsync(sessionId, cancellationToken);
+
+        return checkedOutCart is null
+            ? null
+            : await _unitOfWork.OrderRepository.GetByCartIdWithItemsAsync(
+                checkedOutCart.Id,
+                cancellationToken);
     }
 
     private async Task SendOrderCreatedEmailsAsync(

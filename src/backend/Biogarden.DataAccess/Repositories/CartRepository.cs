@@ -41,6 +41,28 @@ public class CartRepository : ICartRepository
                 cancellationToken);
     }
 
+    public async Task<Cart?> GetLatestCheckedOutByUserIdAsync(Guid userId, CancellationToken cancellationToken = default)
+    {
+        return await _context.Carts
+            .Include(cart => cart.Items)
+            .ThenInclude(cartItem => cartItem.Product)
+            .AsSplitQuery()
+            .Where(cart => cart.UserId == userId && cart.IsCheckedOut)
+            .OrderByDescending(cart => cart.CheckedOutAtUtc ?? cart.LastActivityAtUtc)
+            .FirstOrDefaultAsync(cancellationToken);
+    }
+
+    public async Task<Cart?> GetLatestCheckedOutBySessionIdAsync(string sessionId, CancellationToken cancellationToken = default)
+    {
+        return await _context.Carts
+            .Include(cart => cart.Items)
+            .ThenInclude(cartItem => cartItem.Product)
+            .AsSplitQuery()
+            .Where(cart => cart.SessionId == sessionId && cart.IsCheckedOut)
+            .OrderByDescending(cart => cart.CheckedOutAtUtc ?? cart.LastActivityAtUtc)
+            .FirstOrDefaultAsync(cancellationToken);
+    }
+
     public async Task<Cart?> GetByIdWithItemsAsync(Guid cartId, CancellationToken cancellationToken = default)
     {
         return await _context.Carts

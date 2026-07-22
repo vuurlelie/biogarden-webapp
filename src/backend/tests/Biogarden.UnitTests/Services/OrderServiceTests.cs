@@ -119,6 +119,47 @@ public sealed class OrderServiceTests
     }
 
     [Fact]
+    public async Task CreateOrderFromCartAsync_WhenGuestCartAlreadyCheckedOut_ReturnsExistingOrder()
+    {
+        const string sessionId = "guest-session";
+        var cart = new Cart
+        {
+            Id = Guid.NewGuid(),
+            SessionId = sessionId,
+            IsCheckedOut = true,
+            CheckedOutAtUtc = DateTime.UtcNow
+        };
+        var order = CreateOrder(null);
+        order.CartId = cart.Id;
+        order.CustomerEmail = "guest@example.com";
+
+        _unitOfWork.SetupGet(x => x.CartRepository).Returns(_carts.Object);
+        _carts
+            .Setup(x => x.GetActiveBySessionIdAsync(sessionId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Cart?)null);
+        _carts
+            .Setup(x => x.GetLatestCheckedOutBySessionIdAsync(sessionId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(cart);
+        _orders
+            .Setup(x => x.GetByCartIdWithItemsAsync(cart.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(order);
+
+        var result = await _service.CreateOrderFromCartAsync(null, sessionId, new PlaceOrderDto
+        {
+            CustomerName = "Teszt Elek",
+            CustomerEmail = "guest@example.com",
+            CustomerPhone = "+361234567",
+            FulfillmentMethod = FulfillmentMethod.PersonalPickup
+        });
+
+        Assert.Equal(order.Id, result.Id);
+        Assert.Equal("guest@example.com", result.CustomerEmail);
+        _orders.Verify(x => x.AddAsync(It.IsAny<Order>(), It.IsAny<CancellationToken>()), Times.Never);
+        _unitOfWork.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
+        _emailService.Verify(x => x.SendAsync(It.IsAny<EmailMessage>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
     public async Task GetOrderByIdAsync_WhenOrderBelongsToAnotherUser_Throws()
     {
         var requestingUserId = Guid.NewGuid();
