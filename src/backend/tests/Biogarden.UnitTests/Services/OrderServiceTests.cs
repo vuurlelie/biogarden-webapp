@@ -1,4 +1,5 @@
 using Biogarden.BusinessLogic.Abstractions;
+using Biogarden.BusinessLogic.Constants;
 using Biogarden.BusinessLogic.Models.Email;
 using Biogarden.BusinessLogic.Models.Payments;
 using Biogarden.BusinessLogic.Options;
@@ -108,12 +109,16 @@ public sealed class OrderServiceTests
             City = "Veszprém",
             Street = "Kert utca",
             HouseNumber = "1",
+            AcceptedTermsVersion = LegalDocumentVersions.CurrentTermsVersion,
+            AcceptedPrivacyPolicyVersion = LegalDocumentVersions.CurrentPrivacyPolicyVersion,
             FulfillmentMethod = FulfillmentMethod.PersonalPickup
         });
 
         Assert.Null(result.UserId);
         Assert.Null(result.AddressId);
         Assert.Equal("guest@example.com", result.CustomerEmail);
+        Assert.Equal(LegalDocumentVersions.CurrentTermsVersion, result.AcceptedTermsVersion);
+        Assert.Equal(LegalDocumentVersions.CurrentPrivacyPolicyVersion, result.AcceptedPrivacyPolicyVersion);
         Assert.True(cart.IsCheckedOut);
         _emailTemplateService.Verify(
             x => x.BuildOrderConfirmationMessage(
@@ -165,6 +170,8 @@ public sealed class OrderServiceTests
             CustomerName = "Teszt Elek",
             CustomerEmail = "guest@example.com",
             CustomerPhone = "+361234567",
+            AcceptedTermsVersion = LegalDocumentVersions.CurrentTermsVersion,
+            AcceptedPrivacyPolicyVersion = LegalDocumentVersions.CurrentPrivacyPolicyVersion,
             FulfillmentMethod = FulfillmentMethod.PersonalPickup
         });
 
@@ -202,6 +209,8 @@ public sealed class OrderServiceTests
                 City = "Veszprem",
                 Street = "Kert utca",
                 HouseNumber = "1",
+                AcceptedTermsVersion = LegalDocumentVersions.CurrentTermsVersion,
+                AcceptedPrivacyPolicyVersion = LegalDocumentVersions.CurrentPrivacyPolicyVersion,
                 FulfillmentMethod = FulfillmentMethod.PersonalPickup
             }));
 
@@ -210,6 +219,36 @@ public sealed class OrderServiceTests
             x => x.BuildOrderConfirmationMessage(It.IsAny<string>(), It.IsAny<OrderDto>()),
             Times.Never);
         _emailService.Verify(x => x.SendAsync(It.IsAny<EmailMessage>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task CreateOrderFromCartAsync_WhenLegalVersionsAreMissing_ThrowsBeforeCheckout()
+    {
+        const string sessionId = "guest-session";
+        var product = new Product { Id = 4, Name = "Bazsalikom", Available = true, StockQuantity = 3, Price = 900 };
+        var cart = new Cart { Id = Guid.NewGuid(), SessionId = sessionId };
+        cart.Items.Add(new CartItem { Id = Guid.NewGuid(), CartId = cart.Id, ProductId = product.Id, Product = product, Quantity = 1 });
+
+        _unitOfWork.SetupGet(x => x.CartRepository).Returns(_carts.Object);
+        _carts.Setup(x => x.GetActiveBySessionIdAsync(sessionId, It.IsAny<CancellationToken>())).ReturnsAsync(cart);
+
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _service.CreateOrderFromCartAsync(null, sessionId, new PlaceOrderDto
+            {
+                CustomerName = "Teszt Elek",
+                CustomerEmail = "guest@example.com",
+                CustomerPhone = "+361234567",
+                FulfillmentMethod = FulfillmentMethod.PersonalPickup
+            }));
+
+        Assert.Contains("Általános Szerződési Feltételek", exception.Message);
+        _cartService.Verify(
+            x => x.ValidateCartForCheckoutAsync(
+                It.IsAny<Guid?>(),
+                It.IsAny<string?>(),
+                It.IsAny<CancellationToken>()),
+            Times.Never);
+        _orders.Verify(x => x.AddAsync(It.IsAny<Order>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]

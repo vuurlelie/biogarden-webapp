@@ -108,6 +108,8 @@ export async function createOrder(
     billingTaxNumber?: string;
     customerType?: 0 | 1;
     printedInvoiceRequested?: boolean;
+    acceptedTermsVersion?: string;
+    acceptedPrivacyPolicyVersion?: string;
     deliveryPostalCode?: string;
     deliveryCity?: string;
     deliveryStreet?: string;

@@ -2,6 +2,7 @@
 using Biogarden.BusinessLogic.DTOs.Orders;
 using Biogarden.BusinessLogic.DTOs.Payments;
 using Biogarden.BusinessLogic.Mappers;
+using Biogarden.BusinessLogic.Constants;
 using Biogarden.DataAccess.Abstractions;
 using Biogarden.DataAccess.Entities;
 using Biogarden.DataAccess.Enums;
@@ -95,6 +96,8 @@ public class OrderService : IOrderService
             throw new InvalidOperationException(
                 "The cart contains a product that is available only for personal pickup.");
         }
+
+        ValidateAcceptedLegalVersions(dto);
 
         var validationResult = await _cartService.ValidateCartForCheckoutAsync(
             userId,
@@ -196,6 +199,8 @@ public class OrderService : IOrderService
                     BillingTaxNumber = NormalizeOptional(billingTaxNumber),
                     CustomerType = customerType,
                     PrintedInvoiceRequested = printedInvoiceRequested,
+                    AcceptedTermsVersion = LegalDocumentVersions.CurrentTermsVersion,
+                    AcceptedPrivacyPolicyVersion = LegalDocumentVersions.CurrentPrivacyPolicyVersion,
                     DeliveryPostalCode = deliveryAddress?.PostalCode ?? NormalizeOptional(dto.DeliveryPostalCode),
                     DeliveryCity = deliveryAddress?.City ?? NormalizeOptional(dto.DeliveryCity),
                     DeliveryStreet = deliveryAddress?.Street ?? NormalizeOptional(dto.DeliveryStreet),
@@ -585,6 +590,19 @@ public class OrderService : IOrderService
         if (!System.Net.Mail.MailAddress.TryCreate(dto.CustomerEmail, out _))
         {
             throw new ArgumentException("Invalid email address.");
+        }
+    }
+
+    private static void ValidateAcceptedLegalVersions(PlaceOrderDto dto)
+    {
+        if (dto.AcceptedTermsVersion != LegalDocumentVersions.CurrentTermsVersion)
+        {
+            throw new InvalidOperationException("Az aktuális Általános Szerződési Feltételek elfogadása kötelező.");
+        }
+
+        if (dto.AcceptedPrivacyPolicyVersion != LegalDocumentVersions.CurrentPrivacyPolicyVersion)
+        {
+            throw new InvalidOperationException("Az aktuális Adatkezelési Tájékoztató elfogadása kötelező.");
         }
     }
 

@@ -22,6 +22,8 @@ public class PlaceOrderDto
     public string? BillingTaxNumber { get; set; }
     public CustomerType CustomerType { get; set; } = CustomerType.Private;
     public bool PrintedInvoiceRequested { get; set; }
+    public string? AcceptedTermsVersion { get; set; }
+    public string? AcceptedPrivacyPolicyVersion { get; set; }
     public string? DeliveryPostalCode { get; set; }
     public string? DeliveryCity { get; set; }
     public string? DeliveryStreet { get; set; }

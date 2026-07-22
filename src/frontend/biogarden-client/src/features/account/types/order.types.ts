@@ -34,6 +34,8 @@ export type Order = {
   billingTaxNumber: string | null;
   customerType: CustomerType;
   printedInvoiceRequested: boolean;
+  acceptedTermsVersion: string;
+  acceptedPrivacyPolicyVersion: string;
   deliveryPostalCode: string | null;
   deliveryCity: string | null;
   deliveryStreet: string | null;

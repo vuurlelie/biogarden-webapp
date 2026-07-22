@@ -1,3 +1,5 @@
+import { LEGAL_DOCUMENT_VERSIONS } from "../../shared/constants/legalDocuments";
+
 const sections = [
   {
     title: "1. Az adatkezelő adatai",
@@ -88,7 +90,9 @@ export default function PrivacyPolicyPage() {
         <h1 className="mt-2 text-3xl font-bold text-site-heading sm:text-4xl">
           Adatkezelési tájékoztató
         </h1>
-        <p className="mt-3 text-sm text-site-muted">Hatályos: jóváhagyás után kerül véglegesítésre.</p>
+        <p className="mt-3 text-sm text-site-muted">
+          Hatályos: jóváhagyás után kerül véglegesítésre. Verzió: {LEGAL_DOCUMENT_VERSIONS.privacyPolicy}
+        </p>
 
         <div className="mt-8 space-y-8 text-site-text">
           {sections.map((section) => (

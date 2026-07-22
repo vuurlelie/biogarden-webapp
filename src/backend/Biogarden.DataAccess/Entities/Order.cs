@@ -29,6 +29,8 @@ public class Order
     public string? BillingTaxNumber { get; set; }
     public CustomerType CustomerType { get; set; } = CustomerType.Private;
     public bool PrintedInvoiceRequested { get; set; }
+    public string AcceptedTermsVersion { get; set; } = string.Empty;
+    public string AcceptedPrivacyPolicyVersion { get; set; } = string.Empty;
 
     public string? DeliveryPostalCode { get; set; }
     public string? DeliveryCity { get; set; }

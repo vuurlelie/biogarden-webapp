@@ -28,6 +28,8 @@ public static class OrderMapper
             BillingTaxNumber = order.BillingTaxNumber,
             CustomerType = order.CustomerType,
             PrintedInvoiceRequested = order.PrintedInvoiceRequested,
+            AcceptedTermsVersion = order.AcceptedTermsVersion,
+            AcceptedPrivacyPolicyVersion = order.AcceptedPrivacyPolicyVersion,
             DeliveryPostalCode = order.DeliveryPostalCode,
             DeliveryCity = order.DeliveryCity,
             DeliveryStreet = order.DeliveryStreet,
