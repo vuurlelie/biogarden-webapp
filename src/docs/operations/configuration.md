@@ -2,6 +2,12 @@
 
 This project keeps secrets out of source control. Committed configuration may contain safe defaults and placeholders only. Real credentials belong in production environment variables or local ASP.NET user secrets.
 
+Use this together with:
+
+- `docs/operations/deployment-runbook.md`
+- `docs/operations/backup-recovery.md`
+- `docs/operations/monitoring.md`
+
 ## Local Development
 
 From `src`, initialize local API secrets once:
@@ -9,7 +15,7 @@ From `src`, initialize local API secrets once:
 ```bash
 dotnet user-secrets init --project backend/Biogarden.WebApi/Biogarden.WebApi.csproj
 dotnet user-secrets set "Jwt:SecretKey" "<at-least-32-random-characters>" --project backend/Biogarden.WebApi/Biogarden.WebApi.csproj
-dotnet user-secrets set "ConnectionStrings:DefaultConnection" "Server=KRISZTI\\SQLEXPRESS02;Database=BiogardenDb;Trusted_Connection=True;Encrypt=False;TrustServerCertificate=True;" --project backend/Biogarden.WebApi/Biogarden.WebApi.csproj
+dotnet user-secrets set "ConnectionStrings:DefaultConnection" "Server=localhost\\SQLEXPRESS;Database=BiogardenDb;Trusted_Connection=True;Encrypt=False;TrustServerCertificate=True;" --project backend/Biogarden.WebApi/Biogarden.WebApi.csproj
 ```
 
 Use a generated value for `Jwt:SecretKey`; do not reuse examples from documentation, screenshots, or old local files.
