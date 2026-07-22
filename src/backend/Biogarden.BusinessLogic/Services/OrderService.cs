@@ -2,6 +2,7 @@
 using Biogarden.BusinessLogic.DTOs.Orders;
 using Biogarden.BusinessLogic.DTOs.Payments;
 using Biogarden.BusinessLogic.Mappers;
+using Biogarden.BusinessLogic.Constants;
 using Biogarden.DataAccess.Abstractions;
 using Biogarden.DataAccess.Entities;
 using Biogarden.DataAccess.Enums;
@@ -95,6 +96,8 @@ public class OrderService : IOrderService
             throw new InvalidOperationException(
                 "The cart contains a product that is available only for personal pickup.");
         }
+
+        ValidateAcceptedLegalVersions(dto);
 
         var validationResult = await _cartService.ValidateCartForCheckoutAsync(
             userId,
@@ -196,6 +199,8 @@ public class OrderService : IOrderService
                     BillingTaxNumber = NormalizeOptional(billingTaxNumber),
                     CustomerType = customerType,
                     PrintedInvoiceRequested = printedInvoiceRequested,
+                    AcceptedTermsVersion = LegalDocumentVersions.CurrentTermsVersion,
+                    AcceptedPrivacyPolicyVersion = LegalDocumentVersions.CurrentPrivacyPolicyVersion,
                     DeliveryPostalCode = deliveryAddress?.PostalCode ?? NormalizeOptional(dto.DeliveryPostalCode),
                     DeliveryCity = deliveryAddress?.City ?? NormalizeOptional(dto.DeliveryCity),
                     DeliveryStreet = deliveryAddress?.Street ?? NormalizeOptional(dto.DeliveryStreet),
@@ -508,6 +513,94 @@ public class OrderService : IOrderService
         return cancelledOrder!.ToDto();
     }
 
+    public async Task<OrderWithdrawalRequestDto> RequestWithdrawalAsync(
+        Guid userId,
+        Guid orderId,
+        CreateOrderWithdrawalRequestDto dto,
+        CancellationToken cancellationToken = default)
+    {
+        var order = await _unitOfWork.OrderRepository.GetByIdWithItemsAsync(
+            orderId,
+            cancellationToken);
+
+        if (order is null || order.UserId != userId)
+        {
+            throw new KeyNotFoundException("Order not found.");
+        }
+
+        return await CreateWithdrawalRequestAsync(order, userId, dto.Reason, cancellationToken);
+    }
+
+    public async Task<OrderWithdrawalRequestDto> RequestWithdrawalByOrderLookupAsync(
+        PublicOrderWithdrawalRequestDto dto,
+        CancellationToken cancellationToken = default)
+    {
+        var orderNumber = NormalizeRequired(dto.OrderNumber, "A rendelés azonosítója", 3, 32).ToUpperInvariant();
+        var customerEmail = NormalizeRequired(dto.CustomerEmail, "Az email cím", 5, 256).ToLowerInvariant();
+        if (!System.Net.Mail.MailAddress.TryCreate(customerEmail, out _))
+        {
+            throw new ArgumentException("Az email cím formátuma hibás.");
+        }
+
+        var order = await _unitOfWork.OrderRepository.GetByOrderNumberAndEmailWithItemsAsync(
+            orderNumber,
+            customerEmail,
+            cancellationToken);
+
+        if (order is null)
+        {
+            throw new KeyNotFoundException("Nem találtunk ilyen rendelést ezzel az email címmel.");
+        }
+
+        return await CreateWithdrawalRequestAsync(order, order.UserId, dto.Reason, cancellationToken);
+    }
+
+    private async Task<OrderWithdrawalRequestDto> CreateWithdrawalRequestAsync(
+        Order order,
+        Guid? userId,
+        string reasonValue,
+        CancellationToken cancellationToken)
+    {
+        if (order.WithdrawalRequests.Any(request => request.Status == OrderWithdrawalRequestStatus.Pending))
+        {
+            throw new InvalidOperationException("Ehhez a rendeléshez már van folyamatban lévő elállási vagy fogyasztói kérés.");
+        }
+
+        var reason = NormalizeRequired(reasonValue, "Az elállási vagy fogyasztói kérés leírása", 10, 1000);
+        var request = new OrderWithdrawalRequest
+        {
+            OrderId = order.Id,
+            UserId = userId,
+            CustomerName = order.CustomerName,
+            CustomerEmail = order.CustomerEmail,
+            Reason = reason,
+            RequestedAtUtc = DateTime.UtcNow,
+            Status = OrderWithdrawalRequestStatus.Pending
+        };
+
+        await _unitOfWork.OrderRepository.AddWithdrawalRequestAsync(request, cancellationToken);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        order.WithdrawalRequests.Add(request);
+        var orderDto = order.ToDto();
+        var requestDto = orderDto.WithdrawalRequests.First(item => item.Id == request.Id);
+
+        await _emailService.SendAsync(
+            _emailTemplateService.BuildOrderWithdrawalBusinessNotificationMessage(
+                _emailBrandingOptions.ContactEmail,
+                orderDto,
+                requestDto),
+            cancellationToken);
+        await _emailService.SendAsync(
+            _emailTemplateService.BuildOrderWithdrawalCustomerConfirmationMessage(
+                order.CustomerEmail,
+                orderDto,
+                requestDto),
+            cancellationToken);
+
+        return requestDto;
+    }
+
     public async Task<List<OrderDto>> GetMyOrdersAsync(
         Guid userId,
         CancellationToken cancellationToken = default)
@@ -588,6 +681,19 @@ public class OrderService : IOrderService
         }
     }
 
+    private static void ValidateAcceptedLegalVersions(PlaceOrderDto dto)
+    {
+        if (dto.AcceptedTermsVersion != LegalDocumentVersions.CurrentTermsVersion)
+        {
+            throw new InvalidOperationException("Az aktuális Általános Szerződési Feltételek elfogadása kötelező.");
+        }
+
+        if (dto.AcceptedPrivacyPolicyVersion != LegalDocumentVersions.CurrentPrivacyPolicyVersion)
+        {
+            throw new InvalidOperationException("Az aktuális Adatkezelési Tájékoztató elfogadása kötelező.");
+        }
+    }
+
     private static void ValidateManualAddress(string? postalCode, string? city, string? street, string? houseNumber, string kind)
     {
         if (new[] { postalCode, city, street, houseNumber }.Any(string.IsNullOrWhiteSpace))
@@ -619,6 +725,22 @@ public class OrderService : IOrderService
 
     private static string? NormalizeOptional(string? value) =>
         string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
+    private static string NormalizeRequired(string? value, string fieldName, int minLength, int maxLength)
+    {
+        var normalized = value?.Trim();
+        if (string.IsNullOrWhiteSpace(normalized) || normalized.Length < minLength)
+        {
+            throw new ArgumentException($"{fieldName} legalább {minLength} karakter legyen.");
+        }
+
+        if (normalized.Length > maxLength)
+        {
+            throw new ArgumentException($"{fieldName} legfeljebb {maxLength} karakter lehet.");
+        }
+
+        return normalized;
+    }
 
     private void EnsureSumUpCheckoutMatchesOrder(Order order, decimal? amount, string? currency)
     {

@@ -68,6 +68,8 @@ export const successfulOrder = {
   billingTaxNumber: null,
   customerType: 0,
   printedInvoiceRequested: false,
+  acceptedTermsVersion: "aszf-2026-07-22",
+  acceptedPrivacyPolicyVersion: "privacy-2026-07-22",
   deliveryPostalCode: null,
   deliveryCity: null,
   deliveryStreet: null,
@@ -87,6 +89,7 @@ export const successfulOrder = {
   sumUpCheckoutId: null,
   sumUpTransactionId: null,
   cancellationReason: null,
+  withdrawalRequests: [],
   items: [
     {
       productId: product.id,

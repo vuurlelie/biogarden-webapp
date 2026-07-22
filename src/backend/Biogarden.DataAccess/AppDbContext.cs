@@ -22,6 +22,7 @@ public class AppDbContext
     public DbSet<OrderItem> OrderItems => Set<OrderItem>();
     public DbSet<AccountLifecycleRequest> AccountLifecycleRequests => Set<AccountLifecycleRequest>();
     public DbSet<PaymentProviderEvent> PaymentProviderEvents => Set<PaymentProviderEvent>();
+    public DbSet<OrderWithdrawalRequest> OrderWithdrawalRequests => Set<OrderWithdrawalRequest>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

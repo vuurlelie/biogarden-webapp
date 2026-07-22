@@ -27,6 +27,8 @@ public class OrderDto
     public string? BillingTaxNumber { get; set; }
     public CustomerType CustomerType { get; set; }
     public bool PrintedInvoiceRequested { get; set; }
+    public string AcceptedTermsVersion { get; set; } = string.Empty;
+    public string AcceptedPrivacyPolicyVersion { get; set; } = string.Empty;
     public string? DeliveryPostalCode { get; set; }
     public string? DeliveryCity { get; set; }
     public string? DeliveryStreet { get; set; }
@@ -54,4 +56,5 @@ public class OrderDto
     public string? CancellationReason { get; set; }
 
     public List<OrderItemDto> Items { get; set; } = [];
+    public List<OrderWithdrawalRequestDto> WithdrawalRequests { get; set; } = [];
 }

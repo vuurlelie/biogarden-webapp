@@ -9,6 +9,7 @@ import { validateCart } from "../../features/cart/api/cartApi";
 import { useCart } from "../../features/cart/context/useCart";
 import type { CartItem } from "../../features/cart/types/cart.types";
 import { getUnitLabel } from "../../features/products/utils/productLabels";
+import { LEGAL_DOCUMENT_VERSIONS } from "../../shared/constants/legalDocuments";
 import { ROUTES } from "../../shared/constants/routes";
 
 const DRAFT_KEY = "biogarden_checkout_draft";
@@ -573,6 +574,8 @@ export default function CheckoutPage() {
         billingCompanyName: effectiveCustomerType === 1 ? draft.billingCompanyName : "",
         billingTaxNumber: effectiveCustomerType === 1 ? draft.billingTaxNumber : "",
         printedInvoiceRequested: effectiveCustomerType === 1 && draft.printedInvoiceRequested,
+        acceptedTermsVersion: LEGAL_DOCUMENT_VERSIONS.terms,
+        acceptedPrivacyPolicyVersion: LEGAL_DOCUMENT_VERSIONS.privacyPolicy,
         deliveryAddressId: null,
         ...(method !== 0
           ? {

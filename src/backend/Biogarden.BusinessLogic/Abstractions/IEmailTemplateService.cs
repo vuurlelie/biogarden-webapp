@@ -33,4 +33,14 @@ public interface IEmailTemplateService
     EmailMessage BuildOrderBusinessNotificationMessage(string recipientEmail, OrderDto order);
 
     EmailMessage BuildOrderStatusChangedMessage(string recipientEmail, OrderDto order);
+
+    EmailMessage BuildOrderWithdrawalBusinessNotificationMessage(
+        string recipientEmail,
+        OrderDto order,
+        OrderWithdrawalRequestDto request);
+
+    EmailMessage BuildOrderWithdrawalCustomerConfirmationMessage(
+        string recipientEmail,
+        OrderDto order,
+        OrderWithdrawalRequestDto request);
 }

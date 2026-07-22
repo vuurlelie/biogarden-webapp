@@ -29,14 +29,18 @@ public sealed class AdminOrderService : IAdminOrderService
 
     public async Task<IReadOnlyList<OrderDto>> GetAllAsync(CancellationToken cancellationToken = default)
     {
-        var orders = await _databaseContext.Orders.AsNoTracking().Include(order => order.Items)
+        var orders = await _databaseContext.Orders.AsNoTracking()
+            .Include(order => order.Items)
+            .Include(order => order.WithdrawalRequests)
             .OrderByDescending(order => order.CreatedAtUtc).ToListAsync(cancellationToken);
         return orders.Select(order => order.ToDto()).ToList();
     }
 
     public async Task<OrderDto> UpdateAsync(Guid orderId, AdminOrderUpdateDto changes, CancellationToken cancellationToken = default)
     {
-        var order = await _databaseContext.Orders.Include(item => item.Items)
+        var order = await _databaseContext.Orders
+            .Include(item => item.Items)
+            .Include(item => item.WithdrawalRequests)
             .SingleOrDefaultAsync(item => item.Id == orderId, cancellationToken)
             ?? throw new KeyNotFoundException("Order not found.");
         var originalStatus = order.Status;

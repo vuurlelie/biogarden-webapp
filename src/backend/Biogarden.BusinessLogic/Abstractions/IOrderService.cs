@@ -40,6 +40,16 @@ public interface IOrderService
         CancelOrderDto dto,
         CancellationToken cancellationToken = default);
 
+    Task<OrderWithdrawalRequestDto> RequestWithdrawalAsync(
+        Guid userId,
+        Guid orderId,
+        CreateOrderWithdrawalRequestDto dto,
+        CancellationToken cancellationToken = default);
+
+    Task<OrderWithdrawalRequestDto> RequestWithdrawalByOrderLookupAsync(
+        PublicOrderWithdrawalRequestDto dto,
+        CancellationToken cancellationToken = default);
+
     Task<List<OrderDto>> GetMyOrdersAsync(
         Guid userId,
         CancellationToken cancellationToken = default);

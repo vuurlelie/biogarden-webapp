@@ -392,6 +392,76 @@ public sealed class EmailTemplateService : IEmailTemplateService
         };
     }
 
+    public EmailMessage BuildOrderWithdrawalBusinessNotificationMessage(
+        string recipientEmail,
+        OrderDto order,
+        OrderWithdrawalRequestDto request)
+    {
+        var adminUrl = BuildAdminDashboardUrl();
+        var bodyLines = new[]
+        {
+            "Új elállási vagy fogyasztói kérés érkezett.",
+            $"Rendelésszám: {order.OrderNumber}",
+            $"Vevő: {request.CustomerName}",
+            $"Email: {request.CustomerEmail}",
+            $"Kérés ideje: {request.RequestedAtUtc:yyyy. MM. dd. HH:mm}",
+            $"Üzenet: {request.Reason}"
+        };
+
+        return new EmailMessage
+        {
+            To = recipientEmail,
+            Subject = $"Elállási vagy fogyasztói kérés - {order.OrderNumber} - {_brandingOptions.CompanyName}",
+            PlainTextBody = BuildPlainTextBody(
+                greeting: "Új kérés érkezett",
+                bodyLines: bodyLines,
+                actionText: "Admin felület megnyitása",
+                actionUrl: adminUrl,
+                note: "A kérést az admin felületen, a rendelés részleteinél látod."),
+            HtmlBody = BuildInternalHtmlBody(
+                title: "Új elállási vagy fogyasztói kérés",
+                preheader: $"Új kérés érkezett: {order.OrderNumber}.",
+                greeting: "Új kérés érkezett",
+                bodyParagraphs: bodyLines,
+                actionText: "Admin felület megnyitása",
+                actionUrl: adminUrl,
+                note: "A kérést az admin felületen, a rendelés részleteinél látod.")
+        };
+    }
+
+    public EmailMessage BuildOrderWithdrawalCustomerConfirmationMessage(
+        string recipientEmail,
+        OrderDto order,
+        OrderWithdrawalRequestDto request)
+    {
+        var bodyLines = new[]
+        {
+            $"Megkaptuk a(z) {order.OrderNumber} számú rendeléshez kapcsolódó kérésedet.",
+            "A kérésedet rögzítettük, és a feldolgozásáról a megadott elérhetőségen egyeztetünk.",
+            $"Megadott üzenet: {request.Reason}"
+        };
+
+        return new EmailMessage
+        {
+            To = recipientEmail,
+            Subject = $"Megkaptuk a rendeléshez kapcsolódó kérésedet - {order.OrderNumber} - {_brandingOptions.CompanyName}",
+            PlainTextBody = BuildPlainTextBody(
+                greeting: $"Kedves {order.CustomerName}!",
+                bodyLines: bodyLines,
+                actionText: "Kapcsolat",
+                actionUrl: $"mailto:{_brandingOptions.ContactEmail}",
+                note: "Ez az email a kérés rögzítését igazolja, nem jelenti automatikusan annak elfogadását."),
+            HtmlBody = BuildHtmlBody(
+                title: "Megkaptuk a kérésedet",
+                preheader: $"Rögzítettük a(z) {order.OrderNumber} rendeléshez kapcsolódó kérésedet.",
+                greeting: $"Kedves {order.CustomerName}!",
+                bodyParagraphs: bodyLines,
+                actionText: "Kapcsolat",
+                actionUrl: $"mailto:{_brandingOptions.ContactEmail}",
+                note: "Ez az email a kérés rögzítését igazolja, nem jelenti automatikusan annak elfogadását.")
+        };
+    }
+
     private string BuildPlainTextBody(
         string greeting,
         IReadOnlyList<string> bodyLines,

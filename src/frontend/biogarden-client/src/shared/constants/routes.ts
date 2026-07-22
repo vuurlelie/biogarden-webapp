@@ -19,6 +19,7 @@ export const ROUTES = {
   cart: "/kosar",
   checkout: "/penztar",
   orderSuccess: "/rendeles-sikeres",
+  orderWithdrawalRequest: "/rendelessel-kapcsolatos-keres",
 
   account: "/fiokom",
   accountProfile: "/fiokom/adatok",

@@ -28,6 +28,8 @@ public static class OrderMapper
             BillingTaxNumber = order.BillingTaxNumber,
             CustomerType = order.CustomerType,
             PrintedInvoiceRequested = order.PrintedInvoiceRequested,
+            AcceptedTermsVersion = order.AcceptedTermsVersion,
+            AcceptedPrivacyPolicyVersion = order.AcceptedPrivacyPolicyVersion,
             DeliveryPostalCode = order.DeliveryPostalCode,
             DeliveryCity = order.DeliveryCity,
             DeliveryStreet = order.DeliveryStreet,
@@ -55,7 +57,21 @@ public static class OrderMapper
                 Unit = item.Unit,
                 Quantity = item.Quantity,
                 LineTotal = item.LineTotal
-            }).ToList()
+            }).ToList(),
+            WithdrawalRequests = order.WithdrawalRequests
+                .OrderByDescending(request => request.RequestedAtUtc)
+                .Select(request => new OrderWithdrawalRequestDto
+                {
+                    Id = request.Id,
+                    OrderId = request.OrderId,
+                    CustomerName = request.CustomerName,
+                    CustomerEmail = request.CustomerEmail,
+                    Reason = request.Reason,
+                    Status = request.Status,
+                    RequestedAtUtc = request.RequestedAtUtc,
+                    HandledAtUtc = request.HandledAtUtc
+                })
+                .ToList()
         };
     }
 }
