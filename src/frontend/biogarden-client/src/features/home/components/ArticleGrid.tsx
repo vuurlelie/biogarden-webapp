@@ -14,7 +14,7 @@ const Card = ({
 }) => (
   <article className="rounded-xl overflow-hidden shadow bg-white">
     <div className="flex justify-center items-center pt-8">
-      <img src={img} alt={title} className="h-20 w-20" loading="lazy" />
+      <img src={img} alt={title} className="h-20 w-20" width={240} height={240} loading="lazy" />
     </div>
     <div className="px-6 pb-6 pt-4 flex flex-col h-full">
       <h3 className="font-bold text-xl mb-3 text-center text-site-heading">{title}</h3>

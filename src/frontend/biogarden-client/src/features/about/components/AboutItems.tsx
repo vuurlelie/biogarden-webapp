@@ -42,6 +42,8 @@ export default function AboutItems({ bemutatokep }: { bemutatokep: string }) {
           <img
             className="h-auto w-full object-cover object-top sm:h-72 md:h-96 lg:h-full"
             src={bemutatokep}
+            width={1220}
+            height={1251}
             alt="Kertészeti életkép"
             loading="lazy"
             decoding="async"

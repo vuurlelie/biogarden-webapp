@@ -45,7 +45,10 @@ export default function KnowledgeCards({ posts }: KnowledgeCardsProps) {
                     className="h-52 w-full object-cover rounded-sm md:h-64"
                     src={imageUrl}
                     alt={post.title}
+                    width={1600}
+                    height={1200}
                     loading="lazy"
+                    decoding="async"
                   />
                 </div>
 

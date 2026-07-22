@@ -10,6 +10,7 @@ import {
 import RichTextEditor from "./RichTextEditor";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+const MAX_IMAGE_UPLOAD_SIZE_BYTES = 2 * 1024 * 1024;
 
 const categories: Array<[PostCategory, string]> = [
   [0, "Tudástár"],
@@ -106,8 +107,8 @@ export default function AdminPostFormModal({ post, onClose, onSaved }: Props) {
       return;
     }
 
-    if (imageFile && imageFile.size > 5 * 1024 * 1024) {
-      setError("A kép mérete legfeljebb 5 MB lehet.");
+    if (imageFile && imageFile.size > MAX_IMAGE_UPLOAD_SIZE_BYTES) {
+      setError("A kép mérete legfeljebb 2 MB lehet. Bejegyzésképhez kb. 1600 x 1200 px, JPG vagy WEBP ajánlott.");
       return;
     }
 
@@ -249,7 +250,9 @@ export default function AdminPostFormModal({ post, onClose, onSaved }: Props) {
                   onChange={(event) => setImageFile(event.target.files?.[0] ?? null)}
                 />
               </label>
-              <p className="text-xs text-site-muted">JPG, PNG vagy WEBP, legfeljebb 5 MB.</p>
+              <p className="text-xs text-site-muted">
+                JPG vagy WEBP ajánlott, kb. 1600 x 1200 px, legfeljebb 2 MB.
+              </p>
 
               {(previewUrl || imageFile) && (
                 <button

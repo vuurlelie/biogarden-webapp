@@ -2,7 +2,7 @@ import AboutGarden from "../../features/about/components/AboutGarden";
 import AboutItems from "../../features/about/components/AboutItems";
 import Seo from "../../shared/seo/Seo";
 
-import bemutatkozo from "../../assets/images/bemutatkozo.png";
+import bemutatkozo from "../../assets/images/bemutatkozo.jpg";
 import bemutatokep from "../../assets/images/bemutatokep.jpg";
 
 export default function AboutPage() {

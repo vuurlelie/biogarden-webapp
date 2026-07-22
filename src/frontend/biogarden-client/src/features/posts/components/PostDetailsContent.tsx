@@ -53,6 +53,9 @@ export default function PostDetailsContent({
             src={imageUrl}
             alt={post.title}
             className="h-[260px] w-full object-cover md:h-[420px] lg:h-[520px]"
+            width={1600}
+            height={1200}
+            decoding="async"
           />
         </div>
 

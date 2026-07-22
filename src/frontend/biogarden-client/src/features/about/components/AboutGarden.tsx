@@ -5,6 +5,8 @@ export default function AboutGarden({ bemutatkozo }: { bemutatkozo: string }) {
         <img
           className="w-full h-auto object-cover"
           src={bemutatkozo}
+          width={1667}
+          height={600}
           alt="Életkép a kertészetből"
           loading="lazy"
           decoding="async"
