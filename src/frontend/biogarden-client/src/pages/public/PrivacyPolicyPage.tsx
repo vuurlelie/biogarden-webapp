@@ -30,7 +30,8 @@ const sections = [
     title: "4. Rendelés teljesítése",
     paragraphs: [
       "Rendelésleadáskor kezeljük a vásárló nevét, email címét, telefonszámát, számlázási címét, szállítási címét, a megrendelt termékeket, a rendelés értékét, a választott átvételi és fizetési módot, valamint a rendelés állapotát.",
-      "Az adatkezelés célja a rendelés rögzítése, visszaigazolása, teljesítése, a szállítás vagy személyes átvétel megszervezése, a számlázás, valamint az esetleges panaszok és garanciális ügyek kezelése.",
+      "Céges vásárló esetén kezeljük a cégnév, adószám, számlázási cím és nyomtatott számla kérése adatokat is. Magánszemély esetén a rendeléshez kapcsolódó nyugta kiállításához szükséges adatokat kezeljük.",
+      "Az adatkezelés célja a rendelés rögzítése, visszaigazolása, teljesítése, a szállítás vagy személyes átvétel megszervezése, a számlázás vagy nyugtaadás, valamint az esetleges panaszok és garanciális ügyek kezelése.",
       "A rendeléshez kapcsolódó adatokat a számviteli, adózási, fogyasztóvédelmi és polgári jogi kötelezettségek miatt a vonatkozó jogszabályok szerinti ideig őrizzük meg.",
     ],
   },
@@ -51,28 +52,37 @@ const sections = [
     ],
   },
   {
-    title: "7. Fizetés",
+    title: "7. Elállási, panasz- és fogyasztói kérések",
+    paragraphs: [
+      "A rendeléshez kapcsolódó elállási, panasz- vagy fogyasztói kérés rögzítésekor kezeljük a rendelés azonosítóját, a rendelésnél megadott email címet, a vásárló nevét, a kérés szövegét, a kérés státuszát, valamint a rögzítés és feldolgozás időpontját.",
+      "Az adatkezelés célja a kérés azonosítása, visszaigazolása, kivizsgálása, megválaszolása és a kapcsolódó fogyasztóvédelmi vagy jogi kötelezettségek teljesítése.",
+      "A kérés beérkezéséről emailes visszaigazolást küldünk. A kéréshez kapcsolódó adatokat az ügy lezárásáig, illetve jogi, fogyasztóvédelmi vagy számviteli megőrzési kötelezettség esetén a szükséges ideig őrizzük meg.",
+    ],
+  },
+  {
+    title: "8. Fizetés",
     paragraphs: [
       "A webshopban jelenleg a tesztelési folyamat részeként több fizetési mód jelenhet meg. Online bankkártyás fizetés bevezetése esetén a kártyaadatokat nem a webshop szervere kezeli, hanem a kiválasztott fizetési szolgáltató biztonságos rendszere.",
       "A webshop a fizetés állapotát, a rendelés azonosítóját és a fizetéshez szükséges technikai információkat kezelheti a rendelés teljesítése és ellenőrzése érdekében.",
     ],
   },
   {
-    title: "8. Adattovábbítás és adatfeldolgozók",
+    title: "9. Adattovábbítás és adatfeldolgozók",
     paragraphs: [
       "A rendelés teljesítéséhez szükséges adatokat továbbíthatjuk könyvelési, számlázási, tárhelyszolgáltatási, informatikai, futárszolgálati vagy fizetési szolgáltató partnerek részére.",
       "Az adatfeldolgozók kizárólag az adatkezelő utasításai szerint, a szolgáltatás teljesítéséhez szükséges mértékben kezelhetik az adatokat.",
+      "A végleges adatfeldolgozói lista a tárhely-, email-, fizetési, számlázási és szállítási szolgáltatók kiválasztása után pontosítandó.",
     ],
   },
   {
-    title: "9. Felhasználói jogok",
+    title: "10. Felhasználói jogok",
     paragraphs: [
       "A felhasználó kérheti a róla kezelt személyes adatokhoz való hozzáférést, azok helyesbítését, törlését, korlátozását, valamint tiltakozhat bizonyos adatkezelések ellen.",
       "A felhasználó jogosult panaszt tenni a Nemzeti Adatvédelmi és Információszabadság Hatóságnál, valamint bírósághoz fordulni, ha úgy véli, hogy személyes adatait jogsértően kezeljük.",
     ],
   },
   {
-    title: "10. Adatbiztonság",
+    title: "11. Adatbiztonság",
     paragraphs: [
       "A személyes adatok védelme érdekében technikai és szervezési intézkedéseket alkalmazunk. A felhasználói jelszavakat nem olvasható formában tároljuk.",
       "A felhasználó felelőssége, hogy fiókjához tartozó jelszavát bizalmasan kezelje, és jelezze, ha jogosulatlan hozzáférést észlel.",
