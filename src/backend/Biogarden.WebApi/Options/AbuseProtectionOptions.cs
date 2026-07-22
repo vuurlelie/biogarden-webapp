@@ -22,6 +22,12 @@ public sealed class AbuseProtectionOptions
         WindowSeconds = 60
     };
 
+    public RateLimitRuleOptions CartMutation { get; set; } = new()
+    {
+        PermitLimit = 30,
+        WindowSeconds = 60
+    };
+
     public RateLimitRuleOptions Payment { get; set; } = new()
     {
         PermitLimit = 20,
@@ -35,6 +41,7 @@ public sealed class AbuseProtectionOptions
         ValidateRule(nameof(Global), Global);
         ValidateRule(nameof(SensitiveAuth), SensitiveAuth);
         ValidateRule(nameof(PublicForm), PublicForm);
+        ValidateRule(nameof(CartMutation), CartMutation);
         ValidateRule(nameof(Payment), Payment);
 
         if (RetryAfterSeconds <= 0)

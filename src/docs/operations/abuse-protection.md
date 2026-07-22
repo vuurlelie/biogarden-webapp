@@ -12,6 +12,7 @@ Some endpoints have stricter limits:
 | --- | ---: | --- |
 | Sensitive auth | 5 requests / minute | Register, login, email confirmation, resend confirmation, forgot password, reset password |
 | Public form | 3 requests / minute | Contact message submission, order creation |
+| Cart mutation | 30 requests / minute | Add item, update item quantity, remove item, clear cart, merge guest cart |
 | Payment | 20 requests / minute | SumUp checkout creation, SumUp checkout status callback |
 
 When a limit is exceeded, the API returns:
@@ -38,6 +39,10 @@ The limits are configured in `AbuseProtection` inside the API configuration:
   },
   "PublicForm": {
     "PermitLimit": 3,
+    "WindowSeconds": 60
+  },
+  "CartMutation": {
+    "PermitLimit": 30,
     "WindowSeconds": 60
   },
   "Payment": {

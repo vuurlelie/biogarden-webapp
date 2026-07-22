@@ -99,6 +99,12 @@ public static class ServiceCollectionExtensions
                     _ => CreateFixedWindowOptions(abuseProtectionOptions.PublicForm)));
 
             options.AddPolicy(
+                RateLimitPolicyNames.CartMutation,
+                httpContext => RateLimitPartition.GetFixedWindowLimiter(
+                    GetClientPartition(httpContext),
+                    _ => CreateFixedWindowOptions(abuseProtectionOptions.CartMutation)));
+
+            options.AddPolicy(
                 RateLimitPolicyNames.Payment,
                 httpContext => RateLimitPartition.GetFixedWindowLimiter(
                     GetClientPartition(httpContext),
