@@ -17,13 +17,18 @@ public sealed class ProductRepository : IProductRepository
     public async Task<Product?> GetByIdAsync(int productId, CancellationToken cancellationToken = default)
     {
         return await _databaseContext.Products
-            .SingleOrDefaultAsync(product => product.Id == productId, cancellationToken);
+            .SingleOrDefaultAsync(
+                product =>
+                    product.Id == productId &&
+                    product.RecordStatus == RecordStatus.Active,
+                cancellationToken);
     }
 
     public async Task<IReadOnlyList<Product>> GetAllAsync(CancellationToken cancellationToken = default)
     {
         var products = await _databaseContext.Products
             .AsNoTracking()
+            .Where(product => product.RecordStatus == RecordStatus.Active)
             .OrderBy(product => product.Name)
             .ToListAsync(cancellationToken);
 

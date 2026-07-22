@@ -1,5 +1,4 @@
 ﻿using Biogarden.DataAccess.Entities;
-using Biogarden.DataAccess.Enums;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -30,9 +29,6 @@ public class ProductConfiguration : IEntityTypeConfiguration<Product>
 
         productBuilder.Property(product => product.RecordStatus)
             .HasConversion<byte>();
-
-        productBuilder.HasQueryFilter(product =>
-            product.RecordStatus == RecordStatus.Active);
 
         productBuilder.HasIndex(product => product.Name);
 

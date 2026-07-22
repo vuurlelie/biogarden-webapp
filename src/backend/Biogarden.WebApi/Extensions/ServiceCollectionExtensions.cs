@@ -72,6 +72,15 @@ public static class ServiceCollectionExtensions
             })
             .ValidateOnStart();
 
+        services.AddOptions<ErrorAlertOptions>()
+            .Bind(configuration.GetSection(ErrorAlertOptions.SectionName))
+            .Validate(options =>
+            {
+                options.ValidateForStartup();
+                return true;
+            })
+            .ValidateOnStart();
+
         services.AddOptions<StripeOptions>()
             .Bind(configuration.GetSection(StripeOptions.SectionName))
             .Validate(options =>
@@ -148,6 +157,9 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ITokenService, JwtTokenService>();
         services.AddScoped<IEmailService, SmtpEmailService>();
         services.AddScoped<IEmailTemplateService, EmailTemplateService>();
+        services.AddScoped<IErrorAlertService, ErrorAlertService>();
+        services.AddSingleton<ErrorAlertThrottleStore>();
+        services.AddSingleton<TimeProvider>(TimeProvider.System);
         services.AddScoped<IStripeCheckoutSessionClient, StripeCheckoutSessionClient>();
         services.AddScoped<IStripeCheckoutService, StripeCheckoutService>();
         services.AddScoped<IStripeWebhookService, StripeWebhookService>();

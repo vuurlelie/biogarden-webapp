@@ -1,6 +1,7 @@
 using Biogarden.BusinessLogic.Abstractions;
 using Biogarden.BusinessLogic.DTOs.Admin;
 using Biogarden.DataAccess.Abstractions;
+using Biogarden.DataAccess.Enums;
 using Microsoft.EntityFrameworkCore;
 
 namespace Biogarden.BusinessLogic.Services;
@@ -20,6 +21,7 @@ public sealed class AdminInventoryService : IAdminInventoryService
     {
         var now = DateTime.UtcNow;
         return await _databaseContext.Products.AsNoTracking()
+            .Where(product => product.RecordStatus == RecordStatus.Active)
             .OrderBy(product => product.Name)
             .Select(product => new AdminInventoryItemDto
             {
