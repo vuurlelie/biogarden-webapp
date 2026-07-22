@@ -1,20 +1,14 @@
 import { getAuthSession } from "../../auth/utils/authStorage";
 import type { AdminDashboard } from "../types/dashboard.types";
+import { getApiErrorMessage } from "../../../shared/api/httpClient";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
-type ApiErrorBody = {
-  detail?: string;
-  Detail?: string;
-};
-
 async function getErrorMessage(response: Response): Promise<string> {
-  try {
-    const body = (await response.json()) as ApiErrorBody;
-    return body.detail ?? body.Detail ?? "Az adminisztrációs adatok betöltése nem sikerült.";
-  } catch {
-    return "Az adminisztrációs adatok betöltése nem sikerült.";
-  }
+  return getApiErrorMessage(
+    response,
+    "Az adminisztrációs adatok betöltése nem sikerült.",
+  );
 }
 
 export async function getAdminDashboard(signal?: AbortSignal): Promise<AdminDashboard> {

@@ -1,19 +1,13 @@
 import type { ContactMessageRequest } from "../types/contact.types";
+import { getApiErrorMessage } from "../../../shared/api/httpClient";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
-type ApiErrorBody = {
-  detail?: string;
-  Detail?: string;
-};
-
 async function getErrorMessage(response: Response): Promise<string> {
-  try {
-    const body = (await response.json()) as ApiErrorBody;
-    return body.detail ?? body.Detail ?? "Az üzenet küldése nem sikerült.";
-  } catch {
-    return "Az üzenet küldése nem sikerült. Kérjük, próbáld újra.";
-  }
+  return getApiErrorMessage(
+    response,
+    "Az üzenet küldése nem sikerült. Kérjük, próbáld újra.",
+  );
 }
 
 export async function sendContactMessage(

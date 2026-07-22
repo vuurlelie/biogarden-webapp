@@ -1,5 +1,6 @@
 import { getAuthSession } from "../../auth/utils/authStorage";
 import type { AdminUser, AdminUserErasureResult } from "../types/users.types";
+import { TOO_MANY_REQUESTS_MESSAGE } from "../../../shared/api/httpClient";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
@@ -14,6 +15,10 @@ function headers(json = false): HeadersInit {
 
 async function ensure(response: Response) {
   if (response.ok) return;
+
+  if (response.status === 429) {
+    throw new Error(TOO_MANY_REQUESTS_MESSAGE);
+  }
 
   try {
     const body = await response.json() as { detail?: string; Detail?: string };

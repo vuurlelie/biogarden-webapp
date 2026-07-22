@@ -1,5 +1,6 @@
 import { getAuthSession } from "../../auth/utils/authStorage";
 import type { Post, PostCategory } from "../../posts/types/post.types";
+import { getApiErrorMessage } from "../../../shared/api/httpClient";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
@@ -19,13 +20,7 @@ function authorizationHeaders(): HeadersInit {
 }
 
 async function errorMessage(response: Response): Promise<string> {
-  try {
-    const body = await response.json() as { detail?: string; Detail?: string; errors?: Record<string, string[]> };
-    const validationMessage = body.errors ? Object.values(body.errors).flat()[0] : null;
-    return validationMessage ?? body.detail ?? body.Detail ?? "A művelet nem sikerült.";
-  } catch {
-    return "A művelet nem sikerült.";
-  }
+  return getApiErrorMessage(response, "A művelet nem sikerült.");
 }
 
 async function ensureSuccess(response: Response): Promise<void> {
