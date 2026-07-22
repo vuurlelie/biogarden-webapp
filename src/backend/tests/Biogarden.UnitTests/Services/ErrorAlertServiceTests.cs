@@ -75,7 +75,7 @@ public sealed class ErrorAlertServiceTests
         await service.NotifyAsync(CreateAlert(
             level: LogLevel.Error,
             detail: "The checkout request failed.",
-            exception: new InvalidOperationException("Stripe error.")));
+            exception: new InvalidOperationException("SumUp error.")));
 
         Assert.NotNull(sentMessage);
         Assert.Equal("owner@example.com", sentMessage.To);
@@ -84,9 +84,9 @@ public sealed class ErrorAlertServiceTests
             sentMessage.Subject);
         Assert.Contains("Severity: Error", sentMessage.PlainTextBody);
         Assert.Contains("Source: Checkout", sentMessage.PlainTextBody);
-        Assert.Contains("Alert key: stripe.checkout.create", sentMessage.PlainTextBody);
+        Assert.Contains("Alert key: sumup.checkout.create", sentMessage.PlainTextBody);
         Assert.Contains("The checkout request failed.", sentMessage.PlainTextBody);
-        Assert.Contains("Stripe error.", sentMessage.PlainTextBody);
+        Assert.Contains("SumUp error.", sentMessage.PlainTextBody);
     }
 
     [Fact]
@@ -132,7 +132,7 @@ public sealed class ErrorAlertServiceTests
     {
         return new ErrorAlert
         {
-            AlertKey = "stripe.checkout.create",
+            AlertKey = "sumup.checkout.create",
             Source = "Checkout",
             Summary = "Payment failed",
             Level = level,

@@ -24,9 +24,9 @@ export class OrdersApiError extends Error {
   }
 }
 
-export type StripeCheckoutSession = {
+export type SumUpCheckout = {
   orderId: string;
-  sessionId: string;
+  checkoutId: string;
   url: string;
 };
 
@@ -131,11 +131,11 @@ export async function createOrder(
   return response.json() as Promise<Order>;
 }
 
-export async function createStripeCheckoutSession(orderId: string): Promise<StripeCheckoutSession> {
+export async function createSumUpCheckout(orderId: string): Promise<SumUpCheckout> {
   const auth = getAuthSession();
 
   const response = await fetch(
-    `${API_BASE_URL}/api/orders/${encodeURIComponent(orderId)}/stripe-checkout-session`,
+    `${API_BASE_URL}/api/orders/${encodeURIComponent(orderId)}/sumup-checkout`,
     {
       method: "POST",
       headers: {
@@ -150,6 +150,6 @@ export async function createStripeCheckoutSession(orderId: string): Promise<Stri
     throw new OrdersApiError(await getErrorMessage(response), response.status);
   }
 
-  return response.json() as Promise<StripeCheckoutSession>;
+  return response.json() as Promise<SumUpCheckout>;
 }
 

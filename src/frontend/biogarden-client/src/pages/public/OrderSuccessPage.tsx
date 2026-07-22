@@ -5,7 +5,7 @@ import { ROUTES } from "../../shared/constants/routes";
 export default function OrderSuccessPage() {
   const order = (useLocation().state as { order?: Order } | null)?.order;
   const [searchParams] = useSearchParams();
-  const stripeSessionId = searchParams.get("stripe_session_id");
+  const sumUpCheckoutReference = searchParams.get("sumup_checkout_reference");
   const orderId = searchParams.get("orderId");
 
   return (
@@ -20,10 +20,10 @@ export default function OrderSuccessPage() {
             A visszaigazolást elküldjük a(z) {order.customerEmail} címre.
           </p>
         </>
-      ) : stripeSessionId ? (
+      ) : sumUpCheckoutReference ? (
         <>
           <p className="mt-4 text-site-text">
-            Az online fizetés sikeresen visszairányított minket a Stripe oldaláról.
+            Az online fizetés után sikeresen visszaérkeztél a weboldalra.
           </p>
           <p className="mt-3 text-sm text-site-muted">
             A fizetés feldolgozása folyamatban van. Ha néhány percen belül nem érkezik

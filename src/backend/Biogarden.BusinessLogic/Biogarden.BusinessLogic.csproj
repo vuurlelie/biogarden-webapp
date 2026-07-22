@@ -4,8 +4,4 @@
     <ProjectReference Include="..\Biogarden.DataAccess\Biogarden.DataAccess.csproj" />
   </ItemGroup>
 
-  <ItemGroup>
-    <PackageReference Include="Stripe.net" />
-  </ItemGroup>
-
 </Project>

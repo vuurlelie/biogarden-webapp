@@ -450,11 +450,11 @@ namespace Biogarden.DataAccess.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
 
-                    b.Property<string>("StripeCheckoutSessionId")
+                    b.Property<string>("SumUpCheckoutId")
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
 
-                    b.Property<string>("StripePaymentIntentId")
+                    b.Property<string>("SumUpTransactionId")
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
 
@@ -477,13 +477,13 @@ namespace Biogarden.DataAccess.Migrations
                     b.HasIndex("OrderNumber")
                         .IsUnique();
 
-                    b.HasIndex("StripeCheckoutSessionId")
+                    b.HasIndex("SumUpCheckoutId")
                         .IsUnique()
-                        .HasFilter("[StripeCheckoutSessionId] IS NOT NULL");
+                        .HasFilter("[SumUpCheckoutId] IS NOT NULL");
 
-                    b.HasIndex("StripePaymentIntentId")
+                    b.HasIndex("SumUpTransactionId")
                         .IsUnique()
-                        .HasFilter("[StripePaymentIntentId] IS NOT NULL");
+                        .HasFilter("[SumUpTransactionId] IS NOT NULL");
 
                     b.HasIndex("UserId");
 

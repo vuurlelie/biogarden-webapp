@@ -38,27 +38,27 @@ public class OrderRepository : IOrderRepository
             .FirstOrDefaultAsync(order => order.Id == orderId, cancellationToken);
     }
 
-    public async Task<Order?> GetByStripeCheckoutSessionIdAsync(
-        string stripeCheckoutSessionId,
+    public async Task<Order?> GetBySumUpCheckoutIdAsync(
+        string sumUpCheckoutId,
         CancellationToken cancellationToken = default)
     {
         return await _context.Orders
             .Include(order => order.Items)
             .AsSplitQuery()
             .FirstOrDefaultAsync(
-                order => order.StripeCheckoutSessionId == stripeCheckoutSessionId,
+                order => order.SumUpCheckoutId == sumUpCheckoutId,
                 cancellationToken);
     }
 
-    public async Task<Order?> GetByStripePaymentIntentIdAsync(
-        string stripePaymentIntentId,
+    public async Task<Order?> GetBySumUpTransactionIdAsync(
+        string sumUpTransactionId,
         CancellationToken cancellationToken = default)
     {
         return await _context.Orders
             .Include(order => order.Items)
             .AsSplitQuery()
             .FirstOrDefaultAsync(
-                order => order.StripePaymentIntentId == stripePaymentIntentId,
+                order => order.SumUpTransactionId == sumUpTransactionId,
                 cancellationToken);
     }
 

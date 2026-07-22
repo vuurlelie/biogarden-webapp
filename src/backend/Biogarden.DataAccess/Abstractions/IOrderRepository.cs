@@ -10,12 +10,12 @@ public interface IOrderRepository
 
     Task<Order?> GetByIdWithItemsAndCartAsync(Guid orderId, CancellationToken cancellationToken = default);
 
-    Task<Order?> GetByStripeCheckoutSessionIdAsync(
-        string stripeCheckoutSessionId,
+    Task<Order?> GetBySumUpCheckoutIdAsync(
+        string sumUpCheckoutId,
         CancellationToken cancellationToken = default);
 
-    Task<Order?> GetByStripePaymentIntentIdAsync(
-        string stripePaymentIntentId,
+    Task<Order?> GetBySumUpTransactionIdAsync(
+        string sumUpTransactionId,
         CancellationToken cancellationToken = default);
 
     Task<List<Order>> GetByUserIdAsync(Guid userId, CancellationToken cancellationToken = default);
