@@ -47,8 +47,8 @@ export type Order = {
   status: OrderStatus;
   paymentStatus: PaymentStatus;
   fulfillmentMethod: FulfillmentMethod;
-  stripeCheckoutSessionId: string | null;
-  stripePaymentIntentId: string | null;
+  sumUpCheckoutId: string | null;
+  sumUpTransactionId: string | null;
   cancellationReason: string | null;
   items: OrderItem[];
 };

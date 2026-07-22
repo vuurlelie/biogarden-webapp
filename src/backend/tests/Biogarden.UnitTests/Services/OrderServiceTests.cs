@@ -22,7 +22,7 @@ public sealed class OrderServiceTests
     private readonly Mock<ICartService> _cartService = new(MockBehavior.Strict);
     private readonly Mock<IEmailService> _emailService = new(MockBehavior.Strict);
     private readonly Mock<IEmailTemplateService> _emailTemplateService = new(MockBehavior.Strict);
-    private readonly Mock<IStripeCheckoutService> _stripeCheckoutService = new(MockBehavior.Strict);
+    private readonly Mock<ISumUpCheckoutService> _sumUpCheckoutService = new(MockBehavior.Strict);
     private readonly OrderService _service;
 
     public OrderServiceTests()
@@ -40,7 +40,7 @@ public sealed class OrderServiceTests
             userManager.Object,
             _emailService.Object,
             _emailTemplateService.Object,
-            _stripeCheckoutService.Object,
+            _sumUpCheckoutService.Object,
             Options.Create(new EmailBrandingOptions
             {
                 ContactEmail = "info@bakonykincse.hu"
@@ -149,7 +149,7 @@ public sealed class OrderServiceTests
     }
 
     [Fact]
-    public async Task CreateStripeCheckoutSessionAsync_AsGuestWithMatchingCartSession_StoresSessionId()
+    public async Task CreateSumUpCheckoutAsync_AsGuestWithMatchingCartSession_StoresCheckoutId()
     {
         const string sessionId = "guest-session";
         var order = CreateOrder(null);
@@ -174,48 +174,49 @@ public sealed class OrderServiceTests
         _orders
             .Setup(x => x.GetByIdWithItemsAndCartAsync(order.Id, It.IsAny<CancellationToken>()))
             .ReturnsAsync(order);
-        _stripeCheckoutService
-            .Setup(x => x.CreateCheckoutSessionAsync(
+        _sumUpCheckoutService
+            .Setup(x => x.CreateCheckoutAsync(
                 It.Is<OrderDto>(dto => dto.Id == order.Id),
                 It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new StripeCheckoutSessionResult(
-                "cs_test_123",
-                "https://checkout.stripe.com/c/pay/cs_test_123",
-                "pi_test_123"));
+            .ReturnsAsync(new SumUpCheckoutResult(
+                "checkout_123",
+                "PENDING",
+                "https://checkout.sumup.com/pay/checkout_123",
+                "txn_123"));
         _orders.Setup(x => x.Update(order));
         _unitOfWork.Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
 
-        var result = await _service.CreateStripeCheckoutSessionAsync(
+        var result = await _service.CreateSumUpCheckoutAsync(
             null,
             sessionId,
             order.Id);
 
         Assert.Equal(order.Id, result.OrderId);
-        Assert.Equal("cs_test_123", result.SessionId);
-        Assert.Equal("https://checkout.stripe.com/c/pay/cs_test_123", result.Url);
-        Assert.Equal("cs_test_123", order.StripeCheckoutSessionId);
-        Assert.Equal("pi_test_123", order.StripePaymentIntentId);
+        Assert.Equal("checkout_123", result.CheckoutId);
+        Assert.Equal("https://checkout.sumup.com/pay/checkout_123", result.Url);
+        Assert.Equal("checkout_123", order.SumUpCheckoutId);
+        Assert.Equal("txn_123", order.SumUpTransactionId);
     }
 
     [Fact]
-    public async Task ConfirmStripeCheckoutSessionAsync_MarksOrderPaidAndConfirmed()
+    public async Task ConfirmSumUpCheckoutAsync_MarksOrderPaidAndConfirmed()
     {
         var order = CreateOrder(null);
-        order.StripeCheckoutSessionId = "cs_test_123";
+        order.SumUpCheckoutId = "checkout_123";
 
         _orders
-            .Setup(x => x.GetByStripeCheckoutSessionIdAsync("cs_test_123", It.IsAny<CancellationToken>()))
+            .Setup(x => x.GetBySumUpCheckoutIdAsync("checkout_123", It.IsAny<CancellationToken>()))
             .ReturnsAsync(order);
         _orders.Setup(x => x.Update(order));
         _unitOfWork.Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
 
-        var result = await _service.ConfirmStripeCheckoutSessionAsync(
-            "cs_test_123",
-            "pi_test_123");
+        var result = await _service.ConfirmSumUpCheckoutAsync(
+            "checkout_123",
+            "txn_123");
 
         Assert.Equal(PaymentStatus.Paid, result.PaymentStatus);
         Assert.Equal(OrderStatus.Confirmed, result.Status);
-        Assert.Equal("pi_test_123", order.StripePaymentIntentId);
+        Assert.Equal("txn_123", order.SumUpTransactionId);
         Assert.NotNull(order.ConfirmedAtUtc);
     }
 

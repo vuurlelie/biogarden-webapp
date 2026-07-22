@@ -18,7 +18,7 @@ public class OrderService : IOrderService
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly IEmailService _emailService;
     private readonly IEmailTemplateService _emailTemplateService;
-    private readonly IStripeCheckoutService _stripeCheckoutService;
+    private readonly ISumUpCheckoutService _sumUpCheckoutService;
     private readonly EmailBrandingOptions _emailBrandingOptions;
 
     public OrderService(
@@ -27,7 +27,7 @@ public class OrderService : IOrderService
         UserManager<ApplicationUser> userManager,
         IEmailService emailService,
         IEmailTemplateService emailTemplateService,
-        IStripeCheckoutService stripeCheckoutService,
+        ISumUpCheckoutService sumUpCheckoutService,
         IOptions<EmailBrandingOptions> emailBrandingOptions)
     {
         _unitOfWork = unitOfWork;
@@ -35,7 +35,7 @@ public class OrderService : IOrderService
         _userManager = userManager;
         _emailService = emailService;
         _emailTemplateService = emailTemplateService;
-        _stripeCheckoutService = stripeCheckoutService;
+        _sumUpCheckoutService = sumUpCheckoutService;
         _emailBrandingOptions = emailBrandingOptions.Value;
     }
 
@@ -264,7 +264,7 @@ public class OrderService : IOrderService
         return confirmedOrder!.ToDto();
     }
 
-    public async Task<StripeCheckoutSessionDto> CreateStripeCheckoutSessionAsync(
+    public async Task<SumUpCheckoutDto> CreateSumUpCheckoutAsync(
         Guid? userId,
         string? sessionId,
         Guid orderId,
@@ -287,32 +287,32 @@ public class OrderService : IOrderService
             throw new InvalidOperationException("Order is already paid.");
         }
 
-        var checkoutSession = await _stripeCheckoutService.CreateCheckoutSessionAsync(
+        var checkout = await _sumUpCheckoutService.CreateCheckoutAsync(
             order.ToDto(),
             cancellationToken);
 
-        order.StripeCheckoutSessionId = checkoutSession.SessionId;
-        order.StripePaymentIntentId = checkoutSession.PaymentIntentId;
+        order.SumUpCheckoutId = checkout.CheckoutId;
+        order.SumUpTransactionId = checkout.TransactionCode;
         order.PaymentStatus = PaymentStatus.Pending;
 
         _unitOfWork.OrderRepository.Update(order);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
-        return new StripeCheckoutSessionDto
+        return new SumUpCheckoutDto
         {
             OrderId = order.Id,
-            SessionId = checkoutSession.SessionId,
-            Url = checkoutSession.Url
+            CheckoutId = checkout.CheckoutId,
+            Url = checkout.HostedCheckoutUrl!
         };
     }
 
-    public async Task<OrderDto> ConfirmStripeCheckoutSessionAsync(
-        string stripeCheckoutSessionId,
-        string? stripePaymentIntentId,
+    public async Task<OrderDto> ConfirmSumUpCheckoutAsync(
+        string sumUpCheckoutId,
+        string? sumUpTransactionId,
         CancellationToken cancellationToken = default)
     {
-        var order = await _unitOfWork.OrderRepository.GetByStripeCheckoutSessionIdAsync(
-            stripeCheckoutSessionId,
+        var order = await _unitOfWork.OrderRepository.GetBySumUpCheckoutIdAsync(
+            sumUpCheckoutId,
             cancellationToken)
             ?? throw new KeyNotFoundException("Order not found.");
 
@@ -328,7 +328,7 @@ public class OrderService : IOrderService
             order.ConfirmedAtUtc ??= DateTime.UtcNow;
         }
 
-        order.StripePaymentIntentId = NormalizeOptional(stripePaymentIntentId) ?? order.StripePaymentIntentId;
+        order.SumUpTransactionId = NormalizeOptional(sumUpTransactionId) ?? order.SumUpTransactionId;
 
         _unitOfWork.OrderRepository.Update(order);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
@@ -336,19 +336,19 @@ public class OrderService : IOrderService
         return order.ToDto();
     }
 
-    public async Task<OrderDto?> MarkStripePaymentFailedAsync(
-        string stripeCheckoutSessionId,
-        string? stripePaymentIntentId,
+    public async Task<OrderDto?> MarkSumUpPaymentFailedAsync(
+        string sumUpCheckoutId,
+        string? sumUpTransactionId,
         CancellationToken cancellationToken = default)
     {
-        var order = await _unitOfWork.OrderRepository.GetByStripeCheckoutSessionIdAsync(
-            stripeCheckoutSessionId,
+        var order = await _unitOfWork.OrderRepository.GetBySumUpCheckoutIdAsync(
+            sumUpCheckoutId,
             cancellationToken);
 
-        if (order is null && !string.IsNullOrWhiteSpace(stripePaymentIntentId))
+        if (order is null && !string.IsNullOrWhiteSpace(sumUpTransactionId))
         {
-            order = await _unitOfWork.OrderRepository.GetByStripePaymentIntentIdAsync(
-                stripePaymentIntentId,
+            order = await _unitOfWork.OrderRepository.GetBySumUpTransactionIdAsync(
+                sumUpTransactionId,
                 cancellationToken);
         }
 
@@ -362,7 +362,7 @@ public class OrderService : IOrderService
             order.PaymentStatus = PaymentStatus.Failed;
         }
 
-        order.StripePaymentIntentId = NormalizeOptional(stripePaymentIntentId) ?? order.StripePaymentIntentId;
+        order.SumUpTransactionId = NormalizeOptional(sumUpTransactionId) ?? order.SumUpTransactionId;
 
         _unitOfWork.OrderRepository.Update(order);
         await _unitOfWork.SaveChangesAsync(cancellationToken);

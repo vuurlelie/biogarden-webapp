@@ -1,9 +1,8 @@
 namespace Biogarden.BusinessLogic.Abstractions;
 
-public interface IStripeWebhookService
+public interface ISumUpCheckoutStatusService
 {
     Task HandleAsync(
         string payload,
-        string signatureHeader,
         CancellationToken cancellationToken = default);
 }

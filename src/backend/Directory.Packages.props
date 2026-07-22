@@ -23,9 +23,6 @@
 		<!-- Logging -->
 		<PackageVersion Include="Serilog.AspNetCore" Version="9.0.0" />
 
-		<!-- Stripe -->
-		<PackageVersion Include="Stripe.net" Version="52.1.0" />
-
 		<!-- OpenAPI / Swagger -->
 		<PackageVersion Include="Swashbuckle.AspNetCore" Version="6.6.2" />
 

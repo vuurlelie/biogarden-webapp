@@ -54,8 +54,8 @@ public class Order
 
     public FulfillmentMethod FulfillmentMethod { get; set; } = FulfillmentMethod.PersonalPickup;
 
-    public string? StripeCheckoutSessionId { get; set; }
-    public string? StripePaymentIntentId { get; set; }
+    public string? SumUpCheckoutId { get; set; }
+    public string? SumUpTransactionId { get; set; }
 
     public string? CancellationReason { get; set; }
 

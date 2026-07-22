@@ -46,8 +46,8 @@ public class OrderDto
 
     public FulfillmentMethod FulfillmentMethod { get; set; }
 
-    public string? StripeCheckoutSessionId { get; set; }
-    public string? StripePaymentIntentId { get; set; }
+    public string? SumUpCheckoutId { get; set; }
+    public string? SumUpTransactionId { get; set; }
 
     public string? CancellationReason { get; set; }
 

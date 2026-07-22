@@ -54,20 +54,20 @@ public class OrdersController : ControllerBase
         return Ok(order);
     }
 
-    [HttpPost("{orderId:guid}/stripe-checkout-session")]
+    [HttpPost("{orderId:guid}/sumup-checkout")]
     [AllowAnonymous]
-    [ProducesResponseType(typeof(StripeCheckoutSessionDto), StatusCodes.Status200OK)]
-    public async Task<ActionResult<StripeCheckoutSessionDto>> CreateStripeCheckoutSession(
+    [ProducesResponseType(typeof(SumUpCheckoutDto), StatusCodes.Status200OK)]
+    public async Task<ActionResult<SumUpCheckoutDto>> CreateSumUpCheckout(
         Guid orderId,
         CancellationToken cancellationToken)
     {
-        var checkoutSession = await _orderService.CreateStripeCheckoutSessionAsync(
+        var checkout = await _orderService.CreateSumUpCheckoutAsync(
             GetCurrentUserIdOrNull(),
             GetCartSessionId(),
             orderId,
             cancellationToken);
 
-        return Ok(checkoutSession);
+        return Ok(checkout);
     }
 
     [HttpPost("{orderId:guid}/cancel")]

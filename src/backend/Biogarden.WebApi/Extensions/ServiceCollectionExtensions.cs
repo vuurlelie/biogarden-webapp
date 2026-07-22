@@ -81,8 +81,8 @@ public static class ServiceCollectionExtensions
             })
             .ValidateOnStart();
 
-        services.AddOptions<StripeOptions>()
-            .Bind(configuration.GetSection(StripeOptions.SectionName))
+        services.AddOptions<SumUpOptions>()
+            .Bind(configuration.GetSection(SumUpOptions.SectionName))
             .Validate(options =>
             {
                 options.ValidateForStartup();
@@ -160,9 +160,9 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IErrorAlertService, ErrorAlertService>();
         services.AddSingleton<ErrorAlertThrottleStore>();
         services.AddSingleton<TimeProvider>(TimeProvider.System);
-        services.AddScoped<IStripeCheckoutSessionClient, StripeCheckoutSessionClient>();
-        services.AddScoped<IStripeCheckoutService, StripeCheckoutService>();
-        services.AddScoped<IStripeWebhookService, StripeWebhookService>();
+        services.AddHttpClient<ISumUpCheckoutClient, SumUpCheckoutClient>();
+        services.AddScoped<ISumUpCheckoutService, SumUpCheckoutService>();
+        services.AddScoped<ISumUpCheckoutStatusService, SumUpCheckoutStatusService>();
 
         services.AddScoped<ICartService, CartService>();
         services.AddScoped<IOrderService, OrderService>();

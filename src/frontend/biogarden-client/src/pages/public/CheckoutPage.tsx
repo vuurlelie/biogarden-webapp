@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { createOrder, createStripeCheckoutSession } from "../../features/account/api/ordersApi";
+import { createOrder, createSumUpCheckout } from "../../features/account/api/ordersApi";
 import { getAddresses, getProfile } from "../../features/account/api/profileApi";
 import type { UserAddresses } from "../../features/account/types/address.types";
 import type { UserProfile } from "../../features/account/types/profile.types";
@@ -231,7 +231,7 @@ export default function CheckoutPage() {
   const deliveryFee = method === 1 ? 1500 : method === 2 ? 1000 : 0;
   const paymentFee = paymentMethod === "cash-on-delivery" ? 500 : 0;
   const grandTotal = (cart?.totalPrice ?? 0) + deliveryFee + paymentFee;
-  const cancelledStripeOrderId = searchParams.get("stripe") === "cancelled"
+  const cancelledSumUpOrderId = searchParams.get("sumup") === "cancelled"
     ? searchParams.get("orderId")
     : null;
 
@@ -526,8 +526,8 @@ export default function CheckoutPage() {
       sessionStorage.removeItem(DRAFT_KEY);
 
       if (paymentMethod === "online-card") {
-        const checkoutSession = await createStripeCheckoutSession(order.id);
-        window.location.assign(checkoutSession.url);
+        const checkout = await createSumUpCheckout(order.id);
+        window.location.assign(checkout.url);
         return;
       }
 
@@ -541,13 +541,13 @@ export default function CheckoutPage() {
     }
   }
 
-  async function retryStripePayment(orderId: string) {
+  async function retrySumUpPayment(orderId: string) {
     setSubmitting(true);
     setError("");
 
     try {
-      const checkoutSession = await createStripeCheckoutSession(orderId);
-      window.location.assign(checkoutSession.url);
+      const checkout = await createSumUpCheckout(orderId);
+      window.location.assign(checkout.url);
     } catch (retryError) {
       setError(retryError instanceof Error ? retryError.message : "A fizetés újraindítása nem sikerült.");
     } finally {
@@ -563,7 +563,7 @@ export default function CheckoutPage() {
     );
   }
 
-  if (!cart?.items.length && cancelledStripeOrderId) {
+  if (!cart?.items.length && cancelledSumUpOrderId) {
     return (
       <main className="mx-auto max-w-2xl px-4 py-16 text-center">
         <h1 className="text-3xl font-bold text-site-heading">A fizetés megszakadt</h1>
@@ -578,7 +578,7 @@ export default function CheckoutPage() {
         <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
           <button
             type="button"
-            onClick={() => void retryStripePayment(cancelledStripeOrderId)}
+            onClick={() => void retrySumUpPayment(cancelledSumUpOrderId)}
             disabled={submitting}
             className="rounded-sm bg-site-green px-5 py-3 font-semibold text-white disabled:opacity-50"
           >
@@ -612,12 +612,12 @@ export default function CheckoutPage() {
   return (
     <main className="mx-auto w-full max-w-7xl px-4 py-8">
       <h1 className="text-3xl font-bold text-site-heading">Pénztár</h1>
-      {cancelledStripeOrderId && (
+      {cancelledSumUpOrderId && (
         <div role="status" className="mt-5 rounded-sm border border-site-green/30 bg-site-surface-soft p-4 text-site-green-dark">
           Az online fizetés megszakadt. A rendelésedet rögzítettük; innen újraindíthatod a fizetést.
           <button
             type="button"
-            onClick={() => void retryStripePayment(cancelledStripeOrderId)}
+            onClick={() => void retrySumUpPayment(cancelledSumUpOrderId)}
             disabled={submitting}
             className="mt-3 block rounded-sm bg-site-green px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
           >
@@ -817,7 +817,7 @@ export default function CheckoutPage() {
                   />
                   <strong>Online bankkártyás fizetés</strong>
                   <span className="mt-1 block text-sm text-site-muted">
-                    Biztonságos online kártyás fizetés Stripe-on keresztül.
+                    Biztonságos online kártyás fizetés SumUp-on keresztül.
                   </span>
                 </label>
 
@@ -852,9 +852,9 @@ export default function CheckoutPage() {
 
               {paymentMethod === "online-card" && (
                 <div className="mt-5 rounded-sm border border-dashed border-site-green p-5 text-sm">
-                  <strong>Biztonságos Stripe fizetés</strong>
+                  <strong>Biztonságos SumUp fizetés</strong>
                   <p className="mt-1 text-site-muted">
-                    A rendelés elküldése után átirányítunk a Stripe fizetési oldalára. Kártyaadatot
+                    A rendelés elküldése után átirányítunk a SumUp fizetési oldalára. Kártyaadatot
                     a saját szerverünk nem kezel.
                   </p>
                 </div>

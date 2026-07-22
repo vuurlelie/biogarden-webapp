@@ -16,20 +16,20 @@ public interface IOrderService
         Guid orderId,
         CancellationToken cancellationToken = default);
 
-    Task<StripeCheckoutSessionDto> CreateStripeCheckoutSessionAsync(
+    Task<SumUpCheckoutDto> CreateSumUpCheckoutAsync(
         Guid? userId,
         string? sessionId,
         Guid orderId,
         CancellationToken cancellationToken = default);
 
-    Task<OrderDto> ConfirmStripeCheckoutSessionAsync(
-        string stripeCheckoutSessionId,
-        string? stripePaymentIntentId,
+    Task<OrderDto> ConfirmSumUpCheckoutAsync(
+        string sumUpCheckoutId,
+        string? sumUpTransactionId,
         CancellationToken cancellationToken = default);
 
-    Task<OrderDto?> MarkStripePaymentFailedAsync(
-        string stripeCheckoutSessionId,
-        string? stripePaymentIntentId,
+    Task<OrderDto?> MarkSumUpPaymentFailedAsync(
+        string sumUpCheckoutId,
+        string? sumUpTransactionId,
         CancellationToken cancellationToken = default);
 
     Task<OrderDto> CancelOrderAsync(
