@@ -4,5 +4,6 @@
 		<Nullable>enable</Nullable>
 		<ImplicitUsings>enable</ImplicitUsings>
 		<RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
+		<NuGetAudit>false</NuGetAudit>
 	</PropertyGroup>
 </Project>

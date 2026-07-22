@@ -28,10 +28,13 @@ public sealed class AdminDashboardService : IAdminDashboardService
     {
         var todayUtc = DateTime.UtcNow.Date;
 
-        var productCount = await _databaseContext.Products.CountAsync(cancellationToken);
-        var availableProductCount = await _databaseContext.Products
+        var activeProducts = _databaseContext.Products
+            .Where(product => product.RecordStatus == RecordStatus.Active);
+
+        var productCount = await activeProducts.CountAsync(cancellationToken);
+        var availableProductCount = await activeProducts
             .CountAsync(product => product.Available && product.StockQuantity > 0, cancellationToken);
-        var lowStockProductCount = await _databaseContext.Products
+        var lowStockProductCount = await activeProducts
             .CountAsync(product => product.StockQuantity <= LowStockThreshold, cancellationToken);
         var pendingOrderCount = await _databaseContext.Orders
             .CountAsync(order => order.Status == OrderStatus.Pending, cancellationToken);
@@ -61,7 +64,7 @@ public sealed class AdminDashboardService : IAdminDashboardService
             })
             .ToListAsync(cancellationToken);
 
-        var lowStockProducts = await _databaseContext.Products
+        var lowStockProducts = await activeProducts
             .AsNoTracking()
             .Where(product => product.StockQuantity <= LowStockThreshold)
             .OrderBy(product => product.StockQuantity)

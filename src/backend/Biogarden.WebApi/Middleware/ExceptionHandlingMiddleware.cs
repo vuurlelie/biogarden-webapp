@@ -10,20 +10,19 @@ namespace Biogarden.WebApi.Middleware;
 public sealed class ExceptionHandlingMiddleware
 {
     private readonly RequestDelegate _next;
-    private readonly IErrorAlertService _errorAlertService;
     private readonly ILogger<ExceptionHandlingMiddleware> _logger;
 
     public ExceptionHandlingMiddleware(
         RequestDelegate next,
-        IErrorAlertService errorAlertService,
         ILogger<ExceptionHandlingMiddleware> logger)
     {
         _next = next;
-        _errorAlertService = errorAlertService;
         _logger = logger;
     }
 
-    public async Task Invoke(HttpContext context)
+    public async Task Invoke(
+        HttpContext context,
+        IErrorAlertService errorAlertService)
     {
         try
         {
@@ -41,11 +40,14 @@ public sealed class ExceptionHandlingMiddleware
                 return;
             }
 
-            await HandleExceptionAsync(context, exception);
+            await HandleExceptionAsync(context, errorAlertService, exception);
         }
     }
 
-    private async Task HandleExceptionAsync(HttpContext context, Exception exception)
+    private async Task HandleExceptionAsync(
+        HttpContext context,
+        IErrorAlertService errorAlertService,
+        Exception exception)
     {
         var (statusCode, title) = exception switch
         {
@@ -58,7 +60,7 @@ public sealed class ExceptionHandlingMiddleware
 
         if (statusCode == HttpStatusCode.InternalServerError)
         {
-            await NotifyUnexpectedExceptionAsync(context, exception);
+            await NotifyUnexpectedExceptionAsync(context, errorAlertService, exception);
         }
 
         var response = new ApiErrorResponse
@@ -78,11 +80,12 @@ public sealed class ExceptionHandlingMiddleware
 
     private async Task NotifyUnexpectedExceptionAsync(
         HttpContext context,
+        IErrorAlertService errorAlertService,
         Exception exception)
     {
         try
         {
-            await _errorAlertService.NotifyAsync(new ErrorAlert
+            await errorAlertService.NotifyAsync(new ErrorAlert
             {
                 AlertKey = BuildAlertKey(context, exception),
                 Source = "Unhandled API exception",
