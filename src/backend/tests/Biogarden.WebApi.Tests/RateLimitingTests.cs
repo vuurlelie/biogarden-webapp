@@ -21,7 +21,7 @@ public sealed class RateLimitingTests
     [Fact]
     public async Task SensitiveAuthEndpoint_ReturnsTooManyRequests_WhenPolicyLimitIsExceeded()
     {
-        using var factory = new WebApplicationFactory<Program>()
+        using var factory = new BiogardenWebApiFactory()
             .WithWebHostBuilder(builder =>
             {
                 builder.ConfigureTestServices(services =>
@@ -145,7 +145,7 @@ public sealed class RateLimitingTests
     private static WebApplicationFactory<Program> CreateFactory(
         Action<IServiceCollection> configureServices)
     {
-        return new WebApplicationFactory<Program>()
+        return new BiogardenWebApiFactory()
             .WithWebHostBuilder(builder =>
             {
                 builder.ConfigureTestServices(configureServices);

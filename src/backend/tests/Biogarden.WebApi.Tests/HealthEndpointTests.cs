@@ -1,12 +1,10 @@
-using Microsoft.AspNetCore.Mvc.Testing;
-
 namespace Biogarden.WebApi.Tests;
 
-public sealed class HealthEndpointTests : IClassFixture<WebApplicationFactory<Program>>
+public sealed class HealthEndpointTests : IClassFixture<BiogardenWebApiFactory>
 {
-    private readonly WebApplicationFactory<Program> _factory;
+    private readonly BiogardenWebApiFactory _factory;
 
-    public HealthEndpointTests(WebApplicationFactory<Program> factory)
+    public HealthEndpointTests(BiogardenWebApiFactory factory)
     {
         _factory = factory;
     }
