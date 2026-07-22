@@ -3,8 +3,14 @@ import { useParams } from "react-router-dom";
 import type { PostDetails } from "../../features/posts/types/post.types";
 import PostDetailsContent from "../../features/posts/components/PostDetailsContent";
 import NotFoundPage from "./NotFoundPage";
+import Seo from "../../shared/seo/Seo";
 
-const API_BASE_URL = "http://localhost:5097";
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+
+function createPostDescription(post: PostDetails) {
+  const text = post.article.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+  return text ? text.slice(0, 155) : `${post.title} - Bakony Kincse Biokertészet tudástár.`;
+}
 
 export default function PostDetailsPage() {
   const { postId } = useParams<{ postId: string }>();
@@ -78,5 +84,14 @@ export default function PostDetailsPage() {
     );
   }
 
-  return <PostDetailsContent post={post} />;
+  return (
+    <>
+      <Seo
+        title={post.title}
+        description={createPostDescription(post)}
+        type="article"
+      />
+      <PostDetailsContent post={post} />
+    </>
+  );
 }

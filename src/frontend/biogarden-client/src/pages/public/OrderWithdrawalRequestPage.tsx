@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { requestPublicOrderWithdrawal } from "../../features/account/api/ordersApi";
+import Seo from "../../shared/seo/Seo";
 
 export default function OrderWithdrawalRequestPage() {
   const [orderNumber, setOrderNumber] = useState("");
@@ -41,6 +42,10 @@ export default function OrderWithdrawalRequestPage() {
 
   return (
     <main className="bg-site-surface-soft px-4 pb-12 pt-8 sm:pb-16">
+      <Seo
+        title="Elállási vagy fogyasztói kérés"
+        description="Rendeléshez kapcsolódó elállási, panasz- vagy fogyasztói kérés rögzítése a Bakony Kincse Biokertészetnél."
+      />
       <section className="mx-auto w-full max-w-2xl rounded-sm border border-site-border bg-white p-6 shadow-lg sm:p-8">
         <div className="text-center">
           <p className="text-xs font-bold uppercase tracking-[0.16em] text-site-green-dark">

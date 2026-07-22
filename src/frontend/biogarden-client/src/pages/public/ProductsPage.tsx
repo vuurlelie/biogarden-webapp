@@ -14,6 +14,7 @@ import {
   isProductCategoryFilter,
   matchesProductCategory,
 } from "../../features/products/utils/productFilters";
+import Seo from "../../shared/seo/Seo";
 
 const PRODUCTS_PER_PAGE = 12;
 
@@ -128,6 +129,10 @@ export default function ProductsPage() {
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-4">
+      <Seo
+        title="Termékek"
+        description="Válogass a Bakony Kincse Biokertészet természetes termékei között: gyógynövények, teák, fűszerek, illóolajok és hidrolátumok."
+      />
       <ProductNavigation />
 
       <section

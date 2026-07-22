@@ -1,5 +1,6 @@
 import Carousel from "../../features/home/components/Carousel";
 import ArticleGrid from "../../features/home/components/ArticleGrid";
+import Seo from "../../shared/seo/Seo";
 
 import firstslide from "../../assets/images/firstcarousel.jpg";
 import secondslide from "../../assets/images/secondcarousel.jpg";
@@ -8,10 +9,29 @@ import fourthslide from "../../assets/images/fourthcarousel.jpg";
 import actual from "../../assets/images/actual.jpg";
 
 const slides = [firstslide, secondslide, thirdslide, fourthslide];
+const SITE_URL = (import.meta.env.VITE_SITE_URL ?? "https://bakonykincse.hu").replace(/\/$/, "");
+
+const organizationStructuredData = {
+  "@context": "https://schema.org",
+  "@type": "Organization",
+  name: "Bakony Kincse Biokertészet",
+  url: SITE_URL,
+  address: {
+    "@type": "PostalAddress",
+    postalCode: "8431",
+    addressLocality: "Bakonyszentlászló",
+    streetAddress: "Jókai utca 22.",
+    addressCountry: "HU",
+  },
+};
 
 export default function HomePage() {
   return (
     <>
+      <Seo
+        description="Bakony Kincse Biokertészet: természetes termékek, gyógynövények, teák, illóolajok és hidrolátumok Bakonyszentlászlóról."
+        structuredData={organizationStructuredData}
+      />
       {/* CAROUSEL */}
       <div className="w-full px-0 mt-2 sm:mt-3 shadow-lg">
         <Carousel auto interval={5000}>
