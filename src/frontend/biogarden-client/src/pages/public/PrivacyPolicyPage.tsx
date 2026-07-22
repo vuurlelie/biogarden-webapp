@@ -1,4 +1,5 @@
 import { LEGAL_DOCUMENT_VERSIONS } from "../../shared/constants/legalDocuments";
+import Seo from "../../shared/seo/Seo";
 
 const sections = [
   {
@@ -93,6 +94,10 @@ const sections = [
 export default function PrivacyPolicyPage() {
   return (
     <main className="bg-site-surface-soft px-4 py-10 sm:py-14">
+      <Seo
+        title="Adatkezelési tájékoztató"
+        description="A Bakony Kincse Biokertészet adatkezelési tájékoztatója regisztrációhoz, rendeléshez, kapcsolattartáshoz és fogyasztói kérésekhez."
+      />
       <article className="mx-auto max-w-5xl rounded-sm border border-site-border bg-white p-6 shadow-lg sm:p-10">
         <p className="text-xs font-bold uppercase tracking-[0.16em] text-site-green-dark">
           Jogi információk

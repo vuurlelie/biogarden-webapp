@@ -17,6 +17,7 @@ import { ROUTES } from "../../shared/constants/routes";
 import NotFoundPage from "./NotFoundPage";
 import { useCart } from "../../features/cart/context/useCart";
 import { getAvailableQuantityToAdd } from "../../features/cart/api/cartApi";
+import Seo from "../../shared/seo/Seo";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
@@ -166,6 +167,15 @@ export default function ProductDetailsPage() {
 
   return (
     <main className="mx-auto max-w-6xl px-4 py-4 sm:py-6">
+      <Seo
+        title={product.name}
+        description={
+          product.description?.slice(0, 155) ??
+          `${product.name} a Bakony Kincse Biokertészet természetes termékei között.`
+        }
+        image={getProductImageUrl(product.image)}
+        type="product"
+      />
       <nav
         className="flex flex-wrap items-center gap-2 text-sm text-site-text"
         aria-label="Morzsamenü"

@@ -1,5 +1,6 @@
 import Carousel from "../../features/home/components/Carousel";
 import ArticleGrid from "../../features/home/components/ArticleGrid";
+import Seo from "../../shared/seo/Seo";
 
 import firstslide from "../../assets/images/firstcarousel.jpg";
 import secondslide from "../../assets/images/secondcarousel.jpg";
@@ -12,6 +13,9 @@ const slides = [firstslide, secondslide, thirdslide, fourthslide];
 export default function HomePage() {
   return (
     <>
+      <Seo
+        description="Bakony Kincse Biokertészet: természetes termékek, gyógynövények, teák, illóolajok és hidrolátumok Bakonyszentlászlóról."
+      />
       {/* CAROUSEL */}
       <div className="w-full px-0 mt-2 sm:mt-3 shadow-lg">
         <Carousel auto interval={5000}>

@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { LEGAL_DOCUMENT_VERSIONS } from "../../shared/constants/legalDocuments";
 import { ROUTES } from "../../shared/constants/routes";
+import Seo from "../../shared/seo/Seo";
 
 const sections = [
   {
@@ -110,6 +111,10 @@ const sections = [
 export default function TermsPage() {
   return (
     <main className="bg-site-surface-soft px-4 py-10 sm:py-14">
+      <Seo
+        title="Általános Szerződési Feltételek"
+        description="A Bakony Kincse Biokertészet rendelési, fizetési, átvételi, panaszkezelési és fogyasztói tájékoztatói."
+      />
       <article className="mx-auto max-w-5xl rounded-sm border border-site-border bg-white p-6 shadow-lg sm:p-10">
         <p className="text-xs font-bold uppercase tracking-[0.16em] text-site-green-dark">
           Jogi információk

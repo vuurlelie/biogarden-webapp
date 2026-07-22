@@ -6,6 +6,7 @@ import KnowledgePagination from "../../features/posts/components/KnowledgePagina
 import PictureGrid from "../../features/posts/components/PictureGrid";
 import Contents from "../../features/posts/components/Contents";
 import type { Post, PostSortOrder } from "../../features/posts/types/post.types";
+import Seo from "../../shared/seo/Seo";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
@@ -130,6 +131,10 @@ export default function PostsPage() {
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-4">
+      <Seo
+        title="Tudástár"
+        description="Cikkek, gondolatok és hasznos tudnivalók a gyógynövényekről, természetes termékekről és a Bakony Kincse Biokertészet világából."
+      />
       <KnowledgeNavigation />
 
       <div className="mt-4">
