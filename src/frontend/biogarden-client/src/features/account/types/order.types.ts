@@ -3,6 +3,7 @@ import type { UnitOfMeasure } from "../../products/types/product.types";
 export type OrderStatus = 0 | 1 | 2 | 3 | 4;
 export type PaymentStatus = 0 | 1 | 2 | 3 | 4 | 5 | 6;
 export type FulfillmentMethod = 0 | 1 | 2;
+export type CustomerType = 0 | 1;
 
 export type OrderItem = {
   productId: number;
@@ -31,6 +32,8 @@ export type Order = {
   doorbell: string | null;
   billingCompanyName: string | null;
   billingTaxNumber: string | null;
+  customerType: CustomerType;
+  printedInvoiceRequested: boolean;
   deliveryPostalCode: string | null;
   deliveryCity: string | null;
   deliveryStreet: string | null;

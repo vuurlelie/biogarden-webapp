@@ -5,6 +5,8 @@ namespace Biogarden.DataAccess.Entities;
 
 public class ApplicationUser : IdentityUser<Guid>
 {
+    public CustomerType CustomerType { get; set; } = CustomerType.Private;
+
     public string? FirstName { get; set; }
 
     public string? LastName { get; set; }
@@ -12,6 +14,8 @@ public class ApplicationUser : IdentityUser<Guid>
     public string? CompanyName { get; set; }
 
     public string? TaxNumber { get; set; }
+
+    public bool PrintedInvoiceRequested { get; set; }
 
     public int? ShippingAddressId { get; set; }
 

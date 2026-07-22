@@ -30,6 +30,7 @@ public static class CartMapper
                     Id = cartItem.Id,
                     ProductId = cartItem.ProductId,
                     ProductName = cartItem.Product.Name,
+                    ProductDescription = cartItem.Product.Description,
                     UnitPrice = cartItem.Product.Price,
                     Image = cartItem.Product.Image,
                     Unit = cartItem.Product.Unit,

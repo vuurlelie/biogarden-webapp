@@ -4,6 +4,7 @@ export type CartItem = {
   id: string;
   productId: number;
   productName: string;
+  productDescription: string | null;
   unitPrice: number;
   image: string | null;
   unit: UnitOfMeasure;

@@ -1,5 +1,7 @@
 using Biogarden.BusinessLogic.Abstractions;
 using Biogarden.BusinessLogic.DTOs.Auth;
+using Biogarden.BusinessLogic.DTOs.Addresses;
+using Biogarden.BusinessLogic.Mappers;
 using Biogarden.BusinessLogic.Options;
 using Biogarden.DataAccess.Entities;
 using Biogarden.DataAccess.Enums;
@@ -40,6 +42,42 @@ public class AuthService : IAuthService
             return AuthOperationResultDto.Failure("A jelszavak nem egyeznek.");
         }
 
+        if (!Enum.IsDefined(registerRequestDto.CustomerType))
+        {
+            return AuthOperationResultDto.Failure("Érvénytelen vásárlói típus.");
+        }
+
+        var companyName = NormalizeOptional(registerRequestDto.CompanyName);
+        var taxNumber = NormalizeOptional(registerRequestDto.TaxNumber);
+
+        if (registerRequestDto.CustomerType == CustomerType.Company)
+        {
+            if (companyName is null || taxNumber is null)
+            {
+                return AuthOperationResultDto.Failure(
+                    "Céges fiókhoz a cégnév és az adószám megadása kötelező.");
+            }
+
+            if (registerRequestDto.BillingAddress is null ||
+                !IsCompleteAddress(registerRequestDto.BillingAddress))
+            {
+                return AuthOperationResultDto.Failure(
+                    "Céges fiókhoz a számlázási cím megadása kötelező.");
+            }
+
+            if (!IsValidTaxNumber(taxNumber))
+            {
+                return AuthOperationResultDto.Failure(
+                    "Az adószám formátuma hibás. Példa: 12345678-1-12.");
+            }
+        }
+        else
+        {
+            companyName = null;
+            taxNumber = null;
+            registerRequestDto.PrintedInvoiceRequested = false;
+        }
+
         var normalizedEmail = registerRequestDto.Email.Trim();
 
         var existingUser = await _userManager.FindByEmailAsync(normalizedEmail);
@@ -54,7 +92,14 @@ public class AuthService : IAuthService
         {
             Email = normalizedEmail,
             UserName = normalizedEmail,
-            EmailConfirmed = false
+            EmailConfirmed = false,
+            CustomerType = registerRequestDto.CustomerType,
+            CompanyName = companyName,
+            TaxNumber = taxNumber,
+            BillingAddress = registerRequestDto.CustomerType == CustomerType.Company
+                ? registerRequestDto.BillingAddress!.ToEntity()
+                : null,
+            PrintedInvoiceRequested = registerRequestDto.PrintedInvoiceRequested
         };
 
         var result = await _userManager.CreateAsync(
@@ -304,5 +349,25 @@ public class AuthService : IAuthService
         {
             await _userManager.DeleteAsync(expiredUser);
         }
+    }
+
+    private static string? NormalizeOptional(string? value)
+    {
+        return string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+    }
+
+    private static bool IsValidTaxNumber(string taxNumber)
+    {
+        return System.Text.RegularExpressions.Regex.IsMatch(
+            taxNumber,
+            @"^\d{8}(-\d-\d{2})?$");
+    }
+
+    private static bool IsCompleteAddress(AddressCreateDto address)
+    {
+        return !string.IsNullOrWhiteSpace(address.PostalCode)
+            && !string.IsNullOrWhiteSpace(address.City)
+            && !string.IsNullOrWhiteSpace(address.Street)
+            && !string.IsNullOrWhiteSpace(address.HouseNumber);
     }
 }

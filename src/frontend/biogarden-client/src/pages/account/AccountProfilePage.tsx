@@ -10,11 +10,13 @@ import { ROUTES } from "../../shared/constants/routes";
 
 const EMPTY_PROFILE: UserProfile = {
   email: "",
+  customerType: 0,
   firstName: null,
   lastName: null,
   phoneNumber: null,
   companyName: null,
   taxNumber: null,
+  printedInvoiceRequested: false,
 };
 
 function normalizeOptional(value: string): string | null {
@@ -70,14 +72,28 @@ export default function AccountProfilePage() {
     setError("");
     setSuccess("");
 
+    if (profile.customerType === 1) {
+      if (!profile.companyName?.trim() || !profile.taxNumber?.trim()) {
+        setError("Céges fiókhoz a cégnév és az adószám megadása kötelező.");
+        return;
+      }
+
+      if (!/^\d{8}(-\d-\d{2})?$/.test(profile.taxNumber.trim())) {
+        setError("Az adószám formátuma hibás. Példa: 12345678-1-12.");
+        return;
+      }
+    }
+
     try {
       setIsSaving(true);
       await updateProfile({
+        customerType: profile.customerType,
         firstName: normalizeOptional(profile.firstName ?? ""),
         lastName: normalizeOptional(profile.lastName ?? ""),
         phoneNumber: normalizeOptional(profile.phoneNumber ?? ""),
-        companyName: normalizeOptional(profile.companyName ?? ""),
-        taxNumber: normalizeOptional(profile.taxNumber ?? ""),
+        companyName: profile.customerType === 1 ? normalizeOptional(profile.companyName ?? "") : null,
+        taxNumber: profile.customerType === 1 ? normalizeOptional(profile.taxNumber ?? "") : null,
+        printedInvoiceRequested: profile.customerType === 1 && profile.printedInvoiceRequested,
       });
       setSuccess("A személyes adatok mentése sikerült.");
     } catch (saveError) {
@@ -181,11 +197,59 @@ export default function AccountProfilePage() {
         </div>
 
         <fieldset className="rounded-sm border border-site-border p-5">
+          <legend className="px-2 font-bold text-site-heading">Vásárlói típus</legend>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="flex cursor-pointer gap-3 rounded-sm border border-site-border p-3 text-sm text-site-text">
+              <input
+                type="radio"
+                name="profileCustomerType"
+                checked={profile.customerType === 0}
+                onChange={() => {
+                  setProfile((currentProfile) => ({
+                    ...currentProfile,
+                    customerType: 0,
+                    companyName: null,
+                    taxNumber: null,
+                    printedInvoiceRequested: false,
+                  }));
+                  setSuccess("");
+                }}
+                className="mt-1 h-4 w-4 accent-site-green"
+              />
+              <span>
+                <strong className="block text-site-heading">Magánszemély</strong>
+                A rendeléshez papíralapú nyugtát mellékelünk.
+              </span>
+            </label>
+            <label className="flex cursor-pointer gap-3 rounded-sm border border-site-border p-3 text-sm text-site-text">
+              <input
+                type="radio"
+                name="profileCustomerType"
+                checked={profile.customerType === 1}
+                onChange={() => {
+                  setProfile((currentProfile) => ({ ...currentProfile, customerType: 1 }));
+                  setSuccess("");
+                }}
+                className="mt-1 h-4 w-4 accent-site-green"
+              />
+              <span>
+                <strong className="block text-site-heading">Cég</strong>
+                Céges rendeléshez számlázási adatok szükségesek.
+              </span>
+            </label>
+          </div>
+        </fieldset>
+
+        {profile.customerType === 1 && (
+        <fieldset className="rounded-sm border border-site-border p-5">
           <legend className="px-2 font-bold text-site-heading">
-            Céges számlázási adatok (opcionális)
+            Céges számlázási adatok
           </legend>
           <p className="mb-4 text-xs text-site-muted">
-            Céges számla esetén a cégnév és az adószám együtt szükséges.
+            Céges fiók esetén a cégnév és az adószám megadása kötelező.
+          </p>
+          <p className="mb-4 text-xs leading-5 text-site-muted">
+            Alapértelmezetten elektronikus számlát küldünk emailben. A számlázási címet a Mentett címek oldalon tudod megadni.
           </p>
           <div className="grid gap-5 sm:grid-cols-2">
             <label className="text-sm font-semibold text-site-heading">
@@ -207,7 +271,23 @@ export default function AccountProfilePage() {
               />
             </label>
           </div>
+          <label className="mt-4 flex items-start gap-3 rounded-sm bg-site-surface-soft p-3 text-sm text-site-text">
+            <input
+              type="checkbox"
+              checked={profile.printedInvoiceRequested}
+              onChange={(event) => {
+                setProfile((currentProfile) => ({
+                  ...currentProfile,
+                  printedInvoiceRequested: event.target.checked,
+                }));
+                setSuccess("");
+              }}
+              className="mt-1 h-4 w-4 accent-site-green"
+            />
+            <span>Nyomtatott számlát is kérek a rendelés mellé.</span>
+          </label>
         </fieldset>
+        )}
 
         <div className="pt-2">
           <button

@@ -283,7 +283,7 @@ public sealed class EmailTemplateService : IEmailTemplateService
             $"Fizetés állapota: {FormatPaymentStatus(order.PaymentStatus)}",
             $"Átvétel módja: {FormatFulfillmentMethod(order.FulfillmentMethod)}",
             FormatCustomerDetails(order),
-            FormatBillingDetails(order),
+            FormatCustomerBillingDocumentDetails(order),
             FormatDeliveryDetails(order),
             $"Végösszeg: {FormatPrice(order.TotalPrice)}",
             FormatOrderItemsList(order)
@@ -323,6 +323,7 @@ public sealed class EmailTemplateService : IEmailTemplateService
             "A rendelést az admin felületen tudod feldolgozni.",
             $"Rendelésszám: {order.OrderNumber}",
             FormatCustomerDetails(order),
+            FormatAdminBillingDocumentDetails(order),
             $"Átvétel módja: {FormatFulfillmentMethod(order.FulfillmentMethod)}",
             $"Végösszeg: {FormatPrice(order.TotalPrice)}",
             FormatOrderItemsList(order)
@@ -682,6 +683,73 @@ public sealed class EmailTemplateService : IEmailTemplateService
             order.Doorbell)}");
 
         return string.Join(Environment.NewLine, lines);
+    }
+
+    private static string FormatCustomerBillingDocumentDetails(OrderDto order)
+    {
+        if (order.CustomerType == CustomerType.Private)
+        {
+            return string.Join(Environment.NewLine, new[]
+            {
+                "Bizonylat:",
+                "- Magánszemélyként a rendeléshez papíralapú nyugtát mellékelünk."
+            });
+        }
+
+        var invoiceMode = order.PrintedInvoiceRequested
+            ? "Elektronikus számlát küldünk emailben, és nyomtatott számlát is mellékelünk."
+            : "Elektronikus számlát küldünk emailben.";
+
+        return string.Join(Environment.NewLine, new[]
+        {
+            "Számlázási adatok:",
+            $"- Cégnév: {order.BillingCompanyName ?? "Nincs megadva"}",
+            $"- Adószám: {order.BillingTaxNumber ?? "Nincs megadva"}",
+            $"- Cím: {FormatAddress(
+                order.PostalCode,
+                order.City,
+                order.Street,
+                order.HouseNumber,
+                order.Building,
+                order.Floor,
+                order.Door,
+                order.Doorbell)}",
+            $"- Számla átvétele: {invoiceMode}"
+        });
+    }
+
+    private static string FormatAdminBillingDocumentDetails(OrderDto order)
+    {
+        if (order.CustomerType == CustomerType.Private)
+        {
+            return string.Join(Environment.NewLine, new[]
+            {
+                "Kiállítandó bizonylat:",
+                "- Papíralapú nyugta szükséges.",
+                "- A nyugtát mellékeld a rendeléshez."
+            });
+        }
+
+        var invoiceTask = order.PrintedInvoiceRequested
+            ? "Elektronikus számla szükséges, és nyomtatott számlát is mellékelni kell."
+            : "Elektronikus számla szükséges.";
+
+        return string.Join(Environment.NewLine, new[]
+        {
+            "Kiállítandó bizonylat:",
+            $"- Admin teendő: {invoiceTask}",
+            $"- Cégnév: {order.BillingCompanyName ?? "Nincs megadva"}",
+            $"- Adószám: {order.BillingTaxNumber ?? "Nincs megadva"}",
+            $"- Számlázási cím: {FormatAddress(
+                order.PostalCode,
+                order.City,
+                order.Street,
+                order.HouseNumber,
+                order.Building,
+                order.Floor,
+                order.Door,
+                order.Doorbell)}"
+        });
     }
 
     private static string FormatDeliveryDetails(OrderDto order)

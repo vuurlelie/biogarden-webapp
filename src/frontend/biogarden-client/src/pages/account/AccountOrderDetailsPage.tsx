@@ -126,6 +126,26 @@ export default function AccountOrderDetailsPage() {
         </div>
       </dl>
 
+      <section className="mt-6 rounded-sm border border-site-border p-5">
+        <h2 className="text-xl font-bold text-site-heading">Bizonylat</h2>
+        {order.customerType === 1 ? (
+          <div className="mt-3 text-sm leading-6 text-site-text">
+            <p>{order.billingCompanyName}</p>
+            <p>{order.billingTaxNumber}</p>
+            <p>{`${order.postalCode} ${order.city}, ${order.street} ${order.houseNumber}`}</p>
+            <p>
+              {order.printedInvoiceRequested
+                ? "Elektronikus számla és nyomtatott számla"
+                : "Elektronikus számla"}
+            </p>
+          </div>
+        ) : (
+          <p className="mt-3 text-sm leading-6 text-site-text">
+            A rendeléshez papíralapú nyugtát mellékelünk.
+          </p>
+        )}
+      </section>
+
       <h2 className="mt-8 text-xl font-bold text-site-heading">Termékek</h2>
       <div className="mt-4 overflow-x-auto rounded-sm border border-site-border">
         <table className="w-full min-w-[620px] border-collapse text-left text-sm">

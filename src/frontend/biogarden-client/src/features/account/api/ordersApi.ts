@@ -101,6 +101,8 @@ export async function createOrder(
     doorbell?: string;
     billingCompanyName?: string;
     billingTaxNumber?: string;
+    customerType?: 0 | 1;
+    printedInvoiceRequested?: boolean;
     deliveryPostalCode?: string;
     deliveryCity?: string;
     deliveryStreet?: string;

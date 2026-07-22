@@ -169,15 +169,24 @@ function OrderCard({
               <p className="break-words">{order.customerPhone}</p>
             </DetailCard>
 
-            <DetailCard title="Számlázási cím">
-              {order.billingCompanyName && (
-                <p>
-                  {order.billingCompanyName}
-                  <br />
-                  {order.billingTaxNumber}
-                </p>
+            <DetailCard title="Kiállítandó bizonylat">
+              {order.customerType === 1 ? (
+                <>
+                  <p className="font-semibold">
+                    {order.printedInvoiceRequested
+                      ? "Elektronikus számla + nyomtatott számla"
+                      : "Elektronikus számla"}
+                  </p>
+                  <p>
+                    {order.billingCompanyName}
+                    <br />
+                    {order.billingTaxNumber}
+                  </p>
+                  <p>{address(order.postalCode, order.city, order.street, order.houseNumber)}</p>
+                </>
+              ) : (
+                <p className="font-semibold">Papíralapú nyugta a rendelés mellé.</p>
               )}
-              <p>{address(order.postalCode, order.city, order.street, order.houseNumber)}</p>
             </DetailCard>
 
             <DetailCard title="Szállítási cím">

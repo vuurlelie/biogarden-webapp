@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { getProductById } from "../../features/products/api/productsApi";
+import { getProductById, getProducts } from "../../features/products/api/productsApi";
+import ProductCards from "../../features/products/components/ProductCards";
 import type {
   ProductCategory,
   ProductDetails,
+  ProductListItem,
 } from "../../features/products/types/product.types";
 import {
   formatProductPrice,
@@ -39,6 +41,7 @@ function getProductImageUrl(image: string): string {
 export default function ProductDetailsPage() {
   const { productId } = useParams<{ productId: string }>();
   const [product, setProduct] = useState<ProductDetails | null>(null);
+  const [relatedProducts, setRelatedProducts] = useState<ProductListItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
   const [notFound, setNotFound] = useState(false);
@@ -71,10 +74,19 @@ export default function ProductDetailsPage() {
 
         if (loadedProduct === null) {
           setNotFound(true);
+          setRelatedProducts([]);
           return;
         }
 
         setProduct(loadedProduct);
+        const products = await getProducts();
+        if (shouldIgnoreResult) return;
+
+        const otherProducts = products.filter((item) => item.id !== loadedProduct.id);
+        const sameCategoryProducts = otherProducts.filter((item) => item.category === loadedProduct.category);
+        const fallbackProducts = otherProducts.filter((item) => item.category !== loadedProduct.category);
+        setRelatedProducts([...sameCategoryProducts, ...fallbackProducts].slice(0, 4));
+
         const availableQuantity = await getAvailableQuantityToAdd(loadedProduct.id);
         if (shouldIgnoreResult) return;
         setAvailableToAdd(availableQuantity);
@@ -280,6 +292,17 @@ export default function ProductDetailsPage() {
             {cartMessage && <p className="mt-3 text-sm font-semibold text-site-green-dark" role="status">{cartMessage}</p>}
         </div>
       </article>
+
+      {relatedProducts.length > 0 && (
+        <section className="mt-14 border-t border-site-border pt-10" aria-labelledby="related-products-title">
+          <h2 id="related-products-title" className="text-2xl font-bold text-site-heading">
+            Kapcsolódó termékek
+          </h2>
+          <div className="mt-5">
+            <ProductCards products={relatedProducts} />
+          </div>
+        </section>
+      )}
 
       {isImageOpen && (
         <div
