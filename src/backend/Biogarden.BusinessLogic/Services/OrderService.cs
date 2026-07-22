@@ -6,6 +6,7 @@ using Biogarden.DataAccess.Abstractions;
 using Biogarden.DataAccess.Entities;
 using Biogarden.DataAccess.Enums;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Biogarden.BusinessLogic.Options;
 
@@ -163,91 +164,118 @@ public class OrderService : IOrderService
             }
         }
 
-        var order = new Order
+        OrderDto createdOrderDto;
+
+        try
         {
-            Id = Guid.NewGuid(),
-            OrderNumber = GenerateOrderNumber(),
-            UserId = userId,
-            AddressId = customerType == CustomerType.Company ? dto.AddressId : null,
-            CustomerName = user is null || useManualContact
-                ? dto.CustomerName!.Trim()
-                : $"{user.LastName} {user.FirstName}".Trim(),
-            CustomerEmail = user is null || useManualContact ? dto.CustomerEmail!.Trim() : user.Email!.Trim(),
-            CustomerPhone = user is null || useManualContact ? dto.CustomerPhone!.Trim() : user.PhoneNumber!.Trim(),
-            PostalCode = billingAddress?.PostalCode ?? NormalizeOptional(dto.PostalCode) ?? string.Empty,
-            City = billingAddress?.City ?? NormalizeOptional(dto.City) ?? string.Empty,
-            Street = billingAddress?.Street ?? NormalizeOptional(dto.Street) ?? string.Empty,
-            HouseNumber = billingAddress?.HouseNumber ?? NormalizeOptional(dto.HouseNumber) ?? string.Empty,
-            Building = billingAddress?.Building ?? NormalizeOptional(dto.Building),
-            Floor = billingAddress?.Floor ?? NormalizeOptional(dto.Floor),
-            Door = billingAddress?.Door ?? NormalizeOptional(dto.Door),
-            Doorbell = billingAddress?.Doorbell ?? NormalizeOptional(dto.Doorbell),
-            BillingCompanyName = NormalizeOptional(billingCompanyName),
-            BillingTaxNumber = NormalizeOptional(billingTaxNumber),
-            CustomerType = customerType,
-            PrintedInvoiceRequested = printedInvoiceRequested,
-            DeliveryPostalCode = deliveryAddress?.PostalCode ?? NormalizeOptional(dto.DeliveryPostalCode),
-            DeliveryCity = deliveryAddress?.City ?? NormalizeOptional(dto.DeliveryCity),
-            DeliveryStreet = deliveryAddress?.Street ?? NormalizeOptional(dto.DeliveryStreet),
-            DeliveryHouseNumber = deliveryAddress?.HouseNumber ?? NormalizeOptional(dto.DeliveryHouseNumber),
-            DeliveryBuilding = deliveryAddress?.Building ?? NormalizeOptional(dto.DeliveryBuilding),
-            DeliveryFloor = deliveryAddress?.Floor ?? NormalizeOptional(dto.DeliveryFloor),
-            DeliveryDoor = deliveryAddress?.Door ?? NormalizeOptional(dto.DeliveryDoor),
-            DeliveryDoorbell = deliveryAddress?.Doorbell ?? NormalizeOptional(dto.DeliveryDoorbell),
-            CartId = cart.Id,
-            CreatedAtUtc = DateTime.UtcNow,
-            Status = OrderStatus.Pending,
-            PaymentStatus = PaymentStatus.Pending,
-            FulfillmentMethod = dto.FulfillmentMethod
-        };
-
-        decimal totalPrice = 0m;
-
-        foreach (var cartItem in cart.Items)
-        {
-            var product = await _unitOfWork.ProductRepository.GetByIdAsync(
-                cartItem.ProductId,
-                cancellationToken);
-
-            if (product is null)
+            createdOrderDto = await _unitOfWork.ExecuteInTransactionAsync(async transactionToken =>
             {
-                throw new InvalidOperationException("Product missing during order creation.");
+                var order = new Order
+                {
+                    Id = Guid.NewGuid(),
+                    OrderNumber = GenerateOrderNumber(),
+                    UserId = userId,
+                    AddressId = customerType == CustomerType.Company ? dto.AddressId : null,
+                    CustomerName = user is null || useManualContact
+                        ? dto.CustomerName!.Trim()
+                        : $"{user.LastName} {user.FirstName}".Trim(),
+                    CustomerEmail = user is null || useManualContact ? dto.CustomerEmail!.Trim() : user.Email!.Trim(),
+                    CustomerPhone = user is null || useManualContact ? dto.CustomerPhone!.Trim() : user.PhoneNumber!.Trim(),
+                    PostalCode = billingAddress?.PostalCode ?? NormalizeOptional(dto.PostalCode) ?? string.Empty,
+                    City = billingAddress?.City ?? NormalizeOptional(dto.City) ?? string.Empty,
+                    Street = billingAddress?.Street ?? NormalizeOptional(dto.Street) ?? string.Empty,
+                    HouseNumber = billingAddress?.HouseNumber ?? NormalizeOptional(dto.HouseNumber) ?? string.Empty,
+                    Building = billingAddress?.Building ?? NormalizeOptional(dto.Building),
+                    Floor = billingAddress?.Floor ?? NormalizeOptional(dto.Floor),
+                    Door = billingAddress?.Door ?? NormalizeOptional(dto.Door),
+                    Doorbell = billingAddress?.Doorbell ?? NormalizeOptional(dto.Doorbell),
+                    BillingCompanyName = NormalizeOptional(billingCompanyName),
+                    BillingTaxNumber = NormalizeOptional(billingTaxNumber),
+                    CustomerType = customerType,
+                    PrintedInvoiceRequested = printedInvoiceRequested,
+                    DeliveryPostalCode = deliveryAddress?.PostalCode ?? NormalizeOptional(dto.DeliveryPostalCode),
+                    DeliveryCity = deliveryAddress?.City ?? NormalizeOptional(dto.DeliveryCity),
+                    DeliveryStreet = deliveryAddress?.Street ?? NormalizeOptional(dto.DeliveryStreet),
+                    DeliveryHouseNumber = deliveryAddress?.HouseNumber ?? NormalizeOptional(dto.DeliveryHouseNumber),
+                    DeliveryBuilding = deliveryAddress?.Building ?? NormalizeOptional(dto.DeliveryBuilding),
+                    DeliveryFloor = deliveryAddress?.Floor ?? NormalizeOptional(dto.DeliveryFloor),
+                    DeliveryDoor = deliveryAddress?.Door ?? NormalizeOptional(dto.DeliveryDoor),
+                    DeliveryDoorbell = deliveryAddress?.Doorbell ?? NormalizeOptional(dto.DeliveryDoorbell),
+                    CartId = cart.Id,
+                    CreatedAtUtc = DateTime.UtcNow,
+                    Status = OrderStatus.Pending,
+                    PaymentStatus = PaymentStatus.Pending,
+                    FulfillmentMethod = dto.FulfillmentMethod
+                };
+
+                decimal totalPrice = 0m;
+
+                foreach (var cartItem in cart.Items)
+                {
+                    var product = await _unitOfWork.ProductRepository.GetByIdAsync(
+                        cartItem.ProductId,
+                        transactionToken);
+
+                    if (product is null)
+                    {
+                        throw new InvalidOperationException("Product missing during order creation.");
+                    }
+
+                    var lineTotal = product.Price * cartItem.Quantity;
+
+                    order.Items.Add(new OrderItem
+                    {
+                        Id = Guid.NewGuid(),
+                        OrderId = order.Id,
+                        ProductId = product.Id,
+                        ProductName = product.Name,
+                        UnitPrice = product.Price,
+                        Unit = product.Unit,
+                        Quantity = cartItem.Quantity,
+                        LineTotal = lineTotal
+                    });
+
+                    totalPrice += lineTotal;
+                    product.StockQuantity -= cartItem.Quantity;
+                    if (product.StockQuantity < 0)
+                        throw new InvalidOperationException("Stock inconsistency detected during order creation.");
+                }
+
+                order.TotalPrice = totalPrice;
+                order.StockCommitted = true;
+
+                cart.IsCheckedOut = true;
+                cart.CheckedOutAtUtc = DateTime.UtcNow;
+
+                await _unitOfWork.OrderRepository.AddAsync(order, transactionToken);
+                await _unitOfWork.SaveChangesAsync(transactionToken);
+
+                var createdOrder = await _unitOfWork.OrderRepository.GetByIdWithItemsAsync(
+                    order.Id,
+                    transactionToken);
+
+                return createdOrder!.ToDto();
+            }, cancellationToken);
+        }
+        catch (DbUpdateConcurrencyException exception)
+        {
+            throw new InvalidOperationException(
+                "A kosárban lévő készlet időközben megváltozott. Kérjük, ellenőrizd újra a kosarat.",
+                exception);
+        }
+        catch (DbUpdateException exception)
+        {
+            var existingOrder = await GetLatestCheckedOutOrderAsync(userId, sessionId, cancellationToken);
+            if (existingOrder is not null)
+            {
+                return existingOrder.ToDto();
             }
 
-            var lineTotal = product.Price * cartItem.Quantity;
-
-            order.Items.Add(new OrderItem
-            {
-                Id = Guid.NewGuid(),
-                OrderId = order.Id,
-                ProductId = product.Id,
-                ProductName = product.Name,
-                UnitPrice = product.Price,
-                Unit = product.Unit,
-                Quantity = cartItem.Quantity,
-                LineTotal = lineTotal
-            });
-
-            totalPrice += lineTotal;
-            product.StockQuantity -= cartItem.Quantity;
-            if (product.StockQuantity < 0)
-                throw new InvalidOperationException("Stock inconsistency detected during order creation.");
+            throw new InvalidOperationException(
+                "A rendelés mentése nem sikerült. Kérjük, próbáld újra.",
+                exception);
         }
 
-        order.TotalPrice = totalPrice;
-        order.StockCommitted = true;
-
-        cart.IsCheckedOut = true;
-        cart.CheckedOutAtUtc = DateTime.UtcNow;
-
-        await _unitOfWork.OrderRepository.AddAsync(order, cancellationToken);
-        await _unitOfWork.SaveChangesAsync(cancellationToken);
-
-        var createdOrder = await _unitOfWork.OrderRepository.GetByIdWithItemsAsync(
-            order.Id,
-            cancellationToken);
-
-        var createdOrderDto = createdOrder!.ToDto();
         await SendOrderCreatedEmailsAsync(createdOrderDto, cancellationToken);
 
         return createdOrderDto;

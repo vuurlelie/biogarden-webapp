@@ -8,6 +8,7 @@ using Biogarden.DataAccess.Abstractions;
 using Biogarden.DataAccess.Entities;
 using Biogarden.DataAccess.Enums;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Moq;
 
@@ -29,6 +30,12 @@ public sealed class OrderServiceTests
     {
         _unitOfWork.SetupGet(x => x.OrderRepository).Returns(_orders.Object);
         _unitOfWork.SetupGet(x => x.ProductRepository).Returns(_products.Object);
+        _unitOfWork
+            .Setup(x => x.ExecuteInTransactionAsync(
+                It.IsAny<Func<CancellationToken, Task<OrderDto>>>(),
+                It.IsAny<CancellationToken>()))
+            .Returns<Func<CancellationToken, Task<OrderDto>>, CancellationToken>(
+                (operation, token) => operation(token));
 
         var userStore = new Mock<IUserStore<ApplicationUser>>(MockBehavior.Strict);
         var userManager = new Mock<UserManager<ApplicationUser>>(
@@ -116,6 +123,11 @@ public sealed class OrderServiceTests
             Times.Once);
         _emailService.Verify(x => x.SendAsync(customerMessage, It.IsAny<CancellationToken>()), Times.Once);
         _emailService.Verify(x => x.SendAsync(businessMessage, It.IsAny<CancellationToken>()), Times.Once);
+        _unitOfWork.Verify(
+            x => x.ExecuteInTransactionAsync(
+                It.IsAny<Func<CancellationToken, Task<OrderDto>>>(),
+                It.IsAny<CancellationToken>()),
+            Times.Once);
     }
 
     [Fact]
@@ -156,6 +168,43 @@ public sealed class OrderServiceTests
         Assert.Equal("guest@example.com", result.CustomerEmail);
         _orders.Verify(x => x.AddAsync(It.IsAny<Order>(), It.IsAny<CancellationToken>()), Times.Never);
         _unitOfWork.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
+        _emailService.Verify(x => x.SendAsync(It.IsAny<EmailMessage>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task CreateOrderFromCartAsync_WhenStockChangesDuringSave_ThrowsBeforeSendingEmails()
+    {
+        const string sessionId = "guest-session";
+        var product = new Product { Id = 4, Name = "Bazsalikom", Available = true, StockQuantity = 1, Price = 900 };
+        var cart = new Cart { Id = Guid.NewGuid(), SessionId = sessionId };
+        cart.Items.Add(new CartItem { Id = Guid.NewGuid(), CartId = cart.Id, ProductId = product.Id, Product = product, Quantity = 1 });
+
+        _unitOfWork.SetupGet(x => x.CartRepository).Returns(_carts.Object);
+        _carts.Setup(x => x.GetActiveBySessionIdAsync(sessionId, It.IsAny<CancellationToken>())).ReturnsAsync(cart);
+        _cartService.Setup(x => x.ValidateCartForCheckoutAsync(null, sessionId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Biogarden.BusinessLogic.DTOs.Carts.CartValidationResultDto { IsValid = true });
+        _products.Setup(x => x.GetByIdAsync(product.Id, It.IsAny<CancellationToken>())).ReturnsAsync(product);
+        _orders.Setup(x => x.AddAsync(It.IsAny<Order>(), It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
+        _unitOfWork.Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new DbUpdateConcurrencyException());
+
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _service.CreateOrderFromCartAsync(null, sessionId, new PlaceOrderDto
+            {
+                CustomerName = "Teszt Elek",
+                CustomerEmail = "guest@example.com",
+                CustomerPhone = "+361234567",
+                PostalCode = "8200",
+                City = "Veszprem",
+                Street = "Kert utca",
+                HouseNumber = "1",
+                FulfillmentMethod = FulfillmentMethod.PersonalPickup
+            }));
+
+        Assert.Contains("készlet", exception.Message);
+        _emailTemplateService.Verify(
+            x => x.BuildOrderConfirmationMessage(It.IsAny<string>(), It.IsAny<OrderDto>()),
+            Times.Never);
         _emailService.Verify(x => x.SendAsync(It.IsAny<EmailMessage>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 

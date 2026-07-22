@@ -769,6 +769,12 @@ namespace Biogarden.DataAccess.Migrations
                     b.Property<byte>("RecordStatus")
                         .HasColumnType("tinyint");
 
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
                     b.Property<int>("StockQuantity")
                         .HasColumnType("int");
 
