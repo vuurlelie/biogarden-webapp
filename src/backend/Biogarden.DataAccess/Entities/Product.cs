@@ -22,6 +22,8 @@ public class Product
 
     public int StockQuantity { get; set; }
 
+    public byte[] RowVersion { get; set; } = [];
+
     public bool Available { get; set; }
 
     public bool DeliveryAvailable { get; set; }

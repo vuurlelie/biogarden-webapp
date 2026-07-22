@@ -21,6 +21,7 @@ public class AppDbContext
     public DbSet<Order> Orders => Set<Order>();
     public DbSet<OrderItem> OrderItems => Set<OrderItem>();
     public DbSet<AccountLifecycleRequest> AccountLifecycleRequests => Set<AccountLifecycleRequest>();
+    public DbSet<PaymentProviderEvent> PaymentProviderEvents => Set<PaymentProviderEvent>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

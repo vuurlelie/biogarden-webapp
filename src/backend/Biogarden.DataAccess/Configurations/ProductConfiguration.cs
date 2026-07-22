@@ -30,6 +30,9 @@ public class ProductConfiguration : IEntityTypeConfiguration<Product>
         productBuilder.Property(product => product.RecordStatus)
             .HasConversion<byte>();
 
+        productBuilder.Property(product => product.RowVersion)
+            .IsRowVersion();
+
         productBuilder.HasIndex(product => product.Name);
 
         productBuilder.ToTable(table =>

@@ -126,6 +126,12 @@ public sealed class SumUpCheckoutClient : ISumUpCheckoutClient
         [JsonPropertyName("status")]
         public string Status { get; init; } = string.Empty;
 
+        [JsonPropertyName("amount")]
+        public decimal? Amount { get; init; }
+
+        [JsonPropertyName("currency")]
+        public string? Currency { get; init; }
+
         [JsonPropertyName("hosted_checkout_url")]
         public string? HostedCheckoutUrl { get; init; }
 
@@ -142,7 +148,9 @@ public sealed class SumUpCheckoutClient : ISumUpCheckoutClient
                 Id,
                 Status,
                 HostedCheckoutUrl,
-                transactionCode);
+                transactionCode,
+                Amount,
+                Currency);
         }
     }
 

@@ -7,6 +7,11 @@ public interface IUnitOfWork
     IAddressRepository AddressRepository { get; }
     ICartRepository CartRepository { get; }
     IOrderRepository OrderRepository { get; }
+    IPaymentProviderEventRepository PaymentProviderEventRepository { get; }
+
+    Task<TResult> ExecuteInTransactionAsync<TResult>(
+        Func<CancellationToken, Task<TResult>> operation,
+        CancellationToken cancellationToken = default);
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }

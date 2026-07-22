@@ -6,6 +6,7 @@ using Biogarden.DataAccess.Abstractions;
 using Biogarden.DataAccess.Entities;
 using Biogarden.DataAccess.Enums;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Biogarden.BusinessLogic.Options;
 
@@ -20,6 +21,7 @@ public class OrderService : IOrderService
     private readonly IEmailTemplateService _emailTemplateService;
     private readonly ISumUpCheckoutService _sumUpCheckoutService;
     private readonly EmailBrandingOptions _emailBrandingOptions;
+    private readonly SumUpOptions _sumUpOptions;
 
     public OrderService(
         IUnitOfWork unitOfWork,
@@ -28,7 +30,8 @@ public class OrderService : IOrderService
         IEmailService emailService,
         IEmailTemplateService emailTemplateService,
         ISumUpCheckoutService sumUpCheckoutService,
-        IOptions<EmailBrandingOptions> emailBrandingOptions)
+        IOptions<EmailBrandingOptions> emailBrandingOptions,
+        IOptions<SumUpOptions> sumUpOptions)
     {
         _unitOfWork = unitOfWork;
         _cartService = cartService;
@@ -37,6 +40,7 @@ public class OrderService : IOrderService
         _emailTemplateService = emailTemplateService;
         _sumUpCheckoutService = sumUpCheckoutService;
         _emailBrandingOptions = emailBrandingOptions.Value;
+        _sumUpOptions = sumUpOptions.Value;
     }
 
     public async Task<OrderDto> CreateOrderFromCartAsync(
@@ -53,11 +57,25 @@ public class OrderService : IOrderService
 
         if (cart is null)
         {
+            var existingOrder = await GetLatestCheckedOutOrderAsync(userId, sessionId, cancellationToken);
+            if (existingOrder is not null)
+            {
+                return existingOrder.ToDto();
+            }
+
             throw new InvalidOperationException("Cart not found.");
         }
 
         if (cart.IsCheckedOut)
         {
+            var existingOrder = await _unitOfWork.OrderRepository.GetByCartIdWithItemsAsync(
+                cart.Id,
+                cancellationToken);
+            if (existingOrder is not null)
+            {
+                return existingOrder.ToDto();
+            }
+
             throw new InvalidOperationException("Cart already checked out.");
         }
 
@@ -149,91 +167,118 @@ public class OrderService : IOrderService
             }
         }
 
-        var order = new Order
+        OrderDto createdOrderDto;
+
+        try
         {
-            Id = Guid.NewGuid(),
-            OrderNumber = GenerateOrderNumber(),
-            UserId = userId,
-            AddressId = customerType == CustomerType.Company ? dto.AddressId : null,
-            CustomerName = user is null || useManualContact
-                ? dto.CustomerName!.Trim()
-                : $"{user.LastName} {user.FirstName}".Trim(),
-            CustomerEmail = user is null || useManualContact ? dto.CustomerEmail!.Trim() : user.Email!.Trim(),
-            CustomerPhone = user is null || useManualContact ? dto.CustomerPhone!.Trim() : user.PhoneNumber!.Trim(),
-            PostalCode = billingAddress?.PostalCode ?? NormalizeOptional(dto.PostalCode) ?? string.Empty,
-            City = billingAddress?.City ?? NormalizeOptional(dto.City) ?? string.Empty,
-            Street = billingAddress?.Street ?? NormalizeOptional(dto.Street) ?? string.Empty,
-            HouseNumber = billingAddress?.HouseNumber ?? NormalizeOptional(dto.HouseNumber) ?? string.Empty,
-            Building = billingAddress?.Building ?? NormalizeOptional(dto.Building),
-            Floor = billingAddress?.Floor ?? NormalizeOptional(dto.Floor),
-            Door = billingAddress?.Door ?? NormalizeOptional(dto.Door),
-            Doorbell = billingAddress?.Doorbell ?? NormalizeOptional(dto.Doorbell),
-            BillingCompanyName = NormalizeOptional(billingCompanyName),
-            BillingTaxNumber = NormalizeOptional(billingTaxNumber),
-            CustomerType = customerType,
-            PrintedInvoiceRequested = printedInvoiceRequested,
-            DeliveryPostalCode = deliveryAddress?.PostalCode ?? NormalizeOptional(dto.DeliveryPostalCode),
-            DeliveryCity = deliveryAddress?.City ?? NormalizeOptional(dto.DeliveryCity),
-            DeliveryStreet = deliveryAddress?.Street ?? NormalizeOptional(dto.DeliveryStreet),
-            DeliveryHouseNumber = deliveryAddress?.HouseNumber ?? NormalizeOptional(dto.DeliveryHouseNumber),
-            DeliveryBuilding = deliveryAddress?.Building ?? NormalizeOptional(dto.DeliveryBuilding),
-            DeliveryFloor = deliveryAddress?.Floor ?? NormalizeOptional(dto.DeliveryFloor),
-            DeliveryDoor = deliveryAddress?.Door ?? NormalizeOptional(dto.DeliveryDoor),
-            DeliveryDoorbell = deliveryAddress?.Doorbell ?? NormalizeOptional(dto.DeliveryDoorbell),
-            CartId = cart.Id,
-            CreatedAtUtc = DateTime.UtcNow,
-            Status = OrderStatus.Pending,
-            PaymentStatus = PaymentStatus.Pending,
-            FulfillmentMethod = dto.FulfillmentMethod
-        };
-
-        decimal totalPrice = 0m;
-
-        foreach (var cartItem in cart.Items)
-        {
-            var product = await _unitOfWork.ProductRepository.GetByIdAsync(
-                cartItem.ProductId,
-                cancellationToken);
-
-            if (product is null)
+            createdOrderDto = await _unitOfWork.ExecuteInTransactionAsync(async transactionToken =>
             {
-                throw new InvalidOperationException("Product missing during order creation.");
+                var order = new Order
+                {
+                    Id = Guid.NewGuid(),
+                    OrderNumber = GenerateOrderNumber(),
+                    UserId = userId,
+                    AddressId = customerType == CustomerType.Company ? dto.AddressId : null,
+                    CustomerName = user is null || useManualContact
+                        ? dto.CustomerName!.Trim()
+                        : $"{user.LastName} {user.FirstName}".Trim(),
+                    CustomerEmail = user is null || useManualContact ? dto.CustomerEmail!.Trim() : user.Email!.Trim(),
+                    CustomerPhone = user is null || useManualContact ? dto.CustomerPhone!.Trim() : user.PhoneNumber!.Trim(),
+                    PostalCode = billingAddress?.PostalCode ?? NormalizeOptional(dto.PostalCode) ?? string.Empty,
+                    City = billingAddress?.City ?? NormalizeOptional(dto.City) ?? string.Empty,
+                    Street = billingAddress?.Street ?? NormalizeOptional(dto.Street) ?? string.Empty,
+                    HouseNumber = billingAddress?.HouseNumber ?? NormalizeOptional(dto.HouseNumber) ?? string.Empty,
+                    Building = billingAddress?.Building ?? NormalizeOptional(dto.Building),
+                    Floor = billingAddress?.Floor ?? NormalizeOptional(dto.Floor),
+                    Door = billingAddress?.Door ?? NormalizeOptional(dto.Door),
+                    Doorbell = billingAddress?.Doorbell ?? NormalizeOptional(dto.Doorbell),
+                    BillingCompanyName = NormalizeOptional(billingCompanyName),
+                    BillingTaxNumber = NormalizeOptional(billingTaxNumber),
+                    CustomerType = customerType,
+                    PrintedInvoiceRequested = printedInvoiceRequested,
+                    DeliveryPostalCode = deliveryAddress?.PostalCode ?? NormalizeOptional(dto.DeliveryPostalCode),
+                    DeliveryCity = deliveryAddress?.City ?? NormalizeOptional(dto.DeliveryCity),
+                    DeliveryStreet = deliveryAddress?.Street ?? NormalizeOptional(dto.DeliveryStreet),
+                    DeliveryHouseNumber = deliveryAddress?.HouseNumber ?? NormalizeOptional(dto.DeliveryHouseNumber),
+                    DeliveryBuilding = deliveryAddress?.Building ?? NormalizeOptional(dto.DeliveryBuilding),
+                    DeliveryFloor = deliveryAddress?.Floor ?? NormalizeOptional(dto.DeliveryFloor),
+                    DeliveryDoor = deliveryAddress?.Door ?? NormalizeOptional(dto.DeliveryDoor),
+                    DeliveryDoorbell = deliveryAddress?.Doorbell ?? NormalizeOptional(dto.DeliveryDoorbell),
+                    CartId = cart.Id,
+                    CreatedAtUtc = DateTime.UtcNow,
+                    Status = OrderStatus.Pending,
+                    PaymentStatus = PaymentStatus.Pending,
+                    FulfillmentMethod = dto.FulfillmentMethod
+                };
+
+                decimal totalPrice = 0m;
+
+                foreach (var cartItem in cart.Items)
+                {
+                    var product = await _unitOfWork.ProductRepository.GetByIdAsync(
+                        cartItem.ProductId,
+                        transactionToken);
+
+                    if (product is null)
+                    {
+                        throw new InvalidOperationException("Product missing during order creation.");
+                    }
+
+                    var lineTotal = product.Price * cartItem.Quantity;
+
+                    order.Items.Add(new OrderItem
+                    {
+                        Id = Guid.NewGuid(),
+                        OrderId = order.Id,
+                        ProductId = product.Id,
+                        ProductName = product.Name,
+                        UnitPrice = product.Price,
+                        Unit = product.Unit,
+                        Quantity = cartItem.Quantity,
+                        LineTotal = lineTotal
+                    });
+
+                    totalPrice += lineTotal;
+                    product.StockQuantity -= cartItem.Quantity;
+                    if (product.StockQuantity < 0)
+                        throw new InvalidOperationException("Stock inconsistency detected during order creation.");
+                }
+
+                order.TotalPrice = totalPrice;
+                order.StockCommitted = true;
+
+                cart.IsCheckedOut = true;
+                cart.CheckedOutAtUtc = DateTime.UtcNow;
+
+                await _unitOfWork.OrderRepository.AddAsync(order, transactionToken);
+                await _unitOfWork.SaveChangesAsync(transactionToken);
+
+                var createdOrder = await _unitOfWork.OrderRepository.GetByIdWithItemsAsync(
+                    order.Id,
+                    transactionToken);
+
+                return createdOrder!.ToDto();
+            }, cancellationToken);
+        }
+        catch (DbUpdateConcurrencyException exception)
+        {
+            throw new InvalidOperationException(
+                "A kosárban lévő készlet időközben megváltozott. Kérjük, ellenőrizd újra a kosarat.",
+                exception);
+        }
+        catch (DbUpdateException exception)
+        {
+            var existingOrder = await GetLatestCheckedOutOrderAsync(userId, sessionId, cancellationToken);
+            if (existingOrder is not null)
+            {
+                return existingOrder.ToDto();
             }
 
-            var lineTotal = product.Price * cartItem.Quantity;
-
-            order.Items.Add(new OrderItem
-            {
-                Id = Guid.NewGuid(),
-                OrderId = order.Id,
-                ProductId = product.Id,
-                ProductName = product.Name,
-                UnitPrice = product.Price,
-                Unit = product.Unit,
-                Quantity = cartItem.Quantity,
-                LineTotal = lineTotal
-            });
-
-            totalPrice += lineTotal;
-            product.StockQuantity -= cartItem.Quantity;
-            if (product.StockQuantity < 0)
-                throw new InvalidOperationException("Stock inconsistency detected during order creation.");
+            throw new InvalidOperationException(
+                "A rendelés mentése nem sikerült. Kérjük, próbáld újra.",
+                exception);
         }
 
-        order.TotalPrice = totalPrice;
-        order.StockCommitted = true;
-
-        cart.IsCheckedOut = true;
-        cart.CheckedOutAtUtc = DateTime.UtcNow;
-
-        await _unitOfWork.OrderRepository.AddAsync(order, cancellationToken);
-        await _unitOfWork.SaveChangesAsync(cancellationToken);
-
-        var createdOrder = await _unitOfWork.OrderRepository.GetByIdWithItemsAsync(
-            order.Id,
-            cancellationToken);
-
-        var createdOrderDto = createdOrder!.ToDto();
         await SendOrderCreatedEmailsAsync(createdOrderDto, cancellationToken);
 
         return createdOrderDto;
@@ -335,6 +380,8 @@ public class OrderService : IOrderService
     public async Task<OrderDto> ConfirmSumUpCheckoutAsync(
         string sumUpCheckoutId,
         string? sumUpTransactionId,
+        decimal? amount = null,
+        string? currency = null,
         CancellationToken cancellationToken = default)
     {
         var order = await _unitOfWork.OrderRepository.GetBySumUpCheckoutIdAsync(
@@ -346,6 +393,8 @@ public class OrderService : IOrderService
         {
             throw new InvalidOperationException("Cancelled order cannot be confirmed.");
         }
+
+        EnsureSumUpCheckoutMatchesOrder(order, amount, currency);
 
         if (order.PaymentStatus != PaymentStatus.Paid)
         {
@@ -571,9 +620,50 @@ public class OrderService : IOrderService
     private static string? NormalizeOptional(string? value) =>
         string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
+    private void EnsureSumUpCheckoutMatchesOrder(Order order, decimal? amount, string? currency)
+    {
+        if (!amount.HasValue)
+        {
+            throw new InvalidOperationException("SumUp checkout amount is missing.");
+        }
+
+        if (amount.Value != order.TotalPrice)
+        {
+            throw new InvalidOperationException("SumUp checkout amount does not match the order total.");
+        }
+
+        if (string.IsNullOrWhiteSpace(currency))
+        {
+            throw new InvalidOperationException("SumUp checkout currency is missing.");
+        }
+
+        if (!string.Equals(currency.Trim(), _sumUpOptions.Currency, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException("SumUp checkout currency does not match the configured currency.");
+        }
+    }
+
     private static string GenerateOrderNumber()
     {
         return $"BK-{DateTime.UtcNow:yyyyMMdd}-{Guid.NewGuid().ToString("N")[..8].ToUpperInvariant()}";
+    }
+
+    private async Task<Order?> GetLatestCheckedOutOrderAsync(
+        Guid? userId,
+        string? sessionId,
+        CancellationToken cancellationToken)
+    {
+        var checkedOutCart = userId.HasValue
+            ? await _unitOfWork.CartRepository.GetLatestCheckedOutByUserIdAsync(userId.Value, cancellationToken)
+            : string.IsNullOrWhiteSpace(sessionId)
+                ? null
+                : await _unitOfWork.CartRepository.GetLatestCheckedOutBySessionIdAsync(sessionId, cancellationToken);
+
+        return checkedOutCart is null
+            ? null
+            : await _unitOfWork.OrderRepository.GetByCartIdWithItemsAsync(
+                checkedOutCart.Id,
+                cancellationToken);
     }
 
     private async Task SendOrderCreatedEmailsAsync(

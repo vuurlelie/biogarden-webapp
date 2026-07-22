@@ -12,6 +12,7 @@ public sealed class UnitOfWork : IUnitOfWork
     private IAddressRepository? _addressRepository;
     private ICartRepository? _cartRepository;
     private IOrderRepository? _orderRepository;
+    private IPaymentProviderEventRepository? _paymentProviderEventRepository;
 
 
     public UnitOfWork(IAppDbContext databaseContext)
@@ -30,6 +31,29 @@ public sealed class UnitOfWork : IUnitOfWork
         _cartRepository ??= new CartRepository(_databaseContext);
     public IOrderRepository OrderRepository =>
         _orderRepository ??= new OrderRepository(_databaseContext);
+    public IPaymentProviderEventRepository PaymentProviderEventRepository =>
+        _paymentProviderEventRepository ??= new PaymentProviderEventRepository(_databaseContext);
+
+    public async Task<TResult> ExecuteInTransactionAsync<TResult>(
+        Func<CancellationToken, Task<TResult>> operation,
+        CancellationToken cancellationToken = default)
+    {
+        if (_databaseContext is not DbContext dbContext)
+        {
+            return await operation(cancellationToken);
+        }
+
+        var strategy = dbContext.Database.CreateExecutionStrategy();
+
+        return await strategy.ExecuteAsync(async () =>
+        {
+            await using var transaction = await dbContext.Database.BeginTransactionAsync(cancellationToken);
+            var result = await operation(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+
+            return result;
+        });
+    }
 
     public Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
         => _databaseContext.SaveChangesAsync(cancellationToken);
