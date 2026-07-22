@@ -1,6 +1,6 @@
 import type { Page, Route } from "@playwright/test";
 
-const apiBaseUrl = "http://localhost:5097";
+export const apiBaseUrl = "http://localhost:5097";
 
 type OrderStatus = 0 | 1 | 2 | 3 | 4;
 type PaymentStatus = 0 | 1 | 2 | 3 | 4 | 5 | 6;
@@ -167,6 +167,43 @@ export async function mockCheckoutApi(page: Page, onlinePayment = false) {
             checkoutId: "sumup-checkout-1",
             url: "https://example.com/sumup-checkout",
           },
+    });
+  });
+}
+
+export async function mockEmptyCartApi(page: Page) {
+  await page.route(`${apiBaseUrl}/api/cart`, async (route) => {
+    if (route.request().method() === "GET") {
+      await route.fulfill({ json: createCart([]) });
+      return;
+    }
+
+    await route.fallback();
+  });
+}
+
+export async function mockCheckoutValidationIssueApi(page: Page, issueMessage: string) {
+  await page.route(`${apiBaseUrl}/api/cart`, async (route) => {
+    if (route.request().method() === "GET") {
+      await route.fulfill({ json: createCart([cartItem]) });
+      return;
+    }
+
+    await route.fallback();
+  });
+
+  await page.route(`${apiBaseUrl}/api/cart/validate`, async (route) => {
+    await route.fulfill({
+      json: {
+        isValid: false,
+        issues: [
+          {
+            productId: product.id,
+            productName: product.name,
+            message: issueMessage,
+          },
+        ],
+      },
     });
   });
 }
