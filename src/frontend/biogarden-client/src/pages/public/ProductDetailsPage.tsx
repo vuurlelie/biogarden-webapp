@@ -20,6 +20,7 @@ import { getAvailableQuantityToAdd } from "../../features/cart/api/cartApi";
 import Seo from "../../shared/seo/Seo";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+const SITE_URL = (import.meta.env.VITE_SITE_URL ?? "https://bakonykincse.hu").replace(/\/$/, "");
 
 const CATEGORY_LINKS: Record<ProductCategory, { label: string; value: string }> = {
   0: { label: "Zöldségek", value: "zoldsegek" },
@@ -148,6 +149,27 @@ export default function ProductDetailsPage() {
   const categoryUrl = `${ROUTES.products}?category=${categoryLink.value}`;
   const packageLabel = getProductPackageLabel(product);
   const lowStock = product.available && availableToAdd > 0 && availableToAdd <= 10;
+  const productStructuredData = {
+    "@context": "https://schema.org",
+    "@type": "Product",
+    name: product.name,
+    description:
+      product.description ??
+      `${product.name} a Bakony Kincse Biokertészet természetes termékei között.`,
+    image: getProductImageUrl(product.image),
+    sku: String(product.id),
+    brand: {
+      "@type": "Brand",
+      name: "Bakony Kincse Biokertészet",
+    },
+    offers: {
+      "@type": "Offer",
+      url: `${SITE_URL}${ROUTES.products}/${product.id}`,
+      priceCurrency: "HUF",
+      price: product.price,
+      availability: product.available ? "https://schema.org/InStock" : "https://schema.org/OutOfStock",
+    },
+  };
 
   async function handleAddToCart() {
     setIsAddingToCart(true);
@@ -175,6 +197,7 @@ export default function ProductDetailsPage() {
         }
         image={getProductImageUrl(product.image)}
         type="product"
+        structuredData={productStructuredData}
       />
       <nav
         className="flex flex-wrap items-center gap-2 text-sm text-site-text"

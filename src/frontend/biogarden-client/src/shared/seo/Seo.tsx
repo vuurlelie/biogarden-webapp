@@ -14,6 +14,7 @@ type SeoProps = {
   image?: string;
   type?: "website" | "article" | "product";
   noIndex?: boolean;
+  structuredData?: Record<string, unknown> | Array<Record<string, unknown>>;
 };
 
 function absoluteUrl(path: string) {
@@ -46,12 +47,32 @@ function upsertCanonical(href: string) {
   element.href = href;
 }
 
+function upsertStructuredData(data?: SeoProps["structuredData"]) {
+  const elementId = "biogarden-structured-data";
+  let element = document.head.querySelector<HTMLScriptElement>(`#${elementId}`);
+
+  if (!data) {
+    element?.remove();
+    return;
+  }
+
+  if (!element) {
+    element = document.createElement("script");
+    element.id = elementId;
+    element.type = "application/ld+json";
+    document.head.appendChild(element);
+  }
+
+  element.textContent = JSON.stringify(data);
+}
+
 export default function Seo({
   title,
   description = DEFAULT_DESCRIPTION,
   image = DEFAULT_IMAGE,
   type = "website",
   noIndex = false,
+  structuredData,
 }: SeoProps) {
   const location = useLocation();
   const pageTitle = title ? `${title} | ${SITE_NAME}` : SITE_NAME;
@@ -75,7 +96,8 @@ export default function Seo({
     upsertMeta("name", "twitter:description", description);
     upsertMeta("name", "twitter:image", imageUrl);
     upsertCanonical(canonicalUrl);
-  }, [canonicalUrl, description, imageUrl, noIndex, pageTitle, type]);
+    upsertStructuredData(structuredData);
+  }, [canonicalUrl, description, imageUrl, noIndex, pageTitle, structuredData, type]);
 
   return null;
 }
