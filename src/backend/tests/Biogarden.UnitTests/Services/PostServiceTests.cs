@@ -33,8 +33,10 @@ public sealed class PostServiceTests
 
         _posts
             .Setup(repository => repository.GetPagedAsync(
+                null,
                 PostCategory.Recipe,
                 true,
+                null,
                 "oldest",
                 2,
                 4,
@@ -52,6 +54,38 @@ public sealed class PostServiceTests
         Assert.Equal(5, result.TotalCount);
         Assert.Equal(2, result.TotalPages);
         Assert.Equal("Recept", Assert.Single(result.Items).Title);
+        _posts.VerifyAll();
+        _unitOfWork.VerifyNoOtherCalls();
+    }
+
+    [Fact]
+    public async Task GetAdminPagedAsync_AllowsDraftFiltering()
+    {
+        var query = new PostListQueryDto
+        {
+            Search = "palanta",
+            Draft = true
+        };
+
+        _posts
+            .Setup(repository => repository.GetPagedAsync(
+                "palanta",
+                null,
+                false,
+                true,
+                string.Empty,
+                1,
+                12,
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new PagedResult<Post>(
+                [new Post { Id = 4, Title = "Piszkozat", Article = "Legalabb husz karakteres szoveg", Draft = true }],
+                1,
+                12,
+                1));
+
+        var result = await _service.GetAdminPagedAsync(query);
+
+        Assert.True(Assert.Single(result.Items).Draft);
         _posts.VerifyAll();
         _unitOfWork.VerifyNoOtherCalls();
     }

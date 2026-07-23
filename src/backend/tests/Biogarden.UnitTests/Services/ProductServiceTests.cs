@@ -34,9 +34,11 @@ public sealed class ProductServiceTests
 
         _products
             .Setup(repository => repository.GetPagedAsync(
+                null,
                 It.Is<IReadOnlyCollection<ProductCategory>>(categories =>
                     categories.SequenceEqual(new[] { ProductCategory.HerbalTea, ProductCategory.Spice })),
                 true,
+                false,
                 true,
                 "price-desc",
                 1,

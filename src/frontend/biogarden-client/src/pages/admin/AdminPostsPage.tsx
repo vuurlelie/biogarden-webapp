@@ -1,7 +1,7 @@
-import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useState } from "react";
 import {
   deleteAdminPost,
-  getAdminPosts,
+  getAdminPostPage,
 } from "../../features/admin/api/adminPostsApi";
 import type { Post, PostCategory } from "../../features/posts/types/post.types";
 import AdminPageHeader from "../../shared/components/admin/AdminPageHeader";
@@ -31,7 +31,7 @@ function formatDate(value: string): string {
 function excerpt(article: string): string {
   const parsed = new DOMParser().parseFromString(article, "text/html");
   const normalized = (parsed.body.textContent ?? "").replace(/\s+/g, " ").trim();
-  return normalized.length > 180 ? `${normalized.slice(0, 180)}…` : normalized;
+  return normalized.length > 180 ? `${normalized.slice(0, 180)}...` : normalized;
 }
 
 export default function AdminPostsPage() {
@@ -43,6 +43,8 @@ export default function AdminPostsPage() {
   const [category, setCategory] = useState<"all" | PostCategory>("all");
   const [status, setStatus] = useState<StatusFilter>("all");
   const [page, setPage] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
   const [editingPost, setEditingPost] = useState<Post | null | undefined>(undefined);
   const [deletingPost, setDeletingPost] = useState<Post | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -52,7 +54,19 @@ export default function AdminPostsPage() {
     setError(null);
 
     try {
-      setPosts(await getAdminPosts(signal));
+      const result = await getAdminPostPage(
+        {
+          page,
+          pageSize: PAGE_SIZE,
+          search,
+          category,
+          status,
+        },
+        signal,
+      );
+      setPosts(result.items);
+      setTotalCount(result.totalCount);
+      setTotalPages(result.totalPages);
     } catch (loadError) {
       if (!(loadError instanceof DOMException && loadError.name === "AbortError")) {
         setError(loadError instanceof Error ? loadError.message : "A bejegyzések betöltése nem sikerült.");
@@ -60,7 +74,7 @@ export default function AdminPostsPage() {
     } finally {
       if (!signal?.aborted) setLoading(false);
     }
-  }, []);
+  }, [category, page, search, status]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -74,26 +88,11 @@ export default function AdminPostsPage() {
     return () => window.clearTimeout(timeout);
   }, [message]);
 
-  const filteredPosts = useMemo(() => {
-    const query = search.trim().toLocaleLowerCase("hu-HU");
-
-    return posts.filter((post) => {
-      if (
-        query &&
-        ![post.title, post.article].some((value) => value.toLocaleLowerCase("hu-HU").includes(query))
-      ) {
-        return false;
-      }
-      if (category !== "all" && post.category !== category) return false;
-      if (status === "published" && post.draft) return false;
-      if (status === "draft" && !post.draft) return false;
-      return true;
-    });
-  }, [posts, search, category, status]);
-
-  const totalPages = Math.max(1, Math.ceil(filteredPosts.length / PAGE_SIZE));
-  const currentPage = Math.min(page, totalPages);
-  const paginatedPosts = filteredPosts.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+  useEffect(() => {
+    if (page > totalPages) {
+      setPage(totalPages);
+    }
+  }, [page, totalPages]);
 
   async function confirmDelete() {
     if (!deletingPost) return;
@@ -103,9 +102,9 @@ export default function AdminPostsPage() {
 
     try {
       await deleteAdminPost(deletingPost.id);
-      setPosts((current) => current.filter((post) => post.id !== deletingPost.id));
       setDeletingPost(null);
       setMessage("A bejegyzés törlése sikerült.");
+      await loadPosts();
     } catch (deleteError) {
       setError(deleteError instanceof Error ? deleteError.message : "A törlés nem sikerült.");
       setDeletingPost(null);
@@ -118,6 +117,10 @@ export default function AdminPostsPage() {
     setEditingPost(undefined);
     setMessage(successMessage);
     await loadPosts();
+  }
+
+  function resetPage() {
+    setPage(1);
   }
 
   return (
@@ -166,7 +169,7 @@ export default function AdminPostsPage() {
               value={search}
               onChange={(event) => {
                 setSearch(event.target.value);
-                setPage(1);
+                resetPage();
               }}
               placeholder="Cím vagy szövegrészlet"
               className="mt-1.5 w-full rounded-sm border border-site-border px-3 py-2.5 outline-none focus:border-site-green"
@@ -179,7 +182,7 @@ export default function AdminPostsPage() {
               value={category}
               onChange={(event) => {
                 setCategory(event.target.value === "all" ? "all" : Number(event.target.value) as PostCategory);
-                setPage(1);
+                resetPage();
               }}
               className="mt-1.5 w-full rounded-sm border border-site-border px-3 py-2.5"
             >
@@ -195,7 +198,7 @@ export default function AdminPostsPage() {
               value={status}
               onChange={(event) => {
                 setStatus(event.target.value as StatusFilter);
-                setPage(1);
+                resetPage();
               }}
               className="mt-1.5 w-full rounded-sm border border-site-border px-3 py-2.5"
             >
@@ -207,7 +210,7 @@ export default function AdminPostsPage() {
         </div>
 
         <p className="mt-4 text-sm text-site-muted">
-          {filteredPosts.length} bejegyzés a(z) {posts.length} bejegyzésből
+          {totalCount} bejegyzés
         </p>
       </section>
 
@@ -217,14 +220,14 @@ export default function AdminPostsPage() {
             <div key={index} className="h-96 animate-pulse rounded-sm border border-site-border bg-white" />
           ))}
         </div>
-      ) : filteredPosts.length === 0 ? (
+      ) : totalCount === 0 ? (
         <section className="rounded-sm border border-site-border bg-white p-8 text-center shadow-sm">
           <h2 className="text-lg font-bold text-site-heading">Nincs találat</h2>
           <p className="mt-2 text-sm text-site-muted">Módosítsd a keresési vagy szűrési feltételeket.</p>
         </section>
       ) : (
         <section className="grid gap-5 md:grid-cols-2 xl:grid-cols-3" aria-label="Bejegyzéslista">
-          {paginatedPosts.map((post) => (
+          {posts.map((post) => (
             <article key={post.id} className="flex min-w-0 flex-col overflow-hidden rounded-sm border border-site-border bg-white shadow-sm">
               <div className="relative aspect-[16/9] bg-site-surface-soft">
                 <img src={imageUrl(post.image)} alt="" className="h-full w-full object-cover" />
@@ -267,8 +270,8 @@ export default function AdminPostsPage() {
         </section>
       )}
 
-      {!loading && filteredPosts.length > 0 && (
-        <AdminPagination page={currentPage} totalPages={totalPages} onPageChange={setPage} />
+      {!loading && totalCount > 0 && (
+        <AdminPagination page={page} totalPages={totalPages} onPageChange={setPage} />
       )}
 
       {editingPost !== undefined && (

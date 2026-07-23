@@ -26,12 +26,25 @@ public sealed class PostService : IPostService
     public async Task<PagedResultDto<PostListItemDto>> GetPagedAsync(
         PostListQueryDto query,
         CancellationToken cancellationToken = default)
+        => await GetPagedAsync(query, publicOnly: true, cancellationToken);
+
+    public async Task<PagedResultDto<PostListItemDto>> GetAdminPagedAsync(
+        PostListQueryDto query,
+        CancellationToken cancellationToken = default)
+        => await GetPagedAsync(query, publicOnly: false, cancellationToken);
+
+    private async Task<PagedResultDto<PostListItemDto>> GetPagedAsync(
+        PostListQueryDto query,
+        bool publicOnly,
+        CancellationToken cancellationToken)
     {
         var page = query.NormalizedPage;
         var pageSize = query.NormalizedPageSize;
         var posts = await _unitOfWork.PostRepository.GetPagedAsync(
+            query.Search,
             query.Category,
-            publicOnly: true,
+            publicOnly,
+            query.Draft,
             query.Sort ?? string.Empty,
             page,
             pageSize,

@@ -10,6 +10,9 @@ public interface IPostService
     Task<PagedResultDto<PostListItemDto>> GetPagedAsync(
         PostListQueryDto query,
         CancellationToken cancellationToken = default);
+    Task<PagedResultDto<PostListItemDto>> GetAdminPagedAsync(
+        PostListQueryDto query,
+        CancellationToken cancellationToken = default);
     Task<PostDetailsDto?> GetDetailsAsync(int postId, CancellationToken cancellationToken = default);
 
     Task<int> CreateAsync(PostCreateDto newPost, CancellationToken cancellationToken = default);

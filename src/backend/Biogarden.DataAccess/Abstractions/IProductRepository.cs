@@ -12,8 +12,10 @@ public interface IProductRepository
     Task<IReadOnlyList<Product>> GetAllAsync(CancellationToken cancellationToken = default);
 
     Task<PagedResult<Product>> GetPagedAsync(
+        string? search,
         IReadOnlyCollection<ProductCategory> categories,
         bool availableOnly,
+        bool unavailableOnly,
         bool deliveryOnly,
         string sort,
         int page,

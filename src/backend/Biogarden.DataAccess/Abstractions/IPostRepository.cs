@@ -14,8 +14,10 @@ public interface IPostRepository
     Task<IReadOnlyList<Post>> GetAllIncludingDeletedAsync(CancellationToken cancellationToken = default);
 
     Task<PagedResult<Post>> GetPagedAsync(
+        string? search,
         PostCategory? category,
         bool publicOnly,
+        bool? draft,
         string sort,
         int page,
         int pageSize,

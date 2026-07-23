@@ -52,8 +52,10 @@ public sealed class PostRepository : IPostRepository
     }
 
     public async Task<PagedResult<Post>> GetPagedAsync(
+        string? search,
         PostCategory? category,
         bool publicOnly,
+        bool? draft,
         string sort,
         int page,
         int pageSize,
@@ -66,9 +68,22 @@ public sealed class PostRepository : IPostRepository
             query = query.Where(post => !post.Draft);
         }
 
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var normalizedSearch = search.Trim();
+            query = query.Where(post =>
+                post.Title.Contains(normalizedSearch) ||
+                post.Article.Contains(normalizedSearch));
+        }
+
         if (category.HasValue)
         {
             query = query.Where(post => post.Category == category.Value);
+        }
+
+        if (draft.HasValue)
+        {
+            query = query.Where(post => post.Draft == draft.Value);
         }
 
         query = sort switch

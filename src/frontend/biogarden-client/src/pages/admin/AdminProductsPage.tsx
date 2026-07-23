@@ -1,5 +1,5 @@
-import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react";
-import { deleteAdminProduct, getAdminProducts } from "../../features/admin/api/adminProductsApi";
+import { lazy, Suspense, useCallback, useEffect, useState } from "react";
+import { deleteAdminProduct, getAdminProductPage } from "../../features/admin/api/adminProductsApi";
 import type { ProductCategory, ProductDetails } from "../../features/products/types/product.types";
 import {
   formatProductPrice,
@@ -29,6 +29,8 @@ export default function AdminProductsPage() {
   const [category, setCategory] = useState<"all" | ProductCategory>("all");
   const [availability, setAvailability] = useState<AvailabilityFilter>("all");
   const [page, setPage] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
   const [editingProduct, setEditingProduct] = useState<ProductDetails | null | undefined>(undefined);
   const [deletingProduct, setDeletingProduct] = useState<ProductDetails | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -38,7 +40,19 @@ export default function AdminProductsPage() {
     setError(null);
 
     try {
-      setProducts(await getAdminProducts(signal));
+      const result = await getAdminProductPage(
+        {
+          page,
+          pageSize: PAGE_SIZE,
+          search,
+          category,
+          availability,
+        },
+        signal,
+      );
+      setProducts(result.items);
+      setTotalCount(result.totalCount);
+      setTotalPages(result.totalPages);
     } catch (loadError) {
       if (!(loadError instanceof DOMException && loadError.name === "AbortError")) {
         setError(loadError instanceof Error ? loadError.message : "A termékek betöltése nem sikerült.");
@@ -46,7 +60,7 @@ export default function AdminProductsPage() {
     } finally {
       if (!signal?.aborted) setLoading(false);
     }
-  }, []);
+  }, [availability, category, page, search]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -60,21 +74,11 @@ export default function AdminProductsPage() {
     return () => window.clearTimeout(timeout);
   }, [message]);
 
-  const filteredProducts = useMemo(() => {
-    const query = search.trim().toLocaleLowerCase("hu-HU");
-
-    return products.filter((product) => {
-      if (query && !product.name.toLocaleLowerCase("hu-HU").includes(query)) return false;
-      if (category !== "all" && product.category !== category) return false;
-      if (availability === "available" && !product.available) return false;
-      if (availability === "unavailable" && product.available) return false;
-      return true;
-    });
-  }, [products, search, category, availability]);
-
-  const totalPages = Math.max(1, Math.ceil(filteredProducts.length / PAGE_SIZE));
-  const currentPage = Math.min(page, totalPages);
-  const paginatedProducts = filteredProducts.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+  useEffect(() => {
+    if (page > totalPages) {
+      setPage(totalPages);
+    }
+  }, [page, totalPages]);
 
   async function confirmDelete() {
     if (!deletingProduct) return;
@@ -84,9 +88,9 @@ export default function AdminProductsPage() {
 
     try {
       await deleteAdminProduct(deletingProduct.id);
-      setProducts((current) => current.filter((item) => item.id !== deletingProduct.id));
       setDeletingProduct(null);
       setMessage("A termék törlése sikerült.");
+      await loadProducts();
     } catch (deleteError) {
       setError(deleteError instanceof Error ? deleteError.message : "A törlés nem sikerült.");
       setDeletingProduct(null);
@@ -99,6 +103,10 @@ export default function AdminProductsPage() {
     setEditingProduct(undefined);
     setMessage(successMessage);
     await loadProducts();
+  }
+
+  function resetPage() {
+    setPage(1);
   }
 
   return (
@@ -147,7 +155,7 @@ export default function AdminProductsPage() {
               value={search}
               onChange={(event) => {
                 setSearch(event.target.value);
-                setPage(1);
+                resetPage();
               }}
               placeholder="Termék neve"
               className="mt-1.5 w-full rounded-sm border border-site-border px-3 py-2.5 outline-none focus:border-site-green"
@@ -160,7 +168,7 @@ export default function AdminProductsPage() {
               value={category}
               onChange={(event) => {
                 setCategory(event.target.value === "all" ? "all" : Number(event.target.value) as ProductCategory);
-                setPage(1);
+                resetPage();
               }}
               className="mt-1.5 w-full rounded-sm border border-site-border px-3 py-2.5"
             >
@@ -179,7 +187,7 @@ export default function AdminProductsPage() {
               value={availability}
               onChange={(event) => {
                 setAvailability(event.target.value as AvailabilityFilter);
-                setPage(1);
+                resetPage();
               }}
               className="mt-1.5 w-full rounded-sm border border-site-border px-3 py-2.5"
             >
@@ -190,7 +198,7 @@ export default function AdminProductsPage() {
           </label>
         </div>
         <p className="mt-4 text-sm text-site-muted">
-          {filteredProducts.length} termék a(z) {products.length} termékből
+          {totalCount} termék
         </p>
       </section>
 
@@ -200,14 +208,14 @@ export default function AdminProductsPage() {
             <div key={index} className="h-80 animate-pulse rounded-sm border border-site-border bg-white" />
           ))}
         </div>
-      ) : filteredProducts.length === 0 ? (
+      ) : totalCount === 0 ? (
         <section className="rounded-sm border border-site-border bg-white p-8 text-center shadow-sm">
           <h2 className="text-lg font-bold text-site-heading">Nincs találat</h2>
           <p className="mt-2 text-sm text-site-muted">Módosítsd a keresési vagy szűrési feltételeket.</p>
         </section>
       ) : (
         <section className="grid gap-5 md:grid-cols-2 xl:grid-cols-3" aria-label="Terméklista">
-          {paginatedProducts.map((product) => (
+          {products.map((product) => (
             <article key={product.id} className="flex flex-col overflow-hidden rounded-sm border border-site-border bg-white shadow-sm">
               <div className="relative aspect-[16/9] bg-site-surface-soft">
                 <img src={imageUrl(product.image)} alt="" className="h-full w-full object-cover" />
@@ -278,8 +286,8 @@ export default function AdminProductsPage() {
         </section>
       )}
 
-      {!loading && filteredProducts.length > 0 && (
-        <AdminPagination page={currentPage} totalPages={totalPages} onPageChange={setPage} />
+      {!loading && totalCount > 0 && (
+        <AdminPagination page={page} totalPages={totalPages} onPageChange={setPage} />
       )}
 
       {editingProduct !== undefined && (

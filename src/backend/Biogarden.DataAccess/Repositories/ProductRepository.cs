@@ -37,8 +37,10 @@ public sealed class ProductRepository : IProductRepository
     }
 
     public async Task<PagedResult<Product>> GetPagedAsync(
+        string? search,
         IReadOnlyCollection<ProductCategory> categories,
         bool availableOnly,
+        bool unavailableOnly,
         bool deliveryOnly,
         string sort,
         int page,
@@ -49,6 +51,12 @@ public sealed class ProductRepository : IProductRepository
             .AsNoTracking()
             .Where(product => product.RecordStatus == RecordStatus.Active);
 
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var normalizedSearch = search.Trim();
+            query = query.Where(product => product.Name.Contains(normalizedSearch));
+        }
+
         if (categories.Count > 0)
         {
             query = query.Where(product => categories.Contains(product.Category));
@@ -57,6 +65,11 @@ public sealed class ProductRepository : IProductRepository
         if (availableOnly)
         {
             query = query.Where(product => product.Available);
+        }
+
+        if (unavailableOnly)
+        {
+            query = query.Where(product => !product.Available);
         }
 
         if (deliveryOnly)
