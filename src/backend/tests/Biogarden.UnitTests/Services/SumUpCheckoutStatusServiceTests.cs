@@ -81,6 +81,87 @@ public sealed class SumUpCheckoutStatusServiceTests
     }
 
     [Fact]
+    public async Task HandleAsync_ForExpiredCheckout_MarksOrderPaymentFailed()
+    {
+        var payload = CreateCheckoutStatusPayload("checkout_123");
+        var service = CreateService();
+        SetupEventInsert("EXPIRED");
+
+        _checkoutService
+            .Setup(service => service.GetCheckoutAsync(
+                "checkout_123",
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new SumUpCheckoutResult(
+                "checkout_123",
+                "EXPIRED",
+                TransactionCode: "txn_123"));
+        _orderService
+            .Setup(service => service.MarkSumUpPaymentFailedAsync(
+                "checkout_123",
+                "txn_123",
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(CreateOrderDto());
+        _unitOfWork.Setup(service => service.SaveChangesAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(1);
+
+        await service.HandleAsync(payload);
+
+        _checkoutService.VerifyAll();
+        _orderService.VerifyAll();
+    }
+
+    [Fact]
+    public async Task HandleAsync_ForUnknownEventType_IgnoresPayload()
+    {
+        var service = CreateService();
+
+        await service.HandleAsync("""
+        {
+          "event_type": "UNKNOWN_EVENT",
+          "id": "checkout_123"
+        }
+        """);
+
+        _checkoutService.Verify(
+            service => service.GetCheckoutAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+        _unitOfWork.Verify(
+            service => service.ExecuteInTransactionAsync(
+                It.IsAny<Func<CancellationToken, Task<PaymentProviderEvent>>>(),
+                It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public async Task HandleAsync_WhenCheckoutLookupFails_DoesNotRecordProcessedEvent()
+    {
+        var payload = CreateCheckoutStatusPayload("checkout_123");
+        var service = CreateService();
+
+        _checkoutService
+            .Setup(service => service.GetCheckoutAsync(
+                "checkout_123",
+                It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new KeyNotFoundException("Checkout not found."));
+
+        await Assert.ThrowsAsync<KeyNotFoundException>(() => service.HandleAsync(payload));
+
+        _unitOfWork.Verify(
+            service => service.ExecuteInTransactionAsync(
+                It.IsAny<Func<CancellationToken, Task<PaymentProviderEvent>>>(),
+                It.IsAny<CancellationToken>()),
+            Times.Never);
+        _orderService.Verify(
+            service => service.ConfirmSumUpCheckoutAsync(
+                It.IsAny<string>(),
+                It.IsAny<string?>(),
+                It.IsAny<decimal?>(),
+                It.IsAny<string?>(),
+                It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    [Fact]
     public async Task HandleAsync_WhenEventWasAlreadyReceived_IgnoresDuplicate()
     {
         var payload = CreateCheckoutStatusPayload("checkout_123");

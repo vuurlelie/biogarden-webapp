@@ -526,6 +526,29 @@ public sealed class OrderServiceTests
     }
 
     [Fact]
+    public async Task ConfirmSumUpCheckoutAsync_WhenCurrencyDoesNotMatch_ThrowsAndDoesNotSave()
+    {
+        var order = CreateOrder(null);
+        order.SumUpCheckoutId = "checkout_123";
+        order.TotalPrice = 3600;
+
+        _orders
+            .Setup(x => x.GetBySumUpCheckoutIdAsync("checkout_123", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(order);
+
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _service.ConfirmSumUpCheckoutAsync(
+                "checkout_123",
+                "txn_123",
+                3600,
+                "EUR"));
+
+        Assert.Contains("currency", exception.Message);
+        _orders.Verify(x => x.Update(It.IsAny<Order>()), Times.Never);
+        _unitOfWork.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
     public async Task CancelOrderAsync_WhenPaid_RestoresStockAndMarksRefundPending()
     {
         var userId = Guid.NewGuid();
