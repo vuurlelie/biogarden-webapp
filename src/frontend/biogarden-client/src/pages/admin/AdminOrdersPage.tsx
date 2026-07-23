@@ -67,6 +67,10 @@ function OrderCard({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const terminal = order.status === 3 || order.status === 4;
+  const detailsId = `admin-order-details-${order.id}`;
+  const statusSelectId = `admin-order-status-${order.id}`;
+  const paymentSelectId = `admin-order-payment-${order.id}`;
+  const cancellationReasonId = `admin-order-cancellation-reason-${order.id}`;
 
   async function save() {
     setSaving(true);
@@ -143,7 +147,7 @@ function OrderCard({
       )}
 
       {open && (
-        <div className="mt-5 min-w-0 space-y-5 border-t border-site-border pt-5">
+        <div id={detailsId} className="mt-5 min-w-0 space-y-5 border-t border-site-border pt-5">
           <section className="min-w-0">
             <h3 className="font-bold text-site-heading">Termékek</h3>
             <div className="mt-2 space-y-2">
@@ -229,9 +233,10 @@ function OrderCard({
             <section className="rounded-sm border border-site-green/30 bg-site-surface-soft p-4">
               <h3 className="font-bold text-site-heading">Rendelés módosítása</h3>
               <div className="mt-3 grid gap-4 sm:grid-cols-2">
-                <label className="text-sm font-semibold">
+                <label htmlFor={statusSelectId} className="text-sm font-semibold">
                   Rendelés állapota
                   <select
+                    id={statusSelectId}
                     value={status}
                     onChange={(event) => setStatus(Number(event.target.value) as OrderStatus)}
                     className="mt-1 w-full rounded-sm border border-site-border bg-white px-3 py-2.5"
@@ -244,9 +249,10 @@ function OrderCard({
                   </select>
                 </label>
 
-                <label className="text-sm font-semibold">
+                <label htmlFor={paymentSelectId} className="text-sm font-semibold">
                   Fizetés állapota
                   <select
+                    id={paymentSelectId}
                     value={payment}
                     onChange={(event) => setPayment(Number(event.target.value) as PaymentStatus)}
                     className="mt-1 w-full rounded-sm border border-site-border bg-white px-3 py-2.5"
@@ -259,9 +265,10 @@ function OrderCard({
               </div>
 
               {status === 4 && (
-                <label className="mt-4 block text-sm font-semibold">
+                <label htmlFor={cancellationReasonId} className="mt-4 block text-sm font-semibold">
                   Lemondás oka
                   <textarea
+                    id={cancellationReasonId}
                     value={reason}
                     onChange={(event) => setReason(event.target.value)}
                     maxLength={1000}
@@ -297,6 +304,8 @@ function OrderCard({
         <button
           type="button"
           onClick={() => setOpen((value) => !value)}
+          aria-expanded={open}
+          aria-controls={detailsId}
           className="rounded-sm border border-site-green-dark px-4 py-2.5 text-sm font-semibold text-site-green-dark hover:bg-site-surface-soft"
         >
           {open ? "Részletek bezárása" : "Részletek"}

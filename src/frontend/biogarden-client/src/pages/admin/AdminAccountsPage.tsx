@@ -35,6 +35,7 @@ function UserCard({ user, onUpdate, onErase, onMessage }: {
   const [busy, setBusy] = useState<string | null>(null);
   const [note, setNote] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const noteId = `admin-user-request-note-${user.id}`;
 
   function showSelfActionWarning() {
     window.alert("A saját fiókod admin jogosultságát nem veheted el, és a saját fiókodat nem deaktiválhatod, nem törölheted és nem anonimizálhatod.");
@@ -108,12 +109,16 @@ function UserCard({ user, onUpdate, onErase, onMessage }: {
           <h3 className="font-bold text-site-heading">Függő kérelem: {requestLabel(user.pendingRequest.type)}</h3>
           <p className="mt-2 text-sm leading-6 text-site-text">{user.pendingRequest.message}</p>
           {user.pendingRequest.reason && <p className="mt-2 break-words text-sm text-site-muted">Megjegyzés: {user.pendingRequest.reason}</p>}
+          <label htmlFor={noteId} className="mt-3 block text-sm font-semibold text-site-heading">
+            Admin megjegyzés
+          </label>
           <textarea
+            id={noteId}
             value={note}
             onChange={(event) => setNote(event.target.value)}
             placeholder="Admin megjegyzés"
             maxLength={1000}
-            className="mt-3 min-h-20 w-full rounded-sm border border-site-border bg-white px-3 py-2.5 text-sm"
+            className="mt-1.5 min-h-20 w-full rounded-sm border border-site-border bg-white px-3 py-2.5 text-sm"
           />
           <div className="mt-3 flex flex-wrap gap-2">
             {user.pendingRequest.type === 2 && (
@@ -282,21 +287,21 @@ export default function AdminAccountsPage() {
       {error && <div role="alert" className="rounded-sm bg-site-danger-soft p-4 text-site-danger">{error}</div>}
 
       <section className="grid gap-4 rounded-sm border border-site-border bg-white p-4 shadow-sm md:grid-cols-3">
-        <label className="text-sm font-semibold">
+        <label htmlFor="admin-account-search" className="text-sm font-semibold">
           Keresés
-          <input value={search} onChange={(event) => { setSearch(event.target.value); setPage(1); }} placeholder="Név, email, telefon, cég" className="mt-1.5 w-full rounded-sm border border-site-border px-3 py-2.5" />
+          <input id="admin-account-search" value={search} onChange={(event) => { setSearch(event.target.value); setPage(1); }} placeholder="Név, email, telefon, cég" className="mt-1.5 w-full rounded-sm border border-site-border px-3 py-2.5" />
         </label>
-        <label className="text-sm font-semibold">
+        <label htmlFor="admin-account-role" className="text-sm font-semibold">
           Szerepkör
-          <select value={role} onChange={(event) => { setRole(event.target.value as typeof role); setPage(1); }} className="mt-1.5 w-full rounded-sm border border-site-border px-3 py-2.5">
+          <select id="admin-account-role" value={role} onChange={(event) => { setRole(event.target.value as typeof role); setPage(1); }} className="mt-1.5 w-full rounded-sm border border-site-border px-3 py-2.5">
             <option value="all">Minden szerepkör</option>
             <option value="admin">Admin</option>
             <option value="customer">Felhasználó</option>
           </select>
         </label>
-        <label className="text-sm font-semibold">
+        <label htmlFor="admin-account-status" className="text-sm font-semibold">
           Állapot
-          <select value={status} onChange={(event) => { setStatus(event.target.value as typeof status); setPage(1); }} className="mt-1.5 w-full rounded-sm border border-site-border px-3 py-2.5">
+          <select id="admin-account-status" value={status} onChange={(event) => { setStatus(event.target.value as typeof status); setPage(1); }} className="mt-1.5 w-full rounded-sm border border-site-border px-3 py-2.5">
             <option value="all">Minden állapot</option>
             <option value="active">Aktív</option>
             <option value="inactive">Inaktív</option>

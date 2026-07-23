@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import {
   cancelOrder,
@@ -15,6 +15,7 @@ import {
   getPaymentStatusLabel,
 } from "../../features/account/utils/orderLabels";
 import { ROUTES } from "../../shared/constants/routes";
+import { useModalFocus } from "../../shared/hooks/useModalFocus";
 import NotFoundPage from "../public/NotFoundPage";
 
 export default function AccountOrderDetailsPage() {
@@ -31,6 +32,12 @@ export default function AccountOrderDetailsPage() {
   const [withdrawalReason, setWithdrawalReason] = useState("");
   const [isRequestingWithdrawal, setIsRequestingWithdrawal] = useState(false);
   const [withdrawalSuccess, setWithdrawalSuccess] = useState<string | null>(null);
+  const cancellationSuccessModalRef = useRef<HTMLElement | null>(null);
+
+  useModalFocus(cancellationSuccessModalRef, {
+    isOpen: Boolean(cancellationSuccess),
+    onClose: () => setCancellationSuccess(null),
+  });
 
   async function handleWithdrawalRequest() {
     if (!order) return;
@@ -220,9 +227,10 @@ export default function AccountOrderDetailsPage() {
             {withdrawalSuccess}
           </div>
         )}
-        <label className="mt-4 block text-sm font-semibold text-site-heading">
+        <label htmlFor="account-withdrawal-reason" className="mt-4 block text-sm font-semibold text-site-heading">
           Kérés leírása
           <textarea
+            id="account-withdrawal-reason"
             value={withdrawalReason}
             onChange={(event) => setWithdrawalReason(event.target.value)}
             disabled={hasPendingWithdrawalRequest}
@@ -244,11 +252,29 @@ export default function AccountOrderDetailsPage() {
       {(order.status === 0 || order.status === 1) && (
         <section className="mt-8 border-t border-site-border pt-6">
           {!showCancellation ? (
-            <button type="button" onClick={() => setShowCancellation(true)} className="rounded-sm border border-site-danger px-5 py-2.5 font-semibold text-site-danger hover:bg-site-danger-soft">Rendelés lemondása</button>
+            <button
+              type="button"
+              onClick={() => setShowCancellation(true)}
+              aria-expanded={showCancellation}
+              aria-controls="account-cancellation-panel"
+              className="rounded-sm border border-site-danger px-5 py-2.5 font-semibold text-site-danger hover:bg-site-danger-soft"
+            >
+              Rendelés lemondása
+            </button>
           ) : (
-            <div className="rounded-sm bg-site-danger-soft p-5">
+            <div id="account-cancellation-panel" className="rounded-sm bg-site-danger-soft p-5">
               <h2 className="font-bold text-site-danger">Biztosan lemondod a rendelést?</h2>
-              <label className="mt-4 block text-sm font-semibold text-site-heading">Lemondás oka (opcionális)<textarea value={cancellationReason} onChange={(event) => setCancellationReason(event.target.value)} maxLength={500} rows={3} className="mt-2 block w-full rounded-sm border border-site-border bg-white px-3 py-2.5" /></label>
+              <label htmlFor="account-cancellation-reason" className="mt-4 block text-sm font-semibold text-site-heading">
+                Lemondás oka (opcionális)
+                <textarea
+                  id="account-cancellation-reason"
+                  value={cancellationReason}
+                  onChange={(event) => setCancellationReason(event.target.value)}
+                  maxLength={500}
+                  rows={3}
+                  className="mt-2 block w-full rounded-sm border border-site-border bg-white px-3 py-2.5"
+                />
+              </label>
               <div className="mt-4 flex flex-wrap gap-3"><button type="button" onClick={() => void handleCancelOrder()} disabled={isCancelling} className="rounded-sm bg-site-danger px-5 py-2.5 font-semibold text-white disabled:opacity-50">{isCancelling ? "Lemondás..." : "Igen, lemondom"}</button><button type="button" onClick={() => setShowCancellation(false)} disabled={isCancelling} className="rounded-sm border border-site-border bg-white px-5 py-2.5">Mégsem</button></div>
             </div>
           )}
@@ -257,7 +283,11 @@ export default function AccountOrderDetailsPage() {
 
       {cancellationSuccess && (
         <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/50 p-4" role="dialog" aria-modal="true" aria-labelledby="cancellation-success-title">
-          <section className="w-full max-w-md rounded-sm bg-white p-6 text-center shadow-xl">
+          <section
+            ref={cancellationSuccessModalRef}
+            tabIndex={-1}
+            className="w-full max-w-md rounded-sm bg-white p-6 text-center shadow-xl outline-none"
+          >
             <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-site-surface-soft text-2xl text-site-green-dark">✓</div>
             <h2 id="cancellation-success-title" className="mt-4 text-2xl font-bold text-site-heading">Sikeres lemondás</h2>
             <p className="mt-3 text-site-text">{cancellationSuccess}</p>
