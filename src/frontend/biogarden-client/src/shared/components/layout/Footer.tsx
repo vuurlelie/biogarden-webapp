@@ -1,10 +1,10 @@
-import { useEffect, useState, type MouseEvent, type ReactNode } from "react";
+import { lazy, Suspense, useEffect, useState, type MouseEvent, type ReactNode } from "react";
 import { NavLink, useLocation } from "react-router-dom";
-import ContactForm from "../../../features/contact/components/ContactForm";
 import { ROUTES } from "../../constants/routes";
 
 const mapSource =
   "https://www.google.com/maps?q=Bakonyszentl%C3%A1szl%C3%B3%2C%208431&z=10&output=embed";
+const ContactForm = lazy(() => import("../../../features/contact/components/ContactForm"));
 
 export default function Footer() {
   const { pathname } = useLocation();
@@ -212,11 +212,19 @@ export default function Footer() {
             >
               ×
             </button>
-            <ContactForm
-              className="pt-12 shadow-2xl"
-              surfaceClassName="bg-white"
-              titleId="contact-modal-title"
-            />
+            <Suspense
+              fallback={
+                <div className="rounded-sm bg-white p-10 pt-12 text-center text-site-muted shadow-2xl">
+                  Kapcsolati űrlap betöltése...
+                </div>
+              }
+            >
+              <ContactForm
+                className="pt-12 shadow-2xl"
+                surfaceClassName="bg-white"
+                titleId="contact-modal-title"
+              />
+            </Suspense>
           </div>
         </div>
       )}

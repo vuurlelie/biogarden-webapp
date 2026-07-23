@@ -7,6 +7,7 @@ public sealed class SecurityHeadersMiddleware
         "base-uri 'self'; " +
         "frame-ancestors 'none'; " +
         "form-action 'self'; " +
+        "frame-src https://www.google.com https://maps.google.com; " +
         "img-src 'self' data:; " +
         "style-src 'self' 'unsafe-inline'; " +
         "script-src 'self' 'unsafe-inline'; " +

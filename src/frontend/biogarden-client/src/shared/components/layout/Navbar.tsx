@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
-import { Link, NavLink, useNavigate } from "react-router-dom";
+import { useEffect, useMemo, useState, type MouseEvent } from "react";
+import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
 import { clearAuthSession } from "../../../features/auth/utils/authStorage";
 import logo from "../../../assets/images/logo.png";
 import bakonykincse from "../../../assets/images/bakonykincse.png";
@@ -28,6 +28,7 @@ export default function Navbar({
   cartItemCount = 0,
 }: NavbarProps) {
   const navigate = useNavigate();
+  const { pathname, search } = useLocation();
   const [isScrolled, setIsScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [mobileAccountOpen, setMobileAccountOpen] = useState(false);
@@ -72,6 +73,21 @@ export default function Navbar({
     window.scrollTo({ top: 0, behavior: "smooth" });
     closeMobile();
   };
+
+  const scrollTopWhenCurrentPage =
+    (target: string) => (event: MouseEvent<HTMLAnchorElement>) => {
+      const [targetPath, targetQuery] = target.split("?");
+      const targetSearch = targetQuery ? `?${targetQuery}` : "";
+      const isCurrentTarget = pathname === targetPath && search === targetSearch;
+
+      if (!isCurrentTarget) {
+        closeMobile();
+        return;
+      }
+
+      event.preventDefault();
+      goTop();
+    };
 
   const navLinkClass = useMemo(
   () =>
@@ -123,7 +139,7 @@ export default function Navbar({
         >
           <Link
             to={ROUTES.home}
-            onClick={goTop}
+            onClick={scrollTopWhenCurrentPage(ROUTES.home)}
             aria-label="Kezdőlap"
             className="flex min-w-0 items-center gap-3"
           >
@@ -140,12 +156,12 @@ export default function Navbar({
           </Link>
 
           <div className="hidden lg:flex items-center gap-8">
-            <NavLink to={ROUTES.about} className={navLinkClass}>
+            <NavLink to={ROUTES.about} className={navLinkClass} onClick={scrollTopWhenCurrentPage(ROUTES.about)}>
               Rólunk
             </NavLink>
 
             <div className="group relative">
-              <NavLink to={ROUTES.products} className={navLinkClass}>
+              <NavLink to={ROUTES.products} className={navLinkClass} onClick={scrollTopWhenCurrentPage(ROUTES.products)}>
                 <span className="flex items-center gap-1">
                   Termékek
                   <svg
@@ -166,6 +182,7 @@ export default function Navbar({
                   <NavLink
                     key={item.to}
                     to={item.to}
+                    onClick={scrollTopWhenCurrentPage(item.to)}
                     className="block rounded-xl px-4 py-3 text-sm text-site-nav transition hover:bg-site-surface-soft hover:text-site-green-dark"
                   >
                     {item.label}
@@ -174,7 +191,7 @@ export default function Navbar({
               </div>
             </div>
 
-            <NavLink to={ROUTES.posts} className={navLinkClass}>
+            <NavLink to={ROUTES.posts} className={navLinkClass} onClick={scrollTopWhenCurrentPage(ROUTES.posts)}>
               Tudástár
             </NavLink>
 
@@ -267,11 +284,11 @@ className="inline-flex items-center text-[0.95rem] lg:text-base uppercase tracki
           ].join(" ")}
         >
           <div className="mx-auto flex max-w-7xl flex-col gap-1 px-4 py-4 sm:px-6">
-            <NavLink to={ROUTES.about} className={mobileItemClass} onClick={closeMobile}>
+            <NavLink to={ROUTES.about} className={mobileItemClass} onClick={scrollTopWhenCurrentPage(ROUTES.about)}>
               Rólunk
             </NavLink>
 
-            <NavLink to={ROUTES.products} className={mobileItemClass} onClick={closeMobile}>
+            <NavLink to={ROUTES.products} className={mobileItemClass} onClick={scrollTopWhenCurrentPage(ROUTES.products)}>
               Termékek
             </NavLink>
 
@@ -286,7 +303,7 @@ className="inline-flex items-center text-[0.95rem] lg:text-base uppercase tracki
                     key={item.to}
                     to={item.to}
                     className="rounded-lg px-2 py-2 text-sm text-site-nav hover:bg-white hover:text-site-green-dark"
-                    onClick={closeMobile}
+                    onClick={scrollTopWhenCurrentPage(item.to)}
                   >
                     {item.label}
                   </NavLink>
@@ -294,7 +311,7 @@ className="inline-flex items-center text-[0.95rem] lg:text-base uppercase tracki
               </div>
             </div>
 
-            <NavLink to={ROUTES.posts} className={mobileItemClass} onClick={closeMobile}>
+            <NavLink to={ROUTES.posts} className={mobileItemClass} onClick={scrollTopWhenCurrentPage(ROUTES.posts)}>
               Tudástár
             </NavLink>
 
