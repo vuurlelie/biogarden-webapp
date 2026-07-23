@@ -16,5 +16,7 @@ public class Cart
     public bool IsCheckedOut { get; set; }
     public DateTime? CheckedOutAtUtc { get; set; }
 
+    public byte[] RowVersion { get; set; } = [];
+
     public ICollection<CartItem> Items { get; set; } = new List<CartItem>();
 }

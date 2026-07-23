@@ -8,6 +8,8 @@ public class Order
 
     public required string OrderNumber { get; set; }
 
+    public string? IdempotencyKey { get; set; }
+
     public Guid? UserId { get; set; }
     public ApplicationUser? User { get; set; }
 

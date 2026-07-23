@@ -64,6 +64,18 @@ public class OrderRepository : IOrderRepository
             .FirstOrDefaultAsync(order => order.CartId == cartId, cancellationToken);
     }
 
+    public async Task<Order?> GetByIdempotencyKeyWithItemsAsync(
+        string idempotencyKey,
+        CancellationToken cancellationToken = default)
+    {
+        return await _context.Orders
+            .Include(order => order.Items)
+            .ThenInclude(orderItem => orderItem.Product)
+            .Include(order => order.Cart)
+            .AsSplitQuery()
+            .FirstOrDefaultAsync(order => order.IdempotencyKey == idempotencyKey, cancellationToken);
+    }
+
     public async Task<Order?> GetBySumUpCheckoutIdAsync(
         string sumUpCheckoutId,
         CancellationToken cancellationToken = default)

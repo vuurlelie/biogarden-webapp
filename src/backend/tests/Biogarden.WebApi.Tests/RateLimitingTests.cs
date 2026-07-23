@@ -143,6 +143,29 @@ public sealed class RateLimitingTests
         await AssertRateLimitedResponse(rejectedResponse);
     }
 
+    [Fact]
+    public async Task CheckoutEndpoint_PassesIdempotencyKeyToOrderService()
+    {
+        using var factory = CreateFactory(
+            services =>
+            {
+                services.RemoveAll<IOrderService>();
+                services.AddSingleton<CapturingOrderService>();
+                services.AddSingleton<IOrderService>(provider => provider.GetRequiredService<CapturingOrderService>());
+            });
+
+        using var client = factory.CreateClient();
+        using var response = await client.PostAsync(
+            "/api/orders",
+            CreateOrderRequestContent("checkout-key-123"));
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var orderService = factory.Services.GetRequiredService<CapturingOrderService>();
+
+        Assert.Equal("checkout-key-123", orderService.LastPlaceOrderDto?.IdempotencyKey);
+    }
+
     private static WebApplicationFactory<Program> CreateFactory(
         Action<IServiceCollection> configureServices)
     {
@@ -206,11 +229,12 @@ public sealed class RateLimitingTests
             """);
     }
 
-    private static StringContent CreateOrderRequestContent()
+    private static StringContent CreateOrderRequestContent(string idempotencyKey = "checkout-rate-limit-key")
     {
         return CreateJsonContent(
-            """
+            $$"""
             {
+              "idempotencyKey": "{{idempotencyKey}}",
               "fulfillmentMethod": 0,
               "customerName": "Test User",
               "customerEmail": "test@example.com",
@@ -365,9 +389,9 @@ public sealed class RateLimitingTests
         }
     }
 
-    private sealed class SuccessfulOrderService : IOrderService
+    private class SuccessfulOrderService : IOrderService
     {
-        public Task<OrderDto> CreateOrderFromCartAsync(
+        public virtual Task<OrderDto> CreateOrderFromCartAsync(
             Guid? userId,
             string? sessionId,
             PlaceOrderDto dto,
@@ -485,6 +509,21 @@ public sealed class RateLimitingTests
                 CustomerPhone = "+36301234567",
                 CreatedAtUtc = DateTime.UtcNow
             };
+        }
+    }
+
+    private sealed class CapturingOrderService : SuccessfulOrderService
+    {
+        public PlaceOrderDto? LastPlaceOrderDto { get; private set; }
+
+        public override Task<OrderDto> CreateOrderFromCartAsync(
+            Guid? userId,
+            string? sessionId,
+            PlaceOrderDto dto,
+            CancellationToken cancellationToken = default)
+        {
+            LastPlaceOrderDto = dto;
+            return base.CreateOrderFromCartAsync(userId, sessionId, dto, cancellationToken);
         }
     }
 }

@@ -17,6 +17,8 @@ public interface IOrderRepository
 
     Task<Order?> GetByCartIdWithItemsAsync(Guid cartId, CancellationToken cancellationToken = default);
 
+    Task<Order?> GetByIdempotencyKeyWithItemsAsync(string idempotencyKey, CancellationToken cancellationToken = default);
+
     Task<Order?> GetBySumUpCheckoutIdAsync(
         string sumUpCheckoutId,
         CancellationToken cancellationToken = default);

@@ -13,6 +13,7 @@ import { LEGAL_DOCUMENT_VERSIONS } from "../../shared/constants/legalDocuments";
 import { ROUTES } from "../../shared/constants/routes";
 
 const DRAFT_KEY = "biogarden_checkout_draft";
+const IDEMPOTENCY_KEY = "biogarden_checkout_idempotency_key";
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 const PRICE = new Intl.NumberFormat("hu-HU", {
   style: "currency",
@@ -146,6 +147,15 @@ function loadDraft(): Draft {
   } catch {
     return EMPTY_DRAFT;
   }
+}
+
+function getOrCreateCheckoutIdempotencyKey(): string {
+  const existing = sessionStorage.getItem(IDEMPOTENCY_KEY);
+  if (existing) return existing;
+
+  const generated = crypto.randomUUID().replaceAll("-", "");
+  sessionStorage.setItem(IDEMPOTENCY_KEY, generated);
+  return generated;
 }
 
 function buildCustomerName(profile: UserProfile): string {
@@ -557,6 +567,7 @@ export default function CheckoutPage() {
 
     try {
       const order = await createOrder({
+        idempotencyKey: getOrCreateCheckoutIdempotencyKey(),
         fulfillmentMethod: method,
         customerName: draft.customerName,
         customerEmail: draft.customerEmail,
@@ -592,6 +603,7 @@ export default function CheckoutPage() {
       });
 
       sessionStorage.removeItem(DRAFT_KEY);
+      sessionStorage.removeItem(IDEMPOTENCY_KEY);
 
       if (paymentMethod === "online-card") {
         const checkout = await createSumUpCheckout(order.id);

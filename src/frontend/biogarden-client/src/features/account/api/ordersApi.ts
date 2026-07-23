@@ -120,6 +120,7 @@ export async function requestPublicOrderWithdrawal(request: {
 
 export async function createOrder(
   order: {
+    idempotencyKey: string;
     addressId?: number | null;
     deliveryAddressId?: number | null;
     fulfillmentMethod: 0 | 1 | 2;

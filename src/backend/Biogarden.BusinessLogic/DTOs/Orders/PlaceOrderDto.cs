@@ -4,6 +4,8 @@ namespace Biogarden.BusinessLogic.DTOs.Orders;
 
 public class PlaceOrderDto
 {
+    public string? IdempotencyKey { get; set; }
+
     public int? AddressId { get; set; }
     public int? DeliveryAddressId { get; set; }
 

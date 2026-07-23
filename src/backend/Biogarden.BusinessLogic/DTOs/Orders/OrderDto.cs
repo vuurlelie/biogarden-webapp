@@ -8,6 +8,8 @@ public class OrderDto
 
     public string OrderNumber { get; set; } = string.Empty;
 
+    public string? IdempotencyKey { get; set; }
+
     public Guid? UserId { get; set; }
 
     public int? AddressId { get; set; }

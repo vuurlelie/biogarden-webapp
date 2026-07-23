@@ -50,6 +50,16 @@ public class OrderService : IOrderService
         PlaceOrderDto dto,
         CancellationToken cancellationToken = default)
     {
+        var idempotencyKey = NormalizeIdempotencyKey(dto.IdempotencyKey);
+        var existingOrderByKey = await _unitOfWork.OrderRepository.GetByIdempotencyKeyWithItemsAsync(
+            idempotencyKey,
+            cancellationToken);
+        if (existingOrderByKey is not null)
+        {
+            EnsureCanAccessOrder(existingOrderByKey, userId, sessionId);
+            return existingOrderByKey.ToDto();
+        }
+
         var cart = userId.HasValue
             ? await _unitOfWork.CartRepository.GetActiveByUserIdAsync(userId.Value, cancellationToken)
             : string.IsNullOrWhiteSpace(sessionId)
@@ -180,6 +190,7 @@ public class OrderService : IOrderService
                 {
                     Id = Guid.NewGuid(),
                     OrderNumber = GenerateOrderNumber(),
+                    IdempotencyKey = idempotencyKey,
                     UserId = userId,
                     AddressId = customerType == CustomerType.Company ? dto.AddressId : null,
                     CustomerName = user is null || useManualContact
@@ -229,6 +240,22 @@ public class OrderService : IOrderService
                         throw new InvalidOperationException("Product missing during order creation.");
                     }
 
+                    if (!product.Available)
+                    {
+                        throw new InvalidOperationException("A termék időközben elérhetetlenné vált. Kérjük, ellenőrizd újra a kosarat.");
+                    }
+
+                    if (dto.FulfillmentMethod != FulfillmentMethod.PersonalPickup &&
+                        !product.DeliveryAvailable)
+                    {
+                        throw new InvalidOperationException("A kosárban időközben személyes átvételes termék jelent meg. Kérjük, ellenőrizd újra a kosarat.");
+                    }
+
+                    if (product.StockQuantity < cartItem.Quantity)
+                    {
+                        throw new InvalidOperationException("A kosárban lévő készlet időközben megváltozott. Kérjük, ellenőrizd újra a kosarat.");
+                    }
+
                     var lineTotal = product.Price * cartItem.Quantity;
 
                     order.Items.Add(new OrderItem
@@ -245,8 +272,6 @@ public class OrderService : IOrderService
 
                     totalPrice += lineTotal;
                     product.StockQuantity -= cartItem.Quantity;
-                    if (product.StockQuantity < 0)
-                        throw new InvalidOperationException("Stock inconsistency detected during order creation.");
                 }
 
                 order.TotalPrice = totalPrice;
@@ -273,9 +298,13 @@ public class OrderService : IOrderService
         }
         catch (DbUpdateException exception)
         {
-            var existingOrder = await GetLatestCheckedOutOrderAsync(userId, sessionId, cancellationToken);
+            var existingOrder = await _unitOfWork.OrderRepository.GetByIdempotencyKeyWithItemsAsync(
+                idempotencyKey,
+                cancellationToken);
+            existingOrder ??= await GetLatestCheckedOutOrderAsync(userId, sessionId, cancellationToken);
             if (existingOrder is not null)
             {
+                EnsureCanAccessOrder(existingOrder, userId, sessionId);
                 return existingOrder.ToDto();
             }
 
@@ -351,7 +380,7 @@ public class OrderService : IOrderService
             cancellationToken)
             ?? throw new KeyNotFoundException("Order not found.");
 
-        EnsureCanAccessOrderPayment(order, userId, sessionId);
+        EnsureCanAccessOrder(order, userId, sessionId);
 
         if (order.Status == OrderStatus.Cancelled)
         {
@@ -646,7 +675,7 @@ public class OrderService : IOrderService
         return deletedAtUtc.HasValue && deletedAtUtc.Value >= visibleFromUtc;
     }
 
-    private static void EnsureCanAccessOrderPayment(Order order, Guid? userId, string? sessionId)
+    private static void EnsureCanAccessOrder(Order order, Guid? userId, string? sessionId)
     {
         if (order.UserId.HasValue)
         {
@@ -725,6 +754,23 @@ public class OrderService : IOrderService
 
     private static string? NormalizeOptional(string? value) =>
         string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
+    private static string NormalizeIdempotencyKey(string? value)
+    {
+        var normalized = NormalizeOptional(value);
+        if (normalized is null)
+        {
+            throw new ArgumentException("A rendelés azonosító kulcsa hiányzik. Kérjük, frissítsd az oldalt, és próbáld újra.");
+        }
+
+        if (normalized.Length > 100 ||
+            !System.Text.RegularExpressions.Regex.IsMatch(normalized, @"^[A-Za-z0-9_-]{8,100}$"))
+        {
+            throw new ArgumentException("A rendelés azonosító kulcsa érvénytelen. Kérjük, frissítsd az oldalt, és próbáld újra.");
+        }
+
+        return normalized;
+    }
 
     private static string NormalizeRequired(string? value, string fieldName, int minLength, int maxLength)
     {
