@@ -1,14 +1,13 @@
-import { useEffect, useMemo, useState } from "react";
-import KnowledgeNavigation from "../../features/posts/components/KnowledgeNavigation";
+import { useEffect, useState } from "react";
+import { getPostPage } from "../../features/posts/api/postsApi";
+import Contents from "../../features/posts/components/Contents";
 import FilterAndSort from "../../features/posts/components/FilterAndSort";
 import KnowledgeCards from "../../features/posts/components/KnowledgeCards";
+import KnowledgeNavigation from "../../features/posts/components/KnowledgeNavigation";
 import KnowledgePagination from "../../features/posts/components/KnowledgePagination";
 import PictureGrid from "../../features/posts/components/PictureGrid";
-import Contents from "../../features/posts/components/Contents";
 import type { Post, PostSortOrder } from "../../features/posts/types/post.types";
 import Seo from "../../shared/seo/Seo";
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 const POSTS_PER_PAGE = 4;
 
@@ -17,95 +16,73 @@ export default function PostsPage() {
   const [selectedCategory, setSelectedCategory] = useState<"all" | 0 | 1>("all");
   const [sortOrder, setSortOrder] = useState<PostSortOrder>("newest");
   const [currentPage, setCurrentPage] = useState(1);
-
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
 
-    function handlePageChange(page: number) {
-    setCurrentPage(page);
-
-    requestAnimationFrame(() => {
-      const target = document.getElementById("posts-top");
-
-      if (target) {
-        target.scrollIntoView({
-          behavior: "smooth",
-          block: "start",
-        });
-        return;
-      }
-
-      window.scrollTo({
-        top: 0,
-        behavior: "smooth",
-      });
-    });
-  }
-  
   useEffect(() => {
+    const controller = new AbortController();
+
     async function loadPosts() {
       try {
         setIsLoading(true);
         setHasError(false);
 
-        const url = `${API_BASE_URL}/api/posts`;
-        const response = await fetch(url);
+        const result = await getPostPage(
+          {
+            page: currentPage,
+            pageSize: POSTS_PER_PAGE,
+            category: selectedCategory,
+            sort: sortOrder,
+          },
+          controller.signal,
+        );
 
-        if (!response.ok) {
-          throw new Error("Failed to fetch posts.");
-        }
-
-        const data: Post[] = await response.json();
-        setPosts(data);
+        setPosts(result.items);
+        setTotalPages(result.totalPages);
+        setTotalCount(result.totalCount);
       } catch (error) {
+        if (controller.signal.aborted) return;
+
         console.error(error);
         setHasError(true);
       } finally {
-        setIsLoading(false);
+        if (!controller.signal.aborted) {
+          setIsLoading(false);
+        }
       }
     }
 
-    loadPosts();
-  }, []);
+    void loadPosts();
 
-  const publicPosts = useMemo(() => {
-    return posts.filter((post) => !post.draft);
-  }, [posts]);
+    return () => controller.abort();
+  }, [selectedCategory, sortOrder, currentPage]);
 
-  const filteredPosts = useMemo(() => {
-    if (selectedCategory === "all") {
-      return publicPosts;
-    }
-
-    return publicPosts.filter((post) => post.category === selectedCategory);
-  }, [publicPosts, selectedCategory]);
-
-  const sortedPosts = useMemo(() => {
-    return [...filteredPosts].sort((a, b) => {
-      if (sortOrder === "abc") {
-        return a.title.localeCompare(b.title, "hu", {
-          sensitivity: "base",
-        });
-      }
-
-      const first = new Date(a.publishedAt).getTime();
-      const second = new Date(b.publishedAt).getTime();
-
-      return sortOrder === "newest" ? second - first : first - second;
-    });
-  }, [filteredPosts, sortOrder]);
-
-  const totalPages = Math.ceil(sortedPosts.length / POSTS_PER_PAGE);
-
-  const paginatedPosts = useMemo(() => {
-    const start = (currentPage - 1) * POSTS_PER_PAGE;
-    const end = start + POSTS_PER_PAGE;
-    return sortedPosts.slice(start, end);
-  }, [sortedPosts, currentPage]);
-
-  useEffect(() => {
+  function resetToFirstPage() {
     setCurrentPage(1);
-  }, [selectedCategory, sortOrder]);
+  }
+
+  function handleCategoryChange(value: "all" | 0 | 1) {
+    resetToFirstPage();
+    setSelectedCategory(value);
+  }
+
+  function handleSortChange(value: PostSortOrder) {
+    resetToFirstPage();
+    setSortOrder(value);
+  }
+
+  function handlePageChange(page: number) {
+    setCurrentPage(page);
+
+    requestAnimationFrame(() => {
+      document.getElementById("posts-top")?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    });
+  }
 
   if (isLoading) {
     return (
@@ -137,28 +114,37 @@ export default function PostsPage() {
       />
       <KnowledgeNavigation />
 
-      <div className="mt-4">
+      <div id="posts-top" className="mt-4 scroll-mt-20">
         <FilterAndSort
-        selectedCategory={selectedCategory}
-        sortOrder={sortOrder}
-        onCategoryChange={setSelectedCategory}
-        onSortChange={setSortOrder}
-        currentPage={currentPage}
-        totalPages={totalPages}
-        onPageChange={handlePageChange}
-      />
+          selectedCategory={selectedCategory}
+          sortOrder={sortOrder}
+          onCategoryChange={handleCategoryChange}
+          onSortChange={handleSortChange}
+          currentPage={currentPage}
+          totalPages={totalPages}
+          onPageChange={handlePageChange}
+        />
+      </div>
+
+      <div className="mt-3 text-sm text-site-text">
+        {totalCount > 0
+          ? `${(currentPage - 1) * POSTS_PER_PAGE + 1}-${Math.min(
+            currentPage * POSTS_PER_PAGE,
+            totalCount,
+          )} bejegyzés, összesen: ${totalCount} db`
+          : "Nincs a szűrésnek megfelelő bejegyzés."}
       </div>
 
       <div className="mt-8 grid gap-8 lg:grid-cols-[2fr_1fr]">
         <div>
-          {paginatedPosts.length > 0 ? (
+          {posts.length > 0 ? (
             <>
-              <KnowledgeCards posts={paginatedPosts} />
+              <KnowledgeCards posts={posts} />
 
               <KnowledgePagination
                 currentPage={currentPage}
                 totalPages={totalPages}
-                onPageChange={setCurrentPage}
+                onPageChange={handlePageChange}
               />
             </>
           ) : (
@@ -169,8 +155,8 @@ export default function PostsPage() {
         </div>
 
         <div className="space-y-8">
-          <Contents posts={sortedPosts} />
-          <PictureGrid posts={sortedPosts} />
+          <Contents posts={posts} />
+          <PictureGrid posts={posts} />
         </div>
       </div>
     </div>

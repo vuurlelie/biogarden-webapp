@@ -1,4 +1,5 @@
 using Biogarden.BusinessLogic.Abstractions;
+using Biogarden.BusinessLogic.DTOs.Common;
 using Biogarden.BusinessLogic.DTOs.Products;
 using Microsoft.AspNetCore.Mvc;
 
@@ -16,10 +17,12 @@ public sealed class ProductsController : ControllerBase
     }
 
     [HttpGet]
-    [ProducesResponseType(typeof(IReadOnlyList<ProductListItemDto>), StatusCodes.Status200OK)]
-    public async Task<IReadOnlyList<ProductListItemDto>> GetAll(CancellationToken cancellationToken)
+    [ProducesResponseType(typeof(PagedResultDto<ProductListItemDto>), StatusCodes.Status200OK)]
+    public async Task<PagedResultDto<ProductListItemDto>> GetAll(
+        [FromQuery] ProductListQueryDto query,
+        CancellationToken cancellationToken)
     {
-        return await _productService.GetAllAsync(cancellationToken);
+        return await _productService.GetPagedAsync(query, cancellationToken);
     }
 
     [HttpGet("{productId:int}")]

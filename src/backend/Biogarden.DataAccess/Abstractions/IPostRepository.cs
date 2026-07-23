@@ -1,5 +1,8 @@
 ﻿using Biogarden.DataAccess.Entities;
 
+using Biogarden.DataAccess.Enums;
+using Biogarden.DataAccess.Models;
+
 namespace Biogarden.DataAccess.Abstractions;
 
 public interface IPostRepository
@@ -9,6 +12,14 @@ public interface IPostRepository
 
     Task<IReadOnlyList<Post>> GetAllAsync(CancellationToken cancellationToken = default);
     Task<IReadOnlyList<Post>> GetAllIncludingDeletedAsync(CancellationToken cancellationToken = default);
+
+    Task<PagedResult<Post>> GetPagedAsync(
+        PostCategory? category,
+        bool publicOnly,
+        string sort,
+        int page,
+        int pageSize,
+        CancellationToken cancellationToken = default);
 
     Task AddAsync(Post post, CancellationToken cancellationToken = default);
     void Update(Post post);

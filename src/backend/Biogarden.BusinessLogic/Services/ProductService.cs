@@ -1,7 +1,9 @@
 ﻿using Biogarden.BusinessLogic.Abstractions;
+using Biogarden.BusinessLogic.DTOs.Common;
 using Biogarden.BusinessLogic.DTOs.Products;
 using Biogarden.BusinessLogic.Mappers;
 using Biogarden.DataAccess.Abstractions;
+using Biogarden.DataAccess.Enums;
 
 namespace Biogarden.BusinessLogic.Services;
 
@@ -20,6 +22,28 @@ public sealed class ProductService : IProductService
         var items = products.ToListItemDtos();
 
         return items;
+    }
+
+    public async Task<PagedResultDto<ProductListItemDto>> GetPagedAsync(
+        ProductListQueryDto query,
+        CancellationToken cancellationToken = default)
+    {
+        var page = query.NormalizedPage;
+        var pageSize = query.NormalizedPageSize;
+        var products = await _unitOfWork.ProductRepository.GetPagedAsync(
+            GetCategories(query.Category),
+            query.AvailableOnly,
+            query.DeliveryOnly,
+            query.Sort ?? string.Empty,
+            page,
+            pageSize,
+            cancellationToken);
+
+        return new PagedResultDto<ProductListItemDto>(
+            products.Items.ToListItemDtos(),
+            products.Page,
+            products.PageSize,
+            products.TotalCount);
     }
 
     public async Task<ProductDetailsDto?> GetDetailsAsync(int productId, CancellationToken cancellationToken = default)
@@ -102,4 +126,15 @@ public sealed class ProductService : IProductService
 
     private static string? NormalizeOptional(string? value) =>
         string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
+    private static ProductCategory[] GetCategories(string? category)
+    {
+        return category switch
+        {
+            "zoldsegek" => [ProductCategory.Vegetable],
+            "fuszerek-gyogyteak" => [ProductCategory.HerbalTea, ProductCategory.Spice],
+            "illoolajok-hidrolatumok" => [ProductCategory.EssentialOil, ProductCategory.Hydrolate],
+            _ => []
+        };
+    }
 }

@@ -1,4 +1,5 @@
 ﻿using Biogarden.BusinessLogic.Abstractions;
+using Biogarden.BusinessLogic.DTOs.Common;
 using Biogarden.BusinessLogic.DTOs.Posts;
 using Biogarden.BusinessLogic.Mappers;
 using Biogarden.DataAccess.Abstractions;
@@ -20,6 +21,27 @@ public sealed class PostService : IPostService
         var posts = await _unitOfWork.PostRepository.GetAllAsync(cancellationToken);
         var items = posts.ToListItemDtos();
         return items;
+    }
+
+    public async Task<PagedResultDto<PostListItemDto>> GetPagedAsync(
+        PostListQueryDto query,
+        CancellationToken cancellationToken = default)
+    {
+        var page = query.NormalizedPage;
+        var pageSize = query.NormalizedPageSize;
+        var posts = await _unitOfWork.PostRepository.GetPagedAsync(
+            query.Category,
+            publicOnly: true,
+            query.Sort ?? string.Empty,
+            page,
+            pageSize,
+            cancellationToken);
+
+        return new PagedResultDto<PostListItemDto>(
+            posts.Items.ToListItemDtos(),
+            posts.Page,
+            posts.PageSize,
+            posts.TotalCount);
     }
 
     public async Task<PostDetailsDto?> GetDetailsAsync(int postId, CancellationToken cancellationToken = default)

@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { getProducts } from "../../features/products/api/productsApi";
+import { getProductPage } from "../../features/products/api/productsApi";
 import ProductCards from "../../features/products/components/ProductCards";
 import ProductControls from "../../features/products/components/ProductControls";
 import ProductNavigation from "../../features/products/components/ProductNavigation";
@@ -10,10 +10,7 @@ import type {
   ProductListItem,
   ProductSortOrder,
 } from "../../features/products/types/product.types";
-import {
-  isProductCategoryFilter,
-  matchesProductCategory,
-} from "../../features/products/utils/productFilters";
+import { isProductCategoryFilter } from "../../features/products/utils/productFilters";
 import Seo from "../../shared/seo/Seo";
 
 const PRODUCTS_PER_PAGE = 12;
@@ -26,6 +23,8 @@ export default function ProductsPage() {
   const [availableOnly, setAvailableOnly] = useState(false);
   const [deliveryOnly, setDeliveryOnly] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
   const [searchParams, setSearchParams] = useSearchParams();
 
   const categoryParam = searchParams.get("category");
@@ -36,24 +35,34 @@ export default function ProductsPage() {
     : "all";
 
   useEffect(() => {
-    let shouldIgnoreResult = false;
+    const controller = new AbortController();
 
     async function loadProducts() {
       try {
         setIsLoading(true);
         setHasError(false);
-        const loadedProducts = await getProducts();
+        const result = await getProductPage(
+          {
+            page: currentPage,
+            pageSize: PRODUCTS_PER_PAGE,
+            category: selectedCategory,
+            sort: sortOrder,
+            availableOnly,
+            deliveryOnly,
+          },
+          controller.signal,
+        );
 
-        if (!shouldIgnoreResult) {
-          setProducts(loadedProducts);
-        }
+        setProducts(result.items);
+        setTotalCount(result.totalCount);
+        setTotalPages(result.totalPages);
       } catch (error) {
-        if (shouldIgnoreResult) return;
+        if (controller.signal.aborted) return;
 
         console.error(error);
         setHasError(true);
       } finally {
-        if (!shouldIgnoreResult) {
+        if (!controller.signal.aborted) {
           setIsLoading(false);
         }
       }
@@ -61,49 +70,12 @@ export default function ProductsPage() {
 
     void loadProducts();
 
-    return () => {
-      shouldIgnoreResult = true;
-    };
-  }, []);
+    return () => controller.abort();
+  }, [selectedCategory, sortOrder, availableOnly, deliveryOnly, currentPage]);
 
-  const filteredProducts = useMemo(() => {
-    return products.filter((product) => {
-      if (!matchesProductCategory(product.category, selectedCategory)) {
-        return false;
-      }
-
-      if (availableOnly && !product.available) {
-        return false;
-      }
-
-      return !deliveryOnly || product.deliveryAvailable;
-    });
-  }, [products, selectedCategory, availableOnly, deliveryOnly]);
-
-  const sortedProducts = useMemo(() => {
-    return [...filteredProducts].sort((first, second) => {
-      if (sortOrder === "price-asc") return first.price - second.price;
-      if (sortOrder === "price-desc") return second.price - first.price;
-
-      return first.name.localeCompare(second.name, "hu", {
-        sensitivity: "base",
-      });
-    });
-  }, [filteredProducts, sortOrder]);
-
-  const totalPages = Math.max(
-    1,
-    Math.ceil(sortedProducts.length / PRODUCTS_PER_PAGE),
-  );
-  const startIndex = (currentPage - 1) * PRODUCTS_PER_PAGE;
-  const paginatedProducts = sortedProducts.slice(
-    startIndex,
-    startIndex + PRODUCTS_PER_PAGE,
-  );
-
-  useEffect(() => {
+  function resetToFirstPage() {
     setCurrentPage(1);
-  }, [selectedCategory, sortOrder, availableOnly, deliveryOnly]);
+  }
 
   function handleCategoryChange(value: ProductCategoryFilter) {
     const nextParams = new URLSearchParams(searchParams);
@@ -114,7 +86,23 @@ export default function ProductsPage() {
       nextParams.set("category", value);
     }
 
+    resetToFirstPage();
     setSearchParams(nextParams);
+  }
+
+  function handleSortChange(value: ProductSortOrder) {
+    resetToFirstPage();
+    setSortOrder(value);
+  }
+
+  function handleAvailableOnlyChange(value: boolean) {
+    resetToFirstPage();
+    setAvailableOnly(value);
+  }
+
+  function handleDeliveryOnlyChange(value: boolean) {
+    resetToFirstPage();
+    setDeliveryOnly(value);
   }
 
   function handlePageChange(page: number) {
@@ -126,6 +114,14 @@ export default function ProductsPage() {
       });
     });
   }
+
+  const firstVisibleItem = totalCount === 0
+    ? 0
+    : (currentPage - 1) * PRODUCTS_PER_PAGE + 1;
+  const lastVisibleItem = Math.min(
+    currentPage * PRODUCTS_PER_PAGE,
+    totalCount,
+  );
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-4">
@@ -140,35 +136,28 @@ export default function ProductsPage() {
         className="mt-4 scroll-mt-20"
       >
         <div className="mb-5">
-          <div>
-            <h1 className="text-2xl font-bold text-site-heading sm:text-3xl">
-              Termékeink
-            </h1>
-          </div>
+          <h1 className="text-2xl font-bold text-site-heading sm:text-3xl">
+            Termékeink
+          </h1>
 
-          {!isLoading && !hasError && sortedProducts.length > 0 && (
+          {!isLoading && !hasError && totalCount > 0 && (
             <p className="mt-2 text-sm text-site-text">
-              {startIndex + 1}–
-              {Math.min(
-                startIndex + PRODUCTS_PER_PAGE,
-                sortedProducts.length,
-              )}{" "}
-              termék, összesen: {sortedProducts.length} db · {currentPage} /{" "}
-              {totalPages}. oldal
+              {firstVisibleItem}-{lastVisibleItem} termék, összesen: {totalCount} db ·{" "}
+              {currentPage} / {totalPages}. oldal
             </p>
           )}
         </div>
 
-        {!isLoading && !hasError && products.length > 0 && (
+        {!hasError && (
           <ProductControls
             category={selectedCategory}
             sortOrder={sortOrder}
             availableOnly={availableOnly}
             deliveryOnly={deliveryOnly}
             onCategoryChange={handleCategoryChange}
-            onSortChange={setSortOrder}
-            onAvailableOnlyChange={setAvailableOnly}
-            onDeliveryOnlyChange={setDeliveryOnly}
+            onSortChange={handleSortChange}
+            onAvailableOnlyChange={handleAvailableOnlyChange}
+            onDeliveryOnlyChange={handleDeliveryOnlyChange}
           />
         )}
 
@@ -184,21 +173,15 @@ export default function ProductsPage() {
           </div>
         )}
 
-        {!isLoading && !hasError && products.length === 0 && (
-          <div className="rounded-sm bg-site-surface-soft p-8 text-center text-site-text">
-            Jelenleg nincs megjeleníthető termék.
-          </div>
-        )}
-
-        {!isLoading && !hasError && products.length > 0 && sortedProducts.length === 0 && (
+        {!isLoading && !hasError && totalCount === 0 && (
           <div className="rounded-sm bg-site-surface-soft p-8 text-center text-site-text">
             Nem található termék a megadott feltételekkel.
           </div>
         )}
 
-        {!isLoading && !hasError && paginatedProducts.length > 0 && (
+        {!isLoading && !hasError && products.length > 0 && (
           <>
-            <ProductCards products={paginatedProducts} />
+            <ProductCards products={products} />
             <ProductPagination
               currentPage={currentPage}
               totalPages={totalPages}
