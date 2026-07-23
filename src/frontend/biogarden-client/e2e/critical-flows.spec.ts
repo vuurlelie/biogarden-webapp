@@ -94,6 +94,86 @@ test("guest checkout can create a pay-at-pickup order", async ({ page }) => {
   await expect(page.getByText("BG-2026-0001")).toBeVisible();
 });
 
+test("private guest checkout sends receipt-only billing payload", async ({ page }) => {
+  let submittedOrder: Record<string, unknown> | undefined;
+  await mockCheckoutApi(page, false, (payload) => {
+    submittedOrder = payload;
+  });
+
+  await page.goto("/penztar");
+  await page.getByLabel(/Nev|Név/).fill("Teszt Elek");
+  await page.getByLabel(/Email cim|Email cím/).fill("teszt@example.com");
+  await page.getByLabel(/Telefonszam|Telefonszám/).fill("+36301234567");
+
+  await expect(page.getByText(/papiralapu nyugtat kapsz|papíralapú nyugtát kapsz/i)).toBeVisible();
+  await expect(page.getByText(/nem kell szamlazasi cimet|nem kell számlázási címet/i)).toBeVisible();
+  await expect(page.getByLabel(/Cegnev|Cégnév/)).toHaveCount(0);
+
+  await page.getByRole("button", { name: /Tovabb a penztarhoz|Tovább a pénztárhoz/ }).click();
+  await page.getByLabel(/Fizetes atvetelkor|Fizetés átvételkor/).check();
+  await page.getByRole("button", { name: /Rendeles attekintese|Rendelés áttekintése/ }).click();
+
+  await expect(page.getByRole("dialog", { name: /Megrendeles attekintese|Megrendelés áttekintése/ })).toBeVisible();
+  await expect(page.getByText(/Papiralapu nyugta a rendeles melle|Papíralapú nyugta a rendelés mellé/)).toBeVisible();
+  await page.getByLabel(/Altalanos Szerzodesi Feltetelek|Általános Szerződési Feltételek/).check();
+  await page.getByLabel(/Adatkezelesi Tajekoztatot|Adatkezelési Tájékoztatót/).check();
+  await page.getByRole("button", { name: /Megrendeles elkuldese|Megrendelés elküldése/ }).click();
+
+  await expect(page).toHaveURL(/\/rendeles-sikeres$/);
+  expect(submittedOrder).toMatchObject({
+    customerType: 0,
+    billingCompanyName: "",
+    billingTaxNumber: "",
+    printedInvoiceRequested: false,
+    postalCode: "",
+    city: "",
+    street: "",
+    houseNumber: "",
+  });
+});
+
+test("company guest checkout sends invoice billing payload", async ({ page }) => {
+  let submittedOrder: Record<string, unknown> | undefined;
+  await mockCheckoutApi(page, false, (payload) => {
+    submittedOrder = payload;
+  });
+
+  await page.goto("/penztar");
+  await page.getByLabel(/Ceg|Cég/).check();
+  await page.getByLabel(/Nev|Név/).fill("Teszt Elek");
+  await page.getByLabel(/Email cim|Email cím/).fill("teszt@example.com");
+  await page.getByLabel(/Telefonszam|Telefonszám/).fill("+36301234567");
+  await page.getByLabel(/Cegnev|Cégnév/).fill("Teszt Kft.");
+  await page.getByLabel(/Adoszam|Adószám/).fill("12345678-1-12");
+  await page.getByLabel(/Iranyitoszam|Irányítószám/).fill("2112");
+  await page.getByLabel(/Telepules|Település/).fill("Veresegyház");
+  await page.getByLabel(/Kozterulet neve|Közterület neve/).fill("Szemere Pál utca");
+  await page.getByLabel(/Hazszam|Házszám/).fill("25");
+  await page.getByLabel(/Nyomtatott szamlat is kerek|Nyomtatott számlát is kérek/).check();
+
+  await page.getByRole("button", { name: /Tovabb a penztarhoz|Tovább a pénztárhoz/ }).click();
+  await page.getByLabel(/Fizetes atvetelkor|Fizetés átvételkor/).check();
+  await page.getByRole("button", { name: /Rendeles attekintese|Rendelés áttekintése/ }).click();
+
+  await expect(page.getByRole("dialog", { name: /Megrendeles attekintese|Megrendelés áttekintése/ })).toBeVisible();
+  await expect(page.getByText(/Elektronikus es nyomtatott szamla|Elektronikus és nyomtatott számla/)).toBeVisible();
+  await page.getByLabel(/Altalanos Szerzodesi Feltetelek|Általános Szerződési Feltételek/).check();
+  await page.getByLabel(/Adatkezelesi Tajekoztatot|Adatkezelési Tájékoztatót/).check();
+  await page.getByRole("button", { name: /Megrendeles elkuldese|Megrendelés elküldése/ }).click();
+
+  await expect(page).toHaveURL(/\/rendeles-sikeres$/);
+  expect(submittedOrder).toMatchObject({
+    customerType: 1,
+    billingCompanyName: "Teszt Kft.",
+    billingTaxNumber: "12345678-1-12",
+    printedInvoiceRequested: true,
+    postalCode: "2112",
+    city: "Veresegyház",
+    street: "Szemere Pál utca",
+    houseNumber: "25",
+  });
+});
+
 test("cancelled online payment shows retry state", async ({ page }) => {
   await mockCancelledPaymentRetryApi(page);
 
