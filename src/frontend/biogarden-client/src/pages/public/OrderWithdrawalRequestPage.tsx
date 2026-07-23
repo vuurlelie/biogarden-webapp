@@ -1,6 +1,8 @@
-import { useState, type FormEvent } from "react";
+import { useRef, useState, type FormEvent } from "react";
 import { requestPublicOrderWithdrawal } from "../../features/account/api/ordersApi";
 import Seo from "../../shared/seo/Seo";
+
+type WithdrawalField = "orderNumber" | "customerEmail" | "reason";
 
 export default function OrderWithdrawalRequestPage() {
   const [orderNumber, setOrderNumber] = useState("");
@@ -8,15 +10,41 @@ export default function OrderWithdrawalRequestPage() {
   const [reason, setReason] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [invalidField, setInvalidField] = useState<WithdrawalField | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const orderNumberInputRef = useRef<HTMLInputElement | null>(null);
+  const emailInputRef = useRef<HTMLInputElement | null>(null);
+  const reasonInputRef = useRef<HTMLTextAreaElement | null>(null);
+
+  function markInvalid(field: WithdrawalField, messageText: string) {
+    setInvalidField(field);
+    setError(messageText);
+    const inputRefs: Record<WithdrawalField, HTMLInputElement | HTMLTextAreaElement | null> = {
+      orderNumber: orderNumberInputRef.current,
+      customerEmail: emailInputRef.current,
+      reason: reasonInputRef.current,
+    };
+    inputRefs[field]?.focus();
+  }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setMessage("");
     setError("");
+    setInvalidField(null);
 
-    if (!orderNumber.trim() || !customerEmail.trim() || reason.trim().length < 10) {
-      setError("Add meg a rendelés azonosítóját, az email címedet és legalább 10 karakterben a kérésedet.");
+    if (!orderNumber.trim()) {
+      markInvalid("orderNumber", "Add meg a rendelés azonosítóját.");
+      return;
+    }
+
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customerEmail.trim())) {
+      markInvalid("customerEmail", "Adj meg egy érvényes email címet.");
+      return;
+    }
+
+    if (reason.trim().length < 10) {
+      markInvalid("reason", "Írd le legalább 10 karakterben a kérésedet.");
       return;
     }
 
@@ -70,18 +98,23 @@ export default function OrderWithdrawalRequestPage() {
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="mt-7 space-y-5">
+        <form onSubmit={handleSubmit} noValidate className="mt-7 space-y-5">
           <div>
             <label htmlFor="withdrawal-order-number" className="block text-sm font-semibold text-site-heading">
               Rendelés azonosítója <span className="text-site-danger">*</span>
             </label>
             <input
+              ref={orderNumberInputRef}
               id="withdrawal-order-number"
               type="text"
               value={orderNumber}
-              onChange={(event) => setOrderNumber(event.target.value)}
+              onChange={(event) => {
+                setOrderNumber(event.target.value);
+                if (invalidField === "orderNumber") setInvalidField(null);
+              }}
               placeholder="BK-..."
               className="mt-2 block w-full rounded-sm border border-site-border bg-white px-3 py-2.5 text-site-heading outline-none transition focus:border-site-green focus:ring-2 focus:ring-site-green/20"
+              aria-invalid={invalidField === "orderNumber"}
               required
             />
           </div>
@@ -91,12 +124,17 @@ export default function OrderWithdrawalRequestPage() {
               A rendelésnél megadott email cím <span className="text-site-danger">*</span>
             </label>
             <input
+              ref={emailInputRef}
               id="withdrawal-email"
               type="email"
               autoComplete="email"
               value={customerEmail}
-              onChange={(event) => setCustomerEmail(event.target.value)}
+              onChange={(event) => {
+                setCustomerEmail(event.target.value);
+                if (invalidField === "customerEmail") setInvalidField(null);
+              }}
               className="mt-2 block w-full rounded-sm border border-site-border bg-white px-3 py-2.5 text-site-heading outline-none transition focus:border-site-green focus:ring-2 focus:ring-site-green/20"
+              aria-invalid={invalidField === "customerEmail"}
               required
             />
           </div>
@@ -106,12 +144,17 @@ export default function OrderWithdrawalRequestPage() {
               Kérés leírása <span className="text-site-danger">*</span>
             </label>
             <textarea
+              ref={reasonInputRef}
               id="withdrawal-reason"
               value={reason}
-              onChange={(event) => setReason(event.target.value)}
+              onChange={(event) => {
+                setReason(event.target.value);
+                if (invalidField === "reason") setInvalidField(null);
+              }}
               maxLength={1000}
               rows={5}
               className="mt-2 block w-full rounded-sm border border-site-border bg-white px-3 py-2.5 text-site-heading outline-none transition focus:border-site-green focus:ring-2 focus:ring-site-green/20"
+              aria-invalid={invalidField === "reason"}
               required
             />
             <p className="mt-1 text-xs text-site-muted">Legfeljebb 1000 karakter.</p>

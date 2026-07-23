@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useRef, useState, type FormEvent } from "react";
 import { sendContactMessage } from "../api/contactApi";
 
 const initialForm = {
@@ -8,6 +8,8 @@ const initialForm = {
   subject: "",
   message: "",
 };
+
+type ContactField = keyof typeof initialForm;
 
 type ContactFormProps = {
   className?: string;
@@ -23,19 +25,46 @@ export default function ContactForm({
   const [form, setForm] = useState(initialForm);
   const [success, setSuccess] = useState("");
   const [error, setError] = useState("");
+  const [invalidField, setInvalidField] = useState<ContactField | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const nameInputRef = useRef<HTMLInputElement | null>(null);
+  const emailInputRef = useRef<HTMLInputElement | null>(null);
+  const messageInputRef = useRef<HTMLTextAreaElement | null>(null);
 
   function updateField(field: keyof typeof form, value: string) {
     setForm((currentForm) => ({ ...currentForm, [field]: value }));
+    if (invalidField === field) setInvalidField(null);
+  }
+
+  function markInvalid(field: ContactField, message: string) {
+    setInvalidField(field);
+    setError(message);
+    const inputRefs: Partial<Record<ContactField, HTMLInputElement | HTMLTextAreaElement | null>> = {
+      name: nameInputRef.current,
+      email: emailInputRef.current,
+      message: messageInputRef.current,
+    };
+    inputRefs[field]?.focus();
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setSuccess("");
     setError("");
+    setInvalidField(null);
+
+    if (!form.name.trim()) {
+      markInvalid("name", "Add meg a nevedet.");
+      return;
+    }
+
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) {
+      markInvalid("email", "Adj meg egy érvényes email címet.");
+      return;
+    }
 
     if (form.message.trim().length < 10) {
-      setError("Kérjük, írj legalább néhány mondatot, hogy segíteni tudjunk.");
+      markInvalid("message", "Kérjük, írj legalább néhány mondatot, hogy segíteni tudjunk.");
       return;
     }
 
@@ -64,6 +93,7 @@ export default function ContactForm({
   return (
     <form
       onSubmit={handleSubmit}
+      noValidate
       className={`rounded-sm border border-site-footer-border ${surfaceClassName} p-4 shadow-sm sm:p-5 ${className}`}
     >
       <h2 id={titleId} className="text-sm font-bold uppercase tracking-wider text-site-heading">
@@ -76,12 +106,14 @@ export default function ContactForm({
             Név <span className="text-site-danger">*</span>
           </label>
           <input
+            ref={nameInputRef}
             id="contact-name"
             type="text"
             autoComplete="name"
             value={form.name}
             onChange={(event) => updateField("name", event.target.value)}
             className="mt-1.5 block w-full rounded-sm border border-site-border bg-white px-3 py-2 text-site-heading outline-none transition focus:border-site-green focus:ring-2 focus:ring-site-green/20"
+            aria-invalid={invalidField === "name"}
             required
             maxLength={100}
           />
@@ -92,12 +124,14 @@ export default function ContactForm({
             Email cím <span className="text-site-danger">*</span>
           </label>
           <input
+            ref={emailInputRef}
             id="contact-email"
             type="email"
             autoComplete="email"
             value={form.email}
             onChange={(event) => updateField("email", event.target.value)}
             className="mt-1.5 block w-full rounded-sm border border-site-border bg-white px-3 py-2 text-site-heading outline-none transition focus:border-site-green focus:ring-2 focus:ring-site-green/20"
+            aria-invalid={invalidField === "email"}
             required
             maxLength={256}
           />
@@ -138,10 +172,12 @@ export default function ContactForm({
           Üzenet <span className="text-site-danger">*</span>
         </label>
         <textarea
+          ref={messageInputRef}
           id="contact-message"
           value={form.message}
           onChange={(event) => updateField("message", event.target.value)}
           className="mt-1.5 block min-h-32 w-full resize-y rounded-sm border border-site-border bg-white px-3 py-2 text-site-heading outline-none transition focus:border-site-green focus:ring-2 focus:ring-site-green/20"
+          aria-invalid={invalidField === "message"}
           required
           minLength={10}
           maxLength={2000}

@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useRef, useState, type FormEvent } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { login, resendEmailConfirmation } from "../../features/auth/api/authApi";
 import { saveAuthSession } from "../../features/auth/utils/authStorage";
@@ -9,6 +9,8 @@ type LoginLocationState = {
   registrationRequiresConfirmation?: boolean;
   from?: string;
 };
+
+type LoginField = "email" | "password";
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -23,17 +25,36 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [infoMessage, setInfoMessage] = useState("");
+  const [invalidField, setInvalidField] = useState<LoginField | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isResendingConfirmation, setIsResendingConfirmation] = useState(false);
   const [showResendConfirmation, setShowResendConfirmation] = useState(registrationRequiresConfirmation);
+  const emailInputRef = useRef<HTMLInputElement | null>(null);
+  const passwordInputRef = useRef<HTMLInputElement | null>(null);
+
+  function markInvalid(field: LoginField, message: string) {
+    setInvalidField(field);
+    setError(message);
+    const inputRefs: Record<LoginField, HTMLInputElement | null> = {
+      email: emailInputRef.current,
+      password: passwordInputRef.current,
+    };
+    inputRefs[field]?.focus();
+  }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
     setInfoMessage("");
+    setInvalidField(null);
 
-    if (!email.trim() || !password) {
-      setError("Az email cím és a jelszó megadása kötelező.");
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      markInvalid("email", "Adj meg egy érvényes email címet.");
+      return;
+    }
+
+    if (!password) {
+      markInvalid("password", "A jelszó megadása kötelező.");
       return;
     }
 
@@ -61,9 +82,10 @@ export default function LoginPage() {
   async function handleResendConfirmation() {
     setError("");
     setInfoMessage("");
+    setInvalidField(null);
 
-    if (!email.trim()) {
-      setError("Add meg az email címedet az új megerősítő email küldéséhez.");
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      markInvalid("email", "Add meg az email címedet az új megerősítő email küldéséhez.");
       return;
     }
 
@@ -119,18 +141,23 @@ export default function LoginPage() {
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="mt-6 space-y-5">
+        <form onSubmit={handleSubmit} noValidate className="mt-6 space-y-5">
           <div>
             <label htmlFor="login-email" className="block text-sm font-semibold text-site-heading">
               Email cím <span className="text-site-danger">*</span>
             </label>
             <input
+              ref={emailInputRef}
               id="login-email"
               type="email"
               autoComplete="email"
               value={email}
-              onChange={(event) => setEmail(event.target.value)}
+              onChange={(event) => {
+                setEmail(event.target.value);
+                if (invalidField === "email") setInvalidField(null);
+              }}
               className="mt-2 block w-full rounded-sm border border-site-border bg-white px-3 py-2.5 text-site-heading outline-none transition focus:border-site-green focus:ring-2 focus:ring-site-green/20"
+              aria-invalid={invalidField === "email"}
               required
             />
           </div>
@@ -145,12 +172,17 @@ export default function LoginPage() {
               </Link>
             </div>
             <input
+              ref={passwordInputRef}
               id="login-password"
               type="password"
               autoComplete="current-password"
               value={password}
-              onChange={(event) => setPassword(event.target.value)}
+              onChange={(event) => {
+                setPassword(event.target.value);
+                if (invalidField === "password") setInvalidField(null);
+              }}
               className="mt-2 block w-full rounded-sm border border-site-border bg-white px-3 py-2.5 text-site-heading outline-none transition focus:border-site-green focus:ring-2 focus:ring-site-green/20"
+              aria-invalid={invalidField === "password"}
               required
             />
           </div>

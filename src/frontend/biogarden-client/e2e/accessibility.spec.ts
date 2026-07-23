@@ -93,3 +93,30 @@ test("admin delete confirmation traps focus and closes with Escape", async ({ pa
   await expect(dialog).toBeHidden();
   await expect(deleteButton).toBeFocused();
 });
+
+test("login validation focuses the first invalid field", async ({ page }) => {
+  await mockEmptyCartApi(page);
+
+  await page.goto("/bejelentkezes");
+  await page.getByRole("button", { name: /^Bejelentkezes$|^Bejelentkezés$/ }).click();
+
+  const emailInput = page.getByLabel(/Email cim|Email cím/);
+  await expect(page.getByRole("alert")).toContainText(/ervenyes email|érvényes email/);
+  await expect(emailInput).toBeFocused();
+  await expect(emailInput).toHaveAttribute("aria-invalid", "true");
+});
+
+test("public request validation focuses the field that needs more detail", async ({ page }) => {
+  await mockEmptyCartApi(page);
+
+  await page.goto("/rendelessel-kapcsolatos-keres");
+  await page.getByLabel(/Rendeles azonositoja|Rendelés azonosítója/).fill("BK-2026-0001");
+  await page.getByLabel(/email cim|email cím/i).fill("teszt@example.com");
+  await page.getByLabel(/Keres leirasa|Kérés leírása/).fill("rovid");
+  await page.getByRole("button", { name: /Keres elkuldese|Kérés elküldése/ }).click();
+
+  const reasonInput = page.getByLabel(/Keres leirasa|Kérés leírása/);
+  await expect(page.getByRole("alert")).toContainText("10 karakter");
+  await expect(reasonInput).toBeFocused();
+  await expect(reasonInput).toHaveAttribute("aria-invalid", "true");
+});
