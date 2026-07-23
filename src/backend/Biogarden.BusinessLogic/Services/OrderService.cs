@@ -239,6 +239,22 @@ public class OrderService : IOrderService
                         throw new InvalidOperationException("Product missing during order creation.");
                     }
 
+                    if (!product.Available)
+                    {
+                        throw new InvalidOperationException("A termék időközben elérhetetlenné vált. Kérjük, ellenőrizd újra a kosarat.");
+                    }
+
+                    if (dto.FulfillmentMethod != FulfillmentMethod.PersonalPickup &&
+                        !product.DeliveryAvailable)
+                    {
+                        throw new InvalidOperationException("A kosárban időközben személyes átvételes termék jelent meg. Kérjük, ellenőrizd újra a kosarat.");
+                    }
+
+                    if (product.StockQuantity < cartItem.Quantity)
+                    {
+                        throw new InvalidOperationException("A kosárban lévő készlet időközben megváltozott. Kérjük, ellenőrizd újra a kosarat.");
+                    }
+
                     var lineTotal = product.Price * cartItem.Quantity;
 
                     order.Items.Add(new OrderItem
@@ -255,8 +271,6 @@ public class OrderService : IOrderService
 
                     totalPrice += lineTotal;
                     product.StockQuantity -= cartItem.Quantity;
-                    if (product.StockQuantity < 0)
-                        throw new InvalidOperationException("Stock inconsistency detected during order creation.");
                 }
 
                 order.TotalPrice = totalPrice;

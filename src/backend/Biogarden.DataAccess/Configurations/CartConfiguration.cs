@@ -34,6 +34,9 @@ public class CartConfiguration : IEntityTypeConfiguration<Cart>
         cartBuilder.Property(cart => cart.CheckedOutAtUtc)
             .HasColumnType("datetime2");
 
+        cartBuilder.Property(cart => cart.RowVersion)
+            .IsRowVersion();
+
         cartBuilder.HasIndex(cart => cart.UserId);
         cartBuilder.HasIndex(cart => cart.SessionId);
         cartBuilder.HasIndex(cart => cart.ExpiresAtUtc);

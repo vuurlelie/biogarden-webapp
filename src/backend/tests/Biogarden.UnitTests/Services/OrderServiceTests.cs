@@ -285,6 +285,46 @@ public sealed class OrderServiceTests
     }
 
     [Fact]
+    public async Task CreateOrderFromCartAsync_WhenStockIsStaleAfterValidation_ThrowsBeforeSaving()
+    {
+        const string sessionId = "guest-session";
+        var product = new Product { Id = 4, Name = "Bazsalikom", Available = true, StockQuantity = 0, Price = 900 };
+        var cart = new Cart { Id = Guid.NewGuid(), SessionId = sessionId };
+        cart.Items.Add(new CartItem { Id = Guid.NewGuid(), CartId = cart.Id, ProductId = product.Id, Product = product, Quantity = 1 });
+
+        _unitOfWork.SetupGet(x => x.CartRepository).Returns(_carts.Object);
+        _orders
+            .Setup(x => x.GetByIdempotencyKeyWithItemsAsync(IdempotencyKey, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Order?)null);
+        _carts.Setup(x => x.GetActiveBySessionIdAsync(sessionId, It.IsAny<CancellationToken>())).ReturnsAsync(cart);
+        _cartService.Setup(x => x.ValidateCartForCheckoutAsync(null, sessionId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Biogarden.BusinessLogic.DTOs.Carts.CartValidationResultDto { IsValid = true });
+        _products.Setup(x => x.GetByIdAsync(product.Id, It.IsAny<CancellationToken>())).ReturnsAsync(product);
+
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _service.CreateOrderFromCartAsync(null, sessionId, new PlaceOrderDto
+            {
+                IdempotencyKey = IdempotencyKey,
+                CustomerName = "Teszt Elek",
+                CustomerEmail = "guest@example.com",
+                CustomerPhone = "+361234567",
+                PostalCode = "8200",
+                City = "Veszprem",
+                Street = "Kert utca",
+                HouseNumber = "1",
+                AcceptedTermsVersion = LegalDocumentVersions.CurrentTermsVersion,
+                AcceptedPrivacyPolicyVersion = LegalDocumentVersions.CurrentPrivacyPolicyVersion,
+                FulfillmentMethod = FulfillmentMethod.PersonalPickup
+            }));
+
+        Assert.Contains("készlet", exception.Message);
+        Assert.Equal(0, product.StockQuantity);
+        _orders.Verify(x => x.AddAsync(It.IsAny<Order>(), It.IsAny<CancellationToken>()), Times.Never);
+        _unitOfWork.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
+        _emailService.Verify(x => x.SendAsync(It.IsAny<EmailMessage>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
     public async Task CreateOrderFromCartAsync_WhenLegalVersionsAreMissing_ThrowsBeforeCheckout()
     {
         const string sessionId = "guest-session";
