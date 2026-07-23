@@ -651,7 +651,17 @@ namespace Biogarden.DataAccess.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
 
+                    b.Property<DateTime?>("LastProcessingAttemptAtUtc")
+                        .HasColumnType("datetime2");
+
                     b.Property<DateTime?>("ProcessedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ProcessingError")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<DateTime?>("ProcessingFailedAtUtc")
                         .HasColumnType("datetime2");
 
                     b.Property<string>("Provider")

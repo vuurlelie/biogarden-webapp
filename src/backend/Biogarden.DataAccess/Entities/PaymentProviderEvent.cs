@@ -16,5 +16,11 @@ public class PaymentProviderEvent
 
     public DateTime ReceivedAtUtc { get; set; } = DateTime.UtcNow;
 
+    public DateTime? LastProcessingAttemptAtUtc { get; set; }
+
     public DateTime? ProcessedAtUtc { get; set; }
+
+    public DateTime? ProcessingFailedAtUtc { get; set; }
+
+    public string? ProcessingError { get; set; }
 }

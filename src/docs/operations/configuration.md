@@ -47,6 +47,31 @@ Non-secret operational settings should still be reviewed before release:
 | `SumUp__ReturnUrl` | Public API callback/status URL. |
 | `AbuseProtection__*` | Limits tuned after real traffic appears. |
 
+## SumUp Release Setup
+
+Do not commit real SumUp values. When the client provides the account details, enter them only through the production host's secret/environment setting UI:
+
+```text
+SumUp__Enabled=true
+SumUp__ApiKey=<real SumUp API key>
+SumUp__MerchantCode=<real merchant code>
+SumUp__Currency=HUF
+SumUp__ApiBaseUrl=https://api.sumup.com
+SumUp__RedirectUrl=https://<frontend-domain>/rendeles-sikeres?sumup_checkout_reference={CHECKOUT_REFERENCE}
+SumUp__ReturnUrl=https://<api-domain>/api/sumup/checkout-status
+```
+
+Before enabling real customer payments:
+
+- Confirm the API and frontend domains use HTTPS.
+- Confirm `SumUp__RedirectUrl` contains `{CHECKOUT_REFERENCE}` exactly once.
+- Confirm `SumUp__ReturnUrl` points to the public API endpoint reachable by SumUp.
+- Place a low-value test order using the client's SumUp account.
+- Verify the customer return page changes from checking to successful payment.
+- Verify the order appears as paid and confirmed in the admin order list.
+- Verify a row is created in `PaymentProviderEvents` with `ProcessedAtUtc` set and no `ProcessingError`.
+- Verify failed or cancelled payment can be retried from the checkout page.
+
 ## Frontend Environment
 
 Set the frontend API base URL outside source control:

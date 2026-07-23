@@ -526,6 +526,29 @@ public sealed class OrderServiceTests
     }
 
     [Fact]
+    public async Task ConfirmSumUpCheckoutAsync_WhenCurrencyDoesNotMatch_ThrowsAndDoesNotSave()
+    {
+        var order = CreateOrder(null);
+        order.SumUpCheckoutId = "checkout_123";
+        order.TotalPrice = 3600;
+
+        _orders
+            .Setup(x => x.GetBySumUpCheckoutIdAsync("checkout_123", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(order);
+
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _service.ConfirmSumUpCheckoutAsync(
+                "checkout_123",
+                "txn_123",
+                3600,
+                "EUR"));
+
+        Assert.Contains("currency", exception.Message);
+        _orders.Verify(x => x.Update(It.IsAny<Order>()), Times.Never);
+        _unitOfWork.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
     public async Task CancelOrderAsync_WhenPaid_RestoresStockAndMarksRefundPending()
     {
         var userId = Guid.NewGuid();
@@ -710,6 +733,44 @@ public sealed class OrderServiceTests
         Assert.Equal(OrderWithdrawalRequestStatus.Pending, result.Status);
         _emailService.Verify(x => x.SendAsync(businessMessage, It.IsAny<CancellationToken>()), Times.Once);
         _emailService.Verify(x => x.SendAsync(customerMessage, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task GetPublicOrderPaymentStatusAsync_WhenCheckoutReferenceMatches_ReturnsLimitedStatus()
+    {
+        var order = CreateOrder(null);
+        order.Status = OrderStatus.Confirmed;
+        order.PaymentStatus = PaymentStatus.Paid;
+        order.ConfirmedAtUtc = DateTime.UtcNow;
+        order.CustomerEmail = "guest@example.com";
+        order.CustomerPhone = "+36301234567";
+
+        _orders
+            .Setup(x => x.GetByIdAsync(order.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(order);
+
+        var result = await _service.GetPublicOrderPaymentStatusAsync(
+            order.Id,
+            order.Id.ToString("N"));
+
+        Assert.Equal(order.Id, result.OrderId);
+        Assert.Equal(order.OrderNumber, result.OrderNumber);
+        Assert.Equal(OrderStatus.Confirmed, result.Status);
+        Assert.Equal(PaymentStatus.Paid, result.PaymentStatus);
+        Assert.Equal(order.ConfirmedAtUtc, result.ConfirmedAtUtc);
+    }
+
+    [Fact]
+    public async Task GetPublicOrderPaymentStatusAsync_WhenCheckoutReferenceDoesNotMatch_ThrowsWithoutLoadingOrder()
+    {
+        var orderId = Guid.NewGuid();
+
+        await Assert.ThrowsAsync<KeyNotFoundException>(() =>
+            _service.GetPublicOrderPaymentStatusAsync(orderId, Guid.NewGuid().ToString("N")));
+
+        _orders.Verify(
+            x => x.GetByIdAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
+            Times.Never);
     }
 
     private static Order CreateOrder(Guid? userId) => new()
