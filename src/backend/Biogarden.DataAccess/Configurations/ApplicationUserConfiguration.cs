@@ -1,4 +1,4 @@
-﻿using Biogarden.DataAccess.Entities;
+using Biogarden.DataAccess.Entities;
 using Biogarden.DataAccess.Enums;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;

@@ -1,4 +1,4 @@
-﻿namespace Biogarden.BusinessLogic.DTOs.Auth;
+namespace Biogarden.BusinessLogic.DTOs.Auth;
 
 public class AuthResponseDto
 {

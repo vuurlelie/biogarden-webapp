@@ -1,4 +1,4 @@
-﻿public enum UnitOfMeasure
+public enum UnitOfMeasure
 {
     Piece = 0,
     Kilogram = 1,

@@ -1,4 +1,4 @@
-﻿namespace Biogarden.BusinessLogic.DTOs.Addresses;
+namespace Biogarden.BusinessLogic.DTOs.Addresses;
 
 public class AddressDetailsDto
 {

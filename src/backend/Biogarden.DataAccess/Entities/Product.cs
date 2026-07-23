@@ -1,4 +1,4 @@
-﻿using Biogarden.DataAccess.Enums;
+using Biogarden.DataAccess.Enums;
 
 public class Product
 {

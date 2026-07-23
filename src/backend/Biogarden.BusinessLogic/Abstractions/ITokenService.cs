@@ -1,4 +1,4 @@
-﻿using Biogarden.DataAccess.Entities;
+using Biogarden.DataAccess.Entities;
 
 namespace Biogarden.BusinessLogic.Abstractions;
 
