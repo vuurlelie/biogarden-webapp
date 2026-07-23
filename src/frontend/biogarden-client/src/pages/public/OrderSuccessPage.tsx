@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useLocation, useSearchParams } from "react-router-dom";
 import { getPublicOrderPaymentStatus } from "../../features/account/api/ordersApi";
 import type { Order } from "../../features/account/types/order.types";
+import { useAnalytics } from "../../features/analytics/context/AnalyticsContextCore";
 import { ROUTES } from "../../shared/constants/routes";
 
 type SumUpReturnState = "idle" | "checking" | "paid" | "failed" | "pending" | "error";
@@ -13,6 +14,13 @@ export default function OrderSuccessPage() {
   const orderId = searchParams.get("orderId");
   const [sumUpReturnState, setSumUpReturnState] = useState<SumUpReturnState>("idle");
   const [returnedOrderNumber, setReturnedOrderNumber] = useState<string | null>(null);
+  const { track } = useAnalytics();
+
+  useEffect(() => {
+    if (order) {
+      track("payment_return_viewed", { status: "offline_or_confirmed" });
+    }
+  }, [order, track]);
 
   useEffect(() => {
     if (!sumUpCheckoutReference || !orderId) {
@@ -35,11 +43,13 @@ export default function OrderSuccessPage() {
 
         if (status.paymentStatus === 2) {
           setSumUpReturnState("paid");
+          track("payment_return_viewed", { status: "paid" });
           return;
         }
 
         if (status.paymentStatus === 3) {
           setSumUpReturnState("failed");
+          track("payment_return_viewed", { status: "failed" });
           return;
         }
 
@@ -49,9 +59,11 @@ export default function OrderSuccessPage() {
         }
 
         setSumUpReturnState("pending");
+        track("payment_return_viewed", { status: "pending" });
       } catch {
         if (!cancelled) {
           setSumUpReturnState("error");
+          track("payment_return_viewed", { status: "error" });
         }
       }
     }
@@ -62,7 +74,7 @@ export default function OrderSuccessPage() {
       cancelled = true;
       if (timeoutId) window.clearTimeout(timeoutId);
     };
-  }, [orderId, sumUpCheckoutReference]);
+  }, [orderId, sumUpCheckoutReference, track]);
 
   return (
     <main className="mx-auto max-w-2xl px-4 py-16 text-center">
