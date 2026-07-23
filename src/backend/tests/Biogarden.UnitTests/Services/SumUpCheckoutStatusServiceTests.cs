@@ -21,7 +21,7 @@ public sealed class SumUpCheckoutStatusServiceTests
     {
         var payload = CreateCheckoutStatusPayload("checkout_123");
         var service = CreateService();
-        SetupEventInsert();
+        SetupEventInsert("PAID");
 
         _checkoutService
             .Setup(service => service.GetCheckoutAsync(
@@ -55,7 +55,7 @@ public sealed class SumUpCheckoutStatusServiceTests
     {
         var payload = CreateCheckoutStatusPayload("checkout_123");
         var service = CreateService();
-        SetupEventInsert();
+        SetupEventInsert("FAILED");
 
         _checkoutService
             .Setup(service => service.GetCheckoutAsync(
@@ -85,28 +85,39 @@ public sealed class SumUpCheckoutStatusServiceTests
     {
         var payload = CreateCheckoutStatusPayload("checkout_123");
         var service = CreateService();
+        _checkoutService
+            .Setup(service => service.GetCheckoutAsync(
+                "checkout_123",
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new SumUpCheckoutResult(
+                "checkout_123",
+                "PAID",
+                TransactionCode: "txn_123",
+                Amount: 3600,
+                Currency: "HUF"));
         _unitOfWork.SetupGet(service => service.PaymentProviderEventRepository)
             .Returns(_paymentProviderEvents.Object);
         _paymentProviderEvents
             .Setup(repository => repository.GetByProviderAndEventKeyAsync(
                 "SumUp",
-                "CHECKOUT_STATUS_CHANGED:checkout_123",
+                "CHECKOUT_STATUS_CHANGED:checkout_123:PAID",
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(new PaymentProviderEvent
             {
                 Id = Guid.NewGuid(),
                 Provider = "SumUp",
-                EventKey = "CHECKOUT_STATUS_CHANGED:checkout_123",
+                EventKey = "CHECKOUT_STATUS_CHANGED:checkout_123:PAID",
                 CheckoutId = "checkout_123",
                 EventType = "CHECKOUT_STATUS_CHANGED",
+                Status = "PAID",
                 ProcessedAtUtc = DateTime.UtcNow
             });
 
         await service.HandleAsync(payload);
 
         _checkoutService.Verify(
-            service => service.GetCheckoutAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()),
-            Times.Never);
+            service => service.GetCheckoutAsync("checkout_123", It.IsAny<CancellationToken>()),
+            Times.Once);
         _orderService.Verify(
             service => service.ConfirmSumUpCheckoutAsync(
                 It.IsAny<string>(),
@@ -122,7 +133,6 @@ public sealed class SumUpCheckoutStatusServiceTests
     {
         var payload = CreateCheckoutStatusPayload("checkout_123");
         var service = CreateService();
-        SetupEventInsert();
 
         _checkoutService
             .Setup(service => service.GetCheckoutAsync(
@@ -147,6 +157,80 @@ public sealed class SumUpCheckoutStatusServiceTests
             Times.Never);
     }
 
+    [Fact]
+    public async Task HandleAsync_WhenCheckoutIsPending_RecordsPendingEventWithoutUpdatingOrder()
+    {
+        var payload = CreateCheckoutStatusPayload("checkout_123");
+        var service = CreateService();
+        SetupEventInsert("PENDING");
+
+        _checkoutService
+            .Setup(service => service.GetCheckoutAsync(
+                "checkout_123",
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new SumUpCheckoutResult(
+                "checkout_123",
+                "PENDING"));
+        _unitOfWork.Setup(service => service.SaveChangesAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(1);
+
+        await service.HandleAsync(payload);
+
+        _orderService.Verify(
+            service => service.ConfirmSumUpCheckoutAsync(
+                It.IsAny<string>(),
+                It.IsAny<string?>(),
+                It.IsAny<decimal?>(),
+                It.IsAny<string?>(),
+                It.IsAny<CancellationToken>()),
+            Times.Never);
+        _orderService.Verify(
+            service => service.MarkSumUpPaymentFailedAsync(
+                It.IsAny<string>(),
+                It.IsAny<string?>(),
+                It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public async Task HandleAsync_WhenOrderUpdateFails_StoresProcessingErrorAndRethrows()
+    {
+        var payload = CreateCheckoutStatusPayload("checkout_123");
+        var service = CreateService();
+        PaymentProviderEvent? capturedEvent = null;
+        SetupEventInsert("PAID", paymentEvent => capturedEvent = paymentEvent);
+
+        _checkoutService
+            .Setup(service => service.GetCheckoutAsync(
+                "checkout_123",
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new SumUpCheckoutResult(
+                "checkout_123",
+                "PAID",
+                TransactionCode: "txn_123",
+                Amount: 3600,
+                Currency: "HUF"));
+        _orderService
+            .Setup(service => service.ConfirmSumUpCheckoutAsync(
+                "checkout_123",
+                "txn_123",
+                3600,
+                "HUF",
+                It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("SumUp checkout amount does not match the order total."));
+        _unitOfWork.Setup(service => service.SaveChangesAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(1);
+
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => service.HandleAsync(payload));
+
+        Assert.Equal("SumUp checkout amount does not match the order total.", exception.Message);
+        Assert.NotNull(capturedEvent);
+        Assert.NotNull(capturedEvent.LastProcessingAttemptAtUtc);
+        Assert.NotNull(capturedEvent.ProcessingFailedAtUtc);
+        Assert.Equal("SumUp checkout amount does not match the order total.", capturedEvent.ProcessingError);
+        Assert.Null(capturedEvent.ProcessedAtUtc);
+    }
+
     private SumUpCheckoutStatusService CreateService()
     {
         return new SumUpCheckoutStatusService(
@@ -155,14 +239,14 @@ public sealed class SumUpCheckoutStatusServiceTests
             _orderService.Object);
     }
 
-    private void SetupEventInsert()
+    private void SetupEventInsert(string status, Action<PaymentProviderEvent>? onAdd = null)
     {
         _unitOfWork.SetupGet(service => service.PaymentProviderEventRepository)
             .Returns(_paymentProviderEvents.Object);
         _paymentProviderEvents
             .Setup(repository => repository.GetByProviderAndEventKeyAsync(
                 "SumUp",
-                "CHECKOUT_STATUS_CHANGED:checkout_123",
+                $"CHECKOUT_STATUS_CHANGED:checkout_123:{status}",
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync((PaymentProviderEvent?)null);
         _unitOfWork
@@ -175,9 +259,11 @@ public sealed class SumUpCheckoutStatusServiceTests
             .Setup(repository => repository.AddAsync(
                 It.Is<PaymentProviderEvent>(paymentEvent =>
                     paymentEvent.Provider == "SumUp" &&
-                    paymentEvent.EventKey == "CHECKOUT_STATUS_CHANGED:checkout_123" &&
-                    paymentEvent.CheckoutId == "checkout_123"),
+                    paymentEvent.EventKey == $"CHECKOUT_STATUS_CHANGED:checkout_123:{status}" &&
+                    paymentEvent.CheckoutId == "checkout_123" &&
+                    paymentEvent.Status == status),
                 It.IsAny<CancellationToken>()))
+            .Callback<PaymentProviderEvent, CancellationToken>((paymentEvent, _) => onAdd?.Invoke(paymentEvent))
             .Returns(Task.CompletedTask);
         _unitOfWork.Setup(service => service.SaveChangesAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(1);

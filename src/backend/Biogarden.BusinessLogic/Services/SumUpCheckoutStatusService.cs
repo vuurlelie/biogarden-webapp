@@ -14,6 +14,7 @@ public sealed class SumUpCheckoutStatusService : ISumUpCheckoutStatusService
     private const string Paid = "PAID";
     private const string Failed = "FAILED";
     private const string Expired = "EXPIRED";
+    private const int ProcessingErrorMaxLength = 1000;
 
     private readonly IUnitOfWork _unitOfWork;
     private readonly ISumUpCheckoutService _checkoutService;
@@ -42,54 +43,73 @@ public sealed class SumUpCheckoutStatusService : ISumUpCheckoutStatusService
             return;
         }
 
-        var eventKey = $"{statusEvent.EventType}:{statusEvent.Id.Trim()}";
+        var checkoutId = statusEvent.Id.Trim();
+        var eventType = statusEvent.EventType.Trim();
+        var checkout = await _checkoutService.GetCheckoutAsync(
+            checkoutId,
+            cancellationToken);
+
+        if (!string.Equals(checkout.CheckoutId, checkoutId, StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException("SumUp checkout identity mismatch.");
+        }
+
+        var normalizedStatus = checkout.Status.Trim().ToUpperInvariant();
+        var eventKey = $"{eventType}:{checkoutId}:{normalizedStatus}";
         var paymentEvent = await GetOrCreatePaymentEventAsync(
             eventKey,
             statusEvent,
+            normalizedStatus,
             cancellationToken);
         if (paymentEvent.ProcessedAtUtc.HasValue)
         {
             return;
         }
 
-        var checkout = await _checkoutService.GetCheckoutAsync(
-            statusEvent.Id,
-            cancellationToken);
+        var attemptedAtUtc = DateTime.UtcNow;
+        paymentEvent.LastProcessingAttemptAtUtc = attemptedAtUtc;
+        paymentEvent.Status = normalizedStatus;
 
-        if (!string.Equals(checkout.CheckoutId, statusEvent.Id.Trim(), StringComparison.Ordinal))
+        try
         {
-            throw new InvalidOperationException("SumUp checkout identity mismatch.");
+            switch (normalizedStatus)
+            {
+                case Paid:
+                    await _orderService.ConfirmSumUpCheckoutAsync(
+                        checkout.CheckoutId,
+                        checkout.TransactionCode,
+                        checkout.Amount,
+                        checkout.Currency,
+                        cancellationToken);
+                    break;
+
+                case Failed:
+                case Expired:
+                    await _orderService.MarkSumUpPaymentFailedAsync(
+                        checkout.CheckoutId,
+                        checkout.TransactionCode,
+                        cancellationToken);
+                    break;
+            }
+
+            paymentEvent.ProcessedAtUtc = DateTime.UtcNow;
+            paymentEvent.ProcessingFailedAtUtc = null;
+            paymentEvent.ProcessingError = null;
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
         }
-
-        paymentEvent.Status = checkout.Status;
-
-        switch (checkout.Status.ToUpperInvariant())
+        catch (Exception exception)
         {
-            case Paid:
-                await _orderService.ConfirmSumUpCheckoutAsync(
-                    checkout.CheckoutId,
-                    checkout.TransactionCode,
-                    checkout.Amount,
-                    checkout.Currency,
-                    cancellationToken);
-                break;
-
-            case Failed:
-            case Expired:
-                await _orderService.MarkSumUpPaymentFailedAsync(
-                    checkout.CheckoutId,
-                    checkout.TransactionCode,
-                    cancellationToken);
-                break;
+            paymentEvent.ProcessingFailedAtUtc = DateTime.UtcNow;
+            paymentEvent.ProcessingError = Truncate(exception.Message, ProcessingErrorMaxLength);
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+            throw;
         }
-
-        paymentEvent.ProcessedAtUtc = DateTime.UtcNow;
-        await _unitOfWork.SaveChangesAsync(cancellationToken);
     }
 
     private async Task<PaymentProviderEvent> GetOrCreatePaymentEventAsync(
         string eventKey,
         SumUpCheckoutStatusChangedEvent statusEvent,
+        string status,
         CancellationToken cancellationToken)
     {
         var existingEvent = await _unitOfWork.PaymentProviderEventRepository.GetByProviderAndEventKeyAsync(
@@ -112,6 +132,7 @@ public sealed class SumUpCheckoutStatusService : ISumUpCheckoutStatusService
                     EventKey = eventKey,
                     CheckoutId = statusEvent.Id.Trim(),
                     EventType = statusEvent.EventType,
+                    Status = status,
                     ReceivedAtUtc = DateTime.UtcNow
                 };
 
@@ -134,6 +155,13 @@ public sealed class SumUpCheckoutStatusService : ISumUpCheckoutStatusService
 
             throw;
         }
+    }
+
+    private static string Truncate(string value, int maxLength)
+    {
+        return value.Length <= maxLength
+            ? value
+            : value[..maxLength];
     }
 
     private sealed class SumUpCheckoutStatusChangedEvent

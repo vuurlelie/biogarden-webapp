@@ -36,8 +36,17 @@ public class PaymentProviderEventConfiguration : IEntityTypeConfiguration<Paymen
             .HasDefaultValueSql("SYSUTCDATETIME()")
             .IsRequired();
 
+        eventBuilder.Property(paymentEvent => paymentEvent.LastProcessingAttemptAtUtc)
+            .HasColumnType("datetime2");
+
         eventBuilder.Property(paymentEvent => paymentEvent.ProcessedAtUtc)
             .HasColumnType("datetime2");
+
+        eventBuilder.Property(paymentEvent => paymentEvent.ProcessingFailedAtUtc)
+            .HasColumnType("datetime2");
+
+        eventBuilder.Property(paymentEvent => paymentEvent.ProcessingError)
+            .HasMaxLength(1000);
 
         eventBuilder.HasIndex(paymentEvent => new { paymentEvent.Provider, paymentEvent.EventKey })
             .IsUnique();
