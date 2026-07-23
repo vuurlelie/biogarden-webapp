@@ -399,6 +399,48 @@ export async function mockAdminOrdersApi(page: Page) {
   });
 }
 
+export async function mockAccountOrdersApi(page: Page) {
+  const accountOrder = {
+    ...successfulOrder,
+    userId: "44444444-4444-4444-4444-444444444444",
+    status: 1 as OrderStatus,
+    paymentStatus: 2 as PaymentStatus,
+    confirmedAtUtc: "2026-07-22T10:05:00Z",
+  };
+
+  await page.route(`${apiBaseUrl}/api/cart`, async (route) => {
+    if (route.request().method() === "GET") {
+      await route.fulfill({ json: createCart([]) });
+      return;
+    }
+
+    await route.fallback();
+  });
+
+  await page.route(`${apiBaseUrl}/api/orders`, async (route) => {
+    await route.fulfill({ json: [accountOrder] });
+  });
+
+  await page.route(`${apiBaseUrl}/api/orders/${accountOrder.id}`, async (route) => {
+    await route.fulfill({ json: accountOrder });
+  });
+}
+
+export async function signInAsCustomer(page: Page) {
+  await page.addInitScript(() => {
+    const tokenPayload = btoa(JSON.stringify({
+      exp: Math.floor(Date.now() / 1000) + 3600,
+    }));
+
+    localStorage.setItem("biogarden_auth", JSON.stringify({
+      userId: "44444444-4444-4444-4444-444444444444",
+      email: "customer@example.com",
+      roles: [],
+      token: `test.${tokenPayload}.token`,
+    }));
+  });
+}
+
 export async function signInAsAdmin(page: Page) {
   await page.addInitScript(() => {
     const tokenPayload = btoa(JSON.stringify({

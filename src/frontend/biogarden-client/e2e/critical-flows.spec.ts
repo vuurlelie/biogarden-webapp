@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 import {
   expectNoUnhandledApiCall,
+  mockAccountOrdersApi,
   mockAdminOrdersApi,
   mockCancelledPaymentRetryApi,
   mockCatalogPaginationApi,
@@ -8,6 +9,7 @@ import {
   mockPublicShopApi,
   mockSumUpReturnStatusApi,
   signInAsAdmin,
+  signInAsCustomer,
   successfulOrder,
 } from "./fixtures";
 
@@ -124,6 +126,24 @@ test("failed SumUp return shows retry link", async ({ page }) => {
     "href",
     `/penztar?sumup=cancelled&orderId=${successfulOrder.id}`,
   );
+});
+
+test("customer can view account order history and details", async ({ page }) => {
+  await signInAsCustomer(page);
+  await mockAccountOrdersApi(page);
+
+  await page.goto("/fiokom/rendeleseim");
+
+  await expect(page.getByRole("heading", { name: /Rendel/ })).toBeVisible();
+  await expect(page.getByText(successfulOrder.orderNumber)).toBeVisible();
+  await expect(page.getByText(/Fizetve/)).toBeVisible();
+
+  await page.getByRole("link", { name: /Reszletek|Részletek/ }).click();
+
+  await expect(page).toHaveURL(new RegExp(`/fiokom/rendeleseim/${successfulOrder.id}$`));
+  await expect(page.getByRole("heading", { name: successfulOrder.orderNumber })).toBeVisible();
+  await expect(page.getByText(/papiralapu nyugtat|papíralapú nyugtát/)).toBeVisible();
+  await expect(page.getByText(successfulOrder.items[0].productName)).toBeVisible();
 });
 
 test("admin can review an order and update its status", async ({ page }) => {
