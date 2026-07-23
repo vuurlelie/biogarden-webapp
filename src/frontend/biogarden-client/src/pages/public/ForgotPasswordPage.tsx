@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useRef, useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
 import { forgotPassword } from "../../features/auth/api/authApi";
 import { ROUTES } from "../../shared/constants/routes";
@@ -7,15 +7,20 @@ export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [emailInvalid, setEmailInvalid] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const emailInputRef = useRef<HTMLInputElement | null>(null);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setMessage("");
     setError("");
+    setEmailInvalid(false);
 
-    if (!email.trim()) {
-      setError("Add meg az email címedet.");
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      setEmailInvalid(true);
+      setError("Adj meg egy érvényes email címet.");
+      emailInputRef.current?.focus();
       return;
     }
 
@@ -59,18 +64,23 @@ export default function ForgotPasswordPage() {
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="mt-6 space-y-5">
+        <form onSubmit={handleSubmit} noValidate className="mt-6 space-y-5">
           <div>
             <label htmlFor="forgot-password-email" className="block text-sm font-semibold text-site-heading">
               Email cím <span className="text-site-danger">*</span>
             </label>
             <input
+              ref={emailInputRef}
               id="forgot-password-email"
               type="email"
               autoComplete="email"
               value={email}
-              onChange={(event) => setEmail(event.target.value)}
+              onChange={(event) => {
+                setEmail(event.target.value);
+                if (emailInvalid) setEmailInvalid(false);
+              }}
               className="mt-2 block w-full rounded-sm border border-site-border bg-white px-3 py-2.5 text-site-heading outline-none transition focus:border-site-green focus:ring-2 focus:ring-site-green/20"
+              aria-invalid={emailInvalid}
               required
             />
           </div>

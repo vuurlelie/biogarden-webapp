@@ -1,9 +1,10 @@
-import { useState, type FormEvent } from "react";
+import { useRef, useState, type FormEvent } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { resetPassword } from "../../features/auth/api/authApi";
 import { ROUTES } from "../../shared/constants/routes";
 
 const PASSWORD_PATTERN = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/;
+type PasswordField = "password" | "confirmPassword";
 
 export default function ResetPasswordPage() {
   const [searchParams] = useSearchParams();
@@ -16,12 +17,26 @@ export default function ResetPasswordPage() {
   const [error, setError] = useState(
     hasRequiredParams ? "" : "A jelszó-visszaállító link hiányos vagy érvénytelen.",
   );
+  const [invalidField, setInvalidField] = useState<PasswordField | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const passwordInputRef = useRef<HTMLInputElement | null>(null);
+  const confirmPasswordInputRef = useRef<HTMLInputElement | null>(null);
+
+  function markInvalid(field: PasswordField, message: string) {
+    setInvalidField(field);
+    setError(message);
+    const inputRefs: Record<PasswordField, HTMLInputElement | null> = {
+      password: passwordInputRef.current,
+      confirmPassword: confirmPasswordInputRef.current,
+    };
+    inputRefs[field]?.focus();
+  }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setMessage("");
     setError("");
+    setInvalidField(null);
 
     if (!hasRequiredParams) {
       setError("A jelszó-visszaállító link hiányos vagy érvénytelen.");
@@ -29,12 +44,12 @@ export default function ResetPasswordPage() {
     }
 
     if (!PASSWORD_PATTERN.test(password)) {
-      setError("A jelszó legalább 8 karakteres legyen, kis- és nagybetűvel, valamint számmal.");
+      markInvalid("password", "A jelszó legalább 8 karakteres legyen, kis- és nagybetűvel, valamint számmal.");
       return;
     }
 
     if (password !== confirmPassword) {
-      setError("A két jelszó nem egyezik.");
+      markInvalid("confirmPassword", "A két jelszó nem egyezik.");
       return;
     }
 
@@ -85,18 +100,23 @@ export default function ResetPasswordPage() {
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="mt-6 space-y-5">
+        <form onSubmit={handleSubmit} noValidate className="mt-6 space-y-5">
           <div>
             <label htmlFor="reset-password" className="block text-sm font-semibold text-site-heading">
               Új jelszó <span className="text-site-danger">*</span>
             </label>
             <input
+              ref={passwordInputRef}
               id="reset-password"
               type="password"
               autoComplete="new-password"
               value={password}
-              onChange={(event) => setPassword(event.target.value)}
+              onChange={(event) => {
+                setPassword(event.target.value);
+                if (invalidField === "password") setInvalidField(null);
+              }}
               className="mt-2 block w-full rounded-sm border border-site-border bg-white px-3 py-2.5 text-site-heading outline-none transition focus:border-site-green focus:ring-2 focus:ring-site-green/20"
+              aria-invalid={invalidField === "password"}
               required
               disabled={!hasRequiredParams || Boolean(message)}
             />
@@ -107,12 +127,17 @@ export default function ResetPasswordPage() {
               Új jelszó újra <span className="text-site-danger">*</span>
             </label>
             <input
+              ref={confirmPasswordInputRef}
               id="reset-password-again"
               type="password"
               autoComplete="new-password"
               value={confirmPassword}
-              onChange={(event) => setConfirmPassword(event.target.value)}
+              onChange={(event) => {
+                setConfirmPassword(event.target.value);
+                if (invalidField === "confirmPassword") setInvalidField(null);
+              }}
               className="mt-2 block w-full rounded-sm border border-site-border bg-white px-3 py-2.5 text-site-heading outline-none transition focus:border-site-green focus:ring-2 focus:ring-site-green/20"
+              aria-invalid={invalidField === "confirmPassword"}
               required
               disabled={!hasRequiredParams || Boolean(message)}
             />

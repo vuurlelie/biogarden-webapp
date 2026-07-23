@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   getProfile,
@@ -24,6 +24,8 @@ function normalizeOptional(value: string): string | null {
   return trimmedValue || null;
 }
 
+type ProfileInvalidField = "companyName" | "taxNumber";
+
 export default function AccountProfilePage() {
   const navigate = useNavigate();
   const [profile, setProfile] = useState<UserProfile>(EMPTY_PROFILE);
@@ -31,6 +33,9 @@ export default function AccountProfilePage() {
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [invalidField, setInvalidField] = useState<ProfileInvalidField | null>(null);
+  const companyNameInputRef = useRef<HTMLInputElement | null>(null);
+  const taxNumberInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     let shouldIgnoreResult = false;
@@ -64,22 +69,39 @@ export default function AccountProfilePage() {
     value: string,
   ) {
     setProfile((currentProfile) => ({ ...currentProfile, [field]: value }));
+    if (field === invalidField) setInvalidField(null);
     setSuccess("");
+  }
+
+  function markInvalid(field: ProfileInvalidField, message: string) {
+    setInvalidField(field);
+    setError(message);
+    const inputRefs: Record<ProfileInvalidField, HTMLInputElement | null> = {
+      companyName: companyNameInputRef.current,
+      taxNumber: taxNumberInputRef.current,
+    };
+    inputRefs[field]?.focus();
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
     setSuccess("");
+    setInvalidField(null);
 
     if (profile.customerType === 1) {
-      if (!profile.companyName?.trim() || !profile.taxNumber?.trim()) {
-        setError("Céges fiókhoz a cégnév és az adószám megadása kötelező.");
+      if (!profile.companyName?.trim()) {
+        markInvalid("companyName", "Céges fiókhoz a cégnév megadása kötelező.");
+        return;
+      }
+
+      if (!profile.taxNumber?.trim()) {
+        markInvalid("taxNumber", "Céges fiókhoz az adószám megadása kötelező.");
         return;
       }
 
       if (!/^\d{8}(-\d-\d{2})?$/.test(profile.taxNumber.trim())) {
-        setError("Az adószám formátuma hibás. Példa: 12345678-1-12.");
+        markInvalid("taxNumber", "Az adószám formátuma hibás. Példa: 12345678-1-12.");
         return;
       }
     }
@@ -137,7 +159,7 @@ export default function AccountProfilePage() {
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="mt-7 space-y-5">
+      <form onSubmit={handleSubmit} noValidate className="mt-7 space-y-5">
         <div>
           <label htmlFor="profile-email" className="block text-sm font-semibold text-site-heading">
             Email cím
@@ -212,6 +234,7 @@ export default function AccountProfilePage() {
                     taxNumber: null,
                     printedInvoiceRequested: false,
                   }));
+                  setInvalidField(null);
                   setSuccess("");
                 }}
                 className="mt-1 h-4 w-4 accent-site-green"
@@ -228,6 +251,7 @@ export default function AccountProfilePage() {
                 checked={profile.customerType === 1}
                 onChange={() => {
                   setProfile((currentProfile) => ({ ...currentProfile, customerType: 1 }));
+                  setInvalidField(null);
                   setSuccess("");
                 }}
                 className="mt-1 h-4 w-4 accent-site-green"
@@ -255,19 +279,23 @@ export default function AccountProfilePage() {
             <label className="text-sm font-semibold text-site-heading">
               Cégnév
               <input
+                ref={companyNameInputRef}
                 value={profile.companyName ?? ""}
                 onChange={(event) => updateField("companyName", event.target.value)}
                 autoComplete="organization"
                 className="mt-2 block w-full rounded-sm border border-site-border px-3 py-2.5"
+                aria-invalid={invalidField === "companyName"}
               />
             </label>
             <label className="text-sm font-semibold text-site-heading">
               Adószám
               <input
+                ref={taxNumberInputRef}
                 value={profile.taxNumber ?? ""}
                 onChange={(event) => updateField("taxNumber", event.target.value)}
                 placeholder="12345678-1-12"
                 className="mt-2 block w-full rounded-sm border border-site-border px-3 py-2.5"
+                aria-invalid={invalidField === "taxNumber"}
               />
             </label>
           </div>

@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useEffect, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { deleteAdminProduct, getAdminProductPage } from "../../features/admin/api/adminProductsApi";
 import type { ProductCategory, ProductDetails } from "../../features/products/types/product.types";
 import {
@@ -8,6 +8,7 @@ import {
 } from "../../features/products/utils/productLabels";
 import AdminPageHeader from "../../shared/components/admin/AdminPageHeader";
 import AdminPagination from "../../shared/components/admin/AdminPagination";
+import { useModalFocus } from "../../shared/hooks/useModalFocus";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 const PAGE_SIZE = 12;
@@ -34,6 +35,14 @@ export default function AdminProductsPage() {
   const [editingProduct, setEditingProduct] = useState<ProductDetails | null | undefined>(undefined);
   const [deletingProduct, setDeletingProduct] = useState<ProductDetails | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const deleteModalRef = useRef<HTMLElement | null>(null);
+
+  useModalFocus(deleteModalRef, {
+    isOpen: Boolean(deletingProduct),
+    onClose: () => {
+      if (!deleting) setDeletingProduct(null);
+    },
+  });
 
   const loadProducts = useCallback(async (signal?: AbortSignal) => {
     setLoading(true);
@@ -313,7 +322,11 @@ export default function AdminProductsPage() {
           aria-modal="true"
           aria-labelledby="delete-product-title"
         >
-          <section className="w-full max-w-md rounded-sm bg-white p-6 shadow-xl">
+          <section
+            ref={deleteModalRef}
+            tabIndex={-1}
+            className="w-full max-w-md rounded-sm bg-white p-6 shadow-xl outline-none"
+          >
             <h2 id="delete-product-title" className="text-xl font-bold text-site-heading">
               Termék törlése
             </h2>

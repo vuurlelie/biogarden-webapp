@@ -5,6 +5,7 @@ type AddressFieldsProps = {
   value: AddressFormData;
   onChange: (value: AddressFormData) => void;
   disabled?: boolean;
+  invalidFields?: Partial<Record<keyof AddressFormData, boolean>>;
 };
 
 const inputClassName =
@@ -15,6 +16,7 @@ export default function AddressFields({
   value,
   onChange,
   disabled = false,
+  invalidFields = {},
 }: AddressFieldsProps) {
   function setField(field: keyof AddressFormData, fieldValue: string) {
     onChange({ ...value, [field]: fieldValue });
@@ -33,6 +35,7 @@ export default function AddressFields({
           autoComplete={idPrefix === "shipping" ? "shipping postal-code" : "billing postal-code"}
           className={inputClassName}
           disabled={disabled}
+          aria-invalid={Boolean(invalidFields.postalCode)}
           required={!disabled}
         />
       </div>
@@ -47,6 +50,7 @@ export default function AddressFields({
           autoComplete={idPrefix === "shipping" ? "shipping address-level2" : "billing address-level2"}
           className={inputClassName}
           disabled={disabled}
+          aria-invalid={Boolean(invalidFields.city)}
           required={!disabled}
         />
       </div>
@@ -62,6 +66,7 @@ export default function AddressFields({
           autoComplete={idPrefix === "shipping" ? "shipping address-line1" : "billing address-line1"}
           className={inputClassName}
           disabled={disabled}
+          aria-invalid={Boolean(invalidFields.street)}
           required={!disabled}
         />
       </div>
@@ -75,6 +80,7 @@ export default function AddressFields({
           onChange={(event) => setField("houseNumber", event.target.value)}
           className={inputClassName}
           disabled={disabled}
+          aria-invalid={Boolean(invalidFields.houseNumber)}
           required={!disabled}
         />
       </div>
@@ -96,6 +102,7 @@ export default function AddressFields({
               onChange={(event) => setField(field, event.target.value)}
               className={inputClassName}
               disabled={disabled}
+              aria-invalid={Boolean(invalidFields[field])}
             />
           </div>
         );
