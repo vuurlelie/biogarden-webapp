@@ -243,7 +243,11 @@ export async function mockPublicShopApi(page: Page) {
   });
 }
 
-export async function mockCheckoutApi(page: Page, onlinePayment = false) {
+export async function mockCheckoutApi(
+  page: Page,
+  onlinePayment = false,
+  onCreateOrder?: (payload: Record<string, unknown>) => void,
+) {
   await page.route(`${apiBaseUrl}/api/cart`, async (route) => {
     if (route.request().method() === "GET") {
       await route.fulfill({ json: createCart([cartItem]) });
@@ -258,6 +262,10 @@ export async function mockCheckoutApi(page: Page, onlinePayment = false) {
   });
 
   await page.route(`${apiBaseUrl}/api/orders`, async (route) => {
+    if (route.request().method() === "POST" && onCreateOrder) {
+      onCreateOrder(route.request().postDataJSON() as Record<string, unknown>);
+    }
+
     await route.fulfill({ json: successfulOrder });
   });
 
