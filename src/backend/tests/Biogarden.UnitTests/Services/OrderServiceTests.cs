@@ -199,6 +199,12 @@ public sealed class OrderServiceTests
         var order = CreateOrder(null);
         order.IdempotencyKey = IdempotencyKey;
         order.CustomerEmail = "guest@example.com";
+        order.Cart = new Cart
+        {
+            Id = order.CartId,
+            SessionId = sessionId,
+            IsCheckedOut = true
+        };
 
         _orders
             .Setup(x => x.GetByIdempotencyKeyWithItemsAsync(IdempotencyKey, It.IsAny<CancellationToken>()))
@@ -217,6 +223,39 @@ public sealed class OrderServiceTests
 
         Assert.Equal(order.Id, result.Id);
         Assert.Equal(IdempotencyKey, result.IdempotencyKey);
+        _carts.Verify(x => x.GetActiveBySessionIdAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+        _orders.Verify(x => x.AddAsync(It.IsAny<Order>(), It.IsAny<CancellationToken>()), Times.Never);
+        _emailService.Verify(x => x.SendAsync(It.IsAny<EmailMessage>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task CreateOrderFromCartAsync_WhenIdempotencyKeyBelongsToDifferentGuestSession_Throws()
+    {
+        var order = CreateOrder(null);
+        order.IdempotencyKey = IdempotencyKey;
+        order.Cart = new Cart
+        {
+            Id = order.CartId,
+            SessionId = "other-session",
+            IsCheckedOut = true
+        };
+
+        _orders
+            .Setup(x => x.GetByIdempotencyKeyWithItemsAsync(IdempotencyKey, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(order);
+
+        await Assert.ThrowsAsync<KeyNotFoundException>(() =>
+            _service.CreateOrderFromCartAsync(null, "guest-session", new PlaceOrderDto
+            {
+                IdempotencyKey = IdempotencyKey,
+                CustomerName = "Teszt Elek",
+                CustomerEmail = "guest@example.com",
+                CustomerPhone = "+361234567",
+                AcceptedTermsVersion = LegalDocumentVersions.CurrentTermsVersion,
+                AcceptedPrivacyPolicyVersion = LegalDocumentVersions.CurrentPrivacyPolicyVersion,
+                FulfillmentMethod = FulfillmentMethod.PersonalPickup
+            }));
+
         _carts.Verify(x => x.GetActiveBySessionIdAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
         _orders.Verify(x => x.AddAsync(It.IsAny<Order>(), It.IsAny<CancellationToken>()), Times.Never);
         _emailService.Verify(x => x.SendAsync(It.IsAny<EmailMessage>(), It.IsAny<CancellationToken>()), Times.Never);

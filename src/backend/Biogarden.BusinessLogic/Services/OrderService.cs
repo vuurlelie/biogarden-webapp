@@ -56,6 +56,7 @@ public class OrderService : IOrderService
             cancellationToken);
         if (existingOrderByKey is not null)
         {
+            EnsureCanAccessOrder(existingOrderByKey, userId, sessionId);
             return existingOrderByKey.ToDto();
         }
 
@@ -303,6 +304,7 @@ public class OrderService : IOrderService
             existingOrder ??= await GetLatestCheckedOutOrderAsync(userId, sessionId, cancellationToken);
             if (existingOrder is not null)
             {
+                EnsureCanAccessOrder(existingOrder, userId, sessionId);
                 return existingOrder.ToDto();
             }
 
@@ -378,7 +380,7 @@ public class OrderService : IOrderService
             cancellationToken)
             ?? throw new KeyNotFoundException("Order not found.");
 
-        EnsureCanAccessOrderPayment(order, userId, sessionId);
+        EnsureCanAccessOrder(order, userId, sessionId);
 
         if (order.Status == OrderStatus.Cancelled)
         {
@@ -673,7 +675,7 @@ public class OrderService : IOrderService
         return deletedAtUtc.HasValue && deletedAtUtc.Value >= visibleFromUtc;
     }
 
-    private static void EnsureCanAccessOrderPayment(Order order, Guid? userId, string? sessionId)
+    private static void EnsureCanAccessOrder(Order order, Guid? userId, string? sessionId)
     {
         if (order.UserId.HasValue)
         {

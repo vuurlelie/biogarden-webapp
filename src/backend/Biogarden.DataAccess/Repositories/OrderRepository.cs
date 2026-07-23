@@ -71,6 +71,7 @@ public class OrderRepository : IOrderRepository
         return await _context.Orders
             .Include(order => order.Items)
             .ThenInclude(orderItem => orderItem.Product)
+            .Include(order => order.Cart)
             .AsSplitQuery()
             .FirstOrDefaultAsync(order => order.IdempotencyKey == idempotencyKey, cancellationToken);
     }
