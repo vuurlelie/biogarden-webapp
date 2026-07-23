@@ -31,6 +31,58 @@ const relatedProduct = {
   deliveryAvailable: true,
 };
 
+const pageTwoProduct = {
+  id: 13,
+  name: "Masodik oldali szorp",
+  price: 2200,
+  category: 3,
+  image: "uploads/products/defaultimg.png",
+  unit: 1,
+  unitAmount: 250,
+  unitAmountMeasure: 3,
+  available: true,
+  deliveryAvailable: false,
+};
+
+const pagedProducts = [
+  product,
+  relatedProduct,
+  ...Array.from({ length: 10 }, (_, index) => ({
+    ...product,
+    id: index + 3,
+    name: `Teszt termek ${index + 3}`,
+  })),
+];
+
+const pageOnePost = {
+  id: 1,
+  title: "Elso teszt bejegyzes",
+  category: 0,
+  article: "Hasznos tudastar tartalom elso oldalon.",
+  image: "uploads/posts/defaultimg.png",
+  publishedAt: "2026-07-20T10:00:00Z",
+  draft: false,
+};
+
+const pagedPosts = [
+  pageOnePost,
+  ...Array.from({ length: 3 }, (_, index) => ({
+    ...pageOnePost,
+    id: index + 2,
+    title: `Teszt bejegyzes ${index + 2}`,
+  })),
+];
+
+const pageTwoPost = {
+  id: 5,
+  title: "Masodik oldali bejegyzes",
+  category: 1,
+  article: "Hasznos tudastar tartalom masodik oldalon.",
+  image: "uploads/posts/defaultimg.png",
+  publishedAt: "2026-07-19T10:00:00Z",
+  draft: false,
+};
+
 const cartItem = {
   id: "cart-item-1",
   productId: product.id,
@@ -102,6 +154,50 @@ export const successfulOrder = {
   ],
 };
 
+export async function mockCatalogPaginationApi(page: Page) {
+  await page.route(`${apiBaseUrl}/uploads/**`, async (route) => {
+    await route.fulfill({ status: 204 });
+  });
+
+  await page.route(
+    (url) => url.origin === apiBaseUrl && url.pathname === "/api/cart",
+    async (route) => {
+      if (route.request().method() === "GET") {
+        await route.fulfill({ json: createCart([]) });
+        return;
+      }
+
+      await route.fallback();
+    },
+  );
+
+  await page.route(
+    (url) => url.origin === apiBaseUrl && url.pathname === "/api/products",
+    async (route) => {
+      const requestUrl = new URL(route.request().url());
+      const pageNumber = Number(requestUrl.searchParams.get("page") ?? "1");
+      const items = pageNumber === 2 ? [pageTwoProduct] : pagedProducts;
+
+      await route.fulfill({
+        json: createPagedResult(items, pageNumber, 12, 13),
+      });
+    },
+  );
+
+  await page.route(
+    (url) => url.origin === apiBaseUrl && url.pathname === "/api/posts",
+    async (route) => {
+      const requestUrl = new URL(route.request().url());
+      const pageNumber = Number(requestUrl.searchParams.get("page") ?? "1");
+      const items = pageNumber === 2 ? [pageTwoPost] : pagedPosts;
+
+      await route.fulfill({
+        json: createPagedResult(items, pageNumber, 4, 5),
+      });
+    },
+  );
+}
+
 export async function mockPublicShopApi(page: Page) {
   let items: Array<typeof cartItem> = [];
 
@@ -109,9 +205,14 @@ export async function mockPublicShopApi(page: Page) {
     await route.fulfill({ status: 204 });
   });
 
-  await page.route(`${apiBaseUrl}/api/products`, async (route) => {
-    await route.fulfill({ json: [product, relatedProduct] });
-  });
+  await page.route(
+    (url) => url.origin === apiBaseUrl && url.pathname === "/api/products",
+    async (route) => {
+      await route.fulfill({
+        json: createPagedResult([product, relatedProduct], 1, 60, 2),
+      });
+    },
+  );
 
   await page.route(`${apiBaseUrl}/api/products/1`, async (route) => {
     await route.fulfill({
@@ -294,6 +395,16 @@ function createCart(items: Array<typeof cartItem>) {
     totalItemCount: items.reduce((sum, item) => sum + item.quantity, 0),
     totalPrice: items.reduce((sum, item) => sum + item.lineTotal, 0),
     items,
+  };
+}
+
+function createPagedResult<T>(items: T[], page: number, pageSize: number, totalCount: number) {
+  return {
+    items,
+    page,
+    pageSize,
+    totalCount,
+    totalPages: Math.max(1, Math.ceil(totalCount / pageSize)),
   };
 }
 
