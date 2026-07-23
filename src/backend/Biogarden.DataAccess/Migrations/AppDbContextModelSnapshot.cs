@@ -447,6 +447,10 @@ namespace Biogarden.DataAccess.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
 
+                    b.Property<string>("IdempotencyKey")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
                     b.Property<string>("OrderNumber")
                         .IsRequired()
                         .HasMaxLength(50)
@@ -503,6 +507,10 @@ namespace Biogarden.DataAccess.Migrations
                         .IsUnique();
 
                     b.HasIndex("CreatedAtUtc");
+
+                    b.HasIndex("IdempotencyKey")
+                        .IsUnique()
+                        .HasFilter("[IdempotencyKey] IS NOT NULL");
 
                     b.HasIndex("OrderNumber")
                         .IsUnique();

@@ -11,6 +11,7 @@ public static class OrderMapper
         {
             Id = order.Id,
             OrderNumber = order.OrderNumber,
+            IdempotencyKey = order.IdempotencyKey,
             UserId = order.UserId,
             AddressId = order.AddressId,
             CustomerName = order.CustomerName,

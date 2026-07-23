@@ -50,6 +50,15 @@ public class OrderService : IOrderService
         PlaceOrderDto dto,
         CancellationToken cancellationToken = default)
     {
+        var idempotencyKey = NormalizeIdempotencyKey(dto.IdempotencyKey);
+        var existingOrderByKey = await _unitOfWork.OrderRepository.GetByIdempotencyKeyWithItemsAsync(
+            idempotencyKey,
+            cancellationToken);
+        if (existingOrderByKey is not null)
+        {
+            return existingOrderByKey.ToDto();
+        }
+
         var cart = userId.HasValue
             ? await _unitOfWork.CartRepository.GetActiveByUserIdAsync(userId.Value, cancellationToken)
             : string.IsNullOrWhiteSpace(sessionId)
@@ -180,6 +189,7 @@ public class OrderService : IOrderService
                 {
                     Id = Guid.NewGuid(),
                     OrderNumber = GenerateOrderNumber(),
+                    IdempotencyKey = idempotencyKey,
                     UserId = userId,
                     AddressId = customerType == CustomerType.Company ? dto.AddressId : null,
                     CustomerName = user is null || useManualContact
@@ -273,7 +283,10 @@ public class OrderService : IOrderService
         }
         catch (DbUpdateException exception)
         {
-            var existingOrder = await GetLatestCheckedOutOrderAsync(userId, sessionId, cancellationToken);
+            var existingOrder = await _unitOfWork.OrderRepository.GetByIdempotencyKeyWithItemsAsync(
+                idempotencyKey,
+                cancellationToken);
+            existingOrder ??= await GetLatestCheckedOutOrderAsync(userId, sessionId, cancellationToken);
             if (existingOrder is not null)
             {
                 return existingOrder.ToDto();
@@ -725,6 +738,23 @@ public class OrderService : IOrderService
 
     private static string? NormalizeOptional(string? value) =>
         string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
+    private static string NormalizeIdempotencyKey(string? value)
+    {
+        var normalized = NormalizeOptional(value);
+        if (normalized is null)
+        {
+            throw new ArgumentException("A rendelés azonosító kulcsa hiányzik. Kérjük, frissítsd az oldalt, és próbáld újra.");
+        }
+
+        if (normalized.Length > 100 ||
+            !System.Text.RegularExpressions.Regex.IsMatch(normalized, @"^[A-Za-z0-9_-]{8,100}$"))
+        {
+            throw new ArgumentException("A rendelés azonosító kulcsa érvénytelen. Kérjük, frissítsd az oldalt, és próbáld újra.");
+        }
+
+        return normalized;
+    }
 
     private static string NormalizeRequired(string? value, string fieldName, int minLength, int maxLength)
     {

@@ -20,6 +20,13 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
         orderBuilder.HasIndex(order => order.OrderNumber)
             .IsUnique();
 
+        orderBuilder.Property(order => order.IdempotencyKey)
+            .HasMaxLength(100);
+
+        orderBuilder.HasIndex(order => order.IdempotencyKey)
+            .IsUnique()
+            .HasFilter("[IdempotencyKey] IS NOT NULL");
+
         orderBuilder.Property(order => order.CreatedAtUtc)
             .HasColumnType("datetime2")
             .IsRequired()

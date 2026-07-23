@@ -17,6 +17,8 @@ namespace Biogarden.UnitTests.Services;
 
 public sealed class OrderServiceTests
 {
+    private const string IdempotencyKey = "testorderkey123";
+
     private readonly Mock<IUnitOfWork> _unitOfWork = new(MockBehavior.Strict);
     private readonly Mock<IOrderRepository> _orders = new(MockBehavior.Strict);
     private readonly Mock<ICartRepository> _carts = new(MockBehavior.Strict);
@@ -68,6 +70,9 @@ public sealed class OrderServiceTests
         cart.Items.Add(new CartItem { Id = Guid.NewGuid(), CartId = cart.Id, ProductId = product.Id, Product = product, Quantity = 2 });
         Order? savedOrder = null;
         _unitOfWork.SetupGet(x => x.CartRepository).Returns(_carts.Object);
+        _orders
+            .Setup(x => x.GetByIdempotencyKeyWithItemsAsync(IdempotencyKey, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Order?)null);
         _carts.Setup(x => x.GetActiveBySessionIdAsync(sessionId, It.IsAny<CancellationToken>())).ReturnsAsync(cart);
         _cartService.Setup(x => x.ValidateCartForCheckoutAsync(null, sessionId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new Biogarden.BusinessLogic.DTOs.Carts.CartValidationResultDto { IsValid = true });
@@ -102,6 +107,7 @@ public sealed class OrderServiceTests
 
         var result = await _service.CreateOrderFromCartAsync(null, sessionId, new PlaceOrderDto
         {
+            IdempotencyKey = IdempotencyKey,
             CustomerName = "Teszt Elek",
             CustomerEmail = "guest@example.com",
             CustomerPhone = "+361234567",
@@ -155,6 +161,9 @@ public sealed class OrderServiceTests
         order.CustomerEmail = "guest@example.com";
 
         _unitOfWork.SetupGet(x => x.CartRepository).Returns(_carts.Object);
+        _orders
+            .Setup(x => x.GetByIdempotencyKeyWithItemsAsync(IdempotencyKey, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Order?)null);
         _carts
             .Setup(x => x.GetActiveBySessionIdAsync(sessionId, It.IsAny<CancellationToken>()))
             .ReturnsAsync((Cart?)null);
@@ -167,6 +176,7 @@ public sealed class OrderServiceTests
 
         var result = await _service.CreateOrderFromCartAsync(null, sessionId, new PlaceOrderDto
         {
+            IdempotencyKey = IdempotencyKey,
             CustomerName = "Teszt Elek",
             CustomerEmail = "guest@example.com",
             CustomerPhone = "+361234567",
@@ -183,6 +193,55 @@ public sealed class OrderServiceTests
     }
 
     [Fact]
+    public async Task CreateOrderFromCartAsync_WhenIdempotencyKeyAlreadyExists_ReturnsExistingOrderWithoutSendingEmails()
+    {
+        const string sessionId = "guest-session";
+        var order = CreateOrder(null);
+        order.IdempotencyKey = IdempotencyKey;
+        order.CustomerEmail = "guest@example.com";
+
+        _orders
+            .Setup(x => x.GetByIdempotencyKeyWithItemsAsync(IdempotencyKey, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(order);
+
+        var result = await _service.CreateOrderFromCartAsync(null, sessionId, new PlaceOrderDto
+        {
+            IdempotencyKey = IdempotencyKey,
+            CustomerName = "Teszt Elek",
+            CustomerEmail = "guest@example.com",
+            CustomerPhone = "+361234567",
+            AcceptedTermsVersion = LegalDocumentVersions.CurrentTermsVersion,
+            AcceptedPrivacyPolicyVersion = LegalDocumentVersions.CurrentPrivacyPolicyVersion,
+            FulfillmentMethod = FulfillmentMethod.PersonalPickup
+        });
+
+        Assert.Equal(order.Id, result.Id);
+        Assert.Equal(IdempotencyKey, result.IdempotencyKey);
+        _carts.Verify(x => x.GetActiveBySessionIdAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+        _orders.Verify(x => x.AddAsync(It.IsAny<Order>(), It.IsAny<CancellationToken>()), Times.Never);
+        _emailService.Verify(x => x.SendAsync(It.IsAny<EmailMessage>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task CreateOrderFromCartAsync_WhenIdempotencyKeyIsMissing_ThrowsBeforeCheckout()
+    {
+        var exception = await Assert.ThrowsAsync<ArgumentException>(() =>
+            _service.CreateOrderFromCartAsync(null, "guest-session", new PlaceOrderDto
+            {
+                CustomerName = "Teszt Elek",
+                CustomerEmail = "guest@example.com",
+                CustomerPhone = "+361234567",
+                AcceptedTermsVersion = LegalDocumentVersions.CurrentTermsVersion,
+                AcceptedPrivacyPolicyVersion = LegalDocumentVersions.CurrentPrivacyPolicyVersion,
+                FulfillmentMethod = FulfillmentMethod.PersonalPickup
+            }));
+
+        Assert.Contains("azonosító kulcsa", exception.Message);
+        _carts.Verify(x => x.GetActiveBySessionIdAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+        _orders.Verify(x => x.AddAsync(It.IsAny<Order>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
     public async Task CreateOrderFromCartAsync_WhenStockChangesDuringSave_ThrowsBeforeSendingEmails()
     {
         const string sessionId = "guest-session";
@@ -191,6 +250,9 @@ public sealed class OrderServiceTests
         cart.Items.Add(new CartItem { Id = Guid.NewGuid(), CartId = cart.Id, ProductId = product.Id, Product = product, Quantity = 1 });
 
         _unitOfWork.SetupGet(x => x.CartRepository).Returns(_carts.Object);
+        _orders
+            .Setup(x => x.GetByIdempotencyKeyWithItemsAsync(IdempotencyKey, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Order?)null);
         _carts.Setup(x => x.GetActiveBySessionIdAsync(sessionId, It.IsAny<CancellationToken>())).ReturnsAsync(cart);
         _cartService.Setup(x => x.ValidateCartForCheckoutAsync(null, sessionId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new Biogarden.BusinessLogic.DTOs.Carts.CartValidationResultDto { IsValid = true });
@@ -202,6 +264,7 @@ public sealed class OrderServiceTests
         var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
             _service.CreateOrderFromCartAsync(null, sessionId, new PlaceOrderDto
             {
+                IdempotencyKey = IdempotencyKey,
                 CustomerName = "Teszt Elek",
                 CustomerEmail = "guest@example.com",
                 CustomerPhone = "+361234567",
@@ -230,11 +293,15 @@ public sealed class OrderServiceTests
         cart.Items.Add(new CartItem { Id = Guid.NewGuid(), CartId = cart.Id, ProductId = product.Id, Product = product, Quantity = 1 });
 
         _unitOfWork.SetupGet(x => x.CartRepository).Returns(_carts.Object);
+        _orders
+            .Setup(x => x.GetByIdempotencyKeyWithItemsAsync(IdempotencyKey, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Order?)null);
         _carts.Setup(x => x.GetActiveBySessionIdAsync(sessionId, It.IsAny<CancellationToken>())).ReturnsAsync(cart);
 
         var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
             _service.CreateOrderFromCartAsync(null, sessionId, new PlaceOrderDto
             {
+                IdempotencyKey = IdempotencyKey,
                 CustomerName = "Teszt Elek",
                 CustomerEmail = "guest@example.com",
                 CustomerPhone = "+361234567",
