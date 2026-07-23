@@ -1,4 +1,4 @@
-﻿using Biogarden.DataAccess.Entities;
+using Biogarden.DataAccess.Entities;
 
 public interface IAddressRepository
 {

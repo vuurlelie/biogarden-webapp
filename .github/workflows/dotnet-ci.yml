@@ -29,6 +29,9 @@ jobs:
       - name: Build solution
         run: dotnet build ./src/backend/Biogarden.sln --no-restore --configuration Release
 
+      - name: Verify backend formatting
+        run: dotnet format ./src/backend/Biogarden.sln --verify-no-changes --no-restore
+
       - name: Run tests
         run: dotnet test ./src/backend/Biogarden.sln --no-build --configuration Release --verbosity normal
 
@@ -59,8 +62,14 @@ jobs:
       - name: Lint frontend
         run: npm run lint
 
+      - name: Typecheck frontend
+        run: npm run typecheck
+
       - name: Build frontend
         run: npm run build
+
+      - name: Verify SEO files
+        run: npm run verify:seo
 
       - name: Run E2E tests
         run: npm run test:e2e

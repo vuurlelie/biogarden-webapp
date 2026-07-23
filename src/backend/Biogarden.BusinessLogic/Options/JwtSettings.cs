@@ -1,4 +1,4 @@
-﻿namespace Biogarden.BusinessLogic.Options;
+namespace Biogarden.BusinessLogic.Options;
 
 public class JwtSettings
 {

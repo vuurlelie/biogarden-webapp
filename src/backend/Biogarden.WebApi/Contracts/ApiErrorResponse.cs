@@ -1,4 +1,4 @@
-﻿namespace Biogarden.WebApi.Contracts;
+namespace Biogarden.WebApi.Contracts;
 
 public sealed class ApiErrorResponse
 {

@@ -1,4 +1,4 @@
-﻿using Biogarden.DataAccess.Abstractions;
+using Biogarden.DataAccess.Abstractions;
 using Biogarden.DataAccess.Entities;
 using Biogarden.DataAccess.Enums;
 using Microsoft.EntityFrameworkCore;

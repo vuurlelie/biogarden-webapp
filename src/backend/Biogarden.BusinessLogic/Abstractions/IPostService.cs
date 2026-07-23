@@ -1,4 +1,4 @@
-﻿using Biogarden.BusinessLogic.DTOs.Posts;
+using Biogarden.BusinessLogic.DTOs.Posts;
 
 using Biogarden.BusinessLogic.DTOs.Common;
 

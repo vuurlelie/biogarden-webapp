@@ -1,4 +1,4 @@
-﻿namespace Biogarden.BusinessLogic.DTOs.Orders;
+namespace Biogarden.BusinessLogic.DTOs.Orders;
 
 public class CancelOrderDto
 {

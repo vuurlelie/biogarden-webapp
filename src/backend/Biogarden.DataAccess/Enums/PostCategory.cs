@@ -1,4 +1,4 @@
-﻿namespace Biogarden.DataAccess.Enums;
+namespace Biogarden.DataAccess.Enums;
 
 public enum PostCategory
 {

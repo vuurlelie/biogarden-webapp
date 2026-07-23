@@ -1,4 +1,4 @@
-﻿using Biogarden.DataAccess.Entities;
+using Biogarden.DataAccess.Entities;
 using Microsoft.EntityFrameworkCore;
 
 namespace Biogarden.DataAccess.Abstractions;

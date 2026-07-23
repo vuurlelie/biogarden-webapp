@@ -1,4 +1,4 @@
-﻿namespace Biogarden.DataAccess.Abstractions;
+namespace Biogarden.DataAccess.Abstractions;
 
 public interface IUnitOfWork
 {

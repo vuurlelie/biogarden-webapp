@@ -1,4 +1,4 @@
-﻿namespace Biogarden.BusinessLogic;
+namespace Biogarden.BusinessLogic;
 
 public static class BusinessRules
 {

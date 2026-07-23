@@ -1,4 +1,4 @@
-﻿namespace Biogarden.DataAccess.Entities;
+namespace Biogarden.DataAccess.Entities;
 
 public class Cart
 {

@@ -1,4 +1,4 @@
-﻿namespace Biogarden.BusinessLogic.DTOs.Carts;
+namespace Biogarden.BusinessLogic.DTOs.Carts;
 
 public class CartItemDto
 {
