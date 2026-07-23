@@ -28,18 +28,23 @@ test("admin orders page shows load failures", async ({ page }) => {
 
 test("admin products page can retry after a load failure", async ({ page }) => {
   let attempts = 0;
-  await page.route(`${apiBaseUrl}/api/admin/products`, async (route) => {
-    attempts += 1;
-    if (attempts <= 2) {
-      await route.fulfill({
-        status: 503,
-        json: { detail: "A terméklista átmenetileg nem elérhető." },
-      });
-      return;
-    }
+  await page.route(
+    (url) => url.origin === apiBaseUrl && url.pathname === "/api/admin/products",
+    async (route) => {
+      attempts += 1;
+      if (attempts <= 2) {
+        await route.fulfill({
+          status: 503,
+          json: { detail: "A terméklista átmenetileg nem elérhető." },
+        });
+        return;
+      }
 
-    await route.fulfill({ json: [] });
-  });
+      await route.fulfill({
+        json: { items: [], page: 1, pageSize: 12, totalCount: 0, totalPages: 1 },
+      });
+    },
+  );
 
   await page.goto("/admin/termekek");
 
