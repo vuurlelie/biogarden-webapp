@@ -1,5 +1,7 @@
 import { defineConfig, devices } from "@playwright/test";
 
+const npmCommand = process.platform === "win32" ? "npm.cmd" : "npm";
+
 export default defineConfig({
   testDir: "./e2e",
   timeout: 30_000,
@@ -14,7 +16,7 @@ export default defineConfig({
     trace: "on-first-retry",
   },
   webServer: {
-    command: "npm.cmd run dev -- --host localhost --port 4173 --strictPort",
+    command: `${npmCommand} run dev -- --host localhost --port 4173 --strictPort`,
     cwd: ".",
     env: {
       VITE_API_BASE_URL: "http://localhost:5097",
