@@ -159,6 +159,123 @@ public sealed class CartServiceTests
     }
 
     [Fact]
+    public async Task MergeGuestCartIntoUserCartAsync_CombinesExistingItemsAndChecksOutGuestCart()
+    {
+        var userId = Guid.NewGuid();
+        const string guestSessionId = " guest-session ";
+        var product = new Product
+        {
+            Id = 3,
+            Name = "Bazsalikom",
+            Price = 900,
+            Available = true,
+            StockQuantity = 8
+        };
+        var userCart = CreateCart(userId, product.Id, quantity: 2);
+        userCart.Items.Single().Product = product;
+        var guestCart = new Cart
+        {
+            Id = Guid.NewGuid(),
+            SessionId = guestSessionId.Trim()
+        };
+        guestCart.Items.Add(new CartItem
+        {
+            Id = Guid.NewGuid(),
+            CartId = guestCart.Id,
+            ProductId = product.Id,
+            Product = product,
+            Quantity = 3
+        });
+
+        _carts
+            .Setup(x => x.GetActiveByUserIdAsync(userId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(userCart);
+        _carts
+            .Setup(x => x.GetActiveBySessionIdAsync(guestSessionId.Trim(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(guestCart);
+        _products
+            .Setup(x => x.GetByIdAsync(product.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(product);
+        _carts
+            .Setup(x => x.GetActiveReservedQuantityForProductAsync(
+                product.Id,
+                userCart.Id,
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(0);
+        _unitOfWork
+            .Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(1);
+        _carts
+            .Setup(x => x.GetByIdWithItemsAsync(userCart.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(userCart);
+
+        var result = await _service.MergeGuestCartIntoUserCartAsync(userId, guestSessionId);
+
+        Assert.True(guestCart.IsCheckedOut);
+        Assert.NotNull(guestCart.CheckedOutAtUtc);
+        Assert.Equal(5, userCart.Items.Single().Quantity);
+        Assert.Equal(5, result.TotalItemCount);
+        Assert.Equal(4500, result.TotalPrice);
+        _carts.Verify(x => x.AddItemAsync(It.IsAny<CartItem>(), It.IsAny<CancellationToken>()), Times.Never);
+        _unitOfWork.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task MergeGuestCartIntoUserCartAsync_WhenMergedQuantityExceedsStock_DoesNotCheckoutGuestCart()
+    {
+        var userId = Guid.NewGuid();
+        const string guestSessionId = "guest-session";
+        var product = new Product
+        {
+            Id = 3,
+            Name = "Bazsalikom",
+            Price = 900,
+            Available = true,
+            StockQuantity = 4
+        };
+        var userCart = CreateCart(userId, product.Id, quantity: 2);
+        userCart.Items.Single().Product = product;
+        var guestCart = new Cart
+        {
+            Id = Guid.NewGuid(),
+            SessionId = guestSessionId
+        };
+        guestCart.Items.Add(new CartItem
+        {
+            Id = Guid.NewGuid(),
+            CartId = guestCart.Id,
+            ProductId = product.Id,
+            Product = product,
+            Quantity = 3
+        });
+
+        _carts
+            .Setup(x => x.GetActiveByUserIdAsync(userId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(userCart);
+        _carts
+            .Setup(x => x.GetActiveBySessionIdAsync(guestSessionId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(guestCart);
+        _products
+            .Setup(x => x.GetByIdAsync(product.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(product);
+        _carts
+            .Setup(x => x.GetActiveReservedQuantityForProductAsync(
+                product.Id,
+                userCart.Id,
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(0);
+
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _service.MergeGuestCartIntoUserCartAsync(userId, guestSessionId));
+
+        Assert.Contains("legfeljebb 4 db", exception.Message);
+        Assert.False(guestCart.IsCheckedOut);
+        Assert.Null(guestCart.CheckedOutAtUtc);
+        Assert.Equal(2, userCart.Items.Single().Quantity);
+        _unitOfWork.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
     public async Task CleanupExpiredCarts_RemovesAllExpiredCarts_AndSavesOnce()
     {
         var expired = new List<Cart> { new() { Id = Guid.NewGuid() }, new() { Id = Guid.NewGuid() } };
