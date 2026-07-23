@@ -68,22 +68,31 @@ const sections = [
     ],
   },
   {
-    title: "9. Adattovábbítás és adatfeldolgozók",
+    title: "9. Sütik és anonim látogatottsági analitika",
     paragraphs: [
-      "A rendelés teljesítéséhez szükséges adatokat továbbíthatjuk könyvelési, számlázási, tárhelyszolgáltatási, informatikai, futárszolgálati vagy fizetési szolgáltató partnerek részére.",
-      "Az adatfeldolgozók kizárólag az adatkezelő utasításai szerint, a szolgáltatás teljesítéséhez szükséges mértékben kezelhetik az adatokat.",
-      "A végleges adatfeldolgozói lista a tárhely-, email-, fizetési, számlázási és szállítási szolgáltatók kiválasztása után pontosítandó.",
+      "A weboldal működéséhez szükséges technikai adatokat és helyi böngészőtárhelyet a szolgáltatás biztonságos működtetéséhez használjuk.",
+      "Anonim látogatottsági analitikát kizárólag előzetes hozzájárulás alapján használunk. Az analitikai események célja annak megértése, hogy mely oldalak és rendelési lépések működnek jól, illetve hol érdemes javítani a felhasználói élményt.",
+      "Az analitikai események nem tartalmazhatnak nevet, email címet, telefonszámot, pontos címet, rendelésazonosítót vagy más közvetlen azonosításra alkalmas adatot.",
+      "A hozzájárulás bármikor módosítható vagy visszavonható az oldal alján található Adatvédelmi beállítások menüpontban.",
     ],
   },
   {
-    title: "10. Felhasználói jogok",
+    title: "10. Adattovábbítás és adatfeldolgozók",
+    paragraphs: [
+      "A rendelés teljesítéséhez szükséges adatokat továbbíthatjuk könyvelési, számlázási, tárhelyszolgáltatási, informatikai, futárszolgálati vagy fizetési szolgáltató partnerek részére.",
+      "Az adatfeldolgozók kizárólag az adatkezelő utasításai szerint, a szolgáltatás teljesítéséhez szükséges mértékben kezelhetik az adatokat.",
+      "A végleges adatfeldolgozói lista a tárhely-, email-, fizetési, számlázási, szállítási és esetleges analitikai szolgáltatók kiválasztása után pontosítandó.",
+    ],
+  },
+  {
+    title: "11. Felhasználói jogok",
     paragraphs: [
       "A felhasználó kérheti a róla kezelt személyes adatokhoz való hozzáférést, azok helyesbítését, törlését, korlátozását, valamint tiltakozhat bizonyos adatkezelések ellen.",
       "A felhasználó jogosult panaszt tenni a Nemzeti Adatvédelmi és Információszabadság Hatóságnál, valamint bírósághoz fordulni, ha úgy véli, hogy személyes adatait jogsértően kezeljük.",
     ],
   },
   {
-    title: "11. Adatbiztonság",
+    title: "12. Adatbiztonság",
     paragraphs: [
       "A személyes adatok védelme érdekében technikai és szervezési intézkedéseket alkalmazunk. A felhasználói jelszavakat nem olvasható formában tároljuk.",
       "A felhasználó felelőssége, hogy fiókjához tartozó jelszavát bizalmasan kezelje, és jelezze, ha jogosulatlan hozzáférést észlel.",

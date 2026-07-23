@@ -19,6 +19,7 @@ import { useCart } from "../../features/cart/context/useCart";
 import { getAvailableQuantityToAdd } from "../../features/cart/api/cartApi";
 import Seo from "../../shared/seo/Seo";
 import { useModalFocus } from "../../shared/hooks/useModalFocus";
+import { useAnalytics } from "../../features/analytics/context/AnalyticsContextCore";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 const SITE_URL = (import.meta.env.VITE_SITE_URL ?? "https://bakonykincse.hu").replace(/\/$/, "");
@@ -54,6 +55,7 @@ export default function ProductDetailsPage() {
   const [availableToAdd, setAvailableToAdd] = useState(0);
   const [isImageOpen, setIsImageOpen] = useState(false);
   const imageModalRef = useRef<HTMLDivElement | null>(null);
+  const { track } = useAnalytics();
 
   useModalFocus(imageModalRef, {
     isOpen: isImageOpen,
@@ -114,6 +116,14 @@ export default function ProductDetailsPage() {
       shouldIgnoreResult = true;
     };
   }, [productId]);
+
+  useEffect(() => {
+    if (!product) return;
+    track("product_view", {
+      productId: product.id,
+      category: String(product.category),
+    });
+  }, [product, track]);
 
   if (isLoading) {
     return (

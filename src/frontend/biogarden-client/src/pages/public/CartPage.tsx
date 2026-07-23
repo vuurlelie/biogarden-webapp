@@ -4,6 +4,8 @@ import { useCart } from "../../features/cart/context/useCart";
 import type { CartItem } from "../../features/cart/types/cart.types";
 import { getUnitLabel } from "../../features/products/utils/productLabels";
 import { ROUTES } from "../../shared/constants/routes";
+import { useAnalytics } from "../../features/analytics/context/AnalyticsContextCore";
+import { getCartValueBucket } from "../../features/analytics/utils/eventValidation";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 const PRICE_FORMATTER = new Intl.NumberFormat("hu-HU", {
@@ -106,6 +108,7 @@ export default function CartPage() {
   const [updatingItemId, setUpdatingItemId] = useState<string | null>(null);
   const [isClearing, setIsClearing] = useState(false);
   const [now, setNow] = useState(Date.now());
+  const { track } = useAnalytics();
 
   useEffect(() => {
     void refresh().then(() => setNow(Date.now())).catch(() => undefined);
@@ -115,6 +118,14 @@ export default function CartPage() {
     const interval = window.setInterval(() => setNow(Date.now()), 1000);
     return () => window.clearInterval(interval);
   }, []);
+
+  useEffect(() => {
+    if (!cart?.items.length) return;
+    track("cart_view", {
+      itemCount: cart.totalItemCount,
+      cartValueBucket: getCartValueBucket(cart.totalPrice),
+    });
+  }, [cart, track]);
 
   const remainingMilliseconds = useMemo(
     () => Math.max(0, new Date(cart?.expiresAtUtc ?? 0).getTime() - now),

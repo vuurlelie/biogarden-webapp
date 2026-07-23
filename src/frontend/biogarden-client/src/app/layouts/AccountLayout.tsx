@@ -9,6 +9,8 @@ import BackToTopBtn from "../../shared/components/ui/BackToTopBtn";
 import { ROUTES } from "../../shared/constants/routes";
 import ScrollToTop from "../router/ScrollToTop";
 import { useCart } from "../../features/cart/context/useCart";
+import RouteAnalytics from "../../features/analytics/components/RouteAnalytics";
+import ConsentBanner from "../../features/analytics/components/ConsentBanner";
 
 const accountLinkClass = ({ isActive }: { isActive: boolean }) =>
   [
@@ -31,6 +33,7 @@ export default function AccountLayout() {
   return (
     <div className="flex min-h-screen flex-col bg-white text-site-text">
       <ScrollToTop />
+      <RouteAnalytics />
       <Navbar
         isAuthenticated
         isAdmin={auth?.roles.includes("Admin") ?? false}
@@ -84,6 +87,7 @@ export default function AccountLayout() {
 
       <BackToTopBtn />
       <Footer />
+      <ConsentBanner />
     </div>
   );
 }

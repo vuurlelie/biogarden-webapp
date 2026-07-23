@@ -2,6 +2,7 @@ import { lazy, Suspense, useRef, useState, type MouseEvent, type ReactNode } fro
 import { NavLink, useLocation } from "react-router-dom";
 import { ROUTES } from "../../constants/routes";
 import { useModalFocus } from "../../hooks/useModalFocus";
+import { OPEN_CONSENT_PREFERENCES_EVENT } from "../../../features/analytics/utils/analyticsEvents";
 
 const mapSource =
   "https://www.google.com/maps?q=Bakonyszentl%C3%A1szl%C3%B3%2C%208431&z=10&output=embed";
@@ -24,6 +25,10 @@ export default function Footer() {
       event.preventDefault();
       window.scrollTo({ top: 0, behavior: "smooth" });
     };
+  }
+
+  function openPrivacyPreferences() {
+    window.dispatchEvent(new Event(OPEN_CONSENT_PREFERENCES_EVENT));
   }
 
   return (
@@ -140,6 +145,13 @@ export default function Footer() {
                   >
                     Elállási vagy fogyasztói kérés
                   </NavLink>
+                  <button
+                    type="button"
+                    onClick={openPrivacyPreferences}
+                    className="block w-full font-semibold text-site-green-dark underline underline-offset-4 transition hover:text-site-green-hover md:text-left"
+                  >
+                    Adatvédelmi beállítások
+                  </button>
                 </div>
               </section>
 

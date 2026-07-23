@@ -1,5 +1,6 @@
 import { useRef, useState, type FormEvent } from "react";
 import { requestPublicOrderWithdrawal } from "../../features/account/api/ordersApi";
+import { useAnalytics } from "../../features/analytics/context/AnalyticsContextCore";
 import Seo from "../../shared/seo/Seo";
 
 type WithdrawalField = "orderNumber" | "customerEmail" | "reason";
@@ -15,6 +16,7 @@ export default function OrderWithdrawalRequestPage() {
   const orderNumberInputRef = useRef<HTMLInputElement | null>(null);
   const emailInputRef = useRef<HTMLInputElement | null>(null);
   const reasonInputRef = useRef<HTMLTextAreaElement | null>(null);
+  const { track } = useAnalytics();
 
   function markInvalid(field: WithdrawalField, messageText: string) {
     setInvalidField(field);
@@ -55,6 +57,7 @@ export default function OrderWithdrawalRequestPage() {
         customerEmail,
         reason,
       });
+      track("withdrawal_request_submitted", { source: "public_form" });
       setReason("");
       setMessage("A kérésedet rögzítettük, és emailben is visszaigazoltuk.");
     } catch (submitError) {

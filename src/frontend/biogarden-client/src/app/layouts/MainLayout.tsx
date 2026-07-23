@@ -6,6 +6,8 @@ import BackToTopBtn from "../../shared/components/ui/BackToTopBtn";
 import { useEffect, useState } from "react";
 import { AUTH_CHANGED_EVENT, getAuthSession } from "../../features/auth/utils/authStorage";
 import { useCart } from "../../features/cart/context/useCart";
+import RouteAnalytics from "../../features/analytics/components/RouteAnalytics";
+import ConsentBanner from "../../features/analytics/components/ConsentBanner";
 
 export default function MainLayout() {
   const [auth, setAuth] = useState(getAuthSession);
@@ -23,6 +25,7 @@ export default function MainLayout() {
   return (
     <div className="flex min-h-screen flex-col bg-white text-site-text">
       <ScrollToTop />
+      <RouteAnalytics />
 
       <Navbar
         isAuthenticated={isAuthenticated}
@@ -37,6 +40,7 @@ export default function MainLayout() {
       <BackToTopBtn />
 
       <Footer />
+      <ConsentBanner />
     </div>
   );
 }

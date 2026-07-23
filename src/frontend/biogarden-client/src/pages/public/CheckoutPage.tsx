@@ -12,6 +12,8 @@ import { getUnitLabel } from "../../features/products/utils/productLabels";
 import { LEGAL_DOCUMENT_VERSIONS } from "../../shared/constants/legalDocuments";
 import { ROUTES } from "../../shared/constants/routes";
 import { useModalFocus } from "../../shared/hooks/useModalFocus";
+import { useAnalytics } from "../../features/analytics/context/AnalyticsContextCore";
+import { getCartValueBucket } from "../../features/analytics/utils/eventValidation";
 
 const DRAFT_KEY = "biogarden_checkout_draft";
 const IDEMPOTENCY_KEY = "biogarden_checkout_idempotency_key";
@@ -294,6 +296,8 @@ export default function CheckoutPage() {
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | null>(null);
   const reviewModalRef = useRef<HTMLElement | null>(null);
   const reviewButtonRef = useRef<HTMLButtonElement | null>(null);
+  const checkoutStartedTrackedRef = useRef(false);
+  const { track } = useAnalytics();
   const hasDraft = Object.values(draft).some(Boolean);
   const deliveryAllowed = useMemo(
     () => Boolean(cart?.items.length && cart.items.every((item) => item.deliveryAvailable)),
@@ -371,6 +375,16 @@ export default function CheckoutPage() {
   useEffect(() => {
     setPaymentMethod(null);
   }, [method]);
+
+  useEffect(() => {
+    if (!cart?.items.length || checkoutStartedTrackedRef.current) return;
+
+    checkoutStartedTrackedRef.current = true;
+    track("checkout_started", {
+      itemCount: cart.totalItemCount,
+      cartValueBucket: getCartValueBucket(cart.totalPrice),
+    });
+  }, [cart, track]);
 
   function update(field: DraftTextField, value: string) {
     setDraft((current) => ({ ...current, [field]: value }));
@@ -549,8 +563,17 @@ export default function CheckoutPage() {
 
       if (step === "details") {
         setStep("payment");
+        track("checkout_step_completed", {
+          step: "details",
+          fulfillmentMethod: String(method),
+        });
       } else {
         setShowReview(true);
+        track("checkout_step_completed", {
+          step: "payment",
+          fulfillmentMethod: String(method),
+          paymentMethod,
+        });
       }
     } catch (validationError) {
       setError(validationError instanceof Error ? validationError.message : "A kosár ellenőrzése nem sikerült.");
@@ -560,6 +583,12 @@ export default function CheckoutPage() {
   }
 
   async function placeOrder() {
+    if (!cart?.items.length) {
+      setError("A kosár üres.");
+      setShowReview(false);
+      return;
+    }
+
     const consentErrors: FieldErrors = {};
     if (!termsAccepted) {
       consentErrors.terms = "Az Általános Szerződési Feltételek elfogadása kötelező.";
@@ -609,6 +638,13 @@ export default function CheckoutPage() {
               deliveryDoorbell: draft.deliveryDoorbell,
             }
           : {}),
+      });
+
+      track("order_submitted", {
+        paymentMethod,
+        fulfillmentMethod: String(method),
+        itemCount: cart.totalItemCount,
+        cartValueBucket: getCartValueBucket(cart.totalPrice),
       });
 
       sessionStorage.removeItem(DRAFT_KEY);
@@ -1060,7 +1096,7 @@ export default function CheckoutPage() {
 
       {showReview && (
         <div
-          className="fixed inset-0 z-40 flex items-start justify-center overflow-y-auto bg-black/50 p-3 pt-24 sm:pt-28"
+          className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 p-3 pb-44 pt-24 sm:pt-28"
           role="dialog"
           aria-modal="true"
           aria-labelledby="review-title"

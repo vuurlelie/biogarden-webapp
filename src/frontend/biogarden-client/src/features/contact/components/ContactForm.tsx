@@ -1,5 +1,6 @@
 import { useRef, useState, type FormEvent } from "react";
 import { sendContactMessage } from "../api/contactApi";
+import { useAnalytics } from "../../analytics/context/AnalyticsContextCore";
 
 const initialForm = {
   name: "",
@@ -30,6 +31,7 @@ export default function ContactForm({
   const nameInputRef = useRef<HTMLInputElement | null>(null);
   const emailInputRef = useRef<HTMLInputElement | null>(null);
   const messageInputRef = useRef<HTMLTextAreaElement | null>(null);
+  const { track } = useAnalytics();
 
   function updateField(field: keyof typeof form, value: string) {
     setForm((currentForm) => ({ ...currentForm, [field]: value }));
@@ -77,6 +79,7 @@ export default function ContactForm({
         subject: form.subject.trim() || undefined,
         message: form.message.trim(),
       });
+      track("contact_form_submitted", { source: "footer" });
       setSuccess("Köszönjük, megkaptuk az üzenetedet. Hamarosan válaszolunk.");
       setForm(initialForm);
     } catch (submitError) {
