@@ -6,6 +6,7 @@ import {
   mockCatalogPaginationApi,
   mockCheckoutApi,
   mockPublicShopApi,
+  mockSumUpReturnStatusApi,
   signInAsAdmin,
   successfulOrder,
 } from "./fixtures";
@@ -97,6 +98,32 @@ test("cancelled online payment shows retry state", async ({ page }) => {
   await page.goto(`/penztar?sumup=cancelled&orderId=${successfulOrder.id}`);
   await expect(page.getByRole("heading", { name: /A fizetes megszakadt|A fizetés megszakadt/ })).toBeVisible();
   await expect(page.getByRole("button", { name: /Fizetes ujraprobalasa|Fizetés újrapróbálása/ })).toBeVisible();
+});
+
+test("successful SumUp return shows verified paid state", async ({ page }) => {
+  await mockSumUpReturnStatusApi(page, 2);
+
+  await page.goto(
+    `/rendeles-sikeres?sumup_checkout_reference=${successfulOrder.id.replace(/-/g, "")}&orderId=${successfulOrder.id}`,
+  );
+
+  await expect(page.getByRole("heading", { name: /rendel/ })).toBeVisible();
+  await expect(page.getByText(/sikeres volt/)).toBeVisible();
+  await expect(page.getByText(successfulOrder.orderNumber)).toBeVisible();
+});
+
+test("failed SumUp return shows retry link", async ({ page }) => {
+  await mockSumUpReturnStatusApi(page, 3);
+
+  await page.goto(
+    `/rendeles-sikeres?sumup_checkout_reference=${successfulOrder.id.replace(/-/g, "")}&orderId=${successfulOrder.id}`,
+  );
+
+  await expect(page.getByText(/nem siker/)).toBeVisible();
+  await expect(page.getByRole("link", { name: /Fizet/ })).toHaveAttribute(
+    "href",
+    `/penztar?sumup=cancelled&orderId=${successfulOrder.id}`,
+  );
 });
 
 test("admin can review an order and update its status", async ({ page }) => {

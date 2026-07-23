@@ -330,6 +330,37 @@ export async function mockCancelledPaymentRetryApi(page: Page) {
   });
 }
 
+export async function mockSumUpReturnStatusApi(
+  page: Page,
+  paymentStatus: PaymentStatus,
+) {
+  await page.route(`${apiBaseUrl}/api/cart`, async (route) => {
+    if (route.request().method() === "GET") {
+      await route.fulfill({ json: createCart([]) });
+      return;
+    }
+
+    await route.fallback();
+  });
+
+  await page.route(
+    (url) =>
+      url.origin === apiBaseUrl &&
+      url.pathname === `/api/orders/${successfulOrder.id}/payment-status`,
+    async (route) => {
+      await route.fulfill({
+        json: {
+          orderId: successfulOrder.id,
+          orderNumber: successfulOrder.orderNumber,
+          status: paymentStatus === 2 ? 1 : successfulOrder.status,
+          paymentStatus,
+          confirmedAtUtc: paymentStatus === 2 ? "2026-07-22T10:05:00Z" : null,
+        },
+      });
+    },
+  );
+}
+
 export async function mockAdminOrdersApi(page: Page) {
   const adminOrder = {
     ...successfulOrder,
