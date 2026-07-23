@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "typecheck": "tsc -b",
     "build": "tsc -b && vite build && npm run generate:seo",
     "generate:seo": "node scripts/generate-seo-files.mjs",
     "verify:seo": "node scripts/verify-seo-files.mjs",
