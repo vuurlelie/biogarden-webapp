@@ -146,6 +146,90 @@ public sealed class OrderServiceTests
     }
 
     [Fact]
+    public async Task CreateOrderFromCartAsync_AsCompanyGuest_SnapshotsCompanyBillingAndPrintedInvoiceRequest()
+    {
+        const string sessionId = "guest-session";
+        var product = new Product { Id = 4, Name = "Bazsalikom", Available = true, StockQuantity = 3, Price = 900 };
+        var cart = new Cart { Id = Guid.NewGuid(), SessionId = sessionId };
+        cart.Items.Add(new CartItem { Id = Guid.NewGuid(), CartId = cart.Id, ProductId = product.Id, Product = product, Quantity = 2 });
+        Order? savedOrder = null;
+        SetupGuestOrderCreation(sessionId, cart, product, order => savedOrder = order);
+
+        var result = await _service.CreateOrderFromCartAsync(null, sessionId, new PlaceOrderDto
+        {
+            IdempotencyKey = IdempotencyKey,
+            CustomerName = "Teszt Elek",
+            CustomerEmail = "guest@example.com",
+            CustomerPhone = "+361234567",
+            CustomerType = CustomerType.Company,
+            BillingCompanyName = "Teszt Kft.",
+            BillingTaxNumber = "12345678-1-12",
+            PrintedInvoiceRequested = true,
+            PostalCode = "8200",
+            City = "Veszprém",
+            Street = "Kert utca",
+            HouseNumber = "1",
+            AcceptedTermsVersion = LegalDocumentVersions.CurrentTermsVersion,
+            AcceptedPrivacyPolicyVersion = LegalDocumentVersions.CurrentPrivacyPolicyVersion,
+            FulfillmentMethod = FulfillmentMethod.PersonalPickup
+        });
+
+        Assert.NotNull(savedOrder);
+        Assert.Equal(CustomerType.Company, result.CustomerType);
+        Assert.Equal("Teszt Kft.", result.BillingCompanyName);
+        Assert.Equal("12345678-1-12", result.BillingTaxNumber);
+        Assert.True(result.PrintedInvoiceRequested);
+        Assert.Equal("8200", result.PostalCode);
+        Assert.Equal("Veszprém", result.City);
+        Assert.Equal("Kert utca", result.Street);
+        Assert.Equal("1", result.HouseNumber);
+        Assert.Null(result.AddressId);
+        Assert.Equal(CustomerType.Company, savedOrder.CustomerType);
+        Assert.True(savedOrder.PrintedInvoiceRequested);
+        Assert.Equal(1800, result.TotalPrice);
+    }
+
+    [Fact]
+    public async Task CreateOrderFromCartAsync_AsPrivateGuest_IgnoresCompanyBillingAndPrintedInvoiceFields()
+    {
+        const string sessionId = "guest-session";
+        var product = new Product { Id = 4, Name = "Bazsalikom", Available = true, StockQuantity = 3, Price = 900 };
+        var cart = new Cart { Id = Guid.NewGuid(), SessionId = sessionId };
+        cart.Items.Add(new CartItem { Id = Guid.NewGuid(), CartId = cart.Id, ProductId = product.Id, Product = product, Quantity = 1 });
+        Order? savedOrder = null;
+        SetupGuestOrderCreation(sessionId, cart, product, order => savedOrder = order);
+
+        var result = await _service.CreateOrderFromCartAsync(null, sessionId, new PlaceOrderDto
+        {
+            IdempotencyKey = IdempotencyKey,
+            CustomerName = "Teszt Elek",
+            CustomerEmail = "guest@example.com",
+            CustomerPhone = "+361234567",
+            CustomerType = CustomerType.Private,
+            BillingCompanyName = "Nem Menthető Kft.",
+            BillingTaxNumber = "12345678-1-12",
+            PrintedInvoiceRequested = true,
+            AcceptedTermsVersion = LegalDocumentVersions.CurrentTermsVersion,
+            AcceptedPrivacyPolicyVersion = LegalDocumentVersions.CurrentPrivacyPolicyVersion,
+            FulfillmentMethod = FulfillmentMethod.PersonalPickup
+        });
+
+        Assert.NotNull(savedOrder);
+        Assert.Equal(CustomerType.Private, result.CustomerType);
+        Assert.Null(result.BillingCompanyName);
+        Assert.Null(result.BillingTaxNumber);
+        Assert.False(result.PrintedInvoiceRequested);
+        Assert.Null(result.AddressId);
+        Assert.Equal(string.Empty, result.PostalCode);
+        Assert.Equal(string.Empty, result.City);
+        Assert.Equal(string.Empty, result.Street);
+        Assert.Equal(string.Empty, result.HouseNumber);
+        Assert.Null(savedOrder.BillingCompanyName);
+        Assert.Null(savedOrder.BillingTaxNumber);
+        Assert.False(savedOrder.PrintedInvoiceRequested);
+    }
+
+    [Fact]
     public async Task CreateOrderFromCartAsync_WhenGuestCartAlreadyCheckedOut_ReturnsExistingOrder()
     {
         const string sessionId = "guest-session";
@@ -549,6 +633,52 @@ public sealed class OrderServiceTests
     }
 
     [Fact]
+    public async Task MarkSumUpPaymentFailedAsync_WhenOrderIsPending_MarksFailedAndStoresTransactionId()
+    {
+        var order = CreateOrder(null);
+        order.SumUpCheckoutId = "checkout_123";
+
+        _orders
+            .Setup(x => x.GetBySumUpCheckoutIdAsync("checkout_123", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(order);
+        _orders.Setup(x => x.Update(order));
+        _unitOfWork.Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
+
+        var result = await _service.MarkSumUpPaymentFailedAsync("checkout_123", "txn_123");
+
+        Assert.NotNull(result);
+        Assert.Equal(PaymentStatus.Failed, result.PaymentStatus);
+        Assert.Equal(OrderStatus.Pending, result.Status);
+        Assert.Equal("txn_123", order.SumUpTransactionId);
+        _orders.Verify(x => x.Update(order), Times.Once);
+        _unitOfWork.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task MarkSumUpPaymentFailedAsync_WhenOrderIsAlreadyPaid_DoesNotDowngradePaymentStatus()
+    {
+        var order = CreateOrder(null);
+        order.SumUpCheckoutId = "checkout_123";
+        order.PaymentStatus = PaymentStatus.Paid;
+        order.Status = OrderStatus.Confirmed;
+
+        _orders
+            .Setup(x => x.GetBySumUpCheckoutIdAsync("checkout_123", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(order);
+        _orders.Setup(x => x.Update(order));
+        _unitOfWork.Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
+
+        var result = await _service.MarkSumUpPaymentFailedAsync("checkout_123", "txn_late_failure");
+
+        Assert.NotNull(result);
+        Assert.Equal(PaymentStatus.Paid, result.PaymentStatus);
+        Assert.Equal(OrderStatus.Confirmed, result.Status);
+        Assert.Equal("txn_late_failure", order.SumUpTransactionId);
+        _orders.Verify(x => x.Update(order), Times.Once);
+        _unitOfWork.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
     public async Task CancelOrderAsync_WhenPaid_RestoresStockAndMarksRefundPending()
     {
         var userId = Guid.NewGuid();
@@ -783,4 +913,60 @@ public sealed class OrderServiceTests
         Status = OrderStatus.Pending,
         PaymentStatus = PaymentStatus.Pending
     };
+
+    private void SetupGuestOrderCreation(
+        string sessionId,
+        Cart cart,
+        Product product,
+        Action<Order> captureOrder)
+    {
+        Order? capturedOrder = null;
+        _unitOfWork.SetupGet(x => x.CartRepository).Returns(_carts.Object);
+        _orders
+            .Setup(x => x.GetByIdempotencyKeyWithItemsAsync(IdempotencyKey, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Order?)null);
+        _carts
+            .Setup(x => x.GetActiveBySessionIdAsync(sessionId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(cart);
+        _cartService
+            .Setup(x => x.ValidateCartForCheckoutAsync(null, sessionId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Biogarden.BusinessLogic.DTOs.Carts.CartValidationResultDto { IsValid = true });
+        _products
+            .Setup(x => x.GetByIdAsync(product.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(product);
+        _orders
+            .Setup(x => x.AddAsync(It.IsAny<Order>(), It.IsAny<CancellationToken>()))
+            .Callback<Order, CancellationToken>((order, _) =>
+            {
+                capturedOrder = order;
+                captureOrder(order);
+            })
+            .Returns(Task.CompletedTask);
+        _unitOfWork.Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
+        _orders
+            .Setup(x => x.GetByIdWithItemsAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(() => capturedOrder);
+        var customerMessage = new EmailMessage
+        {
+            To = "guest@example.com",
+            Subject = "Rendelésedet megkaptuk"
+        };
+        var businessMessage = new EmailMessage
+        {
+            To = "info@bakonykincse.hu",
+            Subject = "Új rendelés érkezett"
+        };
+        _emailTemplateService
+            .Setup(x => x.BuildOrderConfirmationMessage("guest@example.com", It.IsAny<OrderDto>()))
+            .Returns(customerMessage);
+        _emailTemplateService
+            .Setup(x => x.BuildOrderBusinessNotificationMessage("info@bakonykincse.hu", It.IsAny<OrderDto>()))
+            .Returns(businessMessage);
+        _emailService
+            .Setup(x => x.SendAsync(customerMessage, It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+        _emailService
+            .Setup(x => x.SendAsync(businessMessage, It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+    }
 }

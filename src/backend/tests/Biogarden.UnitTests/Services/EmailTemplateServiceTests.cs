@@ -219,6 +219,42 @@ public sealed class EmailTemplateServiceTests
     }
 
     [Fact]
+    public void BuildOrderConfirmationMessage_ForPrivateCustomer_DescribesPaperReceipt()
+    {
+        var service = CreateOrderTemplateService();
+        var order = CreateOrderDto();
+        order.CustomerType = CustomerType.Private;
+        order.BillingCompanyName = null;
+        order.BillingTaxNumber = null;
+        order.PrintedInvoiceRequested = false;
+
+        var message = service.BuildOrderConfirmationMessage("customer@example.com", order);
+
+        Assert.Contains("Bizonylat:", message.PlainTextBody);
+        Assert.Contains("- Magánszemélyként a rendeléshez papíralapú nyugtát mellékelünk.", message.PlainTextBody);
+        Assert.DoesNotContain("Számlázási adatok:", message.PlainTextBody);
+        Assert.DoesNotContain("Cégnév:", message.PlainTextBody);
+        Assert.Contains("Bizonylat:", message.HtmlBody);
+    }
+
+    [Fact]
+    public void BuildOrderConfirmationMessage_ForCompanyWithPrintedInvoice_DescribesElectronicAndPrintedInvoice()
+    {
+        var service = CreateOrderTemplateService();
+        var order = CreateOrderDto();
+        order.PrintedInvoiceRequested = true;
+
+        var message = service.BuildOrderConfirmationMessage("customer@example.com", order);
+
+        Assert.Contains("Számlázási adatok:", message.PlainTextBody);
+        Assert.Contains("- Cégnév: Teszt Kft.", message.PlainTextBody);
+        Assert.Contains("- Adószám: 12345678-1-12", message.PlainTextBody);
+        Assert.Contains(
+            "- Számla átvétele: Elektronikus számlát küldünk emailben, és nyomtatott számlát is mellékelünk.",
+            message.PlainTextBody);
+    }
+
+    [Fact]
     public void BuildOrderBusinessNotificationMessage_CreatesBusinessOrderSummary()
     {
         var service = CreateOrderTemplateService();
@@ -250,6 +286,43 @@ public sealed class EmailTemplateServiceTests
         Assert.Contains("https://bakonykincse.hu/admin", message.PlainTextBody);
         Assert.DoesNotContain("Üdvözlettel:", message.PlainTextBody);
         Assert.DoesNotContain("https://bakonykincse.hu/logo.png", message.HtmlBody);
+    }
+
+    [Fact]
+    public void BuildOrderBusinessNotificationMessage_ForPrivateCustomer_InstructsAdminToCreatePaperReceipt()
+    {
+        var service = CreateOrderTemplateService();
+        var order = CreateOrderDto();
+        order.CustomerType = CustomerType.Private;
+        order.BillingCompanyName = null;
+        order.BillingTaxNumber = null;
+        order.PrintedInvoiceRequested = false;
+
+        var message = service.BuildOrderBusinessNotificationMessage("info@bakonykincse.hu", order);
+
+        Assert.Contains("Kiállítandó bizonylat:", message.PlainTextBody);
+        Assert.Contains("- Papíralapú nyugta szükséges.", message.PlainTextBody);
+        Assert.Contains("- A nyugtát mellékeld a rendeléshez.", message.PlainTextBody);
+        Assert.DoesNotContain("Elektronikus számla szükséges", message.PlainTextBody);
+        Assert.DoesNotContain("Cégnév:", message.PlainTextBody);
+    }
+
+    [Fact]
+    public void BuildOrderBusinessNotificationMessage_ForCompanyWithPrintedInvoice_InstructsAdminToAttachPrintedInvoice()
+    {
+        var service = CreateOrderTemplateService();
+        var order = CreateOrderDto();
+        order.PrintedInvoiceRequested = true;
+
+        var message = service.BuildOrderBusinessNotificationMessage("info@bakonykincse.hu", order);
+
+        Assert.Contains("Kiállítandó bizonylat:", message.PlainTextBody);
+        Assert.Contains(
+            "- Admin teendő: Elektronikus számla szükséges, és nyomtatott számlát is mellékelni kell.",
+            message.PlainTextBody);
+        Assert.Contains("- Cégnév: Teszt Kft.", message.PlainTextBody);
+        Assert.Contains("- Adószám: 12345678-1-12", message.PlainTextBody);
+        Assert.Contains("Admin teendő:", message.HtmlBody);
     }
 
     [Fact]
