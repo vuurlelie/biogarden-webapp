@@ -708,6 +708,12 @@ namespace Biogarden.DataAccess.Migrations
                     b.HasIndex("Title")
                         .IsUnique();
 
+                    b.HasIndex("RecordStatus", "Draft", "Category", "PublishedAt", "Title")
+                        .HasDatabaseName("IX_Posts_ListFilters_PublishedAt");
+
+                    b.HasIndex("RecordStatus", "Draft", "Category", "Title", "PublishedAt")
+                        .HasDatabaseName("IX_Posts_ListFilters_Title");
+
                     b.ToTable("Posts", (string)null);
                 });
 
@@ -900,6 +906,12 @@ namespace Biogarden.DataAccess.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("Name");
+
+                    b.HasIndex("RecordStatus", "Category", "Available", "DeliveryAvailable", "Name")
+                        .HasDatabaseName("IX_Products_ListFilters_Name");
+
+                    b.HasIndex("RecordStatus", "Category", "Available", "DeliveryAvailable", "Price", "Name")
+                        .HasDatabaseName("IX_Products_ListFilters_Price");
 
                     b.ToTable("Products", null, t =>
                         {

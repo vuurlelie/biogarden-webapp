@@ -41,6 +41,8 @@ export default function HomePage() {
               src={src}
               alt={`Biogarden slide ${i + 1}`}
               className="w-full object-cover object-center"
+              width={1667}
+              height={600}
               loading={i > 0 ? "lazy" : "eager"}
               decoding="async"
             />
@@ -58,6 +60,8 @@ export default function HomePage() {
         <img
           className="w-full h-auto"
           src={actual}
+          width={1667}
+          height={834}
           alt="Aktuális hirdetés"
           loading="lazy"
           decoding="async"

@@ -35,6 +35,25 @@ public class ProductConfiguration : IEntityTypeConfiguration<Product>
 
         productBuilder.HasIndex(product => product.Name);
 
+        productBuilder.HasIndex(product => new
+        {
+            product.RecordStatus,
+            product.Category,
+            product.Available,
+            product.DeliveryAvailable,
+            product.Name
+        }).HasDatabaseName("IX_Products_ListFilters_Name");
+
+        productBuilder.HasIndex(product => new
+        {
+            product.RecordStatus,
+            product.Category,
+            product.Available,
+            product.DeliveryAvailable,
+            product.Price,
+            product.Name
+        }).HasDatabaseName("IX_Products_ListFilters_Price");
+
         productBuilder.ToTable(table =>
         {
             table.HasCheckConstraint(

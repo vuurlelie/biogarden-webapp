@@ -3,6 +3,7 @@ import {
   expectNoUnhandledApiCall,
   mockAdminOrdersApi,
   mockCancelledPaymentRetryApi,
+  mockCatalogPaginationApi,
   mockCheckoutApi,
   mockPublicShopApi,
   signInAsAdmin,
@@ -11,6 +12,42 @@ import {
 
 test.beforeEach(async ({ page }) => {
   await page.route("http://localhost:5097/api/**", expectNoUnhandledApiCall);
+});
+
+test("public catalog pages request and render paged results", async ({ page }) => {
+  await mockCatalogPaginationApi(page);
+
+  const productRequests: string[] = [];
+  const postRequests: string[] = [];
+
+  page.on("request", (request) => {
+    const url = new URL(request.url());
+
+    if (url.origin === "http://localhost:5097" && url.pathname === "/api/products") {
+      productRequests.push(url.search);
+    }
+
+    if (url.origin === "http://localhost:5097" && url.pathname === "/api/posts") {
+      postRequests.push(url.search);
+    }
+  });
+
+  await page.goto("/termekek");
+  await expect(page.getByRole("link", { name: "Teszt levendula tea" }).first()).toBeVisible();
+  await expect(page.getByRole("button", { name: "2" })).toBeVisible();
+  await expect(productRequests.some((query) => query.includes("pageSize=12"))).toBe(true);
+
+  await page.getByRole("button", { name: "2" }).click();
+  await expect(page.getByRole("link", { name: "Masodik oldali szorp" }).first()).toBeVisible();
+  await expect(productRequests.some((query) => query.includes("page=2"))).toBe(true);
+
+  await page.goto("/tudastar");
+  await expect(page.getByText("Elso teszt bejegyzes")).toBeVisible();
+  await expect(postRequests.some((query) => query.includes("pageSize=4"))).toBe(true);
+
+  await page.getByRole("button", { name: "2" }).first().click();
+  await expect(page.getByText("Masodik oldali bejegyzes")).toBeVisible();
+  await expect(postRequests.some((query) => query.includes("page=2"))).toBe(true);
 });
 
 test("customer can browse products, open details, and add an item to the cart", async ({ page }) => {

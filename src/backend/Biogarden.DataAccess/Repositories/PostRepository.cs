@@ -1,6 +1,7 @@
 ﻿using Biogarden.DataAccess.Abstractions;
 using Biogarden.DataAccess.Entities;
 using Biogarden.DataAccess.Enums;
+using Biogarden.DataAccess.Models;
 using Microsoft.EntityFrameworkCore;
 
 namespace Biogarden.DataAccess.Repositories;
@@ -48,6 +49,57 @@ public sealed class PostRepository : IPostRepository
             .ToListAsync(cancellationToken);
 
         return posts;
+    }
+
+    public async Task<PagedResult<Post>> GetPagedAsync(
+        string? search,
+        PostCategory? category,
+        bool publicOnly,
+        bool? draft,
+        string sort,
+        int page,
+        int pageSize,
+        CancellationToken cancellationToken = default)
+    {
+        var query = _databaseContext.Posts.AsNoTracking();
+
+        if (publicOnly)
+        {
+            query = query.Where(post => !post.Draft);
+        }
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var normalizedSearch = search.Trim();
+            query = query.Where(post =>
+                post.Title.Contains(normalizedSearch) ||
+                post.Article.Contains(normalizedSearch));
+        }
+
+        if (category.HasValue)
+        {
+            query = query.Where(post => post.Category == category.Value);
+        }
+
+        if (draft.HasValue)
+        {
+            query = query.Where(post => post.Draft == draft.Value);
+        }
+
+        query = sort switch
+        {
+            "oldest" => query.OrderBy(post => post.PublishedAt).ThenBy(post => post.Title),
+            "abc" => query.OrderBy(post => post.Title).ThenByDescending(post => post.PublishedAt),
+            _ => query.OrderByDescending(post => post.PublishedAt).ThenBy(post => post.Title)
+        };
+
+        var totalCount = await query.CountAsync(cancellationToken);
+        var items = await query
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync(cancellationToken);
+
+        return new PagedResult<Post>(items, page, pageSize, totalCount);
     }
 
     public async Task AddAsync(Post post, CancellationToken cancellationToken = default)

@@ -9,6 +9,7 @@ import {
 } from "../api/adminProductsApi";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+const MAX_IMAGE_UPLOAD_SIZE_BYTES = 2 * 1024 * 1024;
 
 const categories: Array<[ProductCategory, string]> = [
   [0, "Zöldség"],
@@ -136,8 +137,8 @@ export default function AdminProductFormModal({ product, onClose, onSaved }: Pro
       setError("A kiszerelés pozitív szám legyen.");
       return;
     }
-    if (imageFile && imageFile.size > 5 * 1024 * 1024) {
-      setError("A kép mérete legfeljebb 5 MB lehet.");
+    if (imageFile && imageFile.size > MAX_IMAGE_UPLOAD_SIZE_BYTES) {
+      setError("A kép mérete legfeljebb 2 MB lehet. Termékképnél kb. 1200 x 1200 px, JPG vagy WEBP ajánlott.");
       return;
     }
 
@@ -343,7 +344,9 @@ export default function AdminProductFormModal({ product, onClose, onSaved }: Pro
                   onChange={(event) => setImageFile(event.target.files?.[0] ?? null)}
                 />
               </label>
-              <p className="mt-2 text-xs text-site-muted">JPG, PNG vagy WEBP, legfeljebb 5 MB.</p>
+              <p className="mt-2 text-xs text-site-muted">
+                JPG vagy WEBP ajánlott, kb. 1200 x 1200 px, legfeljebb 2 MB.
+              </p>
 
               {(previewUrl || imageFile) && (
                 <button

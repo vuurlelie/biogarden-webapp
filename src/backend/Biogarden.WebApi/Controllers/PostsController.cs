@@ -1,4 +1,5 @@
 ﻿using Biogarden.BusinessLogic.Abstractions;
+using Biogarden.BusinessLogic.DTOs.Common;
 using Biogarden.BusinessLogic.DTOs.Posts;
 using Microsoft.AspNetCore.Mvc;
 
@@ -16,11 +17,12 @@ public sealed class PostsController : ControllerBase
     }
 
     [HttpGet]
-    [ProducesResponseType(typeof(IReadOnlyList<PostListItemDto>), StatusCodes.Status200OK)]
-    public async Task<IReadOnlyList<PostListItemDto>> GetAll(CancellationToken cancellationToken)
+    [ProducesResponseType(typeof(PagedResultDto<PostListItemDto>), StatusCodes.Status200OK)]
+    public async Task<PagedResultDto<PostListItemDto>> GetAll(
+        [FromQuery] PostListQueryDto query,
+        CancellationToken cancellationToken)
     {
-        var posts = await _postService.GetAllAsync(cancellationToken);
-        return posts.Where(post => !post.Draft).ToList();
+        return await _postService.GetPagedAsync(query, cancellationToken);
     }
 
     [HttpGet("{postId:int}")]

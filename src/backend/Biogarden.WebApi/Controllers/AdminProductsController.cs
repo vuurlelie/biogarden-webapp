@@ -1,4 +1,5 @@
 using Biogarden.BusinessLogic.Abstractions;
+using Biogarden.BusinessLogic.DTOs.Common;
 using Biogarden.BusinessLogic.DTOs.Products;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -30,8 +31,10 @@ public sealed class AdminProductsController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<ActionResult<IReadOnlyList<ProductDetailsDto>>> GetAll(CancellationToken cancellationToken)
-        => Ok(await _productService.GetAllDetailsAsync(cancellationToken));
+    public async Task<ActionResult<PagedResultDto<ProductDetailsDto>>> GetAll(
+        [FromQuery] ProductListQueryDto query,
+        CancellationToken cancellationToken)
+        => Ok(await _productService.GetPagedDetailsAsync(query, cancellationToken));
 
     [HttpPost]
     public async Task<ActionResult<int>> Create(ProductCreateDto product, CancellationToken cancellationToken)

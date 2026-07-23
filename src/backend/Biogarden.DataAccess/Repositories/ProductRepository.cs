@@ -1,6 +1,7 @@
 ﻿using Biogarden.DataAccess.Abstractions;
 using Biogarden.DataAccess.Entities;
 using Biogarden.DataAccess.Enums;
+using Biogarden.DataAccess.Models;
 using Microsoft.EntityFrameworkCore;
 
 namespace Biogarden.DataAccess.Repositories;
@@ -33,6 +34,63 @@ public sealed class ProductRepository : IProductRepository
             .ToListAsync(cancellationToken);
 
         return products;
+    }
+
+    public async Task<PagedResult<Product>> GetPagedAsync(
+        string? search,
+        IReadOnlyCollection<ProductCategory> categories,
+        bool availableOnly,
+        bool unavailableOnly,
+        bool deliveryOnly,
+        string sort,
+        int page,
+        int pageSize,
+        CancellationToken cancellationToken = default)
+    {
+        var query = _databaseContext.Products
+            .AsNoTracking()
+            .Where(product => product.RecordStatus == RecordStatus.Active);
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var normalizedSearch = search.Trim();
+            query = query.Where(product => product.Name.Contains(normalizedSearch));
+        }
+
+        if (categories.Count > 0)
+        {
+            query = query.Where(product => categories.Contains(product.Category));
+        }
+
+        if (availableOnly)
+        {
+            query = query.Where(product => product.Available);
+        }
+
+        if (unavailableOnly)
+        {
+            query = query.Where(product => !product.Available);
+        }
+
+        if (deliveryOnly)
+        {
+            query = query.Where(product => product.DeliveryAvailable);
+        }
+
+        query = sort switch
+        {
+            "price-asc" => query.OrderBy(product => product.Price).ThenBy(product => product.Name),
+            "price-desc" => query.OrderByDescending(product => product.Price).ThenBy(product => product.Name),
+            _ => query.OrderBy(product => product.Name)
+        };
+
+        var totalCount = await query.CountAsync(cancellationToken);
+        var items = await query
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync(cancellationToken);
+
+        return new PagedResult<Product>(items, page, pageSize, totalCount);
     }
 
     public async Task AddAsync(Product product, CancellationToken cancellationToken = default)

@@ -1,5 +1,6 @@
 using Biogarden.BusinessLogic;
 using Biogarden.BusinessLogic.Abstractions;
+using Biogarden.BusinessLogic.DTOs.Common;
 using Biogarden.BusinessLogic.DTOs.Posts;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -32,8 +33,10 @@ public sealed class AdminPostsController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<ActionResult<IReadOnlyList<PostListItemDto>>> GetAll(CancellationToken cancellationToken)
-        => Ok(await _postService.GetAllAsync(cancellationToken));
+    public async Task<ActionResult<PagedResultDto<PostListItemDto>>> GetAll(
+        [FromQuery] PostListQueryDto query,
+        CancellationToken cancellationToken)
+        => Ok(await _postService.GetAdminPagedAsync(query, cancellationToken));
 
     [HttpPost]
     public async Task<ActionResult<int>> Create(PostCreateDto post, CancellationToken cancellationToken)

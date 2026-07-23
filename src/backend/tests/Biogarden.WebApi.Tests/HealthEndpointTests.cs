@@ -51,7 +51,9 @@ public sealed class HealthEndpointTests : IClassFixture<BiogardenWebApiFactory>
             "Permissions-Policy",
             "camera=(), microphone=(), geolocation=(), payment=()");
         Assert.True(response.Headers.TryGetValues("Content-Security-Policy", out var values));
-        Assert.Contains("frame-ancestors 'none'", Assert.Single(values));
+        var contentSecurityPolicy = Assert.Single(values);
+        Assert.Contains("frame-ancestors 'none'", contentSecurityPolicy);
+        Assert.Contains("frame-src https://www.google.com https://maps.google.com", contentSecurityPolicy);
     }
 
     private static void AssertHeader(
