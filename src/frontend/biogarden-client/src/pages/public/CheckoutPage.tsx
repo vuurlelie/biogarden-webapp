@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { createOrder, createSumUpCheckout } from "../../features/account/api/ordersApi";
 import { getAddresses, getProfile } from "../../features/account/api/profileApi";
@@ -11,6 +11,7 @@ import type { CartItem } from "../../features/cart/types/cart.types";
 import { getUnitLabel } from "../../features/products/utils/productLabels";
 import { LEGAL_DOCUMENT_VERSIONS } from "../../shared/constants/legalDocuments";
 import { ROUTES } from "../../shared/constants/routes";
+import { useModalFocus } from "../../shared/hooks/useModalFocus";
 
 const DRAFT_KEY = "biogarden_checkout_draft";
 const IDEMPOTENCY_KEY = "biogarden_checkout_idempotency_key";
@@ -291,6 +292,8 @@ export default function CheckoutPage() {
   const [privacyAccepted, setPrivacyAccepted] = useState(false);
   const [step, setStep] = useState<CheckoutStep>("details");
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | null>(null);
+  const reviewModalRef = useRef<HTMLElement | null>(null);
+  const reviewButtonRef = useRef<HTMLButtonElement | null>(null);
   const hasDraft = Object.values(draft).some(Boolean);
   const deliveryAllowed = useMemo(
     () => Boolean(cart?.items.length && cart.items.every((item) => item.deliveryAvailable)),
@@ -303,6 +306,12 @@ export default function CheckoutPage() {
   const cancelledSumUpOrderId = searchParams.get("sumup") === "cancelled"
     ? searchParams.get("orderId")
     : null;
+
+  useModalFocus(reviewModalRef, {
+    isOpen: showReview,
+    onClose: () => setShowReview(false),
+    returnFocusRef: reviewButtonRef,
+  });
 
   useEffect(() => {
     sessionStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
@@ -1035,6 +1044,7 @@ export default function CheckoutPage() {
           </div>
 
           <button
+            ref={reviewButtonRef}
             type="submit"
             disabled={submitting || (step === "payment" && paymentMethod === null)}
             className="mt-5 w-full rounded-sm bg-site-green px-5 py-3 font-semibold text-white disabled:opacity-50"
@@ -1055,7 +1065,11 @@ export default function CheckoutPage() {
           aria-modal="true"
           aria-labelledby="review-title"
         >
-          <section className="max-h-[calc(100vh-7rem)] w-full max-w-5xl overflow-y-auto rounded-sm bg-white p-4 shadow-xl sm:max-h-[calc(100vh-8rem)] sm:p-5">
+          <section
+            ref={reviewModalRef}
+            tabIndex={-1}
+            className="max-h-[calc(100vh-7rem)] w-full max-w-5xl overflow-y-auto rounded-sm bg-white p-4 shadow-xl outline-none sm:max-h-[calc(100vh-8rem)] sm:p-5"
+          >
             <div className="flex items-start justify-between gap-4">
               <h2 id="review-title" className="text-2xl font-bold text-site-heading">
                 Megrendelés áttekintése

@@ -1,6 +1,7 @@
-import { lazy, Suspense, useEffect, useState, type MouseEvent, type ReactNode } from "react";
+import { lazy, Suspense, useRef, useState, type MouseEvent, type ReactNode } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import { ROUTES } from "../../constants/routes";
+import { useModalFocus } from "../../hooks/useModalFocus";
 
 const mapSource =
   "https://www.google.com/maps?q=Bakonyszentl%C3%A1szl%C3%B3%2C%208431&z=10&output=embed";
@@ -9,26 +10,12 @@ const ContactForm = lazy(() => import("../../../features/contact/components/Cont
 export default function Footer() {
   const { pathname } = useLocation();
   const [isContactModalOpen, setIsContactModalOpen] = useState(false);
+  const contactModalRef = useRef<HTMLDivElement | null>(null);
 
-  useEffect(() => {
-    if (!isContactModalOpen) {
-      return;
-    }
-
-    function closeOnEscape(event: KeyboardEvent) {
-      if (event.key === "Escape") {
-        setIsContactModalOpen(false);
-      }
-    }
-
-    document.addEventListener("keydown", closeOnEscape);
-    document.body.style.overflow = "hidden";
-
-    return () => {
-      document.removeEventListener("keydown", closeOnEscape);
-      document.body.style.overflow = "";
-    };
-  }, [isContactModalOpen]);
+  useModalFocus(contactModalRef, {
+    isOpen: isContactModalOpen,
+    onClose: () => setIsContactModalOpen(false),
+  });
 
   function scrollToTopOnCurrentPage(targetPath: string) {
     return (event: MouseEvent<HTMLAnchorElement>) => {
@@ -203,7 +190,11 @@ export default function Footer() {
             }
           }}
         >
-          <div className="relative max-h-[90vh] w-full max-w-3xl overflow-y-auto">
+          <div
+            ref={contactModalRef}
+            tabIndex={-1}
+            className="relative max-h-[90vh] w-full max-w-3xl overflow-y-auto outline-none"
+          >
             <button
               type="button"
               onClick={() => setIsContactModalOpen(false)}

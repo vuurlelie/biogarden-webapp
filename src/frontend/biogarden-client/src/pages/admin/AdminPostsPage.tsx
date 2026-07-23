@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useEffect, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
 import {
   deleteAdminPost,
   getAdminPostPage,
@@ -6,6 +6,7 @@ import {
 import type { Post, PostCategory } from "../../features/posts/types/post.types";
 import AdminPageHeader from "../../shared/components/admin/AdminPageHeader";
 import AdminPagination from "../../shared/components/admin/AdminPagination";
+import { useModalFocus } from "../../shared/hooks/useModalFocus";
 import { getPostCategoryLabel } from "../../shared/utils/postCategory";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
@@ -48,6 +49,14 @@ export default function AdminPostsPage() {
   const [editingPost, setEditingPost] = useState<Post | null | undefined>(undefined);
   const [deletingPost, setDeletingPost] = useState<Post | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const deleteModalRef = useRef<HTMLElement | null>(null);
+
+  useModalFocus(deleteModalRef, {
+    isOpen: Boolean(deletingPost),
+    onClose: () => {
+      if (!deleting) setDeletingPost(null);
+    },
+  });
 
   const loadPosts = useCallback(async (signal?: AbortSignal) => {
     setLoading(true);
@@ -291,7 +300,11 @@ export default function AdminPostsPage() {
           aria-modal="true"
           aria-labelledby="delete-post-title"
         >
-          <section className="w-full max-w-md rounded-sm bg-white p-6 shadow-xl">
+          <section
+            ref={deleteModalRef}
+            tabIndex={-1}
+            className="w-full max-w-md rounded-sm bg-white p-6 shadow-xl outline-none"
+          >
             <h2 id="delete-post-title" className="text-xl font-bold text-site-heading">
               Bejegyzés törlése
             </h2>

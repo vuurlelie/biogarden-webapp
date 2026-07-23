@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import type { Post, PostCategory } from "../../posts/types/post.types";
+import { useModalFocus } from "../../../shared/hooks/useModalFocus";
 import {
   createAdminPost,
   deleteUnusedAdminPostImage,
@@ -70,18 +71,21 @@ export default function AdminPostFormModal({ post, onClose, onSaved }: Props) {
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const modalRef = useRef<HTMLElement | null>(null);
+  const titleInputRef = useRef<HTMLInputElement | null>(null);
+  const imageInputRef = useRef<HTMLInputElement | null>(null);
 
   const previewUrl = useMemo(
     () => (imageFile ? URL.createObjectURL(imageFile) : imageUrl(form.image)),
     [imageFile, form.image],
   );
 
-  useEffect(() => {
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = "";
-    };
-  }, []);
+  useModalFocus(modalRef, {
+    isOpen: true,
+    onClose: () => {
+      if (!saving) onClose();
+    },
+  });
 
   useEffect(() => {
     return () => {
@@ -99,16 +103,19 @@ export default function AdminPostFormModal({ post, onClose, onSaved }: Props) {
 
     if (form.title.trim().length < 3) {
       setError("A bejegyzés címe legalább 3 karakter legyen.");
+      titleInputRef.current?.focus();
       return;
     }
 
     if (form.article.trim().length < 20) {
       setError("A bejegyzés szövege legalább 20 karakter legyen.");
+      document.getElementById("post-article")?.focus();
       return;
     }
 
     if (imageFile && imageFile.size > MAX_IMAGE_UPLOAD_SIZE_BYTES) {
       setError("A kép mérete legfeljebb 2 MB lehet. Bejegyzésképhez kb. 1600 x 1200 px, JPG vagy WEBP ajánlott.");
+      imageInputRef.current?.focus();
       return;
     }
 
@@ -158,7 +165,11 @@ export default function AdminPostFormModal({ post, onClose, onSaved }: Props) {
       aria-modal="true"
       aria-labelledby="post-form-title"
     >
-      <section className="max-h-[95vh] w-full max-w-5xl overflow-y-auto rounded-sm bg-white shadow-xl">
+      <section
+        ref={modalRef}
+        tabIndex={-1}
+        className="max-h-[95vh] w-full max-w-5xl overflow-y-auto rounded-sm bg-white shadow-xl outline-none"
+      >
         <div className="sticky top-0 z-10 flex items-center justify-between gap-4 border-b border-site-border bg-white px-5 py-4 sm:px-6">
           <div>
             <p className="text-xs font-bold uppercase tracking-wider text-site-green-dark">Tudástár</p>
@@ -190,6 +201,7 @@ export default function AdminPostFormModal({ post, onClose, onSaved }: Props) {
                 <label className="text-sm font-semibold sm:col-span-2">
                   Cím <span className="text-site-danger">*</span>
                   <input
+                    ref={titleInputRef}
                     className={inputClass}
                     value={form.title}
                     onChange={(event) => update("title", event.target.value)}
@@ -244,6 +256,7 @@ export default function AdminPostFormModal({ post, onClose, onSaved }: Props) {
               <label className="block text-sm font-semibold">
                 Kép
                 <input
+                  ref={imageInputRef}
                   className="mt-2 block w-full rounded-sm border border-site-border p-3 text-sm file:mr-3 file:rounded-sm file:border-0 file:bg-site-surface-soft file:px-3 file:py-2 file:font-semibold file:text-site-green-dark"
                   type="file"
                   accept="image/jpeg,image/png,image/webp"

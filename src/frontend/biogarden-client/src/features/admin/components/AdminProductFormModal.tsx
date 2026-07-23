@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import type { ProductCategory, ProductDetails, UnitOfMeasure } from "../../products/types/product.types";
+import { useModalFocus } from "../../../shared/hooks/useModalFocus";
 import {
   createAdminProduct,
   deleteUnusedAdminProductImage,
@@ -90,18 +91,24 @@ export default function AdminProductFormModal({ product, onClose, onSaved }: Pro
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const modalRef = useRef<HTMLElement | null>(null);
+  const nameInputRef = useRef<HTMLInputElement | null>(null);
+  const priceInputRef = useRef<HTMLInputElement | null>(null);
+  const stockInputRef = useRef<HTMLInputElement | null>(null);
+  const unitAmountInputRef = useRef<HTMLInputElement | null>(null);
+  const imageInputRef = useRef<HTMLInputElement | null>(null);
 
   const previewUrl = useMemo(
     () => (imageFile ? URL.createObjectURL(imageFile) : imageUrl(form.image)),
     [imageFile, form.image],
   );
 
-  useEffect(() => {
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = "";
-    };
-  }, []);
+  useModalFocus(modalRef, {
+    isOpen: true,
+    onClose: () => {
+      if (!saving) onClose();
+    },
+  });
 
   useEffect(() => {
     return () => {
@@ -123,22 +130,27 @@ export default function AdminProductFormModal({ product, onClose, onSaved }: Pro
 
     if (form.name.trim().length < 2) {
       setError("A termék neve legalább 2 karakter legyen.");
+      nameInputRef.current?.focus();
       return;
     }
     if (!Number.isFinite(price) || price < 0) {
       setError("Adj meg érvényes, nem negatív árat.");
+      priceInputRef.current?.focus();
       return;
     }
     if (!Number.isInteger(stockQuantity) || stockQuantity < 0) {
       setError("A készlet nem negatív egész szám legyen.");
+      stockInputRef.current?.focus();
       return;
     }
     if (unitAmount !== null && (!Number.isFinite(unitAmount) || unitAmount <= 0)) {
       setError("A kiszerelés pozitív szám legyen.");
+      unitAmountInputRef.current?.focus();
       return;
     }
     if (imageFile && imageFile.size > MAX_IMAGE_UPLOAD_SIZE_BYTES) {
       setError("A kép mérete legfeljebb 2 MB lehet. Termékképnél kb. 1200 x 1200 px, JPG vagy WEBP ajánlott.");
+      imageInputRef.current?.focus();
       return;
     }
 
@@ -194,7 +206,11 @@ export default function AdminProductFormModal({ product, onClose, onSaved }: Pro
       aria-modal="true"
       aria-labelledby="product-form-title"
     >
-      <section className="max-h-[95vh] w-full max-w-4xl overflow-y-auto rounded-sm bg-white shadow-xl">
+      <section
+        ref={modalRef}
+        tabIndex={-1}
+        className="max-h-[95vh] w-full max-w-4xl overflow-y-auto rounded-sm bg-white shadow-xl outline-none"
+      >
         <div className="sticky top-0 z-10 flex items-center justify-between gap-4 border-b border-site-border bg-white px-5 py-4 sm:px-6">
           <div>
             <p className="text-xs font-bold uppercase tracking-wider text-site-green-dark">Termékkezelés</p>
@@ -224,6 +240,7 @@ export default function AdminProductFormModal({ product, onClose, onSaved }: Pro
             <label className="text-sm font-semibold">
               Név <span className="text-site-danger">*</span>
               <input
+                ref={nameInputRef}
                 className={inputClass}
                 value={form.name}
                 onChange={(event) => update("name", event.target.value)}
@@ -247,6 +264,7 @@ export default function AdminProductFormModal({ product, onClose, onSaved }: Pro
             <label className="text-sm font-semibold">
               Ár (Ft) <span className="text-site-danger">*</span>
               <input
+                ref={priceInputRef}
                 className={inputClass}
                 type="number"
                 min="0"
@@ -272,6 +290,7 @@ export default function AdminProductFormModal({ product, onClose, onSaved }: Pro
             <label className="text-sm font-semibold">
               Készlet <span className="text-site-danger">*</span>
               <input
+                ref={stockInputRef}
                 className={inputClass}
                 type="number"
                 min="0"
@@ -288,6 +307,7 @@ export default function AdminProductFormModal({ product, onClose, onSaved }: Pro
               <label className="text-sm font-semibold">
                 Kiszerelés
                 <input
+                  ref={unitAmountInputRef}
                   className={inputClass}
                   type="number"
                   min="0.01"
@@ -338,6 +358,7 @@ export default function AdminProductFormModal({ product, onClose, onSaved }: Pro
               <label className="block text-sm font-semibold">
                 Termékkép
                 <input
+                  ref={imageInputRef}
                   className="mt-2 block w-full rounded-sm border border-site-border p-3 text-sm file:mr-3 file:rounded-sm file:border-0 file:bg-site-surface-soft file:px-3 file:py-2 file:font-semibold file:text-site-green-dark"
                   type="file"
                   accept="image/jpeg,image/png,image/webp"

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { getProductById, getProducts } from "../../features/products/api/productsApi";
 import ProductCards from "../../features/products/components/ProductCards";
@@ -18,6 +18,7 @@ import NotFoundPage from "./NotFoundPage";
 import { useCart } from "../../features/cart/context/useCart";
 import { getAvailableQuantityToAdd } from "../../features/cart/api/cartApi";
 import Seo from "../../shared/seo/Seo";
+import { useModalFocus } from "../../shared/hooks/useModalFocus";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 const SITE_URL = (import.meta.env.VITE_SITE_URL ?? "https://bakonykincse.hu").replace(/\/$/, "");
@@ -52,6 +53,12 @@ export default function ProductDetailsPage() {
   const [quantity, setQuantity] = useState(1);
   const [availableToAdd, setAvailableToAdd] = useState(0);
   const [isImageOpen, setIsImageOpen] = useState(false);
+  const imageModalRef = useRef<HTMLDivElement | null>(null);
+
+  useModalFocus(imageModalRef, {
+    isOpen: isImageOpen,
+    onClose: () => setIsImageOpen(false),
+  });
   const { addItem } = useCart();
 
   useEffect(() => {
@@ -107,17 +114,6 @@ export default function ProductDetailsPage() {
       shouldIgnoreResult = true;
     };
   }, [productId]);
-
-  useEffect(() => {
-    if (!isImageOpen) return;
-
-    function closeOnEscape(event: KeyboardEvent) {
-      if (event.key === "Escape") setIsImageOpen(false);
-    }
-
-    window.addEventListener("keydown", closeOnEscape);
-    return () => window.removeEventListener("keydown", closeOnEscape);
-  }, [isImageOpen]);
 
   if (isLoading) {
     return (
@@ -346,6 +342,8 @@ export default function ProductDetailsPage() {
           onClick={() => setIsImageOpen(false)}
         >
           <div
+            ref={imageModalRef}
+            tabIndex={-1}
             className="relative inline-flex max-h-[calc(100vh-9rem)] max-w-[94vw] rounded-sm border border-white/35 bg-white p-2 shadow-2xl sm:max-h-[calc(100vh-10rem)]"
             onClick={(event) => event.stopPropagation()}
           >
