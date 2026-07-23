@@ -498,6 +498,21 @@ public sealed class RateLimitingTests
             return Task.FromResult(CreateOrder());
         }
 
+        public Task<PublicOrderPaymentStatusDto> GetPublicOrderPaymentStatusAsync(
+            Guid orderId,
+            string sumUpCheckoutReference,
+            CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult(new PublicOrderPaymentStatusDto
+            {
+                OrderId = orderId,
+                OrderNumber = "TEST-ORDER",
+                Status = OrderStatus.Confirmed,
+                PaymentStatus = PaymentStatus.Paid,
+                ConfirmedAtUtc = DateTime.UtcNow
+            });
+        }
+
         private static OrderDto CreateOrder()
         {
             return new OrderDto

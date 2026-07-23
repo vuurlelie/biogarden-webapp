@@ -31,6 +31,10 @@ export type SumUpCheckout = {
   url: string;
 };
 
+export type PublicOrderPaymentStatus = Pick<Order, "orderNumber" | "status" | "paymentStatus" | "confirmedAtUtc"> & {
+  orderId: string;
+};
+
 async function getErrorMessage(response: Response): Promise<string> {
   if (response.status === 429) {
     return TOO_MANY_REQUESTS_MESSAGE;
@@ -191,5 +195,25 @@ export async function createSumUpCheckout(orderId: string): Promise<SumUpCheckou
   }
 
   return response.json() as Promise<SumUpCheckout>;
+}
+
+export async function getPublicOrderPaymentStatus(
+  orderId: string,
+  sumUpCheckoutReference: string,
+): Promise<PublicOrderPaymentStatus> {
+  const params = new URLSearchParams({ sumUpCheckoutReference });
+  const response = await fetch(
+    `${API_BASE_URL}/api/orders/${encodeURIComponent(orderId)}/payment-status?${params.toString()}`,
+    {
+      method: "GET",
+      credentials: "include",
+    },
+  );
+
+  if (!response.ok) {
+    throw new OrdersApiError(await getErrorMessage(response), response.status);
+  }
+
+  return response.json() as Promise<PublicOrderPaymentStatus>;
 }
 

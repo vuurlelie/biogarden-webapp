@@ -712,6 +712,44 @@ public sealed class OrderServiceTests
         _emailService.Verify(x => x.SendAsync(customerMessage, It.IsAny<CancellationToken>()), Times.Once);
     }
 
+    [Fact]
+    public async Task GetPublicOrderPaymentStatusAsync_WhenCheckoutReferenceMatches_ReturnsLimitedStatus()
+    {
+        var order = CreateOrder(null);
+        order.Status = OrderStatus.Confirmed;
+        order.PaymentStatus = PaymentStatus.Paid;
+        order.ConfirmedAtUtc = DateTime.UtcNow;
+        order.CustomerEmail = "guest@example.com";
+        order.CustomerPhone = "+36301234567";
+
+        _orders
+            .Setup(x => x.GetByIdAsync(order.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(order);
+
+        var result = await _service.GetPublicOrderPaymentStatusAsync(
+            order.Id,
+            order.Id.ToString("N"));
+
+        Assert.Equal(order.Id, result.OrderId);
+        Assert.Equal(order.OrderNumber, result.OrderNumber);
+        Assert.Equal(OrderStatus.Confirmed, result.Status);
+        Assert.Equal(PaymentStatus.Paid, result.PaymentStatus);
+        Assert.Equal(order.ConfirmedAtUtc, result.ConfirmedAtUtc);
+    }
+
+    [Fact]
+    public async Task GetPublicOrderPaymentStatusAsync_WhenCheckoutReferenceDoesNotMatch_ThrowsWithoutLoadingOrder()
+    {
+        var orderId = Guid.NewGuid();
+
+        await Assert.ThrowsAsync<KeyNotFoundException>(() =>
+            _service.GetPublicOrderPaymentStatusAsync(orderId, Guid.NewGuid().ToString("N")));
+
+        _orders.Verify(
+            x => x.GetByIdAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
     private static Order CreateOrder(Guid? userId) => new()
     {
         Id = Guid.NewGuid(),

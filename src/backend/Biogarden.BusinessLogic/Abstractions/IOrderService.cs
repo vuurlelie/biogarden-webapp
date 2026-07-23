@@ -58,4 +58,9 @@ public interface IOrderService
         Guid userId,
         Guid orderId,
         CancellationToken cancellationToken = default);
+
+    Task<PublicOrderPaymentStatusDto> GetPublicOrderPaymentStatusAsync(
+        Guid orderId,
+        string sumUpCheckoutReference,
+        CancellationToken cancellationToken = default);
 }

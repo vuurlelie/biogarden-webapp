@@ -664,6 +664,32 @@ public class OrderService : IOrderService
         return order.ToDto();
     }
 
+    public async Task<PublicOrderPaymentStatusDto> GetPublicOrderPaymentStatusAsync(
+        Guid orderId,
+        string sumUpCheckoutReference,
+        CancellationToken cancellationToken = default)
+    {
+        var normalizedCheckoutReference = NormalizeOptional(sumUpCheckoutReference);
+        if (!string.Equals(normalizedCheckoutReference, orderId.ToString("N"), StringComparison.OrdinalIgnoreCase))
+        {
+            throw new KeyNotFoundException("Order not found.");
+        }
+
+        var order = await _unitOfWork.OrderRepository.GetByIdAsync(
+            orderId,
+            cancellationToken)
+            ?? throw new KeyNotFoundException("Order not found.");
+
+        return new PublicOrderPaymentStatusDto
+        {
+            OrderId = order.Id,
+            OrderNumber = order.OrderNumber,
+            Status = order.Status,
+            PaymentStatus = order.PaymentStatus,
+            ConfirmedAtUtc = order.ConfirmedAtUtc
+        };
+    }
+
     private static bool IsVisibleInUserHistory(Order order, DateTime visibleFromUtc)
     {
         if (order.Status != OrderStatus.Cancelled)

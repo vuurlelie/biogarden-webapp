@@ -155,6 +155,23 @@ public class OrdersController : ControllerBase
         return Ok(order);
     }
 
+    [HttpGet("{orderId:guid}/payment-status")]
+    [AllowAnonymous]
+    [EnableRateLimiting(RateLimitPolicyNames.Payment)]
+    [ProducesResponseType(typeof(PublicOrderPaymentStatusDto), StatusCodes.Status200OK)]
+    public async Task<ActionResult<PublicOrderPaymentStatusDto>> GetPublicOrderPaymentStatus(
+        Guid orderId,
+        [FromQuery] string sumUpCheckoutReference,
+        CancellationToken cancellationToken)
+    {
+        var status = await _orderService.GetPublicOrderPaymentStatusAsync(
+            orderId,
+            sumUpCheckoutReference,
+            cancellationToken);
+
+        return Ok(status);
+    }
+
     private Guid? GetCurrentUserIdOrNull()
     {
         var userIdValue = User.FindFirstValue(ClaimTypes.NameIdentifier);
