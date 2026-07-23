@@ -36,5 +36,23 @@ public class PostConfiguration : IEntityTypeConfiguration<Post>
             post.RecordStatus == RecordStatus.Active);
 
         postBuilder.HasIndex(post => post.PublishedAt);
+
+        postBuilder.HasIndex(post => new
+        {
+            post.RecordStatus,
+            post.Draft,
+            post.Category,
+            post.PublishedAt,
+            post.Title
+        }).HasDatabaseName("IX_Posts_ListFilters_PublishedAt");
+
+        postBuilder.HasIndex(post => new
+        {
+            post.RecordStatus,
+            post.Draft,
+            post.Category,
+            post.Title,
+            post.PublishedAt
+        }).HasDatabaseName("IX_Posts_ListFilters_Title");
     }
 }
