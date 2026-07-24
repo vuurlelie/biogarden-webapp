@@ -183,11 +183,11 @@ public class OrderService : IOrderService
                 await _unitOfWork.OrderRepository.AddAsync(order, transactionToken);
                 await _unitOfWork.SaveChangesAsync(transactionToken);
 
-                var createdOrder = await _unitOfWork.OrderRepository.GetByIdWithItemsAsync(
+                var createdOrder = await ReloadOrderWithItemsAsync(
                     order.Id,
                     transactionToken);
 
-                return createdOrder!.ToDto();
+                return createdOrder.ToDto();
             }, cancellationToken);
         }
         catch (DbUpdateConcurrencyException exception)
@@ -254,11 +254,11 @@ public class OrderService : IOrderService
         _unitOfWork.OrderRepository.Update(order);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
-        var confirmedOrder = await _unitOfWork.OrderRepository.GetByIdWithItemsAsync(
+        var confirmedOrder = await ReloadOrderWithItemsAsync(
             order.Id,
             cancellationToken);
 
-        return confirmedOrder!.ToDto();
+        return confirmedOrder.ToDto();
     }
 
     public async Task<SumUpCheckoutDto> CreateSumUpCheckoutAsync(
@@ -416,11 +416,11 @@ public class OrderService : IOrderService
         _unitOfWork.OrderRepository.Update(order);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
-        var cancelledOrder = await _unitOfWork.OrderRepository.GetByIdWithItemsAsync(
+        var cancelledOrder = await ReloadOrderWithItemsAsync(
             order.Id,
             cancellationToken);
 
-        return cancelledOrder!.ToDto();
+        return cancelledOrder.ToDto();
     }
 
     public async Task<OrderWithdrawalRequestDto> RequestWithdrawalAsync(
@@ -965,6 +965,12 @@ public class OrderService : IOrderService
                 checkedOutCart.Id,
                 cancellationToken);
     }
+
+    private async Task<Order> ReloadOrderWithItemsAsync(
+        Guid orderId,
+        CancellationToken cancellationToken) =>
+        await _unitOfWork.OrderRepository.GetByIdWithItemsAsync(orderId, cancellationToken)
+            ?? throw new InvalidOperationException("Order reload failed after saving changes.");
 
     private async Task SendOrderCreatedEmailsAsync(
         OrderDto order,
