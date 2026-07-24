@@ -177,65 +177,50 @@ public static class ServiceCollectionExtensions
         this IServiceCollection services,
         IConfiguration configuration)
     {
-        services.AddOptions<AbuseProtectionOptions>()
-            .Bind(configuration.GetSection(AbuseProtectionOptions.SectionName))
-            .Validate(options =>
-            {
-                options.ValidateForStartup();
-                return true;
-            })
-            .ValidateOnStart();
+        services.AddValidatedOptions<AbuseProtectionOptions>(
+            configuration,
+            AbuseProtectionOptions.SectionName,
+            options => options.ValidateForStartup());
+        services.AddValidatedOptions<JwtSettings>(
+            configuration,
+            JwtSettings.SectionName,
+            options => options.ValidateForStartup());
+        services.AddValidatedOptions<EmailOptions>(
+            configuration,
+            EmailOptions.SectionName,
+            options => options.ValidateForStartup());
+        services.AddValidatedOptions<AuthEmailOptions>(
+            configuration,
+            AuthEmailOptions.SectionName,
+            options => options.ValidateForStartup());
+        services.AddValidatedOptions<EmailBrandingOptions>(
+            configuration,
+            EmailBrandingOptions.SectionName,
+            options => options.ValidateForStartup());
+        services.AddValidatedOptions<ErrorAlertOptions>(
+            configuration,
+            ErrorAlertOptions.SectionName,
+            options => options.ValidateForStartup());
+        services.AddValidatedOptions<SumUpOptions>(
+            configuration,
+            SumUpOptions.SectionName,
+            options => options.ValidateForStartup());
 
-        services.AddOptions<JwtSettings>()
-            .Bind(configuration.GetSection(JwtSettings.SectionName))
-            .Validate(options =>
-            {
-                options.ValidateForStartup();
-                return true;
-            })
-            .ValidateOnStart();
+        return services;
+    }
 
-        services.AddOptions<EmailOptions>()
-            .Bind(configuration.GetSection(EmailOptions.SectionName))
+    private static IServiceCollection AddValidatedOptions<TOptions>(
+        this IServiceCollection services,
+        IConfiguration configuration,
+        string sectionName,
+        Action<TOptions> validate)
+        where TOptions : class
+    {
+        services.AddOptions<TOptions>()
+            .Bind(configuration.GetSection(sectionName))
             .Validate(options =>
             {
-                options.ValidateForStartup();
-                return true;
-            })
-            .ValidateOnStart();
-
-        services.AddOptions<AuthEmailOptions>()
-            .Bind(configuration.GetSection(AuthEmailOptions.SectionName))
-            .Validate(options =>
-            {
-                options.ValidateForStartup();
-                return true;
-            })
-            .ValidateOnStart();
-
-        services.AddOptions<EmailBrandingOptions>()
-            .Bind(configuration.GetSection(EmailBrandingOptions.SectionName))
-            .Validate(options =>
-            {
-                options.ValidateForStartup();
-                return true;
-            })
-            .ValidateOnStart();
-
-        services.AddOptions<ErrorAlertOptions>()
-            .Bind(configuration.GetSection(ErrorAlertOptions.SectionName))
-            .Validate(options =>
-            {
-                options.ValidateForStartup();
-                return true;
-            })
-            .ValidateOnStart();
-
-        services.AddOptions<SumUpOptions>()
-            .Bind(configuration.GetSection(SumUpOptions.SectionName))
-            .Validate(options =>
-            {
-                options.ValidateForStartup();
+                validate(options);
                 return true;
             })
             .ValidateOnStart();
