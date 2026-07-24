@@ -318,26 +318,59 @@ public static class ServiceCollectionExtensions
         this IServiceCollection services)
     {
         services.AddScoped<IUnitOfWork, UnitOfWork>();
+        services.AddCoreApplicationServices();
+        services.AddCommunicationServices();
+        services.AddPaymentServices();
+        services.AddCheckoutServices();
+        services.AddAdminServices();
 
+        services.AddSingleton<TimeProvider>(TimeProvider.System);
+
+        return services;
+    }
+
+    private static IServiceCollection AddCoreApplicationServices(this IServiceCollection services)
+    {
         services.AddScoped<IPostService, PostService>();
         services.AddScoped<IProductService, ProductService>();
         services.AddScoped<IAddressService, AddressService>();
-
         services.AddScoped<IAuthService, AuthService>();
         services.AddScoped<IUserService, UserService>();
-        services.AddScoped<IContactService, ContactService>();
         services.AddScoped<ITokenService, JwtTokenService>();
+
+        return services;
+    }
+
+    private static IServiceCollection AddCommunicationServices(this IServiceCollection services)
+    {
+        services.AddScoped<IContactService, ContactService>();
         services.AddScoped<IEmailService, SmtpEmailService>();
         services.AddScoped<IEmailTemplateService, EmailTemplateService>();
         services.AddScoped<IErrorAlertService, ErrorAlertService>();
         services.AddSingleton<ErrorAlertThrottleStore>();
-        services.AddSingleton<TimeProvider>(TimeProvider.System);
+
+        return services;
+    }
+
+    private static IServiceCollection AddPaymentServices(this IServiceCollection services)
+    {
         services.AddHttpClient<ISumUpCheckoutClient, SumUpCheckoutClient>();
         services.AddScoped<ISumUpCheckoutService, SumUpCheckoutService>();
         services.AddScoped<ISumUpCheckoutStatusService, SumUpCheckoutStatusService>();
 
+        return services;
+    }
+
+    private static IServiceCollection AddCheckoutServices(this IServiceCollection services)
+    {
         services.AddScoped<ICartService, CartService>();
         services.AddScoped<IOrderService, OrderService>();
+
+        return services;
+    }
+
+    private static IServiceCollection AddAdminServices(this IServiceCollection services)
+    {
         services.AddScoped<IAdminDashboardService, AdminDashboardService>();
         services.AddScoped<IAdminInventoryService, AdminInventoryService>();
         services.AddScoped<IAdminOrderService, AdminOrderService>();
