@@ -27,6 +27,7 @@ public sealed class OrderServiceTests
     private readonly Mock<IEmailService> _emailService = new(MockBehavior.Strict);
     private readonly Mock<IEmailTemplateService> _emailTemplateService = new(MockBehavior.Strict);
     private readonly Mock<ISumUpCheckoutService> _sumUpCheckoutService = new(MockBehavior.Strict);
+    private readonly FakeTimeProvider _timeProvider = new(new DateTimeOffset(2026, 7, 24, 8, 0, 0, TimeSpan.Zero));
     private readonly OrderService _service;
 
     public OrderServiceTests()
@@ -51,6 +52,7 @@ public sealed class OrderServiceTests
             _emailService.Object,
             _emailTemplateService.Object,
             _sumUpCheckoutService.Object,
+            _timeProvider,
             Options.Create(new EmailBrandingOptions
             {
                 ContactEmail = "info@bakonykincse.hu"
@@ -122,10 +124,13 @@ public sealed class OrderServiceTests
 
         Assert.Null(result.UserId);
         Assert.Null(result.AddressId);
+        Assert.StartsWith("BK-20260724-", result.OrderNumber, StringComparison.Ordinal);
         Assert.Equal("guest@example.com", result.CustomerEmail);
         Assert.Equal(LegalDocumentVersions.CurrentTermsVersion, result.AcceptedTermsVersion);
         Assert.Equal(LegalDocumentVersions.CurrentPrivacyPolicyVersion, result.AcceptedPrivacyPolicyVersion);
         Assert.True(cart.IsCheckedOut);
+        Assert.Equal(_timeProvider.GetUtcNow().UtcDateTime, cart.CheckedOutAtUtc);
+        Assert.Equal(_timeProvider.GetUtcNow().UtcDateTime, savedOrder!.CreatedAtUtc);
         _emailTemplateService.Verify(
             x => x.BuildOrderConfirmationMessage(
                 "guest@example.com",
@@ -238,7 +243,7 @@ public sealed class OrderServiceTests
             Id = Guid.NewGuid(),
             SessionId = sessionId,
             IsCheckedOut = true,
-            CheckedOutAtUtc = DateTime.UtcNow
+            CheckedOutAtUtc = _timeProvider.GetUtcNow().UtcDateTime
         };
         var order = CreateOrder(null);
         order.CartId = cart.Id;
@@ -583,7 +588,7 @@ public sealed class OrderServiceTests
         Assert.Equal(PaymentStatus.Paid, result.PaymentStatus);
         Assert.Equal(OrderStatus.Confirmed, result.Status);
         Assert.Equal("txn_123", order.SumUpTransactionId);
-        Assert.NotNull(order.ConfirmedAtUtc);
+        Assert.Equal(_timeProvider.GetUtcNow().UtcDateTime, order.ConfirmedAtUtc);
     }
 
     [Fact]
@@ -724,8 +729,8 @@ public sealed class OrderServiceTests
         Assert.Equal(6, product.StockQuantity);
         Assert.False(order.StockCommitted);
         Assert.Equal("Meggondoltam magam.", order.CancellationReason);
-        Assert.NotNull(order.CancelledAtUtc);
-        Assert.NotNull(order.DeletedAtUtc);
+        Assert.Equal(_timeProvider.GetUtcNow().UtcDateTime, order.CancelledAtUtc);
+        Assert.Equal(_timeProvider.GetUtcNow().UtcDateTime, order.DeletedAtUtc);
         _unitOfWork.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
     }
 
@@ -797,6 +802,7 @@ public sealed class OrderServiceTests
         Assert.Equal(12, result.Id);
         Assert.Equal(order.Id, result.OrderId);
         Assert.Equal("Szeretnék elállási kérelmet rögzíteni.", result.Reason);
+        Assert.Equal(_timeProvider.GetUtcNow().UtcDateTime, result.RequestedAtUtc);
         Assert.Equal(OrderWithdrawalRequestStatus.Pending, result.Status);
         Assert.Same(savedRequest, order.WithdrawalRequests.Single());
         _emailService.Verify(x => x.SendAsync(businessMessage, It.IsAny<CancellationToken>()), Times.Once);
@@ -860,6 +866,7 @@ public sealed class OrderServiceTests
         Assert.Equal(order.Id, result.OrderId);
         Assert.Null(savedRequest!.UserId);
         Assert.Equal("Szeretnék elállási kérelmet rögzíteni.", result.Reason);
+        Assert.Equal(_timeProvider.GetUtcNow().UtcDateTime, result.RequestedAtUtc);
         Assert.Equal(OrderWithdrawalRequestStatus.Pending, result.Status);
         _emailService.Verify(x => x.SendAsync(businessMessage, It.IsAny<CancellationToken>()), Times.Once);
         _emailService.Verify(x => x.SendAsync(customerMessage, It.IsAny<CancellationToken>()), Times.Once);
@@ -871,7 +878,7 @@ public sealed class OrderServiceTests
         var order = CreateOrder(null);
         order.Status = OrderStatus.Confirmed;
         order.PaymentStatus = PaymentStatus.Paid;
-        order.ConfirmedAtUtc = DateTime.UtcNow;
+        order.ConfirmedAtUtc = _timeProvider.GetUtcNow().UtcDateTime;
         order.CustomerEmail = "guest@example.com";
         order.CustomerPhone = "+36301234567";
 
@@ -968,5 +975,10 @@ public sealed class OrderServiceTests
         _emailService
             .Setup(x => x.SendAsync(businessMessage, It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
+    }
+
+    private sealed class FakeTimeProvider(DateTimeOffset utcNow) : TimeProvider
+    {
+        public override DateTimeOffset GetUtcNow() => utcNow;
     }
 }

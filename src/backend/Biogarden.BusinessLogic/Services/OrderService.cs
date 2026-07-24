@@ -21,6 +21,7 @@ public class OrderService : IOrderService
     private readonly IEmailService _emailService;
     private readonly IEmailTemplateService _emailTemplateService;
     private readonly ISumUpCheckoutService _sumUpCheckoutService;
+    private readonly TimeProvider _timeProvider;
     private readonly EmailBrandingOptions _emailBrandingOptions;
     private readonly SumUpOptions _sumUpOptions;
 
@@ -31,6 +32,7 @@ public class OrderService : IOrderService
         IEmailService emailService,
         IEmailTemplateService emailTemplateService,
         ISumUpCheckoutService sumUpCheckoutService,
+        TimeProvider timeProvider,
         IOptions<EmailBrandingOptions> emailBrandingOptions,
         IOptions<SumUpOptions> sumUpOptions)
     {
@@ -40,6 +42,7 @@ public class OrderService : IOrderService
         _emailService = emailService;
         _emailTemplateService = emailTemplateService;
         _sumUpCheckoutService = sumUpCheckoutService;
+        _timeProvider = timeProvider;
         _emailBrandingOptions = emailBrandingOptions.Value;
         _sumUpOptions = sumUpOptions.Value;
     }
@@ -119,66 +122,7 @@ public class OrderService : IOrderService
             throw new InvalidOperationException("Cart validation failed.");
         }
 
-        ApplicationUser? user = userId.HasValue
-            ? await _userManager.FindByIdAsync(userId.Value.ToString())
-            : null;
-        if (userId.HasValue && user is null) throw new InvalidOperationException("User not found.");
-        var useManualContact = !string.IsNullOrWhiteSpace(dto.CustomerName) ||
-            !string.IsNullOrWhiteSpace(dto.CustomerEmail) ||
-            !string.IsNullOrWhiteSpace(dto.CustomerPhone);
-        if (user is null || useManualContact) ValidateGuestContactDetails(dto); else ValidateAccountContactDetails(user);
-
-        var customerType = user?.CustomerType ?? dto.CustomerType;
-        if (!Enum.IsDefined(customerType))
-        {
-            throw new InvalidOperationException("Invalid customer type.");
-        }
-
-        var billingCompanyName = user is not null && !useManualContact
-            ? user.CompanyName
-            : dto.BillingCompanyName;
-        var billingTaxNumber = user is not null && !useManualContact
-            ? user.TaxNumber
-            : dto.BillingTaxNumber;
-        var printedInvoiceRequested = customerType == CustomerType.Company &&
-            (user?.PrintedInvoiceRequested ?? dto.PrintedInvoiceRequested);
-
-        Address? billingAddress = null;
-        if (customerType == CustomerType.Company)
-        {
-            if (dto.AddressId.HasValue)
-            {
-                billingAddress = await _unitOfWork.AddressRepository.GetByIdAsync(dto.AddressId.Value, cancellationToken);
-                if (user is null || billingAddress is null || user.BillingAddressId != dto.AddressId)
-                    throw new InvalidOperationException("The selected billing address does not belong to the user.");
-            }
-            else
-            {
-                ValidateManualAddress(dto.PostalCode, dto.City, dto.Street, dto.HouseNumber, "billing");
-            }
-
-            ValidateCompanyBilling(billingCompanyName, billingTaxNumber);
-        }
-        else
-        {
-            billingCompanyName = null;
-            billingTaxNumber = null;
-        }
-
-        Address? deliveryAddress = null;
-        if (dto.FulfillmentMethod != FulfillmentMethod.PersonalPickup)
-        {
-            if (dto.DeliveryAddressId.HasValue)
-            {
-                deliveryAddress = await _unitOfWork.AddressRepository.GetByIdAsync(dto.DeliveryAddressId.Value, cancellationToken);
-                if (user is null || deliveryAddress is null || user.ShippingAddressId != dto.DeliveryAddressId)
-                    throw new InvalidOperationException("The selected delivery address does not belong to the user.");
-            }
-            else
-            {
-                ValidateManualAddress(dto.DeliveryPostalCode, dto.DeliveryCity, dto.DeliveryStreet, dto.DeliveryHouseNumber, "delivery");
-            }
-        }
+        var customerSnapshot = await BuildOrderCustomerSnapshotAsync(userId, dto, cancellationToken);
 
         OrderDto createdOrderDto;
 
@@ -186,99 +130,55 @@ public class OrderService : IOrderService
         {
             createdOrderDto = await _unitOfWork.ExecuteInTransactionAsync(async transactionToken =>
             {
+                var now = GetUtcNow();
                 var order = new Order
                 {
                     Id = Guid.NewGuid(),
                     OrderNumber = GenerateOrderNumber(),
                     IdempotencyKey = idempotencyKey,
                     UserId = userId,
-                    AddressId = customerType == CustomerType.Company ? dto.AddressId : null,
-                    CustomerName = user is null || useManualContact
-                        ? dto.CustomerName!.Trim()
-                        : $"{user.LastName} {user.FirstName}".Trim(),
-                    CustomerEmail = user is null || useManualContact ? dto.CustomerEmail!.Trim() : user.Email!.Trim(),
-                    CustomerPhone = user is null || useManualContact ? dto.CustomerPhone!.Trim() : user.PhoneNumber!.Trim(),
-                    PostalCode = billingAddress?.PostalCode ?? NormalizeOptional(dto.PostalCode) ?? string.Empty,
-                    City = billingAddress?.City ?? NormalizeOptional(dto.City) ?? string.Empty,
-                    Street = billingAddress?.Street ?? NormalizeOptional(dto.Street) ?? string.Empty,
-                    HouseNumber = billingAddress?.HouseNumber ?? NormalizeOptional(dto.HouseNumber) ?? string.Empty,
-                    Building = billingAddress?.Building ?? NormalizeOptional(dto.Building),
-                    Floor = billingAddress?.Floor ?? NormalizeOptional(dto.Floor),
-                    Door = billingAddress?.Door ?? NormalizeOptional(dto.Door),
-                    Doorbell = billingAddress?.Doorbell ?? NormalizeOptional(dto.Doorbell),
-                    BillingCompanyName = NormalizeOptional(billingCompanyName),
-                    BillingTaxNumber = NormalizeOptional(billingTaxNumber),
-                    CustomerType = customerType,
-                    PrintedInvoiceRequested = printedInvoiceRequested,
+                    AddressId = customerSnapshot.AddressId,
+                    CustomerName = customerSnapshot.CustomerName,
+                    CustomerEmail = customerSnapshot.CustomerEmail,
+                    CustomerPhone = customerSnapshot.CustomerPhone,
+                    PostalCode = customerSnapshot.PostalCode,
+                    City = customerSnapshot.City,
+                    Street = customerSnapshot.Street,
+                    HouseNumber = customerSnapshot.HouseNumber,
+                    Building = customerSnapshot.Building,
+                    Floor = customerSnapshot.Floor,
+                    Door = customerSnapshot.Door,
+                    Doorbell = customerSnapshot.Doorbell,
+                    BillingCompanyName = customerSnapshot.BillingCompanyName,
+                    BillingTaxNumber = customerSnapshot.BillingTaxNumber,
+                    CustomerType = customerSnapshot.CustomerType,
+                    PrintedInvoiceRequested = customerSnapshot.PrintedInvoiceRequested,
                     AcceptedTermsVersion = LegalDocumentVersions.CurrentTermsVersion,
                     AcceptedPrivacyPolicyVersion = LegalDocumentVersions.CurrentPrivacyPolicyVersion,
-                    DeliveryPostalCode = deliveryAddress?.PostalCode ?? NormalizeOptional(dto.DeliveryPostalCode),
-                    DeliveryCity = deliveryAddress?.City ?? NormalizeOptional(dto.DeliveryCity),
-                    DeliveryStreet = deliveryAddress?.Street ?? NormalizeOptional(dto.DeliveryStreet),
-                    DeliveryHouseNumber = deliveryAddress?.HouseNumber ?? NormalizeOptional(dto.DeliveryHouseNumber),
-                    DeliveryBuilding = deliveryAddress?.Building ?? NormalizeOptional(dto.DeliveryBuilding),
-                    DeliveryFloor = deliveryAddress?.Floor ?? NormalizeOptional(dto.DeliveryFloor),
-                    DeliveryDoor = deliveryAddress?.Door ?? NormalizeOptional(dto.DeliveryDoor),
-                    DeliveryDoorbell = deliveryAddress?.Doorbell ?? NormalizeOptional(dto.DeliveryDoorbell),
+                    DeliveryPostalCode = customerSnapshot.DeliveryPostalCode,
+                    DeliveryCity = customerSnapshot.DeliveryCity,
+                    DeliveryStreet = customerSnapshot.DeliveryStreet,
+                    DeliveryHouseNumber = customerSnapshot.DeliveryHouseNumber,
+                    DeliveryBuilding = customerSnapshot.DeliveryBuilding,
+                    DeliveryFloor = customerSnapshot.DeliveryFloor,
+                    DeliveryDoor = customerSnapshot.DeliveryDoor,
+                    DeliveryDoorbell = customerSnapshot.DeliveryDoorbell,
                     CartId = cart.Id,
-                    CreatedAtUtc = DateTime.UtcNow,
+                    CreatedAtUtc = now,
                     Status = OrderStatus.Pending,
                     PaymentStatus = PaymentStatus.Pending,
                     FulfillmentMethod = dto.FulfillmentMethod
                 };
 
-                decimal totalPrice = 0m;
-
-                foreach (var cartItem in cart.Items)
-                {
-                    var product = await _unitOfWork.ProductRepository.GetByIdAsync(
-                        cartItem.ProductId,
-                        transactionToken);
-
-                    if (product is null)
-                    {
-                        throw new InvalidOperationException("Product missing during order creation.");
-                    }
-
-                    if (!product.Available)
-                    {
-                        throw new InvalidOperationException("A termék időközben elérhetetlenné vált. Kérjük, ellenőrizd újra a kosarat.");
-                    }
-
-                    if (dto.FulfillmentMethod != FulfillmentMethod.PersonalPickup &&
-                        !product.DeliveryAvailable)
-                    {
-                        throw new InvalidOperationException("A kosárban időközben személyes átvételes termék jelent meg. Kérjük, ellenőrizd újra a kosarat.");
-                    }
-
-                    if (product.StockQuantity < cartItem.Quantity)
-                    {
-                        throw new InvalidOperationException("A kosárban lévő készlet időközben megváltozott. Kérjük, ellenőrizd újra a kosarat.");
-                    }
-
-                    var lineTotal = product.Price * cartItem.Quantity;
-
-                    order.Items.Add(new OrderItem
-                    {
-                        Id = Guid.NewGuid(),
-                        OrderId = order.Id,
-                        ProductId = product.Id,
-                        ProductName = product.Name,
-                        UnitPrice = product.Price,
-                        Unit = product.Unit,
-                        Quantity = cartItem.Quantity,
-                        LineTotal = lineTotal
-                    });
-
-                    totalPrice += lineTotal;
-                    product.StockQuantity -= cartItem.Quantity;
-                }
-
-                order.TotalPrice = totalPrice;
+                order.TotalPrice = await AddOrderItemsAndCommitStockAsync(
+                    order,
+                    cart.Items,
+                    dto.FulfillmentMethod,
+                    transactionToken);
                 order.StockCommitted = true;
 
                 cart.IsCheckedOut = true;
-                cart.CheckedOutAtUtc = DateTime.UtcNow;
+                cart.CheckedOutAtUtc = now;
 
                 await _unitOfWork.OrderRepository.AddAsync(order, transactionToken);
                 await _unitOfWork.SaveChangesAsync(transactionToken);
@@ -344,20 +244,12 @@ public class OrderService : IOrderService
 
         if (!order.StockCommitted)
         {
-            foreach (var orderItem in order.Items)
-            {
-                var product = await _unitOfWork.ProductRepository.GetByIdAsync(orderItem.ProductId, cancellationToken);
-                if (product is null) throw new InvalidOperationException("Product missing during payment confirmation.");
-
-                product.StockQuantity -= orderItem.Quantity;
-                if (product.StockQuantity < 0) throw new InvalidOperationException("Stock inconsistency detected.");
-            }
-            order.StockCommitted = true;
+            await CommitOrderStockAsync(order, cancellationToken);
         }
 
         order.PaymentStatus = PaymentStatus.Paid;
         order.Status = OrderStatus.Confirmed;
-        order.ConfirmedAtUtc = DateTime.UtcNow;
+        order.ConfirmedAtUtc = GetUtcNow();
 
         _unitOfWork.OrderRepository.Update(order);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
@@ -434,7 +326,7 @@ public class OrderService : IOrderService
         {
             order.PaymentStatus = PaymentStatus.Paid;
             order.Status = OrderStatus.Confirmed;
-            order.ConfirmedAtUtc ??= DateTime.UtcNow;
+            order.ConfirmedAtUtc ??= GetUtcNow();
         }
 
         order.SumUpTransactionId = NormalizeOptional(sumUpTransactionId) ?? order.SumUpTransactionId;
@@ -511,22 +403,11 @@ public class OrderService : IOrderService
 
         if (order.StockCommitted)
         {
-            foreach (var orderItem in order.Items)
-            {
-                var product = await _unitOfWork.ProductRepository.GetByIdAsync(
-                    orderItem.ProductId,
-                    cancellationToken);
-
-                if (product is not null)
-                {
-                    product.StockQuantity += orderItem.Quantity;
-                }
-            }
-            order.StockCommitted = false;
+            await RestoreOrderStockAsync(order, cancellationToken);
         }
 
         order.Status = OrderStatus.Cancelled;
-        order.CancelledAtUtc = DateTime.UtcNow;
+        order.CancelledAtUtc = GetUtcNow();
         order.DeletedAtUtc = order.CancelledAtUtc;
         order.CancellationReason = string.IsNullOrWhiteSpace(dto.Reason)
             ? null
@@ -603,7 +484,7 @@ public class OrderService : IOrderService
             CustomerName = order.CustomerName,
             CustomerEmail = order.CustomerEmail,
             Reason = reason,
-            RequestedAtUtc = DateTime.UtcNow,
+            RequestedAtUtc = GetUtcNow(),
             Status = OrderWithdrawalRequestStatus.Pending
         };
 
@@ -638,7 +519,7 @@ public class OrderService : IOrderService
             userId,
             cancellationToken);
 
-        var visibleFromUtc = DateTime.UtcNow.AddDays(-7);
+        var visibleFromUtc = GetUtcNow().AddDays(-7);
 
         return orders
             .Where(order => IsVisibleInUserHistory(order, visibleFromUtc))
@@ -656,7 +537,7 @@ public class OrderService : IOrderService
             cancellationToken);
 
         if (order is null || order.UserId != userId ||
-            !IsVisibleInUserHistory(order, DateTime.UtcNow.AddDays(-7)))
+            !IsVisibleInUserHistory(order, GetUtcNow().AddDays(-7)))
         {
             throw new KeyNotFoundException("Order not found.");
         }
@@ -717,6 +598,220 @@ public class OrderService : IOrderService
         {
             throw new KeyNotFoundException("Order not found.");
         }
+    }
+
+    private async Task<decimal> AddOrderItemsAndCommitStockAsync(
+        Order order,
+        IEnumerable<CartItem> cartItems,
+        FulfillmentMethod fulfillmentMethod,
+        CancellationToken cancellationToken)
+    {
+        decimal totalPrice = 0m;
+
+        foreach (var cartItem in cartItems)
+        {
+            var product = await _unitOfWork.ProductRepository.GetByIdAsync(
+                cartItem.ProductId,
+                cancellationToken);
+
+            if (product is null)
+            {
+                throw new InvalidOperationException("Product missing during order creation.");
+            }
+
+            if (!product.Available)
+            {
+                throw new InvalidOperationException("A termék időközben elérhetetlenné vált. Kérjük, ellenőrizd újra a kosarat.");
+            }
+
+            if (fulfillmentMethod != FulfillmentMethod.PersonalPickup &&
+                !product.DeliveryAvailable)
+            {
+                throw new InvalidOperationException("A kosárban időközben személyes átvételes termék jelent meg. Kérjük, ellenőrizd újra a kosarat.");
+            }
+
+            if (product.StockQuantity < cartItem.Quantity)
+            {
+                throw new InvalidOperationException("A kosárban lévő készlet időközben megváltozott. Kérjük, ellenőrizd újra a kosarat.");
+            }
+
+            var lineTotal = product.Price * cartItem.Quantity;
+            order.Items.Add(new OrderItem
+            {
+                Id = Guid.NewGuid(),
+                OrderId = order.Id,
+                ProductId = product.Id,
+                ProductName = product.Name,
+                UnitPrice = product.Price,
+                Unit = product.Unit,
+                Quantity = cartItem.Quantity,
+                LineTotal = lineTotal
+            });
+
+            totalPrice += lineTotal;
+            product.StockQuantity -= cartItem.Quantity;
+        }
+
+        return totalPrice;
+    }
+
+    private async Task CommitOrderStockAsync(Order order, CancellationToken cancellationToken)
+    {
+        foreach (var orderItem in order.Items)
+        {
+            var product = await _unitOfWork.ProductRepository.GetByIdAsync(
+                orderItem.ProductId,
+                cancellationToken);
+
+            if (product is null)
+            {
+                throw new InvalidOperationException("Product missing during payment confirmation.");
+            }
+
+            product.StockQuantity -= orderItem.Quantity;
+            if (product.StockQuantity < 0)
+            {
+                throw new InvalidOperationException("Stock inconsistency detected.");
+            }
+        }
+
+        order.StockCommitted = true;
+    }
+
+    private async Task RestoreOrderStockAsync(Order order, CancellationToken cancellationToken)
+    {
+        foreach (var orderItem in order.Items)
+        {
+            var product = await _unitOfWork.ProductRepository.GetByIdAsync(
+                orderItem.ProductId,
+                cancellationToken);
+
+            if (product is not null)
+            {
+                product.StockQuantity += orderItem.Quantity;
+            }
+        }
+
+        order.StockCommitted = false;
+    }
+
+    private async Task<OrderCustomerSnapshot> BuildOrderCustomerSnapshotAsync(
+        Guid? userId,
+        PlaceOrderDto dto,
+        CancellationToken cancellationToken)
+    {
+        ApplicationUser? user = userId.HasValue
+            ? await _userManager.FindByIdAsync(userId.Value.ToString())
+            : null;
+        if (userId.HasValue && user is null)
+        {
+            throw new InvalidOperationException("User not found.");
+        }
+
+        var useManualContact = !string.IsNullOrWhiteSpace(dto.CustomerName) ||
+            !string.IsNullOrWhiteSpace(dto.CustomerEmail) ||
+            !string.IsNullOrWhiteSpace(dto.CustomerPhone);
+        if (user is null || useManualContact)
+        {
+            ValidateGuestContactDetails(dto);
+        }
+        else
+        {
+            ValidateAccountContactDetails(user);
+        }
+
+        var customerType = user?.CustomerType ?? dto.CustomerType;
+        if (!Enum.IsDefined(customerType))
+        {
+            throw new InvalidOperationException("Invalid customer type.");
+        }
+
+        var billingCompanyName = user is not null && !useManualContact
+            ? user.CompanyName
+            : dto.BillingCompanyName;
+        var billingTaxNumber = user is not null && !useManualContact
+            ? user.TaxNumber
+            : dto.BillingTaxNumber;
+        var printedInvoiceRequested = customerType == CustomerType.Company &&
+            (user?.PrintedInvoiceRequested ?? dto.PrintedInvoiceRequested);
+
+        Address? billingAddress = null;
+        if (customerType == CustomerType.Company)
+        {
+            if (dto.AddressId.HasValue)
+            {
+                billingAddress = await _unitOfWork.AddressRepository.GetByIdAsync(
+                    dto.AddressId.Value,
+                    cancellationToken);
+                if (user is null || billingAddress is null || user.BillingAddressId != dto.AddressId)
+                {
+                    throw new InvalidOperationException("The selected billing address does not belong to the user.");
+                }
+            }
+            else
+            {
+                ValidateManualAddress(dto.PostalCode, dto.City, dto.Street, dto.HouseNumber, "billing");
+            }
+
+            ValidateCompanyBilling(billingCompanyName, billingTaxNumber);
+        }
+        else
+        {
+            billingCompanyName = null;
+            billingTaxNumber = null;
+        }
+
+        Address? deliveryAddress = null;
+        if (dto.FulfillmentMethod != FulfillmentMethod.PersonalPickup)
+        {
+            if (dto.DeliveryAddressId.HasValue)
+            {
+                deliveryAddress = await _unitOfWork.AddressRepository.GetByIdAsync(
+                    dto.DeliveryAddressId.Value,
+                    cancellationToken);
+                if (user is null || deliveryAddress is null || user.ShippingAddressId != dto.DeliveryAddressId)
+                {
+                    throw new InvalidOperationException("The selected delivery address does not belong to the user.");
+                }
+            }
+            else
+            {
+                ValidateManualAddress(
+                    dto.DeliveryPostalCode,
+                    dto.DeliveryCity,
+                    dto.DeliveryStreet,
+                    dto.DeliveryHouseNumber,
+                    "delivery");
+            }
+        }
+
+        return new OrderCustomerSnapshot(
+            AddressId: customerType == CustomerType.Company ? dto.AddressId : null,
+            CustomerName: user is null || useManualContact
+                ? dto.CustomerName!.Trim()
+                : $"{user.LastName} {user.FirstName}".Trim(),
+            CustomerEmail: user is null || useManualContact ? dto.CustomerEmail!.Trim() : user.Email!.Trim(),
+            CustomerPhone: user is null || useManualContact ? dto.CustomerPhone!.Trim() : user.PhoneNumber!.Trim(),
+            PostalCode: billingAddress?.PostalCode ?? NormalizeOptional(dto.PostalCode) ?? string.Empty,
+            City: billingAddress?.City ?? NormalizeOptional(dto.City) ?? string.Empty,
+            Street: billingAddress?.Street ?? NormalizeOptional(dto.Street) ?? string.Empty,
+            HouseNumber: billingAddress?.HouseNumber ?? NormalizeOptional(dto.HouseNumber) ?? string.Empty,
+            Building: billingAddress?.Building ?? NormalizeOptional(dto.Building),
+            Floor: billingAddress?.Floor ?? NormalizeOptional(dto.Floor),
+            Door: billingAddress?.Door ?? NormalizeOptional(dto.Door),
+            Doorbell: billingAddress?.Doorbell ?? NormalizeOptional(dto.Doorbell),
+            BillingCompanyName: NormalizeOptional(billingCompanyName),
+            BillingTaxNumber: NormalizeOptional(billingTaxNumber),
+            CustomerType: customerType,
+            PrintedInvoiceRequested: printedInvoiceRequested,
+            DeliveryPostalCode: deliveryAddress?.PostalCode ?? NormalizeOptional(dto.DeliveryPostalCode),
+            DeliveryCity: deliveryAddress?.City ?? NormalizeOptional(dto.DeliveryCity),
+            DeliveryStreet: deliveryAddress?.Street ?? NormalizeOptional(dto.DeliveryStreet),
+            DeliveryHouseNumber: deliveryAddress?.HouseNumber ?? NormalizeOptional(dto.DeliveryHouseNumber),
+            DeliveryBuilding: deliveryAddress?.Building ?? NormalizeOptional(dto.DeliveryBuilding),
+            DeliveryFloor: deliveryAddress?.Floor ?? NormalizeOptional(dto.DeliveryFloor),
+            DeliveryDoor: deliveryAddress?.Door ?? NormalizeOptional(dto.DeliveryDoor),
+            DeliveryDoorbell: deliveryAddress?.Doorbell ?? NormalizeOptional(dto.DeliveryDoorbell));
     }
 
     private static void ValidateGuestContactDetails(PlaceOrderDto dto)
@@ -837,9 +932,11 @@ public class OrderService : IOrderService
         }
     }
 
-    private static string GenerateOrderNumber()
+    private DateTime GetUtcNow() => _timeProvider.GetUtcNow().UtcDateTime;
+
+    private string GenerateOrderNumber()
     {
-        return $"BK-{DateTime.UtcNow:yyyyMMdd}-{Guid.NewGuid().ToString("N")[..8].ToUpperInvariant()}";
+        return $"BK-{GetUtcNow():yyyyMMdd}-{Guid.NewGuid().ToString("N")[..8].ToUpperInvariant()}";
     }
 
     private async Task<Order?> GetLatestCheckedOutOrderAsync(
@@ -874,4 +971,30 @@ public class OrderService : IOrderService
             order);
         await _emailService.SendAsync(businessMessage, cancellationToken);
     }
+
+    private sealed record OrderCustomerSnapshot(
+        int? AddressId,
+        string CustomerName,
+        string CustomerEmail,
+        string CustomerPhone,
+        string PostalCode,
+        string City,
+        string Street,
+        string HouseNumber,
+        string? Building,
+        string? Floor,
+        string? Door,
+        string? Doorbell,
+        string? BillingCompanyName,
+        string? BillingTaxNumber,
+        CustomerType CustomerType,
+        bool PrintedInvoiceRequested,
+        string? DeliveryPostalCode,
+        string? DeliveryCity,
+        string? DeliveryStreet,
+        string? DeliveryHouseNumber,
+        string? DeliveryBuilding,
+        string? DeliveryFloor,
+        string? DeliveryDoor,
+        string? DeliveryDoorbell);
 }
