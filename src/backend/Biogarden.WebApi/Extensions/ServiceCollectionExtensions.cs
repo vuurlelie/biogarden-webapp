@@ -26,10 +26,30 @@ public static class ServiceCollectionExtensions
         this IServiceCollection services,
         IConfiguration configuration)
     {
-        services.AddControllers();
+        services.AddWebApiCore();
+        services.AddForwardedHeaders();
+        services.AddValidatedOptions(configuration);
+        services.AddAppRateLimiting(configuration);
+        services.AddFrontendCors();
+        services.AddDataAccess(configuration);
+        services.AddAppHealthChecks();
+        services.AddAppIdentityAndAuthentication(configuration);
 
+        services.AddAuthorization();
+
+        return services;
+    }
+
+    private static IServiceCollection AddWebApiCore(this IServiceCollection services)
+    {
+        services.AddControllers();
         services.AddEndpointsApiExplorer();
 
+        return services;
+    }
+
+    private static IServiceCollection AddForwardedHeaders(this IServiceCollection services)
+    {
         services.Configure<ForwardedHeadersOptions>(options =>
         {
             options.ForwardedHeaders =
@@ -37,15 +57,13 @@ public static class ServiceCollectionExtensions
                 ForwardedHeaders.XForwardedProto;
         });
 
-        services.AddOptions<AbuseProtectionOptions>()
-            .Bind(configuration.GetSection(AbuseProtectionOptions.SectionName))
-            .Validate(options =>
-            {
-                options.ValidateForStartup();
-                return true;
-            })
-            .ValidateOnStart();
+        return services;
+    }
 
+    private static IServiceCollection AddAppRateLimiting(
+        this IServiceCollection services,
+        IConfiguration configuration)
+    {
         var abuseProtectionOptions = configuration
             .GetSection(AbuseProtectionOptions.SectionName)
             .Get<AbuseProtectionOptions>()
@@ -111,6 +129,11 @@ public static class ServiceCollectionExtensions
                     _ => CreateFixedWindowOptions(abuseProtectionOptions.Payment)));
         });
 
+        return services;
+    }
+
+    private static IServiceCollection AddFrontendCors(this IServiceCollection services)
+    {
         services.AddCors(options =>
         {
             options.AddPolicy("FrontendDev", policy =>
@@ -123,72 +146,92 @@ public static class ServiceCollectionExtensions
             });
         });
 
+        return services;
+    }
+
+    private static IServiceCollection AddDataAccess(
+        this IServiceCollection services,
+        IConfiguration configuration)
+    {
         services.AddDbContext<AppDbContext>(options =>
             options.UseSqlServer(
                 configuration.GetConnectionString("DefaultConnection")));
 
+        services.AddScoped<IAppDbContext>(serviceProvider =>
+            serviceProvider.GetRequiredService<AppDbContext>());
+
+        return services;
+    }
+
+    private static IServiceCollection AddAppHealthChecks(this IServiceCollection services)
+    {
         services
             .AddHealthChecks()
             .AddCheck("self", () => Microsoft.Extensions.Diagnostics.HealthChecks.HealthCheckResult.Healthy(), tags: ["live"])
             .AddCheck<DatabaseHealthCheck>("database", tags: ["ready"]);
 
-        services.AddScoped<IAppDbContext>(serviceProvider =>
-            serviceProvider.GetRequiredService<AppDbContext>());
+        return services;
+    }
 
-        services.AddOptions<JwtSettings>()
-            .Bind(configuration.GetSection(JwtSettings.SectionName))
+    private static IServiceCollection AddValidatedOptions(
+        this IServiceCollection services,
+        IConfiguration configuration)
+    {
+        services.AddValidatedOptions<AbuseProtectionOptions>(
+            configuration,
+            AbuseProtectionOptions.SectionName,
+            options => options.ValidateForStartup());
+        services.AddValidatedOptions<JwtSettings>(
+            configuration,
+            JwtSettings.SectionName,
+            options => options.ValidateForStartup());
+        services.AddValidatedOptions<EmailOptions>(
+            configuration,
+            EmailOptions.SectionName,
+            options => options.ValidateForStartup());
+        services.AddValidatedOptions<AuthEmailOptions>(
+            configuration,
+            AuthEmailOptions.SectionName,
+            options => options.ValidateForStartup());
+        services.AddValidatedOptions<EmailBrandingOptions>(
+            configuration,
+            EmailBrandingOptions.SectionName,
+            options => options.ValidateForStartup());
+        services.AddValidatedOptions<ErrorAlertOptions>(
+            configuration,
+            ErrorAlertOptions.SectionName,
+            options => options.ValidateForStartup());
+        services.AddValidatedOptions<SumUpOptions>(
+            configuration,
+            SumUpOptions.SectionName,
+            options => options.ValidateForStartup());
+
+        return services;
+    }
+
+    private static IServiceCollection AddValidatedOptions<TOptions>(
+        this IServiceCollection services,
+        IConfiguration configuration,
+        string sectionName,
+        Action<TOptions> validate)
+        where TOptions : class
+    {
+        services.AddOptions<TOptions>()
+            .Bind(configuration.GetSection(sectionName))
             .Validate(options =>
             {
-                options.ValidateForStartup();
+                validate(options);
                 return true;
             })
             .ValidateOnStart();
 
-        services.AddOptions<EmailOptions>()
-            .Bind(configuration.GetSection(EmailOptions.SectionName))
-            .Validate(options =>
-            {
-                options.ValidateForStartup();
-                return true;
-            })
-            .ValidateOnStart();
+        return services;
+    }
 
-        services.AddOptions<AuthEmailOptions>()
-            .Bind(configuration.GetSection(AuthEmailOptions.SectionName))
-            .Validate(options =>
-            {
-                options.ValidateForStartup();
-                return true;
-            })
-            .ValidateOnStart();
-
-        services.AddOptions<EmailBrandingOptions>()
-            .Bind(configuration.GetSection(EmailBrandingOptions.SectionName))
-            .Validate(options =>
-            {
-                options.ValidateForStartup();
-                return true;
-            })
-            .ValidateOnStart();
-
-        services.AddOptions<ErrorAlertOptions>()
-            .Bind(configuration.GetSection(ErrorAlertOptions.SectionName))
-            .Validate(options =>
-            {
-                options.ValidateForStartup();
-                return true;
-            })
-            .ValidateOnStart();
-
-        services.AddOptions<SumUpOptions>()
-            .Bind(configuration.GetSection(SumUpOptions.SectionName))
-            .Validate(options =>
-            {
-                options.ValidateForStartup();
-                return true;
-            })
-            .ValidateOnStart();
-
+    private static IServiceCollection AddAppIdentityAndAuthentication(
+        this IServiceCollection services,
+        IConfiguration configuration)
+    {
         var jwtSettings = configuration
             .GetSection(JwtSettings.SectionName)
             .Get<JwtSettings>()
@@ -238,8 +281,6 @@ public static class ServiceCollectionExtensions
             };
         });
 
-        services.AddAuthorization();
-
         return services;
     }
 
@@ -277,26 +318,59 @@ public static class ServiceCollectionExtensions
         this IServiceCollection services)
     {
         services.AddScoped<IUnitOfWork, UnitOfWork>();
+        services.AddCoreApplicationServices();
+        services.AddCommunicationServices();
+        services.AddPaymentServices();
+        services.AddCheckoutServices();
+        services.AddAdminServices();
 
+        services.AddSingleton<TimeProvider>(TimeProvider.System);
+
+        return services;
+    }
+
+    private static IServiceCollection AddCoreApplicationServices(this IServiceCollection services)
+    {
         services.AddScoped<IPostService, PostService>();
         services.AddScoped<IProductService, ProductService>();
         services.AddScoped<IAddressService, AddressService>();
-
         services.AddScoped<IAuthService, AuthService>();
         services.AddScoped<IUserService, UserService>();
-        services.AddScoped<IContactService, ContactService>();
         services.AddScoped<ITokenService, JwtTokenService>();
+
+        return services;
+    }
+
+    private static IServiceCollection AddCommunicationServices(this IServiceCollection services)
+    {
+        services.AddScoped<IContactService, ContactService>();
         services.AddScoped<IEmailService, SmtpEmailService>();
         services.AddScoped<IEmailTemplateService, EmailTemplateService>();
         services.AddScoped<IErrorAlertService, ErrorAlertService>();
         services.AddSingleton<ErrorAlertThrottleStore>();
-        services.AddSingleton<TimeProvider>(TimeProvider.System);
+
+        return services;
+    }
+
+    private static IServiceCollection AddPaymentServices(this IServiceCollection services)
+    {
         services.AddHttpClient<ISumUpCheckoutClient, SumUpCheckoutClient>();
         services.AddScoped<ISumUpCheckoutService, SumUpCheckoutService>();
         services.AddScoped<ISumUpCheckoutStatusService, SumUpCheckoutStatusService>();
 
+        return services;
+    }
+
+    private static IServiceCollection AddCheckoutServices(this IServiceCollection services)
+    {
         services.AddScoped<ICartService, CartService>();
         services.AddScoped<IOrderService, OrderService>();
+
+        return services;
+    }
+
+    private static IServiceCollection AddAdminServices(this IServiceCollection services)
+    {
         services.AddScoped<IAdminDashboardService, AdminDashboardService>();
         services.AddScoped<IAdminInventoryService, AdminInventoryService>();
         services.AddScoped<IAdminOrderService, AdminOrderService>();
