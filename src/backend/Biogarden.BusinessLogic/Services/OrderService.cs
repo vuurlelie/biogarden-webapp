@@ -170,54 +170,11 @@ public class OrderService : IOrderService
                     FulfillmentMethod = dto.FulfillmentMethod
                 };
 
-                decimal totalPrice = 0m;
-
-                foreach (var cartItem in cart.Items)
-                {
-                    var product = await _unitOfWork.ProductRepository.GetByIdAsync(
-                        cartItem.ProductId,
-                        transactionToken);
-
-                    if (product is null)
-                    {
-                        throw new InvalidOperationException("Product missing during order creation.");
-                    }
-
-                    if (!product.Available)
-                    {
-                        throw new InvalidOperationException("A termék időközben elérhetetlenné vált. Kérjük, ellenőrizd újra a kosarat.");
-                    }
-
-                    if (dto.FulfillmentMethod != FulfillmentMethod.PersonalPickup &&
-                        !product.DeliveryAvailable)
-                    {
-                        throw new InvalidOperationException("A kosárban időközben személyes átvételes termék jelent meg. Kérjük, ellenőrizd újra a kosarat.");
-                    }
-
-                    if (product.StockQuantity < cartItem.Quantity)
-                    {
-                        throw new InvalidOperationException("A kosárban lévő készlet időközben megváltozott. Kérjük, ellenőrizd újra a kosarat.");
-                    }
-
-                    var lineTotal = product.Price * cartItem.Quantity;
-
-                    order.Items.Add(new OrderItem
-                    {
-                        Id = Guid.NewGuid(),
-                        OrderId = order.Id,
-                        ProductId = product.Id,
-                        ProductName = product.Name,
-                        UnitPrice = product.Price,
-                        Unit = product.Unit,
-                        Quantity = cartItem.Quantity,
-                        LineTotal = lineTotal
-                    });
-
-                    totalPrice += lineTotal;
-                    product.StockQuantity -= cartItem.Quantity;
-                }
-
-                order.TotalPrice = totalPrice;
+                order.TotalPrice = await AddOrderItemsAndCommitStockAsync(
+                    order,
+                    cart.Items,
+                    dto.FulfillmentMethod,
+                    transactionToken);
                 order.StockCommitted = true;
 
                 cart.IsCheckedOut = true;
@@ -287,15 +244,7 @@ public class OrderService : IOrderService
 
         if (!order.StockCommitted)
         {
-            foreach (var orderItem in order.Items)
-            {
-                var product = await _unitOfWork.ProductRepository.GetByIdAsync(orderItem.ProductId, cancellationToken);
-                if (product is null) throw new InvalidOperationException("Product missing during payment confirmation.");
-
-                product.StockQuantity -= orderItem.Quantity;
-                if (product.StockQuantity < 0) throw new InvalidOperationException("Stock inconsistency detected.");
-            }
-            order.StockCommitted = true;
+            await CommitOrderStockAsync(order, cancellationToken);
         }
 
         order.PaymentStatus = PaymentStatus.Paid;
@@ -454,18 +403,7 @@ public class OrderService : IOrderService
 
         if (order.StockCommitted)
         {
-            foreach (var orderItem in order.Items)
-            {
-                var product = await _unitOfWork.ProductRepository.GetByIdAsync(
-                    orderItem.ProductId,
-                    cancellationToken);
-
-                if (product is not null)
-                {
-                    product.StockQuantity += orderItem.Quantity;
-                }
-            }
-            order.StockCommitted = false;
+            await RestoreOrderStockAsync(order, cancellationToken);
         }
 
         order.Status = OrderStatus.Cancelled;
@@ -660,6 +598,101 @@ public class OrderService : IOrderService
         {
             throw new KeyNotFoundException("Order not found.");
         }
+    }
+
+    private async Task<decimal> AddOrderItemsAndCommitStockAsync(
+        Order order,
+        IEnumerable<CartItem> cartItems,
+        FulfillmentMethod fulfillmentMethod,
+        CancellationToken cancellationToken)
+    {
+        decimal totalPrice = 0m;
+
+        foreach (var cartItem in cartItems)
+        {
+            var product = await _unitOfWork.ProductRepository.GetByIdAsync(
+                cartItem.ProductId,
+                cancellationToken);
+
+            if (product is null)
+            {
+                throw new InvalidOperationException("Product missing during order creation.");
+            }
+
+            if (!product.Available)
+            {
+                throw new InvalidOperationException("A termék időközben elérhetetlenné vált. Kérjük, ellenőrizd újra a kosarat.");
+            }
+
+            if (fulfillmentMethod != FulfillmentMethod.PersonalPickup &&
+                !product.DeliveryAvailable)
+            {
+                throw new InvalidOperationException("A kosárban időközben személyes átvételes termék jelent meg. Kérjük, ellenőrizd újra a kosarat.");
+            }
+
+            if (product.StockQuantity < cartItem.Quantity)
+            {
+                throw new InvalidOperationException("A kosárban lévő készlet időközben megváltozott. Kérjük, ellenőrizd újra a kosarat.");
+            }
+
+            var lineTotal = product.Price * cartItem.Quantity;
+            order.Items.Add(new OrderItem
+            {
+                Id = Guid.NewGuid(),
+                OrderId = order.Id,
+                ProductId = product.Id,
+                ProductName = product.Name,
+                UnitPrice = product.Price,
+                Unit = product.Unit,
+                Quantity = cartItem.Quantity,
+                LineTotal = lineTotal
+            });
+
+            totalPrice += lineTotal;
+            product.StockQuantity -= cartItem.Quantity;
+        }
+
+        return totalPrice;
+    }
+
+    private async Task CommitOrderStockAsync(Order order, CancellationToken cancellationToken)
+    {
+        foreach (var orderItem in order.Items)
+        {
+            var product = await _unitOfWork.ProductRepository.GetByIdAsync(
+                orderItem.ProductId,
+                cancellationToken);
+
+            if (product is null)
+            {
+                throw new InvalidOperationException("Product missing during payment confirmation.");
+            }
+
+            product.StockQuantity -= orderItem.Quantity;
+            if (product.StockQuantity < 0)
+            {
+                throw new InvalidOperationException("Stock inconsistency detected.");
+            }
+        }
+
+        order.StockCommitted = true;
+    }
+
+    private async Task RestoreOrderStockAsync(Order order, CancellationToken cancellationToken)
+    {
+        foreach (var orderItem in order.Items)
+        {
+            var product = await _unitOfWork.ProductRepository.GetByIdAsync(
+                orderItem.ProductId,
+                cancellationToken);
+
+            if (product is not null)
+            {
+                product.StockQuantity += orderItem.Quantity;
+            }
+        }
+
+        order.StockCommitted = false;
     }
 
     private async Task<OrderCustomerSnapshot> BuildOrderCustomerSnapshotAsync(
