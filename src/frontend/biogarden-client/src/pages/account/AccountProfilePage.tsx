@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import { useNavigate } from "react-router-dom";
 import {
   getProfile,
-  ProfileApiError,
   updateProfile,
 } from "../../features/account/api/profileApi";
+import AccountFeedback from "../../features/account/components/AccountFeedback";
+import AccountLoadingPanel from "../../features/account/components/AccountLoadingPanel";
+import AccountPageShell from "../../features/account/components/AccountPageShell";
+import { useAccountErrorHandler } from "../../features/account/hooks/useAccountErrorHandler";
 import type { UserProfile } from "../../features/account/types/profile.types";
-import { ROUTES } from "../../shared/constants/routes";
 
 const EMPTY_PROFILE: UserProfile = {
   email: "",
@@ -27,7 +28,7 @@ function normalizeOptional(value: string): string | null {
 type ProfileInvalidField = "companyName" | "taxNumber";
 
 export default function AccountProfilePage() {
-  const navigate = useNavigate();
+  const handleAccountError = useAccountErrorHandler();
   const [profile, setProfile] = useState<UserProfile>(EMPTY_PROFILE);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -48,11 +49,7 @@ export default function AccountProfilePage() {
         if (!shouldIgnoreResult) setProfile(loadedProfile);
       } catch (loadError) {
         if (shouldIgnoreResult) return;
-        if (loadError instanceof ProfileApiError && loadError.status === 401) {
-          navigate(ROUTES.login, { replace: true });
-          return;
-        }
-        setError(loadError instanceof Error ? loadError.message : "A profil betöltése nem sikerült.");
+        setError(handleAccountError(loadError, "A profil betöltése nem sikerült.") ?? "");
       } finally {
         if (!shouldIgnoreResult) setIsLoading(false);
       }
@@ -62,7 +59,7 @@ export default function AccountProfilePage() {
     return () => {
       shouldIgnoreResult = true;
     };
-  }, [navigate]);
+  }, [handleAccountError]);
 
   function updateField(
     field: "firstName" | "lastName" | "phoneNumber" | "companyName" | "taxNumber",
@@ -119,45 +116,22 @@ export default function AccountProfilePage() {
       });
       setSuccess("A személyes adatok mentése sikerült.");
     } catch (saveError) {
-      if (saveError instanceof ProfileApiError && saveError.status === 401) {
-        navigate(ROUTES.login, { replace: true });
-        return;
-      }
-      setError(saveError instanceof Error ? saveError.message : "A mentés nem sikerült.");
+      setError(handleAccountError(saveError, "A mentés nem sikerült.") ?? "");
     } finally {
       setIsSaving(false);
     }
   }
 
   if (isLoading) {
-    return (
-      <div className="rounded-sm bg-site-surface-soft p-10 text-center shadow-md">
-        Profil betöltése...
-      </div>
-    );
+    return <AccountLoadingPanel label="Profil betöltése..." />;
   }
 
   return (
-    <div className="rounded-sm border border-site-border bg-white p-6 shadow-lg sm:p-8">
-      <p className="text-xs font-bold uppercase tracking-[0.15em] text-site-green-dark">Fiókadatok</p>
-      <h1 className="mt-2 text-3xl font-bold text-site-heading">Személyes adatok</h1>
-      <p className="mt-2 text-sm leading-6 text-site-text">
-        Ezeket az adatokat a rendelések és a kapcsolattartás során használjuk.
-      </p>
-
-      {error && (
-        <div className="mt-6 rounded-sm bg-site-danger-soft p-3 text-sm text-site-danger" role="alert">
-          {error}
-        </div>
-      )}
-      {success && (
-        <div
-          className="mt-6 rounded-sm border border-site-green/30 bg-site-surface-soft p-3 text-sm text-site-green-dark"
-          role="status"
-        >
-          {success}
-        </div>
-      )}
+    <AccountPageShell
+      title="Személyes adatok"
+      description="Ezeket az adatokat a rendelések és a kapcsolattartás során használjuk."
+    >
+      <AccountFeedback error={error} success={success} />
 
       <form onSubmit={handleSubmit} noValidate className="mt-7 space-y-5">
         <div>
@@ -327,6 +301,6 @@ export default function AccountProfilePage() {
           </button>
         </div>
       </form>
-    </div>
+    </AccountPageShell>
   );
 }

@@ -2,6 +2,7 @@ import { useRef, useState, type FormEvent } from "react";
 import { requestPublicOrderWithdrawal } from "../../features/account/api/ordersApi";
 import { useAnalytics } from "../../features/analytics/context/AnalyticsContextCore";
 import Seo from "../../shared/seo/Seo";
+import { getErrorMessage } from "../../shared/utils/errorHandling";
 
 type WithdrawalField = "orderNumber" | "customerEmail" | "reason";
 
@@ -61,11 +62,10 @@ export default function OrderWithdrawalRequestPage() {
       setReason("");
       setMessage("A kérésedet rögzítettük, és emailben is visszaigazoltuk.");
     } catch (submitError) {
-      setError(
-        submitError instanceof Error
-          ? submitError.message
-          : "A kérés elküldése nem sikerült. Kérjük, ellenőrizd az adatokat és próbáld újra.",
-      );
+      setError(getErrorMessage(
+        submitError,
+        "A kérés elküldése nem sikerült. Kérjük, ellenőrizd az adatokat és próbáld újra.",
+      ));
     } finally {
       setIsSubmitting(false);
     }

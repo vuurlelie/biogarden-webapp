@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import type { Post, PostCategory } from "../../posts/types/post.types";
 import { useModalFocus } from "../../../shared/hooks/useModalFocus";
+import { getErrorMessage } from "../../../shared/utils/errorHandling";
 import {
   createAdminPost,
   deleteUnusedAdminPostImage,
@@ -149,7 +150,7 @@ export default function AdminPostFormModal({ post, onClose, onSaved }: Props) {
           // The original save error is more useful to the administrator.
         }
       }
-      setError(saveError instanceof Error ? saveError.message : "A mentés nem sikerült.");
+      setError(getErrorMessage(saveError, "A mentés nem sikerült."));
     } finally {
       setSaving(false);
     }

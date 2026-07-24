@@ -4,6 +4,7 @@ import { getAdminDashboard } from "../../features/admin/api/dashboardApi";
 import type { AdminDashboard } from "../../features/admin/types/dashboard.types";
 import AdminPageHeader from "../../shared/components/admin/AdminPageHeader";
 import { ROUTES } from "../../shared/constants/routes";
+import { getErrorMessage, isAbortError } from "../../shared/utils/errorHandling";
 
 const PRICE = new Intl.NumberFormat("hu-HU", { style: "currency", currency: "HUF", maximumFractionDigits: 0 });
 const DATE = new Intl.DateTimeFormat("hu-HU", { year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
@@ -80,8 +81,8 @@ export default function AdminDashboardPage() {
     try {
       setDashboard(await getAdminDashboard(signal));
     } catch (loadError) {
-      if (loadError instanceof DOMException && loadError.name === "AbortError") return;
-      setError(loadError instanceof Error ? loadError.message : "Az adatok betöltése nem sikerült.");
+      if (isAbortError(loadError)) return;
+      setError(getErrorMessage(loadError, "Az adatok betöltése nem sikerült."));
     } finally {
       if (!signal?.aborted) setLoading(false);
     }

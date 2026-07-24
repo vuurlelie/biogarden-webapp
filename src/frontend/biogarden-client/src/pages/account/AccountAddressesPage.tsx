@@ -1,17 +1,18 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { useNavigate } from "react-router-dom";
 import {
   getAddresses,
   getProfile,
-  ProfileApiError,
   updateAddresses,
 } from "../../features/account/api/profileApi";
 import AddressFields from "../../features/account/components/AddressFields";
+import AccountFeedback from "../../features/account/components/AccountFeedback";
+import AccountLoadingPanel from "../../features/account/components/AccountLoadingPanel";
+import AccountPageShell from "../../features/account/components/AccountPageShell";
+import { useAccountErrorHandler } from "../../features/account/hooks/useAccountErrorHandler";
 import type {
   AddressDetails,
   AddressFormData,
 } from "../../features/account/types/address.types";
-import { ROUTES } from "../../shared/constants/routes";
 
 const EMPTY_ADDRESS: AddressFormData = {
   postalCode: "",
@@ -53,7 +54,7 @@ function normalizeAddress(address: AddressFormData): AddressFormData {
 }
 
 export default function AccountAddressesPage() {
-  const navigate = useNavigate();
+  const handleAccountError = useAccountErrorHandler();
   const [customerType, setCustomerType] = useState<0 | 1>(0);
   const [shippingAddress, setShippingAddress] = useState<AddressFormData>({ ...EMPTY_ADDRESS });
   const [billingAddress, setBillingAddress] = useState<AddressFormData>({ ...EMPTY_ADDRESS });
@@ -80,11 +81,7 @@ export default function AccountAddressesPage() {
         );
       } catch (loadError) {
         if (shouldIgnoreResult) return;
-        if (loadError instanceof ProfileApiError && loadError.status === 401) {
-          navigate(ROUTES.login, { replace: true });
-          return;
-        }
-        setError(loadError instanceof Error ? loadError.message : "A címek betöltése nem sikerült.");
+        setError(handleAccountError(loadError, "A címek betöltése nem sikerült.") ?? "");
       } finally {
         if (!shouldIgnoreResult) setIsLoading(false);
       }
@@ -94,7 +91,7 @@ export default function AccountAddressesPage() {
     return () => {
       shouldIgnoreResult = true;
     };
-  }, [navigate]);
+  }, [handleAccountError]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -110,30 +107,22 @@ export default function AccountAddressesPage() {
       });
       setSuccess("A szállítási és számlázási cím mentése sikerült.");
     } catch (saveError) {
-      if (saveError instanceof ProfileApiError && saveError.status === 401) {
-        navigate(ROUTES.login, { replace: true });
-        return;
-      }
-      setError(saveError instanceof Error ? saveError.message : "A címek mentése nem sikerült.");
+      setError(handleAccountError(saveError, "A címek mentése nem sikerült.") ?? "");
     } finally {
       setIsSaving(false);
     }
   }
 
   if (isLoading) {
-    return <div className="rounded-sm bg-site-surface-soft p-10 text-center shadow-md">Címek betöltése...</div>;
+    return <AccountLoadingPanel label="Címek betöltése..." />;
   }
 
   return (
-    <div className="rounded-sm border border-site-border bg-white p-6 shadow-lg sm:p-8">
-      <p className="text-xs font-bold uppercase tracking-[0.15em] text-site-green-dark">Fiókadatok</p>
-      <h1 className="mt-2 text-3xl font-bold text-site-heading">Mentett címek</h1>
-      <p className="mt-2 text-sm leading-6 text-site-text">
-        Add meg a rendeléseknél használni kívánt szállítási és számlázási címet.
-      </p>
-
-      {error && <div className="mt-6 rounded-sm bg-site-danger-soft p-3 text-sm text-site-danger" role="alert">{error}</div>}
-      {success && <div className="mt-6 rounded-sm border border-site-green/30 bg-site-surface-soft p-3 text-sm text-site-green-dark" role="status">{success}</div>}
+    <AccountPageShell
+      title="Mentett címek"
+      description="Add meg a rendeléseknél használni kívánt szállítási és számlázási címet."
+    >
+      <AccountFeedback error={error} success={success} />
 
       <form onSubmit={handleSubmit} className="mt-8 space-y-8">
         <fieldset>
@@ -176,6 +165,6 @@ export default function AccountAddressesPage() {
           {isSaving ? "Mentés..." : "Címek mentése"}
         </button>
       </form>
-    </div>
+    </AccountPageShell>
   );
 }

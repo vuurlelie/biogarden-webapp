@@ -9,8 +9,13 @@ import { getCartValueBucket } from "../../features/analytics/utils/eventValidati
 import { getAuthSession } from "../../features/auth/utils/authStorage";
 import { validateCart } from "../../features/cart/api/cartApi";
 import { useCart } from "../../features/cart/context/useCart";
+import { CheckoutOrderSummary } from "../../features/checkout/components/CheckoutOrderSummary";
 import { CheckoutReviewModal } from "../../features/checkout/components/CheckoutReviewModal";
-import { SummaryCartItem } from "../../features/checkout/components/SummaryCartItem";
+import {
+  CheckoutEmptyCartView,
+  CheckoutInterruptedView,
+  CheckoutLoadingView,
+} from "../../features/checkout/components/CheckoutStatusViews";
 import {
   BILLING_FIELDS,
   CONTACT_FIELDS,
@@ -45,6 +50,7 @@ import {
 } from "../../features/checkout/utils/checkoutValidation";
 import { ROUTES } from "../../shared/constants/routes";
 import { useModalFocus } from "../../shared/hooks/useModalFocus";
+import { getErrorMessage, hasErrorStatus } from "../../shared/utils/errorHandling";
 
 export default function CheckoutPage() {
   const navigate = useNavigate();
@@ -129,7 +135,11 @@ export default function CheckoutPage() {
       })
       .catch((loadError) => {
         if (!ignore) {
-          setError(loadError instanceof Error ? loadError.message : "A fiókadatok betöltése nem sikerült.");
+          if (hasErrorStatus(loadError, 401)) {
+            navigate(ROUTES.login, { replace: true });
+            return;
+          }
+          setError(getErrorMessage(loadError, "A fiókadatok betöltése nem sikerült."));
         }
       })
       .finally(() => {
@@ -139,7 +149,7 @@ export default function CheckoutPage() {
     return () => {
       ignore = true;
     };
-  }, [authenticated, hasDraft]);
+  }, [authenticated, hasDraft, navigate]);
 
   useEffect(() => {
     if (!deliveryAllowed && method !== 0) setMethod(0);
@@ -281,7 +291,7 @@ export default function CheckoutPage() {
         });
       }
     } catch (validationError) {
-      setError(validationError instanceof Error ? validationError.message : "A kosár ellenőrzése nem sikerült.");
+      setError(getErrorMessage(validationError, "A kosár ellenőrzése nem sikerült."));
     } finally {
       setSubmitting(false);
     }
@@ -331,7 +341,7 @@ export default function CheckoutPage() {
       navigate(ROUTES.orderSuccess, { replace: true, state: { order } });
     } catch (submitError) {
       setShowReview(false);
-      setError(submitError instanceof Error ? submitError.message : "A rendelést nem sikerült elküldeni.");
+      setError(getErrorMessage(submitError, "A rendelést nem sikerült elküldeni."));
     } finally {
       setSubmitting(false);
     }
@@ -345,64 +355,28 @@ export default function CheckoutPage() {
       const checkout = await createSumUpCheckout(orderId);
       window.location.assign(checkout.url);
     } catch (retryError) {
-      setError(retryError instanceof Error ? retryError.message : "A fizetés újraindítása nem sikerült.");
+      setError(getErrorMessage(retryError, "A fizetés újraindítása nem sikerült."));
     } finally {
       setSubmitting(false);
     }
   }
 
   if (loading || cartLoading) {
-    return (
-      <div className="mx-auto max-w-7xl px-4 py-12 text-center">
-        A pénztár betöltése...
-      </div>
-    );
+    return <CheckoutLoadingView />;
   }
 
   if (!cart?.items.length && cancelledSumUpOrderId) {
     return (
-      <main className="mx-auto max-w-2xl px-4 py-16 text-center">
-        <h1 className="text-3xl font-bold text-site-heading">A fizetés megszakadt</h1>
-        <p className="mt-4 text-site-text">
-          A rendelést rögzítettük, de az online bankkártyás fizetés nem fejeződött be.
-        </p>
-        {error && (
-          <div role="alert" className="mt-5 rounded-sm bg-site-danger-soft p-4 text-site-danger">
-            {error}
-          </div>
-        )}
-        <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
-          <button
-            type="button"
-            onClick={() => void retrySumUpPayment(cancelledSumUpOrderId)}
-            disabled={submitting}
-            className="rounded-sm bg-site-green px-5 py-3 font-semibold text-white disabled:opacity-50"
-          >
-            {submitting ? "Átirányítás..." : "Fizetés újrapróbálása"}
-          </button>
-          <Link
-            to={ROUTES.products}
-            className="rounded-sm border border-site-border bg-white px-5 py-3 font-semibold text-site-heading"
-          >
-            Vissza a termékekhez
-          </Link>
-        </div>
-      </main>
+      <CheckoutInterruptedView
+        error={error}
+        submitting={submitting}
+        onRetry={() => void retrySumUpPayment(cancelledSumUpOrderId)}
+      />
     );
   }
 
   if (!cart?.items.length) {
-    return (
-      <main className="mx-auto max-w-4xl px-4 py-12 text-center">
-        <h1 className="text-3xl font-bold">A kosár üres</h1>
-        <Link
-          to={ROUTES.products}
-          className="mt-6 inline-flex rounded-sm bg-site-green px-5 py-3 font-semibold text-white"
-        >
-          Vissza a termékekhez
-        </Link>
-      </main>
-    );
+    return <CheckoutEmptyCartView />;
   }
 
   return (
@@ -724,45 +698,17 @@ export default function CheckoutPage() {
           </section>
         )}
 
-        <aside className="rounded-sm bg-site-surface-soft p-5 shadow-md lg:sticky lg:top-28">
-          <h2 className="text-xl font-bold">Rendelés összesítése</h2>
-          <ul className="mt-4 divide-y divide-site-border border-b border-site-border pb-4">
-            {cart.items.map((item) => (
-              <SummaryCartItem key={item.id} item={item} />
-            ))}
-          </ul>
-
-          {deliveryFee > 0 && (
-            <div className="mt-3 flex justify-between text-sm">
-              <span>{method === 1 ? "Házhoz szállítás" : "Csomagautomata"}</span>
-              <strong>{PRICE.format(deliveryFee)}</strong>
-            </div>
-          )}
-          {paymentFee > 0 && (
-            <div className="mt-2 flex justify-between text-sm">
-              <span>Utánvét</span>
-              <strong>{PRICE.format(paymentFee)}</strong>
-            </div>
-          )}
-
-          <div className="mt-4 flex justify-between border-t border-site-border pt-4 text-lg font-bold">
-            <span>Összesen</span>
-            <span>{PRICE.format(grandTotal)}</span>
-          </div>
-
-          <button
-            ref={reviewButtonRef}
-            type="submit"
-            disabled={submitting || (step === "payment" && paymentMethod === null)}
-            className="mt-5 w-full rounded-sm bg-site-green px-5 py-3 font-semibold text-white disabled:opacity-50"
-          >
-            {submitting ? "Ellenőrzés..." : step === "details" ? "Tovább a pénztárhoz" : "Rendelés áttekintése"}
-          </button>
-
-          {step === "payment" && paymentMethod === null && (
-            <p className="mt-2 text-xs text-site-muted">Válassz fizetési módot a folytatáshoz.</p>
-          )}
-        </aside>
+        <CheckoutOrderSummary
+          cart={cart}
+          deliveryFee={deliveryFee}
+          grandTotal={grandTotal}
+          method={method}
+          paymentFee={paymentFee}
+          paymentMethod={paymentMethod}
+          reviewButtonRef={reviewButtonRef}
+          step={step}
+          submitting={submitting}
+        />
       </form>
 
       {showReview && (

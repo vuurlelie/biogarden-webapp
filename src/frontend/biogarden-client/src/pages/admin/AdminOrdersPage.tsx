@@ -14,8 +14,12 @@ import {
 } from "../../features/account/utils/orderLabels";
 import { getAdminOrders, updateAdminOrder } from "../../features/admin/api/adminOrdersApi";
 import { getUnitLabel } from "../../features/products/utils/productLabels";
+import AdminFeedbackMessages from "../../shared/components/admin/AdminFeedbackMessages";
+import AdminListEmptyState from "../../shared/components/admin/AdminListEmptyState";
+import AdminListSkeletonGrid from "../../shared/components/admin/AdminListSkeletonGrid";
 import AdminPageHeader from "../../shared/components/admin/AdminPageHeader";
 import AdminPagination from "../../shared/components/admin/AdminPagination";
+import { getErrorMessage, isAbortError } from "../../shared/utils/errorHandling";
 
 const PAGE_SIZE = 12;
 
@@ -86,7 +90,7 @@ function OrderCard({
       onUpdated(updated);
       setEditing(false);
     } catch (saveError) {
-      setError(saveError instanceof Error ? saveError.message : "A módosítás nem sikerült.");
+      setError(getErrorMessage(saveError, "A módosítás nem sikerült."));
     } finally {
       setSaving(false);
     }
@@ -341,8 +345,8 @@ export default function AdminOrdersPage() {
     try {
       setOrders(await getAdminOrders(signal));
     } catch (loadError) {
-      if (!(loadError instanceof DOMException && loadError.name === "AbortError")) {
-        setError(loadError instanceof Error ? loadError.message : "A rendelések betöltése nem sikerült.");
+      if (!isAbortError(loadError)) {
+        setError(getErrorMessage(loadError, "A rendelések betöltése nem sikerült."));
       }
     } finally {
       if (!signal?.aborted) setLoading(false);
@@ -395,16 +399,7 @@ export default function AdminOrdersPage() {
         description="A beérkezett rendelések részletei, fizetése és teljesítési állapota."
       />
 
-      {message && (
-        <div role="status" className="rounded-sm bg-site-surface-soft p-4 font-semibold text-site-green-dark">
-          {message}
-        </div>
-      )}
-      {error && (
-        <div role="alert" className="rounded-sm bg-site-danger-soft p-4 text-site-danger">
-          {error}
-        </div>
-      )}
+      <AdminFeedbackMessages message={message} error={error} />
 
       <section className="grid gap-4 rounded-sm border border-site-border bg-white p-4 shadow-sm md:grid-cols-3">
         <label className="text-sm font-semibold">
@@ -456,13 +451,9 @@ export default function AdminOrdersPage() {
       </section>
 
       {loading ? (
-        <div className="grid gap-5">
-          {Array.from({ length: 6 }, (_, index) => (
-            <div key={index} className="h-64 animate-pulse rounded-sm bg-white" />
-          ))}
-        </div>
+        <AdminListSkeletonGrid gridClassName="grid gap-5" itemHeightClassName="h-64" />
       ) : shown.length === 0 ? (
-        <div className="rounded-sm border border-site-border bg-white p-8 text-center">Nincs találat.</div>
+        <AdminListEmptyState />
       ) : (
         <section className="grid min-w-0 items-start gap-5">
           {shown.map((order) => (

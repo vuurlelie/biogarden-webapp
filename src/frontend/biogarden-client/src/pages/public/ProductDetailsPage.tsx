@@ -20,6 +20,7 @@ import { getAvailableQuantityToAdd } from "../../features/cart/api/cartApi";
 import Seo from "../../shared/seo/Seo";
 import { useModalFocus } from "../../shared/hooks/useModalFocus";
 import { useAnalytics } from "../../features/analytics/context/AnalyticsContextCore";
+import { getErrorMessage } from "../../shared/utils/errorHandling";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 const SITE_URL = (import.meta.env.VITE_SITE_URL ?? "https://bakonykincse.hu").replace(/\/$/, "");
@@ -178,16 +179,19 @@ export default function ProductDetailsPage() {
   };
 
   async function handleAddToCart() {
+    const currentProduct = product;
+    if (!currentProduct) return;
+
     setIsAddingToCart(true);
     setCartMessage(null);
     try {
-      await addItem(product!.id, quantity);
-      const remaining = await getAvailableQuantityToAdd(product!.id);
+      await addItem(currentProduct.id, quantity);
+      const remaining = await getAvailableQuantityToAdd(currentProduct.id);
       setAvailableToAdd(remaining);
       setQuantity(remaining > 0 ? 1 : 0);
-      setCartMessage(`${quantity} ${getUnitLabel(product!.unit)} bekerült a kosárba.`);
+      setCartMessage(`${quantity} ${getUnitLabel(currentProduct.unit)} bekerült a kosárba.`);
     } catch (error) {
-      setCartMessage(error instanceof Error ? error.message : "A terméket nem sikerült kosárba tenni.");
+      setCartMessage(getErrorMessage(error, "A terméket nem sikerült kosárba tenni."));
     } finally {
       setIsAddingToCart(false);
     }
