@@ -1,8 +1,6 @@
 import { clearAuthSession, getAuthSession } from "../../auth/utils/authStorage";
 import type { Cart, CartValidationResult } from "../types/cart.types";
-import { getApiErrorMessage } from "../../../shared/api/httpClient";
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+import { apiRequest, type ApiRequestOptions } from "../../../shared/api/httpClient";
 
 export class CartApiError extends Error {
   readonly status: number;
@@ -14,35 +12,22 @@ export class CartApiError extends Error {
   }
 }
 
-async function getErrorMessage(response: Response): Promise<string> {
-  return getApiErrorMessage(
-    response,
-    "A művelet nem sikerült. Kérjük, próbáld újra.",
-  );
-}
+const CART_FALLBACK_MESSAGE = "A művelet nem sikerült. Kérjük, próbáld újra.";
+const toCartError = (message: string, status: number) => new CartApiError(message, status);
 
-async function cartRequest(path = "", init: RequestInit = {}): Promise<Response> {
+async function cartRequest(path = "", init: Partial<ApiRequestOptions> = {}): Promise<Response> {
   const auth = getAuthSession();
-  const headers = new Headers(init.headers);
-
-  if (init.body) headers.set("Content-Type", "application/json");
-  if (auth) headers.set("Authorization", `Bearer ${auth.token}`);
-
-  const response = await fetch(`${API_BASE_URL}/api/cart${path}`, {
+  return apiRequest(`/api/cart${path}`, {
+    fallbackMessage: CART_FALLBACK_MESSAGE,
     ...init,
-    headers,
+    authToken: auth?.token,
     credentials: "include",
+    onUnauthorized: clearAuthSession,
+    toError: toCartError,
   });
-
-  if (response.status === 401) clearAuthSession();
-  if (!response.ok) {
-    throw new CartApiError(await getErrorMessage(response), response.status);
-  }
-
-  return response;
 }
 
-async function cartMutation(path: string, init: RequestInit): Promise<Cart> {
+async function cartMutation(path: string, init: Partial<ApiRequestOptions>): Promise<Cart> {
   const response = await cartRequest(path, init);
   return response.json() as Promise<Cart>;
 }
@@ -55,7 +40,7 @@ export async function getCart(): Promise<Cart> {
 export function addCartItem(productId: number, quantity: number): Promise<Cart> {
   return cartMutation("/items", {
     method: "POST",
-    body: JSON.stringify({ productId, quantity }),
+    jsonBody: { productId, quantity },
   });
 }
 
@@ -68,7 +53,7 @@ export async function getAvailableQuantityToAdd(productId: number): Promise<numb
 export function updateCartItem(cartItemId: string, quantity: number): Promise<Cart> {
   return cartMutation(`/items/${encodeURIComponent(cartItemId)}`, {
     method: "PUT",
-    body: JSON.stringify({ quantity }),
+    jsonBody: { quantity },
   });
 }
 

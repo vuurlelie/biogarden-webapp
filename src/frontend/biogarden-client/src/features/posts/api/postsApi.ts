@@ -1,8 +1,6 @@
-import { getApiErrorMessage } from "../../../shared/api/httpClient";
+import { apiRequest } from "../../../shared/api/httpClient";
 import type { PagedResult } from "../../../shared/types/pagination";
 import type { Post, PostCategory, PostSortOrder } from "../types/post.types";
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 export type PostListQuery = {
   page?: number;
@@ -29,14 +27,9 @@ export async function getPostPage(
   query: PostListQuery = {},
   signal?: AbortSignal,
 ): Promise<PagedResult<Post>> {
-  const response = await fetch(`${API_BASE_URL}/api/posts${buildPostQuery(query)}`, { signal });
-
-  if (!response.ok) {
-    throw new Error(await getApiErrorMessage(
-      response,
-      "A bejegyzések betöltése nem sikerült.",
-    ));
-  }
-
+  const response = await apiRequest(`/api/posts${buildPostQuery(query)}`, {
+    fallbackMessage: "A bejegyzések betöltése nem sikerült.",
+    signal,
+  });
   return response.json() as Promise<PagedResult<Post>>;
 }

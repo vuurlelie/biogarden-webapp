@@ -4,274 +4,47 @@ import { createOrder, createSumUpCheckout } from "../../features/account/api/ord
 import { getAddresses, getProfile } from "../../features/account/api/profileApi";
 import type { UserAddresses } from "../../features/account/types/address.types";
 import type { UserProfile } from "../../features/account/types/profile.types";
+import { useAnalytics } from "../../features/analytics/context/AnalyticsContextCore";
+import { getCartValueBucket } from "../../features/analytics/utils/eventValidation";
 import { getAuthSession } from "../../features/auth/utils/authStorage";
 import { validateCart } from "../../features/cart/api/cartApi";
 import { useCart } from "../../features/cart/context/useCart";
-import type { CartItem } from "../../features/cart/types/cart.types";
-import { getUnitLabel } from "../../features/products/utils/productLabels";
-import { LEGAL_DOCUMENT_VERSIONS } from "../../shared/constants/legalDocuments";
+import { CheckoutReviewModal } from "../../features/checkout/components/CheckoutReviewModal";
+import { SummaryCartItem } from "../../features/checkout/components/SummaryCartItem";
+import {
+  BILLING_FIELDS,
+  CONTACT_FIELDS,
+  DELIVERY_FIELDS,
+  REQUIRED_BILLING_FIELDS,
+  REQUIRED_DELIVERY_FIELDS,
+} from "../../features/checkout/constants/checkoutFields";
+import type {
+  CheckoutDraft,
+  CheckoutDraftTextField,
+  CheckoutFieldErrors,
+  CheckoutStep,
+  FulfillmentMethod,
+  PaymentMethod,
+} from "../../features/checkout/types/checkout.types";
+import {
+  billingAddressDraft,
+  buildCustomerName,
+  CHECKOUT_DRAFT_KEY,
+  CHECKOUT_IDEMPOTENCY_KEY,
+  deliveryAddressDraft,
+  emptyBillingDraft,
+  emptyCustomerDraft,
+  emptyDeliveryDraft,
+  loadDraft,
+} from "../../features/checkout/utils/checkoutDraft";
+import { PRICE } from "../../features/checkout/utils/checkoutFormatting";
+import { buildCheckoutOrderRequest } from "../../features/checkout/utils/checkoutOrderPayload";
+import {
+  isCheckoutFieldValid,
+  validateCheckoutFields,
+} from "../../features/checkout/utils/checkoutValidation";
 import { ROUTES } from "../../shared/constants/routes";
 import { useModalFocus } from "../../shared/hooks/useModalFocus";
-import { useAnalytics } from "../../features/analytics/context/AnalyticsContextCore";
-import { getCartValueBucket } from "../../features/analytics/utils/eventValidation";
-
-const DRAFT_KEY = "biogarden_checkout_draft";
-const IDEMPOTENCY_KEY = "biogarden_checkout_idempotency_key";
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
-const PRICE = new Intl.NumberFormat("hu-HU", {
-  style: "currency",
-  currency: "HUF",
-  maximumFractionDigits: 0,
-});
-
-type FulfillmentMethod = 0 | 1 | 2;
-type PaymentMethod = "online-card" | "pay-at-pickup" | "cash-on-delivery";
-type CheckoutStep = "details" | "payment";
-
-type Draft = {
-  customerName: string;
-  customerEmail: string;
-  customerPhone: string;
-  postalCode: string;
-  city: string;
-  street: string;
-  houseNumber: string;
-  building: string;
-  floor: string;
-  door: string;
-  doorbell: string;
-  customerType: 0 | 1;
-  billingCompanyName: string;
-  billingTaxNumber: string;
-  printedInvoiceRequested: boolean;
-  deliveryPostalCode: string;
-  deliveryCity: string;
-  deliveryStreet: string;
-  deliveryHouseNumber: string;
-  deliveryBuilding: string;
-  deliveryFloor: string;
-  deliveryDoor: string;
-  deliveryDoorbell: string;
-};
-
-type FieldErrors = Partial<
-  Record<
-    keyof Draft | "accountContact" | "billingAddress" | "deliveryAddress" | "terms" | "privacy",
-    string
-  >
->;
-
-type DraftTextField = {
-  [Key in keyof Draft]: Draft[Key] extends string ? Key : never;
-}[keyof Draft];
-
-type FieldDefinition = [DraftTextField, string, string];
-
-type SummaryCartItemProps = {
-  item: CartItem;
-  compact?: boolean;
-};
-
-const EMPTY_DRAFT: Draft = {
-  customerName: "",
-  customerEmail: "",
-  customerPhone: "",
-  postalCode: "",
-  city: "",
-  street: "",
-  houseNumber: "",
-  building: "",
-  floor: "",
-  door: "",
-  doorbell: "",
-  customerType: 0,
-  billingCompanyName: "",
-  billingTaxNumber: "",
-  printedInvoiceRequested: false,
-  deliveryPostalCode: "",
-  deliveryCity: "",
-  deliveryStreet: "",
-  deliveryHouseNumber: "",
-  deliveryBuilding: "",
-  deliveryFloor: "",
-  deliveryDoor: "",
-  deliveryDoorbell: "",
-};
-
-const CONTACT_FIELDS: FieldDefinition[] = [
-  ["customerName", "Név", "name"],
-  ["customerEmail", "Email cím", "email"],
-  ["customerPhone", "Telefonszám", "tel"],
-];
-
-const BILLING_FIELDS: FieldDefinition[] = [
-  ["billingCompanyName", "Cégnév", "organization"],
-  ["billingTaxNumber", "Adószám (céges számlához)", "off"],
-  ["postalCode", "Irányítószám", "postal-code"],
-  ["city", "Település", "address-level2"],
-  ["street", "Közterület neve és jellege", "address-line1"],
-  ["houseNumber", "Házszám", "address-line2"],
-  ["building", "Épület", "off"],
-  ["floor", "Emelet", "off"],
-  ["door", "Ajtó", "off"],
-  ["doorbell", "Kapucsengő", "off"],
-];
-
-const DELIVERY_FIELDS: FieldDefinition[] = [
-  ["deliveryPostalCode", "Irányítószám", "shipping postal-code"],
-  ["deliveryCity", "Település", "shipping address-level2"],
-  ["deliveryStreet", "Közterület neve és jellege", "shipping address-line1"],
-  ["deliveryHouseNumber", "Házszám", "shipping address-line2"],
-  ["deliveryBuilding", "Épület", "off"],
-  ["deliveryFloor", "Emelet", "off"],
-  ["deliveryDoor", "Ajtó", "off"],
-  ["deliveryDoorbell", "Kapucsengő", "off"],
-];
-
-const REQUIRED_BILLING_FIELDS: Array<keyof Draft> = [
-  "billingCompanyName",
-  "billingTaxNumber",
-  "postalCode",
-  "city",
-  "street",
-  "houseNumber",
-];
-
-const REQUIRED_DELIVERY_FIELDS: Array<keyof Draft> = [
-  "deliveryPostalCode",
-  "deliveryCity",
-  "deliveryStreet",
-  "deliveryHouseNumber",
-];
-
-function loadDraft(): Draft {
-  try {
-    return { ...EMPTY_DRAFT, ...JSON.parse(sessionStorage.getItem(DRAFT_KEY) ?? "{}") };
-  } catch {
-    return EMPTY_DRAFT;
-  }
-}
-
-function getOrCreateCheckoutIdempotencyKey(): string {
-  const existing = sessionStorage.getItem(IDEMPOTENCY_KEY);
-  if (existing) return existing;
-
-  const generated = crypto.randomUUID().replaceAll("-", "");
-  sessionStorage.setItem(IDEMPOTENCY_KEY, generated);
-  return generated;
-}
-
-function buildCustomerName(profile: UserProfile): string {
-  return [profile.lastName, profile.firstName].filter(Boolean).join(" ");
-}
-
-function billingAddressDraft(address: NonNullable<UserAddresses["billingAddress"]>): Partial<Draft> {
-  return {
-    postalCode: address.postalCode,
-    city: address.city,
-    street: address.street,
-    houseNumber: address.houseNumber,
-    building: address.building ?? "",
-    floor: address.floor ?? "",
-    door: address.door ?? "",
-    doorbell: address.doorbell ?? "",
-  };
-}
-
-function deliveryAddressDraft(address: NonNullable<UserAddresses["shippingAddress"]>): Partial<Draft> {
-  return {
-    deliveryPostalCode: address.postalCode,
-    deliveryCity: address.city,
-    deliveryStreet: address.street,
-    deliveryHouseNumber: address.houseNumber,
-    deliveryBuilding: address.building ?? "",
-    deliveryFloor: address.floor ?? "",
-    deliveryDoor: address.door ?? "",
-    deliveryDoorbell: address.doorbell ?? "",
-  };
-}
-
-function emptyCustomerDraft(): Partial<Draft> {
-  return {
-    customerName: "",
-    customerEmail: "",
-    customerPhone: "",
-  };
-}
-
-function emptyBillingDraft(): Partial<Draft> {
-  return {
-    billingCompanyName: "",
-    billingTaxNumber: "",
-    postalCode: "",
-    city: "",
-    street: "",
-    houseNumber: "",
-    building: "",
-    floor: "",
-    door: "",
-    doorbell: "",
-  };
-}
-
-function emptyDeliveryDraft(): Partial<Draft> {
-  return {
-    deliveryPostalCode: "",
-    deliveryCity: "",
-    deliveryStreet: "",
-    deliveryHouseNumber: "",
-    deliveryBuilding: "",
-    deliveryFloor: "",
-    deliveryDoor: "",
-    deliveryDoorbell: "",
-  };
-}
-
-function paymentLabel(paymentMethod: PaymentMethod | null): string {
-  if (paymentMethod === "pay-at-pickup") return "Fizetés átvételkor";
-  if (paymentMethod === "cash-on-delivery") return "Utánvét";
-  return "Online bankkártya";
-}
-
-function getCartImageUrl(image: string | null): string | null {
-  return image ? `${API_BASE_URL}/${image.replace(/^\/+/, "")}` : null;
-}
-
-function SummaryCartItem({ item, compact = false }: SummaryCartItemProps) {
-  const imageUrl = getCartImageUrl(item.image);
-  const description = item.productDescription?.trim();
-
-  return (
-    <li className="grid grid-cols-[4.25rem_minmax(0,1fr)_auto] gap-3 py-3 text-sm first:pt-0 last:pb-0">
-      <div className="relative h-16 w-16 shrink-0 overflow-visible">
-        <div className="h-full w-full overflow-hidden rounded-sm bg-white">
-          {imageUrl ? (
-            <img src={imageUrl} alt={item.productName} className="h-full w-full object-cover" />
-          ) : (
-            <div className="flex h-full w-full items-center justify-center text-[0.65rem] text-site-muted">
-              Nincs kép
-            </div>
-          )}
-        </div>
-        <span className="absolute -right-2 -top-2 flex h-7 min-w-7 items-center justify-center rounded-full border border-site-border bg-white px-2 text-sm font-bold text-site-heading shadow-sm">
-          {item.quantity}
-        </span>
-      </div>
-
-      <div className="min-w-0">
-        <h3 className="font-bold leading-snug text-site-heading">{item.productName}</h3>
-        <p className="mt-1 text-site-text">
-          {PRICE.format(item.unitPrice)} / {getUnitLabel(item.unit)}
-        </p>
-        {description && !compact && (
-          <p className="mt-1 max-h-10 overflow-hidden text-site-muted">{description}</p>
-        )}
-      </div>
-
-      <strong className="whitespace-nowrap text-right text-site-heading">{PRICE.format(item.lineTotal)}</strong>
-    </li>
-  );
-}
 
 export default function CheckoutPage() {
   const navigate = useNavigate();
@@ -283,12 +56,12 @@ export default function CheckoutPage() {
   const [contactManual, setContactManual] = useState(!authenticated);
   const [billingManual, setBillingManual] = useState(!authenticated);
   const [deliveryManual, setDeliveryManual] = useState(!authenticated);
-  const [draft, setDraft] = useState<Draft>(loadDraft);
+  const [draft, setDraft] = useState<CheckoutDraft>(loadDraft);
   const [method, setMethod] = useState<FulfillmentMethod>(0);
   const [loading, setLoading] = useState(authenticated);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
-  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
+  const [fieldErrors, setFieldErrors] = useState<CheckoutFieldErrors>({});
   const [showReview, setShowReview] = useState(false);
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [privacyAccepted, setPrivacyAccepted] = useState(false);
@@ -318,7 +91,7 @@ export default function CheckoutPage() {
   });
 
   useEffect(() => {
-    sessionStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+    sessionStorage.setItem(CHECKOUT_DRAFT_KEY, JSON.stringify(draft));
   }, [draft]);
 
   useEffect(() => {
@@ -386,34 +159,21 @@ export default function CheckoutPage() {
     });
   }, [cart, track]);
 
-  function update(field: DraftTextField, value: string) {
+  function update(field: CheckoutDraftTextField, value: string) {
     setDraft((current) => ({ ...current, [field]: value }));
     setFieldErrors((current) => ({ ...current, [field]: undefined }));
   }
 
-  function fieldClass(field: DraftTextField): string {
+  function fieldClass(field: CheckoutDraftTextField): string {
     const base = "mt-2 block w-full rounded-sm border px-3 py-2.5 disabled:cursor-default";
     if (fieldErrors[field]) return `${base} border-site-danger bg-white`;
 
-    const value = draft[field].trim();
-    const valid =
-      field === "customerName" ? value.length >= 2
-        : field === "customerEmail" ? /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)
-        : field === "customerPhone" ? value.replace(/\D/g, "").length >= 9
-        : field === "postalCode" || field === "deliveryPostalCode" ? /^\d{4}$/.test(value)
-        : field === "city" || field === "street" || field === "deliveryCity" || field === "deliveryStreet"
-          ? value.length >= 2
-        : field === "houseNumber" || field === "deliveryHouseNumber" ? value.length > 0
-        : field === "billingCompanyName"
-          ? value.length > 0 && /^\d{8}(-\d-\d{2})?$/.test(draft.billingTaxNumber.trim())
-        : field === "billingTaxNumber"
-          ? /^\d{8}(-\d-\d{2})?$/.test(value) && draft.billingCompanyName.trim().length > 0
-        : value.length > 0;
-
-    return valid ? `${base} border-site-green bg-site-surface-soft` : `${base} border-site-border bg-white`;
+    return isCheckoutFieldValid(field, draft)
+      ? `${base} border-site-green bg-site-surface-soft`
+      : `${base} border-site-border bg-white`;
   }
 
-  function clearFieldErrors(fields: Array<keyof FieldErrors>) {
+  function clearFieldErrors(fields: Array<keyof CheckoutFieldErrors>) {
     setFieldErrors((current) => {
       const next = { ...current };
       fields.forEach((field) => {
@@ -481,61 +241,6 @@ export default function CheckoutPage() {
     ));
   }
 
-  function validateFields(): FieldErrors {
-    const errors: FieldErrors = {};
-
-    if (draft.customerName.trim().length < 2) {
-      errors.customerName = "A név megadása kötelező, legalább 2 karakterrel.";
-    }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(draft.customerEmail.trim())) {
-      errors.customerEmail = "Adj meg egy érvényes email címet.";
-    }
-    if (draft.customerPhone.replace(/\D/g, "").length < 9) {
-      errors.customerPhone = "Adj meg egy érvényes telefonszámot.";
-    }
-    if (effectiveCustomerType === 1) {
-    if (!/^\d{4}$/.test(draft.postalCode.trim())) {
-      errors.postalCode = "Az irányítószám 4 számjegyből álljon.";
-    }
-    if (draft.city.trim().length < 2) {
-      errors.city = "A település megadása kötelező.";
-    }
-    if (draft.street.trim().length < 2) {
-      errors.street = "A közterület megadása kötelező.";
-    }
-    if (!draft.houseNumber.trim()) {
-      errors.houseNumber = "A házszám megadása kötelező.";
-    }
-
-    const hasCompanyName = Boolean(draft.billingCompanyName.trim());
-    const hasTaxNumber = Boolean(draft.billingTaxNumber.trim());
-    if (hasCompanyName !== hasTaxNumber) {
-      errors.billingCompanyName = "Céges számlázáshoz a cégnév és az adószám együtt szükséges.";
-      errors.billingTaxNumber = "Céges számlázáshoz a cégnév és az adószám együtt szükséges.";
-    } else if (hasTaxNumber && !/^\d{8}(-\d-\d{2})?$/.test(draft.billingTaxNumber.trim())) {
-      errors.billingTaxNumber = "Hibás adószám. Példa: 12345678-1-12.";
-    }
-
-    }
-
-    if (method !== 0) {
-      if (!/^\d{4}$/.test(draft.deliveryPostalCode.trim())) {
-        errors.deliveryPostalCode = "Az irányítószám 4 számjegyből álljon.";
-      }
-      if (draft.deliveryCity.trim().length < 2) {
-        errors.deliveryCity = "A település megadása kötelező.";
-      }
-      if (draft.deliveryStreet.trim().length < 2) {
-        errors.deliveryStreet = "A közterület megadása kötelező.";
-      }
-      if (!draft.deliveryHouseNumber.trim()) {
-        errors.deliveryHouseNumber = "A házszám megadása kötelező.";
-      }
-    }
-
-    return errors;
-  }
-
   async function submit(event: FormEvent) {
     event.preventDefault();
     setError("");
@@ -545,7 +250,7 @@ export default function CheckoutPage() {
       return;
     }
 
-    const errors = validateFields();
+    const errors = validateCheckoutFields(draft, effectiveCustomerType, method);
     setFieldErrors(errors);
     if (Object.keys(errors).length) {
       setError("Ellenőrizd a pirossal jelölt mezőket.");
@@ -589,7 +294,7 @@ export default function CheckoutPage() {
       return;
     }
 
-    const consentErrors: FieldErrors = {};
+    const consentErrors: CheckoutFieldErrors = {};
     if (!termsAccepted) {
       consentErrors.terms = "Az Általános Szerződési Feltételek elfogadása kötelező.";
     }
@@ -604,41 +309,7 @@ export default function CheckoutPage() {
     setError("");
 
     try {
-      const order = await createOrder({
-        idempotencyKey: getOrCreateCheckoutIdempotencyKey(),
-        fulfillmentMethod: method,
-        customerName: draft.customerName,
-        customerEmail: draft.customerEmail,
-        customerPhone: draft.customerPhone,
-        customerType: effectiveCustomerType,
-        addressId: null,
-        postalCode: effectiveCustomerType === 1 ? draft.postalCode : "",
-        city: effectiveCustomerType === 1 ? draft.city : "",
-        street: effectiveCustomerType === 1 ? draft.street : "",
-        houseNumber: effectiveCustomerType === 1 ? draft.houseNumber : "",
-        building: effectiveCustomerType === 1 ? draft.building : "",
-        floor: effectiveCustomerType === 1 ? draft.floor : "",
-        door: effectiveCustomerType === 1 ? draft.door : "",
-        doorbell: effectiveCustomerType === 1 ? draft.doorbell : "",
-        billingCompanyName: effectiveCustomerType === 1 ? draft.billingCompanyName : "",
-        billingTaxNumber: effectiveCustomerType === 1 ? draft.billingTaxNumber : "",
-        printedInvoiceRequested: effectiveCustomerType === 1 && draft.printedInvoiceRequested,
-        acceptedTermsVersion: LEGAL_DOCUMENT_VERSIONS.terms,
-        acceptedPrivacyPolicyVersion: LEGAL_DOCUMENT_VERSIONS.privacyPolicy,
-        deliveryAddressId: null,
-        ...(method !== 0
-          ? {
-              deliveryPostalCode: draft.deliveryPostalCode,
-              deliveryCity: draft.deliveryCity,
-              deliveryStreet: draft.deliveryStreet,
-              deliveryHouseNumber: draft.deliveryHouseNumber,
-              deliveryBuilding: draft.deliveryBuilding,
-              deliveryFloor: draft.deliveryFloor,
-              deliveryDoor: draft.deliveryDoor,
-              deliveryDoorbell: draft.deliveryDoorbell,
-            }
-          : {}),
-      });
+      const order = await createOrder(buildCheckoutOrderRequest(draft, effectiveCustomerType, method));
 
       track("order_submitted", {
         paymentMethod,
@@ -647,8 +318,8 @@ export default function CheckoutPage() {
         cartValueBucket: getCartValueBucket(cart.totalPrice),
       });
 
-      sessionStorage.removeItem(DRAFT_KEY);
-      sessionStorage.removeItem(IDEMPOTENCY_KEY);
+      sessionStorage.removeItem(CHECKOUT_DRAFT_KEY);
+      sessionStorage.removeItem(CHECKOUT_IDEMPOTENCY_KEY);
 
       if (paymentMethod === "online-card") {
         const checkout = await createSumUpCheckout(order.id);
@@ -1095,181 +766,24 @@ export default function CheckoutPage() {
       </form>
 
       {showReview && (
-        <div
-          className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 p-3 pb-44 pt-24 sm:pt-28"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="review-title"
-        >
-          <section
-            ref={reviewModalRef}
-            tabIndex={-1}
-            className="max-h-[calc(100vh-7rem)] w-full max-w-5xl overflow-y-auto rounded-sm bg-white p-4 shadow-xl outline-none sm:max-h-[calc(100vh-8rem)] sm:p-5"
-          >
-            <div className="flex items-start justify-between gap-4">
-              <h2 id="review-title" className="text-2xl font-bold text-site-heading">
-                Megrendelés áttekintése
-              </h2>
-              <button
-                type="button"
-                onClick={() => setShowReview(false)}
-                aria-label="Bezárás"
-                className="text-2xl"
-              >
-                ×
-              </button>
-            </div>
-
-            <div className="mt-4 space-y-3 text-sm">
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                <div className="rounded-sm bg-site-surface-soft p-3">
-                  <strong className="block">Kapcsolattartó</strong>
-                  <p>{draft.customerName}</p>
-                  <p>{draft.customerEmail}</p>
-                  <p>{draft.customerPhone}</p>
-                </div>
-
-                <div className="space-y-3">
-                  <div className="rounded-sm bg-site-surface-soft p-3">
-                    <strong className="block">Rendelési mód</strong>
-                    <p>
-                      {method === 0
-                        ? "Személyes átvétel"
-                        : method === 1
-                          ? "Házhoz szállítás"
-                          : "Csomagautomatába szállítás"}
-                    </p>
-                  </div>
-                  <div className="rounded-sm bg-site-surface-soft p-3">
-                    <strong className="block">Fizetés</strong>
-                    <p>{paymentLabel(paymentMethod)}</p>
-                  </div>
-                </div>
-
-                <div className="space-y-3">
-                  <div className="rounded-sm bg-site-surface-soft p-3">
-                    <strong className="block">Számlázási cím</strong>
-                    {effectiveCustomerType === 1 && draft.billingCompanyName && (
-                      <p>
-                        {draft.billingCompanyName} · {draft.billingTaxNumber}
-                      </p>
-                    )}
-                    <p>
-                      {effectiveCustomerType === 1
-                        ? `${draft.postalCode} ${draft.city}, ${draft.street} ${draft.houseNumber}`
-                        : "Papíralapú nyugta a rendelés mellé."}
-                    </p>
-                    {effectiveCustomerType === 1 && (
-                      <p>
-                        {draft.printedInvoiceRequested
-                          ? "Elektronikus és nyomtatott számla"
-                          : "Elektronikus számla"}
-                      </p>
-                    )}
-                  </div>
-                  <div
-                    className={`rounded-sm p-3 ${method !== 0 ? "bg-site-surface-soft" : "invisible"}`}
-                    aria-hidden={method === 0}
-                  >
-                    <strong className="block">Szállítási cím</strong>
-                    {method !== 0 && (
-                      <p>
-                        {`${draft.deliveryPostalCode} ${draft.deliveryCity}, ${draft.deliveryStreet} ${draft.deliveryHouseNumber}`}
-                      </p>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              <div className="border-y border-site-border py-3">
-                <ul className="divide-y divide-site-border">
-                  {cart.items.map((item) => (
-                    <SummaryCartItem key={item.id} item={item} compact />
-                  ))}
-                </ul>
-              </div>
-
-              <p className="flex justify-between text-lg font-bold">
-                <span>Összesen</span>
-                <span>{PRICE.format(grandTotal)}</span>
-              </p>
-
-              <div className="space-y-3">
-                <div>
-                  <label className="flex items-start gap-3">
-                    <input
-                      type="checkbox"
-                      checked={termsAccepted}
-                      onChange={(event) => {
-                        setTermsAccepted(event.target.checked);
-                        setFieldErrors((current) => ({ ...current, terms: undefined }));
-                      }}
-                      className="mt-1"
-                    />
-                    <span>
-                      Elolvastam és elfogadom az{" "}
-                      <Link to={ROUTES.terms} className="font-semibold text-site-green-dark underline">
-                        Általános Szerződési Feltételeket
-                      </Link>
-                      . <span className="text-site-danger">*</span>
-                    </span>
-                  </label>
-                  {fieldErrors.terms && (
-                    <p className="mt-1 text-xs text-site-danger">{fieldErrors.terms}</p>
-                  )}
-                </div>
-
-                <div>
-                  <label className="flex items-start gap-3">
-                    <input
-                      type="checkbox"
-                      checked={privacyAccepted}
-                      onChange={(event) => {
-                        setPrivacyAccepted(event.target.checked);
-                        setFieldErrors((current) => ({ ...current, privacy: undefined }));
-                      }}
-                      className="mt-1"
-                    />
-                    <span>
-                      Elolvastam és elfogadom az{" "}
-                      <Link to={ROUTES.privacyPolicy} className="font-semibold text-site-green-dark underline">
-                        Adatkezelési Tájékoztatót
-                      </Link>
-                      . <span className="text-site-danger">*</span>
-                    </span>
-                  </label>
-                  {fieldErrors.privacy && (
-                    <p className="mt-1 text-xs text-site-danger">{fieldErrors.privacy}</p>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-              <button
-                type="button"
-                onClick={() => setShowReview(false)}
-                className="rounded-sm border border-site-border px-5 py-3"
-              >
-                Vissza a szerkesztéshez
-              </button>
-              <button
-                type="button"
-                onClick={() => void placeOrder()}
-                disabled={submitting}
-                className="rounded-sm bg-site-green px-5 py-3 font-semibold text-white disabled:opacity-50"
-              >
-                {submitting
-                  ? paymentMethod === "online-card"
-                    ? "Átirányítás..."
-                    : "Rendelés elküldése..."
-                  : paymentMethod === "online-card"
-                    ? "Tovább a fizetéshez"
-                    : "Megrendelés elküldése"}
-              </button>
-            </div>
-          </section>
-        </div>
+        <CheckoutReviewModal
+          cart={cart}
+          draft={draft}
+          effectiveCustomerType={effectiveCustomerType}
+          fieldErrors={fieldErrors}
+          grandTotal={grandTotal}
+          method={method}
+          onClose={() => setShowReview(false)}
+          onFieldErrorsChange={setFieldErrors}
+          onPlaceOrder={() => void placeOrder()}
+          onPrivacyAcceptedChange={setPrivacyAccepted}
+          onTermsAcceptedChange={setTermsAccepted}
+          paymentMethod={paymentMethod}
+          privacyAccepted={privacyAccepted}
+          reviewModalRef={reviewModalRef}
+          submitting={submitting}
+          termsAccepted={termsAccepted}
+        />
       )}
     </main>
   );

@@ -7,9 +7,7 @@ import type {
   ResetPasswordRequest,
   ResendEmailConfirmationRequest,
 } from "../types/auth.types";
-import { getApiErrorMessage } from "../../../shared/api/httpClient";
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+import { apiRequest } from "../../../shared/api/httpClient";
 
 export class AuthApiError extends Error {
   readonly status: number;
@@ -21,85 +19,63 @@ export class AuthApiError extends Error {
   }
 }
 
-async function getErrorMessage(response: Response): Promise<string> {
-  return getApiErrorMessage(
-    response,
-    "A művelet nem sikerült. Kérjük, próbáld újra.",
-  );
-}
+const AUTH_FALLBACK_MESSAGE = "A művelet nem sikerült. Kérjük, próbáld újra.";
+const toAuthError = (message: string, status: number) => new AuthApiError(message, status);
 
 export async function login(request: LoginRequest): Promise<AuthResponse> {
-  const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
+  const response = await apiRequest("/api/auth/login", {
+    fallbackMessage: AUTH_FALLBACK_MESSAGE,
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(request),
+    jsonBody: request,
+    toError: toAuthError,
   });
-
-  if (!response.ok) {
-    throw new AuthApiError(await getErrorMessage(response), response.status);
-  }
 
   return response.json() as Promise<AuthResponse>;
 }
 
 export async function register(request: RegisterRequest): Promise<void> {
-  const response = await fetch(`${API_BASE_URL}/api/auth/register`, {
+  await apiRequest("/api/auth/register", {
+    fallbackMessage: AUTH_FALLBACK_MESSAGE,
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(request),
+    jsonBody: request,
+    toError: toAuthError,
   });
-
-  if (!response.ok) {
-    throw new AuthApiError(await getErrorMessage(response), response.status);
-  }
 }
 
 export async function confirmEmail(request: ConfirmEmailRequest): Promise<void> {
-  const response = await fetch(`${API_BASE_URL}/api/auth/confirm-email`, {
+  await apiRequest("/api/auth/confirm-email", {
+    fallbackMessage: AUTH_FALLBACK_MESSAGE,
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(request),
+    jsonBody: request,
+    toError: toAuthError,
   });
-
-  if (!response.ok) {
-    throw new AuthApiError(await getErrorMessage(response), response.status);
-  }
 }
 
 export async function resendEmailConfirmation(
   request: ResendEmailConfirmationRequest,
 ): Promise<void> {
-  const response = await fetch(`${API_BASE_URL}/api/auth/resend-email-confirmation`, {
+  await apiRequest("/api/auth/resend-email-confirmation", {
+    fallbackMessage: AUTH_FALLBACK_MESSAGE,
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(request),
+    jsonBody: request,
+    toError: toAuthError,
   });
-
-  if (!response.ok) {
-    throw new AuthApiError(await getErrorMessage(response), response.status);
-  }
 }
 
 export async function forgotPassword(request: ForgotPasswordRequest): Promise<void> {
-  const response = await fetch(`${API_BASE_URL}/api/auth/forgot-password`, {
+  await apiRequest("/api/auth/forgot-password", {
+    fallbackMessage: AUTH_FALLBACK_MESSAGE,
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(request),
+    jsonBody: request,
+    toError: toAuthError,
   });
-
-  if (!response.ok) {
-    throw new AuthApiError(await getErrorMessage(response), response.status);
-  }
 }
 
 export async function resetPassword(request: ResetPasswordRequest): Promise<void> {
-  const response = await fetch(`${API_BASE_URL}/api/auth/reset-password`, {
+  await apiRequest("/api/auth/reset-password", {
+    fallbackMessage: AUTH_FALLBACK_MESSAGE,
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(request),
+    jsonBody: request,
+    toError: toAuthError,
   });
-
-  if (!response.ok) {
-    throw new AuthApiError(await getErrorMessage(response), response.status);
-  }
 }

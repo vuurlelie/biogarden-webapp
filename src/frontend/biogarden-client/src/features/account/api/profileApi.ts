@@ -12,9 +12,7 @@ import type {
   UpdateUserAddresses,
   UserAddresses,
 } from "../types/address.types";
-import { getApiErrorMessage } from "../../../shared/api/httpClient";
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+import { apiRequest, type ApiRequestOptions } from "../../../shared/api/httpClient";
 
 export class ProfileApiError extends Error {
   readonly status: number;
@@ -26,16 +24,12 @@ export class ProfileApiError extends Error {
   }
 }
 
-async function getErrorMessage(response: Response): Promise<string> {
-  return getApiErrorMessage(
-    response,
-    "A művelet nem sikerült. Kérjük, próbáld újra.",
-  );
-}
+const PROFILE_FALLBACK_MESSAGE = "A művelet nem sikerült. Kérjük, próbáld újra.";
+const toProfileError = (message: string, status: number) => new ProfileApiError(message, status);
 
 async function profileRequest(
   path = "",
-  init?: RequestInit,
+  init?: Partial<ApiRequestOptions>,
 ): Promise<Response> {
   const auth = getAuthSession();
 
@@ -43,22 +37,13 @@ async function profileRequest(
     throw new ProfileApiError("A munkamenet lejárt. Jelentkezz be újra.", 401);
   }
 
-  const response = await fetch(`${API_BASE_URL}/api/profile${path}`, {
+  return apiRequest(`/api/profile${path}`, {
+    fallbackMessage: PROFILE_FALLBACK_MESSAGE,
     ...init,
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${auth.token}`,
-      ...init?.headers,
-    },
+    authToken: auth.token,
+    onUnauthorized: clearAuthSession,
+    toError: toProfileError,
   });
-
-  if (response.status === 401) clearAuthSession();
-
-  if (!response.ok) {
-    throw new ProfileApiError(await getErrorMessage(response), response.status);
-  }
-
-  return response;
 }
 
 export async function getProfile(): Promise<UserProfile> {
@@ -69,7 +54,7 @@ export async function getProfile(): Promise<UserProfile> {
 export async function updateProfile(
   profile: UpdateUserProfile,
 ): Promise<void> {
-  await profileRequest("", { method: "PUT", body: JSON.stringify(profile) });
+  await profileRequest("", { method: "PUT", jsonBody: profile });
 }
 
 export async function getAddresses(): Promise<UserAddresses> {
@@ -82,7 +67,7 @@ export async function updateAddresses(
 ): Promise<void> {
   await profileRequest("/addresses", {
     method: "PUT",
-    body: JSON.stringify(addresses),
+    jsonBody: addresses,
   });
 }
 
@@ -91,7 +76,7 @@ export async function requestAccountLifecycle(
 ): Promise<AccountLifecycleResult> {
   const response = await profileRequest("/account-lifecycle", {
     method: "POST",
-    body: JSON.stringify(request),
+    jsonBody: request,
   });
   return response.json() as Promise<AccountLifecycleResult>;
 }
