@@ -26,6 +26,9 @@ jobs:
       - name: Restore dependencies
         run: dotnet restore ./src/backend/Biogarden.sln
 
+      - name: Audit backend dependencies
+        run: dotnet list ./src/backend/Biogarden.sln package --vulnerable --include-transitive
+
       - name: Build solution
         run: dotnet build ./src/backend/Biogarden.sln --no-restore --configuration Release
 
