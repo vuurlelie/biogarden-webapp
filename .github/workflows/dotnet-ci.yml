@@ -24,7 +24,10 @@ jobs:
           dotnet-version: 9.0.x
 
       - name: Restore dependencies
-        run: dotnet restore ./src/backend/Biogarden.sln
+        run: dotnet restore ./src/backend/Biogarden.sln --locked-mode
+
+      - name: Audit backend dependencies
+        run: dotnet list ./src/backend/Biogarden.sln package --vulnerable --include-transitive
 
       - name: Build solution
         run: dotnet build ./src/backend/Biogarden.sln --no-restore --configuration Release
@@ -55,6 +58,9 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Audit frontend dependencies
+        run: npm audit --audit-level=moderate
 
       - name: Install Playwright browsers
         run: npx playwright install chromium
