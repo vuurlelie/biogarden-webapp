@@ -21,6 +21,7 @@ public class OrderService : IOrderService
     private readonly IEmailService _emailService;
     private readonly IEmailTemplateService _emailTemplateService;
     private readonly ISumUpCheckoutService _sumUpCheckoutService;
+    private readonly TimeProvider _timeProvider;
     private readonly EmailBrandingOptions _emailBrandingOptions;
     private readonly SumUpOptions _sumUpOptions;
 
@@ -31,6 +32,7 @@ public class OrderService : IOrderService
         IEmailService emailService,
         IEmailTemplateService emailTemplateService,
         ISumUpCheckoutService sumUpCheckoutService,
+        TimeProvider timeProvider,
         IOptions<EmailBrandingOptions> emailBrandingOptions,
         IOptions<SumUpOptions> sumUpOptions)
     {
@@ -40,6 +42,7 @@ public class OrderService : IOrderService
         _emailService = emailService;
         _emailTemplateService = emailTemplateService;
         _sumUpCheckoutService = sumUpCheckoutService;
+        _timeProvider = timeProvider;
         _emailBrandingOptions = emailBrandingOptions.Value;
         _sumUpOptions = sumUpOptions.Value;
     }
@@ -186,6 +189,7 @@ public class OrderService : IOrderService
         {
             createdOrderDto = await _unitOfWork.ExecuteInTransactionAsync(async transactionToken =>
             {
+                var now = GetUtcNow();
                 var order = new Order
                 {
                     Id = Guid.NewGuid(),
@@ -221,7 +225,7 @@ public class OrderService : IOrderService
                     DeliveryDoor = deliveryAddress?.Door ?? NormalizeOptional(dto.DeliveryDoor),
                     DeliveryDoorbell = deliveryAddress?.Doorbell ?? NormalizeOptional(dto.DeliveryDoorbell),
                     CartId = cart.Id,
-                    CreatedAtUtc = DateTime.UtcNow,
+                    CreatedAtUtc = now,
                     Status = OrderStatus.Pending,
                     PaymentStatus = PaymentStatus.Pending,
                     FulfillmentMethod = dto.FulfillmentMethod
@@ -278,7 +282,7 @@ public class OrderService : IOrderService
                 order.StockCommitted = true;
 
                 cart.IsCheckedOut = true;
-                cart.CheckedOutAtUtc = DateTime.UtcNow;
+                cart.CheckedOutAtUtc = now;
 
                 await _unitOfWork.OrderRepository.AddAsync(order, transactionToken);
                 await _unitOfWork.SaveChangesAsync(transactionToken);
@@ -357,7 +361,7 @@ public class OrderService : IOrderService
 
         order.PaymentStatus = PaymentStatus.Paid;
         order.Status = OrderStatus.Confirmed;
-        order.ConfirmedAtUtc = DateTime.UtcNow;
+        order.ConfirmedAtUtc = GetUtcNow();
 
         _unitOfWork.OrderRepository.Update(order);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
@@ -434,7 +438,7 @@ public class OrderService : IOrderService
         {
             order.PaymentStatus = PaymentStatus.Paid;
             order.Status = OrderStatus.Confirmed;
-            order.ConfirmedAtUtc ??= DateTime.UtcNow;
+            order.ConfirmedAtUtc ??= GetUtcNow();
         }
 
         order.SumUpTransactionId = NormalizeOptional(sumUpTransactionId) ?? order.SumUpTransactionId;
@@ -526,7 +530,7 @@ public class OrderService : IOrderService
         }
 
         order.Status = OrderStatus.Cancelled;
-        order.CancelledAtUtc = DateTime.UtcNow;
+        order.CancelledAtUtc = GetUtcNow();
         order.DeletedAtUtc = order.CancelledAtUtc;
         order.CancellationReason = string.IsNullOrWhiteSpace(dto.Reason)
             ? null
@@ -603,7 +607,7 @@ public class OrderService : IOrderService
             CustomerName = order.CustomerName,
             CustomerEmail = order.CustomerEmail,
             Reason = reason,
-            RequestedAtUtc = DateTime.UtcNow,
+            RequestedAtUtc = GetUtcNow(),
             Status = OrderWithdrawalRequestStatus.Pending
         };
 
@@ -638,7 +642,7 @@ public class OrderService : IOrderService
             userId,
             cancellationToken);
 
-        var visibleFromUtc = DateTime.UtcNow.AddDays(-7);
+        var visibleFromUtc = GetUtcNow().AddDays(-7);
 
         return orders
             .Where(order => IsVisibleInUserHistory(order, visibleFromUtc))
@@ -656,7 +660,7 @@ public class OrderService : IOrderService
             cancellationToken);
 
         if (order is null || order.UserId != userId ||
-            !IsVisibleInUserHistory(order, DateTime.UtcNow.AddDays(-7)))
+            !IsVisibleInUserHistory(order, GetUtcNow().AddDays(-7)))
         {
             throw new KeyNotFoundException("Order not found.");
         }
@@ -837,9 +841,11 @@ public class OrderService : IOrderService
         }
     }
 
-    private static string GenerateOrderNumber()
+    private DateTime GetUtcNow() => _timeProvider.GetUtcNow().UtcDateTime;
+
+    private string GenerateOrderNumber()
     {
-        return $"BK-{DateTime.UtcNow:yyyyMMdd}-{Guid.NewGuid().ToString("N")[..8].ToUpperInvariant()}";
+        return $"BK-{GetUtcNow():yyyyMMdd}-{Guid.NewGuid().ToString("N")[..8].ToUpperInvariant()}";
     }
 
     private async Task<Order?> GetLatestCheckedOutOrderAsync(
