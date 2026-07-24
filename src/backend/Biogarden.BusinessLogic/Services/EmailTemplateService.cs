@@ -52,13 +52,7 @@ public sealed class EmailTemplateService : IEmailTemplateService
             actionUrl: confirmationUrl,
             note: "Ha nem te kezdeményezted a regisztrációt, nincs további teendőd.");
 
-        return new EmailMessage
-        {
-            To = recipientEmail,
-            Subject = $"{title} - {_brandingOptions.CompanyName}",
-            PlainTextBody = plainTextBody,
-            HtmlBody = htmlBody
-        };
+        return CreateMessage(recipientEmail, BuildBrandedSubject(title), plainTextBody, htmlBody);
     }
 
     public EmailMessage BuildPasswordResetMessage(
@@ -95,13 +89,7 @@ public sealed class EmailTemplateService : IEmailTemplateService
             actionUrl: resetUrl,
             note: "Ha nem te kérted a jelszó visszaállítását, nincs további teendőd. A jelszavad nem változik meg.");
 
-        return new EmailMessage
-        {
-            To = recipientEmail,
-            Subject = $"{title} - {_brandingOptions.CompanyName}",
-            PlainTextBody = plainTextBody,
-            HtmlBody = htmlBody
-        };
+        return CreateMessage(recipientEmail, BuildBrandedSubject(title), plainTextBody, htmlBody);
     }
 
     public EmailMessage BuildPasswordChangedMessage(string recipientEmail)
@@ -213,13 +201,7 @@ public sealed class EmailTemplateService : IEmailTemplateService
             actionUrl: $"mailto:{request.Email}",
             note: "A válaszhoz használd a megadott email címet, vagy keresd a látogatót telefonon, ha adott meg telefonszámot.");
 
-        return new EmailMessage
-        {
-            To = recipientEmail,
-            Subject = $"{subject} - {_brandingOptions.CompanyName}",
-            PlainTextBody = plainTextBody,
-            HtmlBody = htmlBody
-        };
+        return CreateMessage(recipientEmail, BuildBrandedSubject(subject), plainTextBody, htmlBody);
     }
 
     public EmailMessage BuildContactVisitorConfirmationMessage(
@@ -262,13 +244,7 @@ public sealed class EmailTemplateService : IEmailTemplateService
             actionUrl: _brandingOptions.WebsiteUrl,
             note: "Ez egy automatikus visszaigazolás, válaszolnod nem szükséges.");
 
-        return new EmailMessage
-        {
-            To = recipientEmail,
-            Subject = $"{title} - {_brandingOptions.CompanyName}",
-            PlainTextBody = plainTextBody,
-            HtmlBody = htmlBody
-        };
+        return CreateMessage(recipientEmail, BuildBrandedSubject(title), plainTextBody, htmlBody);
     }
 
     public EmailMessage BuildOrderConfirmationMessage(string recipientEmail, OrderDto order)
@@ -305,13 +281,7 @@ public sealed class EmailTemplateService : IEmailTemplateService
             actionUrl: _brandingOptions.WebsiteUrl,
             note: "A rendelés feldolgozásáról és állapotváltozásairól emailben értesítünk.");
 
-        return new EmailMessage
-        {
-            To = recipientEmail,
-            Subject = $"{title} - {_brandingOptions.CompanyName}",
-            PlainTextBody = plainTextBody,
-            HtmlBody = htmlBody
-        };
+        return CreateMessage(recipientEmail, BuildBrandedSubject(title), plainTextBody, htmlBody);
     }
 
     public EmailMessage BuildOrderBusinessNotificationMessage(string recipientEmail, OrderDto order)
@@ -345,13 +315,11 @@ public sealed class EmailTemplateService : IEmailTemplateService
             actionUrl: adminUrl,
             note: "Ha a gomb nem működik, használd a fenti admin linket.");
 
-        return new EmailMessage
-        {
-            To = recipientEmail,
-            Subject = $"Új rendelés érkezett - {_brandingOptions.CompanyName}",
-            PlainTextBody = plainTextBody,
-            HtmlBody = htmlBody
-        };
+        return CreateMessage(
+            recipientEmail,
+            BuildBrandedSubject("Új rendelés érkezett"),
+            plainTextBody,
+            htmlBody);
     }
 
     public EmailMessage BuildOrderStatusChangedMessage(string recipientEmail, OrderDto order)
@@ -383,13 +351,7 @@ public sealed class EmailTemplateService : IEmailTemplateService
             actionUrl: $"mailto:{_brandingOptions.ContactEmail}",
             note: "Ha kérdésed van a rendeléseddel kapcsolatban, válaszolj erre az emailre vagy vedd fel velünk a kapcsolatot.");
 
-        return new EmailMessage
-        {
-            To = recipientEmail,
-            Subject = $"{title} - {_brandingOptions.CompanyName}",
-            PlainTextBody = plainTextBody,
-            HtmlBody = htmlBody
-        };
+        return CreateMessage(recipientEmail, BuildBrandedSubject(title), plainTextBody, htmlBody);
     }
 
     public EmailMessage BuildOrderWithdrawalBusinessNotificationMessage(
@@ -408,25 +370,23 @@ public sealed class EmailTemplateService : IEmailTemplateService
             $"Üzenet: {request.Reason}"
         };
 
-        return new EmailMessage
-        {
-            To = recipientEmail,
-            Subject = $"Elállási vagy fogyasztói kérés - {order.OrderNumber} - {_brandingOptions.CompanyName}",
-            PlainTextBody = BuildPlainTextBody(
+        return CreateMessage(
+            recipientEmail,
+            BuildBrandedSubject($"Elállási vagy fogyasztói kérés - {order.OrderNumber}"),
+            BuildPlainTextBody(
                 greeting: "Új kérés érkezett",
                 bodyLines: bodyLines,
                 actionText: "Admin felület megnyitása",
                 actionUrl: adminUrl,
                 note: "A kérést az admin felületen, a rendelés részleteinél látod."),
-            HtmlBody = BuildInternalHtmlBody(
+            BuildInternalHtmlBody(
                 title: "Új elállási vagy fogyasztói kérés",
                 preheader: $"Új kérés érkezett: {order.OrderNumber}.",
                 greeting: "Új kérés érkezett",
                 bodyParagraphs: bodyLines,
                 actionText: "Admin felület megnyitása",
                 actionUrl: adminUrl,
-                note: "A kérést az admin felületen, a rendelés részleteinél látod.")
-        };
+                note: "A kérést az admin felületen, a rendelés részleteinél látod."));
     }
 
     public EmailMessage BuildOrderWithdrawalCustomerConfirmationMessage(
@@ -441,25 +401,23 @@ public sealed class EmailTemplateService : IEmailTemplateService
             $"Megadott üzenet: {request.Reason}"
         };
 
-        return new EmailMessage
-        {
-            To = recipientEmail,
-            Subject = $"Megkaptuk a rendeléshez kapcsolódó kérésedet - {order.OrderNumber} - {_brandingOptions.CompanyName}",
-            PlainTextBody = BuildPlainTextBody(
+        return CreateMessage(
+            recipientEmail,
+            BuildBrandedSubject($"Megkaptuk a rendeléshez kapcsolódó kérésedet - {order.OrderNumber}"),
+            BuildPlainTextBody(
                 greeting: $"Kedves {order.CustomerName}!",
                 bodyLines: bodyLines,
                 actionText: "Kapcsolat",
                 actionUrl: $"mailto:{_brandingOptions.ContactEmail}",
                 note: "Ez az email a kérés rögzítését igazolja, nem jelenti automatikusan annak elfogadását."),
-            HtmlBody = BuildHtmlBody(
+            BuildHtmlBody(
                 title: "Megkaptuk a kérésedet",
                 preheader: $"Rögzítettük a(z) {order.OrderNumber} rendeléshez kapcsolódó kérésedet.",
                 greeting: $"Kedves {order.CustomerName}!",
                 bodyParagraphs: bodyLines,
                 actionText: "Kapcsolat",
                 actionUrl: $"mailto:{_brandingOptions.ContactEmail}",
-                note: "Ez az email a kérés rögzítését igazolja, nem jelenti automatikusan annak elfogadását.")
-        };
+                note: "Ez az email a kérés rögzítését igazolja, nem jelenti automatikusan annak elfogadását."));
     }
 
     private string BuildPlainTextBody(
@@ -539,14 +497,24 @@ public sealed class EmailTemplateService : IEmailTemplateService
             actionUrl: $"mailto:{_brandingOptions.ContactEmail}",
             note: note);
 
-        return new EmailMessage
+        return CreateMessage(recipientEmail, BuildBrandedSubject(title), plainTextBody, htmlBody);
+    }
+
+    private EmailMessage CreateMessage(
+        string recipientEmail,
+        string subject,
+        string plainTextBody,
+        string htmlBody) =>
+        new()
         {
             To = recipientEmail,
-            Subject = $"{title} - {_brandingOptions.CompanyName}",
+            Subject = subject,
             PlainTextBody = plainTextBody,
             HtmlBody = htmlBody
         };
-    }
+
+    private string BuildBrandedSubject(string subject) =>
+        $"{subject} - {_brandingOptions.CompanyName}";
 
     private string BuildHtmlBody(
         string title,
