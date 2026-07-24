@@ -110,9 +110,9 @@ public sealed class OrderServiceTests
         var result = await _service.CreateOrderFromCartAsync(null, sessionId, new PlaceOrderDto
         {
             IdempotencyKey = IdempotencyKey,
-            CustomerName = "Teszt Elek",
-            CustomerEmail = "guest@example.com",
-            CustomerPhone = "+361234567",
+            CustomerName = " Teszt Elek ",
+            CustomerEmail = " guest@example.com ",
+            CustomerPhone = " +361234567 ",
             PostalCode = "8200",
             City = "Veszprém",
             Street = "Kert utca",
@@ -125,7 +125,9 @@ public sealed class OrderServiceTests
         Assert.Null(result.UserId);
         Assert.Null(result.AddressId);
         Assert.StartsWith("BK-20260724-", result.OrderNumber, StringComparison.Ordinal);
+        Assert.Equal("Teszt Elek", result.CustomerName);
         Assert.Equal("guest@example.com", result.CustomerEmail);
+        Assert.Equal("+361234567", result.CustomerPhone);
         Assert.Equal(LegalDocumentVersions.CurrentTermsVersion, result.AcceptedTermsVersion);
         Assert.Equal(LegalDocumentVersions.CurrentPrivacyPolicyVersion, result.AcceptedPrivacyPolicyVersion);
         Assert.True(cart.IsCheckedOut);
