@@ -68,8 +68,7 @@ public class CartService : ICartService
             throw new InvalidOperationException("A termék jelenleg nem elérhető.");
         }
 
-        var existingCartItem = cart.Items
-            .SingleOrDefault(cartItem => cartItem.ProductId == addCartItemDto.ProductId);
+        var existingCartItem = FindItemByProductId(cart, addCartItemDto.ProductId);
 
         var targetQuantity =
             existingCartItem is null
@@ -86,24 +85,17 @@ public class CartService : ICartService
 
         if (existingCartItem is null)
         {
-            var cartItem = new CartItem
-            {
-                Id = Guid.NewGuid(),
-                CartId = cart.Id,
-                Cart = cart,
-                ProductId = product.Id,
-                Product = product,
-                Quantity = addCartItemDto.Quantity,
-                CreatedAtUtc = now,
-                UpdatedAtUtc = now
-            };
+            var cartItem = CreateCartItem(
+                cart,
+                product,
+                addCartItemDto.Quantity,
+                now);
 
             await _unitOfWork.CartRepository.AddItemAsync(cartItem, cancellationToken);
         }
         else
         {
-            existingCartItem.Quantity = targetQuantity;
-            existingCartItem.UpdatedAtUtc = now;
+            UpdateCartItemQuantity(existingCartItem, targetQuantity, now);
         }
 
         TouchCart(cart, now);
@@ -270,8 +262,7 @@ public class CartService : ICartService
 
         foreach (var guestCartItem in guestCart.Items.ToList())
         {
-            var existingUserCartItem = userCart.Items
-                .SingleOrDefault(item => item.ProductId == guestCartItem.ProductId);
+            var existingUserCartItem = FindItemByProductId(userCart, guestCartItem.ProductId);
 
             var mergedQuantity =
                 existingUserCartItem is null
@@ -286,24 +277,23 @@ public class CartService : ICartService
 
             if (existingUserCartItem is null)
             {
-                var cartItem = new CartItem
-                {
-                    Id = Guid.NewGuid(),
-                    CartId = userCart.Id,
-                    Cart = userCart,
-                    ProductId = guestCartItem.ProductId,
-                    Product = guestCartItem.Product,
-                    Quantity = guestCartItem.Quantity,
-                    CreatedAtUtc = now,
-                    UpdatedAtUtc = now
-                };
+                var product = guestCartItem.Product ??
+                    await _unitOfWork.ProductRepository.GetByIdAsync(
+                        guestCartItem.ProductId,
+                        cancellationToken)
+                    ?? throw new KeyNotFoundException(
+                        $"Product with id {guestCartItem.ProductId} was not found.");
+                var cartItem = CreateCartItem(
+                    userCart,
+                    product,
+                    guestCartItem.Quantity,
+                    now);
 
                 await _unitOfWork.CartRepository.AddItemAsync(cartItem, cancellationToken);
             }
             else
             {
-                existingUserCartItem.Quantity = mergedQuantity;
-                existingUserCartItem.UpdatedAtUtc = now;
+                UpdateCartItemQuantity(existingUserCartItem, mergedQuantity, now);
             }
         }
 
@@ -581,6 +571,32 @@ public class CartService : ICartService
     }
 
     private DateTime GetUtcNow() => _timeProvider.GetUtcNow().UtcDateTime;
+
+    private static CartItem? FindItemByProductId(Cart cart, int productId) =>
+        cart.Items.SingleOrDefault(item => item.ProductId == productId);
+
+    private static CartItem CreateCartItem(
+        Cart cart,
+        Product product,
+        int quantity,
+        DateTime now) =>
+        new()
+        {
+            Id = Guid.NewGuid(),
+            CartId = cart.Id,
+            Cart = cart,
+            ProductId = product.Id,
+            Product = product,
+            Quantity = quantity,
+            CreatedAtUtc = now,
+            UpdatedAtUtc = now
+        };
+
+    private static void UpdateCartItemQuantity(CartItem cartItem, int quantity, DateTime now)
+    {
+        cartItem.Quantity = quantity;
+        cartItem.UpdatedAtUtc = now;
+    }
 
     private static void TouchCart(Cart cart, DateTime now)
     {
