@@ -2,11 +2,11 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   getProfile,
-  ProfileApiError,
   updateProfile,
 } from "../../features/account/api/profileApi";
 import type { UserProfile } from "../../features/account/types/profile.types";
 import { ROUTES } from "../../shared/constants/routes";
+import { getErrorMessage, hasErrorStatus } from "../../shared/utils/errorHandling";
 
 const EMPTY_PROFILE: UserProfile = {
   email: "",
@@ -48,11 +48,11 @@ export default function AccountProfilePage() {
         if (!shouldIgnoreResult) setProfile(loadedProfile);
       } catch (loadError) {
         if (shouldIgnoreResult) return;
-        if (loadError instanceof ProfileApiError && loadError.status === 401) {
+        if (hasErrorStatus(loadError, 401)) {
           navigate(ROUTES.login, { replace: true });
           return;
         }
-        setError(loadError instanceof Error ? loadError.message : "A profil betöltése nem sikerült.");
+        setError(getErrorMessage(loadError, "A profil betöltése nem sikerült."));
       } finally {
         if (!shouldIgnoreResult) setIsLoading(false);
       }
@@ -119,11 +119,11 @@ export default function AccountProfilePage() {
       });
       setSuccess("A személyes adatok mentése sikerült.");
     } catch (saveError) {
-      if (saveError instanceof ProfileApiError && saveError.status === 401) {
+      if (hasErrorStatus(saveError, 401)) {
         navigate(ROUTES.login, { replace: true });
         return;
       }
-      setError(saveError instanceof Error ? saveError.message : "A mentés nem sikerült.");
+      setError(getErrorMessage(saveError, "A mentés nem sikerült."));
     } finally {
       setIsSaving(false);
     }

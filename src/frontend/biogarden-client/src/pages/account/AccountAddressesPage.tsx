@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 import {
   getAddresses,
   getProfile,
-  ProfileApiError,
   updateAddresses,
 } from "../../features/account/api/profileApi";
 import AddressFields from "../../features/account/components/AddressFields";
@@ -12,6 +11,7 @@ import type {
   AddressFormData,
 } from "../../features/account/types/address.types";
 import { ROUTES } from "../../shared/constants/routes";
+import { getErrorMessage, hasErrorStatus } from "../../shared/utils/errorHandling";
 
 const EMPTY_ADDRESS: AddressFormData = {
   postalCode: "",
@@ -80,11 +80,11 @@ export default function AccountAddressesPage() {
         );
       } catch (loadError) {
         if (shouldIgnoreResult) return;
-        if (loadError instanceof ProfileApiError && loadError.status === 401) {
+        if (hasErrorStatus(loadError, 401)) {
           navigate(ROUTES.login, { replace: true });
           return;
         }
-        setError(loadError instanceof Error ? loadError.message : "A címek betöltése nem sikerült.");
+        setError(getErrorMessage(loadError, "A címek betöltése nem sikerült."));
       } finally {
         if (!shouldIgnoreResult) setIsLoading(false);
       }
@@ -110,11 +110,11 @@ export default function AccountAddressesPage() {
       });
       setSuccess("A szállítási és számlázási cím mentése sikerült.");
     } catch (saveError) {
-      if (saveError instanceof ProfileApiError && saveError.status === 401) {
+      if (hasErrorStatus(saveError, 401)) {
         navigate(ROUTES.login, { replace: true });
         return;
       }
-      setError(saveError instanceof Error ? saveError.message : "A címek mentése nem sikerült.");
+      setError(getErrorMessage(saveError, "A címek mentése nem sikerült."));
     } finally {
       setIsSaving(false);
     }

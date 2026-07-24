@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { login, resendEmailConfirmation } from "../../features/auth/api/authApi";
 import { saveAuthSession } from "../../features/auth/utils/authStorage";
 import { ROUTES } from "../../shared/constants/routes";
+import { getErrorMessage } from "../../shared/utils/errorHandling";
 
 type LoginLocationState = {
   registrationSuccess?: boolean;
@@ -65,9 +66,7 @@ export default function LoginPage() {
       const from = (location.state as LoginLocationState | null)?.from;
       navigate(from ?? ROUTES.account, { replace: true });
     } catch (submitError) {
-      const message = submitError instanceof Error
-        ? submitError.message
-        : "A bejelentkezés nem sikerült.";
+      const message = getErrorMessage(submitError, "A bejelentkezés nem sikerült.");
 
       if (message.toLocaleLowerCase("hu-HU").includes("meger")) {
         setShowResendConfirmation(true);
@@ -94,11 +93,7 @@ export default function LoginPage() {
       await resendEmailConfirmation({ email: email.trim() });
       setInfoMessage("Ha a fiók még megerősítésre vár, elküldtük az új megerősítő emailt.");
     } catch (resendError) {
-      setError(
-        resendError instanceof Error
-          ? resendError.message
-          : "A megerősítő email újraküldése nem sikerült.",
-      );
+      setError(getErrorMessage(resendError, "A megerősítő email újraküldése nem sikerült."));
     } finally {
       setIsResendingConfirmation(false);
     }

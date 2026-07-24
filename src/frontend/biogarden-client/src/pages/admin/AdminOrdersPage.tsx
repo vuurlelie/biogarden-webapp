@@ -16,6 +16,7 @@ import { getAdminOrders, updateAdminOrder } from "../../features/admin/api/admin
 import { getUnitLabel } from "../../features/products/utils/productLabels";
 import AdminPageHeader from "../../shared/components/admin/AdminPageHeader";
 import AdminPagination from "../../shared/components/admin/AdminPagination";
+import { getErrorMessage, isAbortError } from "../../shared/utils/errorHandling";
 
 const PAGE_SIZE = 12;
 
@@ -86,7 +87,7 @@ function OrderCard({
       onUpdated(updated);
       setEditing(false);
     } catch (saveError) {
-      setError(saveError instanceof Error ? saveError.message : "A módosítás nem sikerült.");
+      setError(getErrorMessage(saveError, "A módosítás nem sikerült."));
     } finally {
       setSaving(false);
     }
@@ -341,8 +342,8 @@ export default function AdminOrdersPage() {
     try {
       setOrders(await getAdminOrders(signal));
     } catch (loadError) {
-      if (!(loadError instanceof DOMException && loadError.name === "AbortError")) {
-        setError(loadError instanceof Error ? loadError.message : "A rendelések betöltése nem sikerült.");
+      if (!isAbortError(loadError)) {
+        setError(getErrorMessage(loadError, "A rendelések betöltése nem sikerült."));
       }
     } finally {
       if (!signal?.aborted) setLoading(false);

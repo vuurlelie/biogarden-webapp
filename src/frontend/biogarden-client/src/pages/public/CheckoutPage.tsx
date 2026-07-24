@@ -45,6 +45,7 @@ import {
 } from "../../features/checkout/utils/checkoutValidation";
 import { ROUTES } from "../../shared/constants/routes";
 import { useModalFocus } from "../../shared/hooks/useModalFocus";
+import { getErrorMessage, hasErrorStatus } from "../../shared/utils/errorHandling";
 
 export default function CheckoutPage() {
   const navigate = useNavigate();
@@ -129,7 +130,11 @@ export default function CheckoutPage() {
       })
       .catch((loadError) => {
         if (!ignore) {
-          setError(loadError instanceof Error ? loadError.message : "A fiókadatok betöltése nem sikerült.");
+          if (hasErrorStatus(loadError, 401)) {
+            navigate(ROUTES.login, { replace: true });
+            return;
+          }
+          setError(getErrorMessage(loadError, "A fiókadatok betöltése nem sikerült."));
         }
       })
       .finally(() => {
@@ -139,7 +144,7 @@ export default function CheckoutPage() {
     return () => {
       ignore = true;
     };
-  }, [authenticated, hasDraft]);
+  }, [authenticated, hasDraft, navigate]);
 
   useEffect(() => {
     if (!deliveryAllowed && method !== 0) setMethod(0);
@@ -281,7 +286,7 @@ export default function CheckoutPage() {
         });
       }
     } catch (validationError) {
-      setError(validationError instanceof Error ? validationError.message : "A kosár ellenőrzése nem sikerült.");
+      setError(getErrorMessage(validationError, "A kosár ellenőrzése nem sikerült."));
     } finally {
       setSubmitting(false);
     }
@@ -331,7 +336,7 @@ export default function CheckoutPage() {
       navigate(ROUTES.orderSuccess, { replace: true, state: { order } });
     } catch (submitError) {
       setShowReview(false);
-      setError(submitError instanceof Error ? submitError.message : "A rendelést nem sikerült elküldeni.");
+      setError(getErrorMessage(submitError, "A rendelést nem sikerült elküldeni."));
     } finally {
       setSubmitting(false);
     }
@@ -345,7 +350,7 @@ export default function CheckoutPage() {
       const checkout = await createSumUpCheckout(orderId);
       window.location.assign(checkout.url);
     } catch (retryError) {
-      setError(retryError instanceof Error ? retryError.message : "A fizetés újraindítása nem sikerült.");
+      setError(getErrorMessage(retryError, "A fizetés újraindítása nem sikerült."));
     } finally {
       setSubmitting(false);
     }

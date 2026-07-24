@@ -11,6 +11,7 @@ import {
 } from "../api/cartApi";
 import type { Cart } from "../types/cart.types";
 import { CartContext, type CartContextValue } from "./useCart";
+import { getErrorMessage } from "../../../shared/utils/errorHandling";
 
 export function CartProvider({ children }: { children: ReactNode }) {
   const [cart, setCart] = useState<Cart | null>(null);
@@ -22,8 +23,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     try {
       setCart(await operation());
     } catch (caughtError) {
-      const message = caughtError instanceof Error ? caughtError.message : "A kosár művelet nem sikerült.";
-      setError(message);
+      setError(getErrorMessage(caughtError, "A kosár művelet nem sikerült."));
       throw caughtError;
     }
   }, []);

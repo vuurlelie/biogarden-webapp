@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
   getOrders,
-  OrdersApiError,
 } from "../../features/account/api/ordersApi";
 import type { Order } from "../../features/account/types/order.types";
 import {
@@ -13,6 +12,7 @@ import {
   getPaymentStatusLabel,
 } from "../../features/account/utils/orderLabels";
 import { ROUTES } from "../../shared/constants/routes";
+import { getErrorMessage, hasErrorStatus } from "../../shared/utils/errorHandling";
 
 export default function AccountOrdersPage() {
   const navigate = useNavigate();
@@ -29,11 +29,11 @@ export default function AccountOrdersPage() {
         if (!shouldIgnoreResult) setOrders(loadedOrders);
       } catch (loadError) {
         if (shouldIgnoreResult) return;
-        if (loadError instanceof OrdersApiError && loadError.status === 401) {
+        if (hasErrorStatus(loadError, 401)) {
           navigate(ROUTES.login, { replace: true });
           return;
         }
-        setError(loadError instanceof Error ? loadError.message : "A rendelések betöltése nem sikerült.");
+        setError(getErrorMessage(loadError, "A rendelések betöltése nem sikerült."));
       } finally {
         if (!shouldIgnoreResult) setIsLoading(false);
       }

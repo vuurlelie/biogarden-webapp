@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import type { ProductCategory, ProductDetails, UnitOfMeasure } from "../../products/types/product.types";
 import { useModalFocus } from "../../../shared/hooks/useModalFocus";
+import { getErrorMessage } from "../../../shared/utils/errorHandling";
 import {
   createAdminProduct,
   deleteUnusedAdminProductImage,
@@ -190,7 +191,7 @@ export default function AdminProductFormModal({ product, onClose, onSaved }: Pro
           // The original save error is more useful to the administrator.
         }
       }
-      setError(saveError instanceof Error ? saveError.message : "A mentés nem sikerült.");
+      setError(getErrorMessage(saveError, "A mentés nem sikerült."));
     } finally {
       setSaving(false);
     }

@@ -13,6 +13,7 @@ import type { AdminUser, AdminUserErasureResult } from "../../features/admin/typ
 import { getAuthSession } from "../../features/auth/utils/authStorage";
 import AdminPageHeader from "../../shared/components/admin/AdminPageHeader";
 import AdminPagination from "../../shared/components/admin/AdminPagination";
+import { getErrorMessage, isAbortError } from "../../shared/utils/errorHandling";
 
 const PAGE_SIZE = 12;
 
@@ -49,7 +50,7 @@ function UserCard({ user, onUpdate, onErase, onMessage }: {
       onUpdate(updated);
       onMessage(message);
     } catch (actionError) {
-      setError(actionError instanceof Error ? actionError.message : "A művelet nem sikerült.");
+      setError(getErrorMessage(actionError, "A művelet nem sikerült."));
     } finally {
       setBusy(null);
     }
@@ -71,7 +72,7 @@ function UserCard({ user, onUpdate, onErase, onMessage }: {
       onErase(result);
       onMessage(result.message);
     } catch (actionError) {
-      setError(actionError instanceof Error ? actionError.message : "A művelet nem sikerült.");
+      setError(getErrorMessage(actionError, "A művelet nem sikerült."));
     } finally {
       setBusy(null);
     }
@@ -126,11 +127,13 @@ function UserCard({ user, onUpdate, onErase, onMessage }: {
                 type="button"
                 disabled={busy !== null}
                 onClick={() => {
+                  const pendingRequest = user.pendingRequest;
+                  if (!pendingRequest) return;
                   if (isCurrentUser) {
                     showSelfActionWarning();
                     return;
                   }
-                  void run("complete", () => completeErasureRequest(user.pendingRequest!.id, note.trim() || null), "A törlési kérelem feldolgozva.");
+                  void run("complete", () => completeErasureRequest(pendingRequest.id, note.trim() || null), "A törlési kérelem feldolgozva.");
                 }}
                 className="rounded-sm bg-site-green px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60"
               >
@@ -140,7 +143,11 @@ function UserCard({ user, onUpdate, onErase, onMessage }: {
             <button
               type="button"
               disabled={busy !== null}
-              onClick={() => void run("reject", () => rejectLifecycleRequest(user.pendingRequest!.id, note.trim() || null), "A kérelmet elutasítottad.")}
+              onClick={() => {
+                const pendingRequest = user.pendingRequest;
+                if (!pendingRequest) return;
+                void run("reject", () => rejectLifecycleRequest(pendingRequest.id, note.trim() || null), "A kérelmet elutasítottad.");
+              }}
               className="rounded-sm border border-site-border px-4 py-2.5 text-sm font-semibold disabled:opacity-60"
             >
               Elutasítás
@@ -234,8 +241,8 @@ export default function AdminAccountsPage() {
     try {
       setUsers(await getAdminUsers(signal));
     } catch (loadError) {
-      if (!(loadError instanceof DOMException && loadError.name === "AbortError")) {
-        setError(loadError instanceof Error ? loadError.message : "A felhasználók betöltése nem sikerült.");
+      if (!isAbortError(loadError)) {
+        setError(getErrorMessage(loadError, "A felhasználók betöltése nem sikerült."));
       }
     } finally {
       if (!signal?.aborted) setLoading(false);

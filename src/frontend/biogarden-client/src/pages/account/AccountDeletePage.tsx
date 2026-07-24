@@ -4,6 +4,7 @@ import { requestAccountLifecycle } from "../../features/account/api/profileApi";
 import type { AccountLifecycleRequestType } from "../../features/account/types/profile.types";
 import { clearAuthSession } from "../../features/auth/utils/authStorage";
 import { ROUTES } from "../../shared/constants/routes";
+import { getErrorMessage, hasErrorStatus } from "../../shared/utils/errorHandling";
 
 type ActionState = "idle" | "deactivation" | "erasure";
 
@@ -30,7 +31,12 @@ export default function AccountDeletePage() {
         window.setTimeout(() => navigate(ROUTES.home, { replace: true }), 1800);
       }
     } catch (submitError) {
-      setError(submitError instanceof Error ? submitError.message : "A kérelem elküldése nem sikerült.");
+      if (hasErrorStatus(submitError, 401)) {
+        clearAuthSession();
+        navigate(ROUTES.login, { replace: true });
+        return;
+      }
+      setError(getErrorMessage(submitError, "A kérelem elküldése nem sikerült."));
     } finally {
       setSaving("idle");
     }

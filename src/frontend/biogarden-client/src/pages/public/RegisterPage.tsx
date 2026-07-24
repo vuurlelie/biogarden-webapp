@@ -4,6 +4,7 @@ import { register } from "../../features/auth/api/authApi";
 import AddressFields from "../../features/account/components/AddressFields";
 import type { AddressFormData } from "../../features/account/types/address.types";
 import { ROUTES } from "../../shared/constants/routes";
+import { getErrorMessage } from "../../shared/utils/errorHandling";
 
 const PASSWORD_PATTERN = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/;
 type RegisterInvalidField =
@@ -158,11 +159,7 @@ export default function RegisterPage() {
         state: { registrationRequiresConfirmation: true },
       });
     } catch (submitError) {
-      setError(
-        submitError instanceof Error
-          ? submitError.message
-          : "A regisztráció nem sikerült.",
-      );
+      setError(getErrorMessage(submitError, "A regisztráció nem sikerült."));
     } finally {
       setIsSubmitting(false);
     }

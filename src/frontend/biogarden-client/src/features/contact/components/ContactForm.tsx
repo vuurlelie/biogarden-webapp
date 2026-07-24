@@ -1,6 +1,7 @@
 import { useRef, useState, type FormEvent } from "react";
 import { sendContactMessage } from "../api/contactApi";
 import { useAnalytics } from "../../analytics/context/AnalyticsContextCore";
+import { getErrorMessage } from "../../../shared/utils/errorHandling";
 
 const initialForm = {
   name: "",
@@ -83,11 +84,7 @@ export default function ContactForm({
       setSuccess("Köszönjük, megkaptuk az üzenetedet. Hamarosan válaszolunk.");
       setForm(initialForm);
     } catch (submitError) {
-      setError(
-        submitError instanceof Error
-          ? submitError.message
-          : "Az üzenet küldése nem sikerült. Kérjük, próbáld újra.",
-      );
+      setError(getErrorMessage(submitError, "Az üzenet küldése nem sikerült. Kérjük, próbáld újra."));
     } finally {
       setIsSubmitting(false);
     }

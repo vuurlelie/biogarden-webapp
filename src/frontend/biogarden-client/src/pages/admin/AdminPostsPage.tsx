@@ -7,6 +7,7 @@ import type { Post, PostCategory } from "../../features/posts/types/post.types";
 import AdminPageHeader from "../../shared/components/admin/AdminPageHeader";
 import AdminPagination from "../../shared/components/admin/AdminPagination";
 import { useModalFocus } from "../../shared/hooks/useModalFocus";
+import { getErrorMessage, isAbortError } from "../../shared/utils/errorHandling";
 import { getPostCategoryLabel } from "../../shared/utils/postCategory";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
@@ -77,8 +78,8 @@ export default function AdminPostsPage() {
       setTotalCount(result.totalCount);
       setTotalPages(result.totalPages);
     } catch (loadError) {
-      if (!(loadError instanceof DOMException && loadError.name === "AbortError")) {
-        setError(loadError instanceof Error ? loadError.message : "A bejegyzések betöltése nem sikerült.");
+      if (!isAbortError(loadError)) {
+        setError(getErrorMessage(loadError, "A bejegyzések betöltése nem sikerült."));
       }
     } finally {
       if (!signal?.aborted) setLoading(false);
@@ -115,7 +116,7 @@ export default function AdminPostsPage() {
       setMessage("A bejegyzés törlése sikerült.");
       await loadPosts();
     } catch (deleteError) {
-      setError(deleteError instanceof Error ? deleteError.message : "A törlés nem sikerült.");
+      setError(getErrorMessage(deleteError, "A törlés nem sikerült."));
       setDeletingPost(null);
     } finally {
       setDeleting(false);

@@ -2,6 +2,7 @@ import { useRef, useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
 import { forgotPassword } from "../../features/auth/api/authApi";
 import { ROUTES } from "../../shared/constants/routes";
+import { getErrorMessage } from "../../shared/utils/errorHandling";
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
@@ -29,11 +30,7 @@ export default function ForgotPasswordPage() {
       await forgotPassword({ email: email.trim() });
       setMessage("Ha létezik fiók ezzel az email címmel, elküldtük a jelszó-visszaállító linket.");
     } catch (submitError) {
-      setError(
-        submitError instanceof Error
-          ? submitError.message
-          : "A jelszó-visszaállító email küldése nem sikerült.",
-      );
+      setError(getErrorMessage(submitError, "A jelszó-visszaállító email küldése nem sikerült."));
     } finally {
       setIsSubmitting(false);
     }

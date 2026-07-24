@@ -9,6 +9,7 @@ import {
 import AdminPageHeader from "../../shared/components/admin/AdminPageHeader";
 import AdminPagination from "../../shared/components/admin/AdminPagination";
 import { useModalFocus } from "../../shared/hooks/useModalFocus";
+import { getErrorMessage, isAbortError } from "../../shared/utils/errorHandling";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 const PAGE_SIZE = 12;
@@ -63,8 +64,8 @@ export default function AdminProductsPage() {
       setTotalCount(result.totalCount);
       setTotalPages(result.totalPages);
     } catch (loadError) {
-      if (!(loadError instanceof DOMException && loadError.name === "AbortError")) {
-        setError(loadError instanceof Error ? loadError.message : "A termékek betöltése nem sikerült.");
+      if (!isAbortError(loadError)) {
+        setError(getErrorMessage(loadError, "A termékek betöltése nem sikerült."));
       }
     } finally {
       if (!signal?.aborted) setLoading(false);
@@ -101,7 +102,7 @@ export default function AdminProductsPage() {
       setMessage("A termék törlése sikerült.");
       await loadProducts();
     } catch (deleteError) {
-      setError(deleteError instanceof Error ? deleteError.message : "A törlés nem sikerült.");
+      setError(getErrorMessage(deleteError, "A törlés nem sikerült."));
       setDeletingProduct(null);
     } finally {
       setDeleting(false);

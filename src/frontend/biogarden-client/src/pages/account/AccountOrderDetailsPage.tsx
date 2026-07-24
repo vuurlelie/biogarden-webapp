@@ -3,7 +3,6 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import {
   cancelOrder,
   getOrderById,
-  OrdersApiError,
   requestOrderWithdrawal,
 } from "../../features/account/api/ordersApi";
 import type { Order } from "../../features/account/types/order.types";
@@ -16,6 +15,7 @@ import {
 } from "../../features/account/utils/orderLabels";
 import { ROUTES } from "../../shared/constants/routes";
 import { useModalFocus } from "../../shared/hooks/useModalFocus";
+import { getErrorMessage, hasErrorStatus } from "../../shared/utils/errorHandling";
 import NotFoundPage from "../public/NotFoundPage";
 
 export default function AccountOrderDetailsPage() {
@@ -53,7 +53,7 @@ export default function AccountOrderDetailsPage() {
       setWithdrawalReason("");
       setWithdrawalSuccess("A kérésedet rögzítettük, és emailben is visszaigazoltuk.");
     } catch (requestError) {
-      setError(requestError instanceof Error ? requestError.message : "A kérés elküldése nem sikerült.");
+      setError(getErrorMessage(requestError, "A kérés elküldése nem sikerült."));
     } finally {
       setIsRequestingWithdrawal(false);
     }
@@ -69,7 +69,7 @@ export default function AccountOrderDetailsPage() {
       setShowCancellation(false);
       setCancellationSuccess(`A(z) ${cancelledOrder.orderNumber} számú rendelést sikeresen lemondtad.`);
     } catch (cancelError) {
-      setError(cancelError instanceof Error ? cancelError.message : "A rendelés lemondása nem sikerült.");
+      setError(getErrorMessage(cancelError, "A rendelés lemondása nem sikerült."));
     } finally {
       setIsCancelling(false);
     }
@@ -90,17 +90,15 @@ export default function AccountOrderDetailsPage() {
         if (!shouldIgnoreResult) setOrder(loadedOrder);
       } catch (loadError) {
         if (shouldIgnoreResult) return;
-        if (loadError instanceof OrdersApiError) {
-          if (loadError.status === 401) {
-            navigate(ROUTES.login, { replace: true });
-            return;
-          }
-          if (loadError.status === 404) {
-            setNotFound(true);
-            return;
-          }
+        if (hasErrorStatus(loadError, 401)) {
+          navigate(ROUTES.login, { replace: true });
+          return;
         }
-        setError(loadError instanceof Error ? loadError.message : "A rendelés betöltése nem sikerült.");
+        if (hasErrorStatus(loadError, 404)) {
+          setNotFound(true);
+          return;
+        }
+        setError(getErrorMessage(loadError, "A rendelés betöltése nem sikerült."));
       } finally {
         if (!shouldIgnoreResult) setIsLoading(false);
       }
