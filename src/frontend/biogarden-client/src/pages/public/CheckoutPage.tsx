@@ -34,11 +34,14 @@ import {
   emptyBillingDraft,
   emptyCustomerDraft,
   emptyDeliveryDraft,
-  getOrCreateCheckoutIdempotencyKey,
   loadDraft,
 } from "../../features/checkout/utils/checkoutDraft";
 import { paymentLabel, PRICE } from "../../features/checkout/utils/checkoutFormatting";
-import { LEGAL_DOCUMENT_VERSIONS } from "../../shared/constants/legalDocuments";
+import { buildCheckoutOrderRequest } from "../../features/checkout/utils/checkoutOrderPayload";
+import {
+  isCheckoutFieldValid,
+  validateCheckoutFields,
+} from "../../features/checkout/utils/checkoutValidation";
 import { ROUTES } from "../../shared/constants/routes";
 import { useModalFocus } from "../../shared/hooks/useModalFocus";
 
@@ -164,22 +167,9 @@ export default function CheckoutPage() {
     const base = "mt-2 block w-full rounded-sm border px-3 py-2.5 disabled:cursor-default";
     if (fieldErrors[field]) return `${base} border-site-danger bg-white`;
 
-    const value = draft[field].trim();
-    const valid =
-      field === "customerName" ? value.length >= 2
-        : field === "customerEmail" ? /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)
-        : field === "customerPhone" ? value.replace(/\D/g, "").length >= 9
-        : field === "postalCode" || field === "deliveryPostalCode" ? /^\d{4}$/.test(value)
-        : field === "city" || field === "street" || field === "deliveryCity" || field === "deliveryStreet"
-          ? value.length >= 2
-        : field === "houseNumber" || field === "deliveryHouseNumber" ? value.length > 0
-        : field === "billingCompanyName"
-          ? value.length > 0 && /^\d{8}(-\d-\d{2})?$/.test(draft.billingTaxNumber.trim())
-        : field === "billingTaxNumber"
-          ? /^\d{8}(-\d-\d{2})?$/.test(value) && draft.billingCompanyName.trim().length > 0
-        : value.length > 0;
-
-    return valid ? `${base} border-site-green bg-site-surface-soft` : `${base} border-site-border bg-white`;
+    return isCheckoutFieldValid(field, draft)
+      ? `${base} border-site-green bg-site-surface-soft`
+      : `${base} border-site-border bg-white`;
   }
 
   function clearFieldErrors(fields: Array<keyof CheckoutFieldErrors>) {
@@ -250,61 +240,6 @@ export default function CheckoutPage() {
     ));
   }
 
-  function validateFields(): CheckoutFieldErrors {
-    const errors: CheckoutFieldErrors = {};
-
-    if (draft.customerName.trim().length < 2) {
-      errors.customerName = "A név megadása kötelező, legalább 2 karakterrel.";
-    }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(draft.customerEmail.trim())) {
-      errors.customerEmail = "Adj meg egy érvényes email címet.";
-    }
-    if (draft.customerPhone.replace(/\D/g, "").length < 9) {
-      errors.customerPhone = "Adj meg egy érvényes telefonszámot.";
-    }
-    if (effectiveCustomerType === 1) {
-    if (!/^\d{4}$/.test(draft.postalCode.trim())) {
-      errors.postalCode = "Az irányítószám 4 számjegyből álljon.";
-    }
-    if (draft.city.trim().length < 2) {
-      errors.city = "A település megadása kötelező.";
-    }
-    if (draft.street.trim().length < 2) {
-      errors.street = "A közterület megadása kötelező.";
-    }
-    if (!draft.houseNumber.trim()) {
-      errors.houseNumber = "A házszám megadása kötelező.";
-    }
-
-    const hasCompanyName = Boolean(draft.billingCompanyName.trim());
-    const hasTaxNumber = Boolean(draft.billingTaxNumber.trim());
-    if (hasCompanyName !== hasTaxNumber) {
-      errors.billingCompanyName = "Céges számlázáshoz a cégnév és az adószám együtt szükséges.";
-      errors.billingTaxNumber = "Céges számlázáshoz a cégnév és az adószám együtt szükséges.";
-    } else if (hasTaxNumber && !/^\d{8}(-\d-\d{2})?$/.test(draft.billingTaxNumber.trim())) {
-      errors.billingTaxNumber = "Hibás adószám. Példa: 12345678-1-12.";
-    }
-
-    }
-
-    if (method !== 0) {
-      if (!/^\d{4}$/.test(draft.deliveryPostalCode.trim())) {
-        errors.deliveryPostalCode = "Az irányítószám 4 számjegyből álljon.";
-      }
-      if (draft.deliveryCity.trim().length < 2) {
-        errors.deliveryCity = "A település megadása kötelező.";
-      }
-      if (draft.deliveryStreet.trim().length < 2) {
-        errors.deliveryStreet = "A közterület megadása kötelező.";
-      }
-      if (!draft.deliveryHouseNumber.trim()) {
-        errors.deliveryHouseNumber = "A házszám megadása kötelező.";
-      }
-    }
-
-    return errors;
-  }
-
   async function submit(event: FormEvent) {
     event.preventDefault();
     setError("");
@@ -314,7 +249,7 @@ export default function CheckoutPage() {
       return;
     }
 
-    const errors = validateFields();
+    const errors = validateCheckoutFields(draft, effectiveCustomerType, method);
     setFieldErrors(errors);
     if (Object.keys(errors).length) {
       setError("Ellenőrizd a pirossal jelölt mezőket.");
@@ -373,41 +308,7 @@ export default function CheckoutPage() {
     setError("");
 
     try {
-      const order = await createOrder({
-        idempotencyKey: getOrCreateCheckoutIdempotencyKey(),
-        fulfillmentMethod: method,
-        customerName: draft.customerName,
-        customerEmail: draft.customerEmail,
-        customerPhone: draft.customerPhone,
-        customerType: effectiveCustomerType,
-        addressId: null,
-        postalCode: effectiveCustomerType === 1 ? draft.postalCode : "",
-        city: effectiveCustomerType === 1 ? draft.city : "",
-        street: effectiveCustomerType === 1 ? draft.street : "",
-        houseNumber: effectiveCustomerType === 1 ? draft.houseNumber : "",
-        building: effectiveCustomerType === 1 ? draft.building : "",
-        floor: effectiveCustomerType === 1 ? draft.floor : "",
-        door: effectiveCustomerType === 1 ? draft.door : "",
-        doorbell: effectiveCustomerType === 1 ? draft.doorbell : "",
-        billingCompanyName: effectiveCustomerType === 1 ? draft.billingCompanyName : "",
-        billingTaxNumber: effectiveCustomerType === 1 ? draft.billingTaxNumber : "",
-        printedInvoiceRequested: effectiveCustomerType === 1 && draft.printedInvoiceRequested,
-        acceptedTermsVersion: LEGAL_DOCUMENT_VERSIONS.terms,
-        acceptedPrivacyPolicyVersion: LEGAL_DOCUMENT_VERSIONS.privacyPolicy,
-        deliveryAddressId: null,
-        ...(method !== 0
-          ? {
-              deliveryPostalCode: draft.deliveryPostalCode,
-              deliveryCity: draft.deliveryCity,
-              deliveryStreet: draft.deliveryStreet,
-              deliveryHouseNumber: draft.deliveryHouseNumber,
-              deliveryBuilding: draft.deliveryBuilding,
-              deliveryFloor: draft.deliveryFloor,
-              deliveryDoor: draft.deliveryDoor,
-              deliveryDoorbell: draft.deliveryDoorbell,
-            }
-          : {}),
-      });
+      const order = await createOrder(buildCheckoutOrderRequest(draft, effectiveCustomerType, method));
 
       track("order_submitted", {
         paymentMethod,

@@ -25,6 +25,38 @@ export type PublicOrderPaymentStatus = Pick<Order, "orderNumber" | "status" | "p
   orderId: string;
 };
 
+export type CreateOrderRequest = {
+  idempotencyKey: string;
+  addressId?: number | null;
+  deliveryAddressId?: number | null;
+  fulfillmentMethod: 0 | 1 | 2;
+  customerName?: string;
+  customerEmail?: string;
+  customerPhone?: string;
+  postalCode?: string;
+  city?: string;
+  street?: string;
+  houseNumber?: string;
+  building?: string;
+  floor?: string;
+  door?: string;
+  doorbell?: string;
+  billingCompanyName?: string;
+  billingTaxNumber?: string;
+  customerType?: 0 | 1;
+  printedInvoiceRequested?: boolean;
+  acceptedTermsVersion?: string;
+  acceptedPrivacyPolicyVersion?: string;
+  deliveryPostalCode?: string;
+  deliveryCity?: string;
+  deliveryStreet?: string;
+  deliveryHouseNumber?: string;
+  deliveryBuilding?: string;
+  deliveryFloor?: string;
+  deliveryDoor?: string;
+  deliveryDoorbell?: string;
+};
+
 const ORDERS_FALLBACK_MESSAGE = "A művelet nem sikerült. Kérjük, próbáld újra.";
 const toOrdersError = (message: string, status: number) => new OrdersApiError(message, status);
 
@@ -89,39 +121,7 @@ export async function requestPublicOrderWithdrawal(request: {
   return response.json() as Promise<Order["withdrawalRequests"][number]>;
 }
 
-export async function createOrder(
-  order: {
-    idempotencyKey: string;
-    addressId?: number | null;
-    deliveryAddressId?: number | null;
-    fulfillmentMethod: 0 | 1 | 2;
-    customerName?: string;
-    customerEmail?: string;
-    customerPhone?: string;
-    postalCode?: string;
-    city?: string;
-    street?: string;
-    houseNumber?: string;
-    building?: string;
-    floor?: string;
-    door?: string;
-    doorbell?: string;
-    billingCompanyName?: string;
-    billingTaxNumber?: string;
-    customerType?: 0 | 1;
-    printedInvoiceRequested?: boolean;
-    acceptedTermsVersion?: string;
-    acceptedPrivacyPolicyVersion?: string;
-    deliveryPostalCode?: string;
-    deliveryCity?: string;
-    deliveryStreet?: string;
-    deliveryHouseNumber?: string;
-    deliveryBuilding?: string;
-    deliveryFloor?: string;
-    deliveryDoor?: string;
-    deliveryDoorbell?: string;
-  },
-): Promise<Order> {
+export async function createOrder(order: CreateOrderRequest): Promise<Order> {
   const auth = getAuthSession();
 
   const response = await apiRequest("/api/orders", {
