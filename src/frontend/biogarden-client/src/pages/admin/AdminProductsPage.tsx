@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useEffect, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { deleteAdminProduct, getAdminProductPage } from "../../features/admin/api/adminProductsApi";
 import type { ProductCategory, ProductDetails } from "../../features/products/types/product.types";
 import {
@@ -12,7 +12,7 @@ import AdminListEmptyState from "../../shared/components/admin/AdminListEmptySta
 import AdminListSkeletonGrid from "../../shared/components/admin/AdminListSkeletonGrid";
 import AdminPageHeader from "../../shared/components/admin/AdminPageHeader";
 import AdminPagination from "../../shared/components/admin/AdminPagination";
-import { getErrorMessage, isAbortError } from "../../shared/utils/errorHandling";
+import { getErrorMessage } from "../../shared/utils/errorHandling";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 const PAGE_SIZE = 12;
@@ -39,8 +39,13 @@ export default function AdminProductsPage() {
   const [editingProduct, setEditingProduct] = useState<ProductDetails | null | undefined>(undefined);
   const [deletingProduct, setDeletingProduct] = useState<ProductDetails | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const latestLoadId = useRef(0);
 
-  const loadProducts = useCallback(async (signal?: AbortSignal) => {
+  const loadProducts = useCallback(async () => {
+    const loadId = latestLoadId.current + 1;
+    latestLoadId.current = loadId;
+    const isStaleLoad = () => latestLoadId.current !== loadId;
+
     setLoading(true);
     setError(null);
 
@@ -53,24 +58,23 @@ export default function AdminProductsPage() {
           category,
           availability,
         },
-        signal,
       );
+      if (isStaleLoad()) return;
+
       setProducts(result.items);
       setTotalCount(result.totalCount);
       setTotalPages(result.totalPages);
     } catch (loadError) {
-      if (!isAbortError(loadError)) {
-        setError(getErrorMessage(loadError, "A termékek betöltése nem sikerült."));
-      }
+      if (isStaleLoad()) return;
+
+      setError(getErrorMessage(loadError, "A termékek betöltése nem sikerült."));
     } finally {
-      if (!signal?.aborted) setLoading(false);
+      if (!isStaleLoad()) setLoading(false);
     }
   }, [availability, category, page, search]);
 
   useEffect(() => {
-    const controller = new AbortController();
-    void loadProducts(controller.signal);
-    return () => controller.abort();
+    void loadProducts();
   }, [loadProducts]);
 
   useEffect(() => {
