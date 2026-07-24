@@ -342,6 +342,57 @@ public sealed class EmailTemplateServiceTests
         Assert.Contains("mailto:info@bakonykincse.hu", message.HtmlBody);
     }
 
+    [Fact]
+    public void BuildOrderWithdrawalBusinessNotificationMessage_CreatesInternalRequestSummary()
+    {
+        var service = CreateOrderTemplateService();
+        var order = CreateOrderDto();
+        var request = CreateWithdrawalRequestDto(order);
+
+        var message = service.BuildOrderWithdrawalBusinessNotificationMessage(
+            "info@bakonykincse.hu",
+            order,
+            request);
+
+        Assert.Equal("info@bakonykincse.hu", message.To);
+        Assert.Contains("Elállási vagy fogyasztói kérés", message.Subject);
+        Assert.Contains(order.OrderNumber, message.Subject);
+        Assert.Contains("Új elállási vagy fogyasztói kérés érkezett.", message.PlainTextBody);
+        Assert.Contains($"Rendelésszám: {order.OrderNumber}", message.PlainTextBody);
+        Assert.Contains($"Vevő: {request.CustomerName}", message.PlainTextBody);
+        Assert.Contains($"Email: {request.CustomerEmail}", message.PlainTextBody);
+        Assert.Contains("Kérés ideje: 2026. 07. 24. 09:30", message.PlainTextBody);
+        Assert.Contains($"Üzenet: {request.Reason}", message.PlainTextBody);
+        Assert.Contains("https://bakonykincse.hu/admin", message.PlainTextBody);
+        Assert.Contains("href=\"https://bakonykincse.hu/admin\"", message.HtmlBody);
+        Assert.DoesNotContain("Üdvözlettel:", message.PlainTextBody);
+        Assert.DoesNotContain("https://bakonykincse.hu/logo.png", message.HtmlBody);
+    }
+
+    [Fact]
+    public void BuildOrderWithdrawalCustomerConfirmationMessage_CreatesCustomerConfirmation()
+    {
+        var service = CreateOrderTemplateService();
+        var order = CreateOrderDto();
+        var request = CreateWithdrawalRequestDto(order);
+
+        var message = service.BuildOrderWithdrawalCustomerConfirmationMessage(
+            "customer@example.com",
+            order,
+            request);
+
+        Assert.Equal("customer@example.com", message.To);
+        Assert.Contains("Megkaptuk a rendeléshez kapcsolódó kérésedet", message.Subject);
+        Assert.Contains(order.OrderNumber, message.Subject);
+        Assert.Contains($"Kedves {order.CustomerName}!", message.PlainTextBody);
+        Assert.Contains($"Megkaptuk a(z) {order.OrderNumber} számú rendeléshez kapcsolódó kérésedet.", message.PlainTextBody);
+        Assert.Contains($"Megadott üzenet: {request.Reason}", message.PlainTextBody);
+        Assert.Contains("nem jelenti automatikusan annak elfogadását", message.PlainTextBody);
+        Assert.Contains("Üdvözlettel:", message.PlainTextBody);
+        Assert.Contains("mailto:info@bakonykincse.hu", message.HtmlBody);
+        Assert.Contains("https://bakonykincse.hu/logo.png", message.HtmlBody);
+    }
+
     [Theory]
     [InlineData("password", "Jelszavad megváltozott")]
     [InlineData("deactivated", "Fiókod deaktiválva lett")]
@@ -426,6 +477,20 @@ public sealed class EmailTemplateServiceTests
                     LineTotal = 3600
                 }
             ]
+        };
+    }
+
+    private static OrderWithdrawalRequestDto CreateWithdrawalRequestDto(OrderDto order)
+    {
+        return new OrderWithdrawalRequestDto
+        {
+            Id = 4,
+            OrderId = order.Id,
+            CustomerName = order.CustomerName,
+            CustomerEmail = order.CustomerEmail,
+            Reason = "Szeretnék elállási kérelmet rögzíteni.",
+            Status = OrderWithdrawalRequestStatus.Pending,
+            RequestedAtUtc = new DateTime(2026, 7, 24, 9, 30, 0)
         };
     }
 }

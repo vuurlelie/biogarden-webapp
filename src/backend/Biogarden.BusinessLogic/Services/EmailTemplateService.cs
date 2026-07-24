@@ -52,13 +52,7 @@ public sealed class EmailTemplateService : IEmailTemplateService
             actionUrl: confirmationUrl,
             note: "Ha nem te kezdeményezted a regisztrációt, nincs további teendőd.");
 
-        return new EmailMessage
-        {
-            To = recipientEmail,
-            Subject = $"{title} - {_brandingOptions.CompanyName}",
-            PlainTextBody = plainTextBody,
-            HtmlBody = htmlBody
-        };
+        return CreateMessage(recipientEmail, BuildBrandedSubject(title), plainTextBody, htmlBody);
     }
 
     public EmailMessage BuildPasswordResetMessage(
@@ -95,85 +89,32 @@ public sealed class EmailTemplateService : IEmailTemplateService
             actionUrl: resetUrl,
             note: "Ha nem te kérted a jelszó visszaállítását, nincs további teendőd. A jelszavad nem változik meg.");
 
-        return new EmailMessage
-        {
-            To = recipientEmail,
-            Subject = $"{title} - {_brandingOptions.CompanyName}",
-            PlainTextBody = plainTextBody,
-            HtmlBody = htmlBody
-        };
+        return CreateMessage(recipientEmail, BuildBrandedSubject(title), plainTextBody, htmlBody);
     }
 
     public EmailMessage BuildPasswordChangedMessage(string recipientEmail)
     {
-        return BuildAccountNotificationMessage(
-            recipientEmail,
-            title: "Jelszavad megváltozott",
-            preheader: "Sikeresen megváltozott a Bakony Kincse Biokertészet fiókod jelszava.",
-            bodyLines:
-            [
-                "Ezúton jelezzük, hogy a Bakony Kincse Biokertészet fiókod jelszava sikeresen megváltozott.",
-                "Ha te végezted a műveletet, nincs további teendőd."
-            ],
-            note: "Ha nem te kezdeményezted a jelszóváltoztatást, kérj jelszó-visszaállítást, és minél előbb vedd fel velünk a kapcsolatot.");
+        return BuildAccountNotificationMessage(recipientEmail, BuildPasswordChangedContent());
     }
 
     public EmailMessage BuildAccountDeactivatedMessage(string recipientEmail)
     {
-        return BuildAccountNotificationMessage(
-            recipientEmail,
-            title: "Fiókod deaktiválva lett",
-            preheader: "A Bakony Kincse Biokertészet fiókod jelenleg nem aktív.",
-            bodyLines:
-            [
-                "A Bakony Kincse Biokertészet fiókod deaktiválva lett.",
-                "A fiókba jelenleg nem lehet bejelentkezni, de az adatok megmaradnak, ezért a fiók később újraaktiválható.",
-                "Ha folyamatban lévő rendelésed van, annak teljesítéséről továbbra is egyeztetünk."
-            ],
-            note: "Ha szeretnéd újraaktiválni a fiókodat, kérjük, vedd fel velünk a kapcsolatot.");
+        return BuildAccountNotificationMessage(recipientEmail, BuildAccountDeactivatedContent());
     }
 
     public EmailMessage BuildAccountReactivatedMessage(string recipientEmail)
     {
-        return BuildAccountNotificationMessage(
-            recipientEmail,
-            title: "Fiókod újra aktiválva lett",
-            preheader: "A Bakony Kincse Biokertészet fiókod újra használható.",
-            bodyLines:
-            [
-                "A Bakony Kincse Biokertészet fiókod újra aktiválva lett.",
-                "Mostantól ismét be tudsz jelentkezni a fiókodba.",
-                "A korábban mentett adataid a fiókodban ismét elérhetők."
-            ],
-            note: "Ha nem te kérted a fiók újraaktiválását, kérjük, jelezd felénk.");
+        return BuildAccountNotificationMessage(recipientEmail, BuildAccountReactivatedContent());
     }
 
     public EmailMessage BuildAccountDeletedMessage(string recipientEmail)
     {
-        return BuildAccountNotificationMessage(
-            recipientEmail,
-            title: "Fiókod törölve lett",
-            preheader: "A Bakony Kincse Biokertészet fiókod és mentett személyes adataid törlésre kerültek.",
-            bodyLines:
-            [
-                "A Bakony Kincse Biokertészet fiókod törlésre került.",
-                "Mivel nem tartozott hozzá rendelési előzmény, a fiókot és a mentett személyes adatokat töröltük."
-            ],
-            note: "Ha kérdésed van a törléssel kapcsolatban, kérjük, vedd fel velünk a kapcsolatot.");
+        return BuildAccountNotificationMessage(recipientEmail, BuildAccountDeletedContent());
     }
 
     public EmailMessage BuildAccountAnonymizedMessage(string recipientEmail)
     {
-        return BuildAccountNotificationMessage(
-            recipientEmail,
-            title: "Fiókadataid anonimizálva lettek",
-            preheader: "A Bakony Kincse Biokertészet fiókod mentett személyes adatait anonimizáltuk.",
-            bodyLines:
-            [
-                "A Bakony Kincse Biokertészet fiókod mentett személyes adatait anonimizáltuk.",
-                "A korábbi rendelési és számlázási adatok a jogszabályi megőrzési kötelezettségek miatt megmaradnak."
-            ],
-            note: "Az anonimizált fiók már nem használható bejelentkezésre.");
+        return BuildAccountNotificationMessage(recipientEmail, BuildAccountAnonymizedContent());
     }
 
     public EmailMessage BuildContactBusinessNotificationMessage(
@@ -184,42 +125,19 @@ public sealed class EmailTemplateService : IEmailTemplateService
             ? "Új kapcsolatfelvételi üzenet"
             : $"Új kapcsolatfelvételi üzenet: {request.Subject}";
 
-        var plainTextBody = $"""
-            Új üzenet érkezett a weboldal Kapcsolat űrlapjáról.
-
-            Név: {request.Name}
-            Email: {request.Email}
-            Telefon: {request.Phone ?? "Nincs megadva"}
-            Tárgy: {request.Subject ?? "Nincs megadva"}
-
-            Üzenet:
-            {request.Message}
-            """;
+        var bodyLines = BuildContactBusinessBodyLines(request);
+        var plainTextBody = BuildContactBusinessPlainTextBody(request);
 
         var htmlBody = BuildInternalHtmlBody(
             title: "Új kapcsolatfelvételi üzenet",
             preheader: $"Új üzenet érkezett: {request.Name}",
             greeting: "Új üzenet érkezett",
-            bodyParagraphs:
-            [
-                "A weboldal Kapcsolat űrlapján keresztül új megkeresés érkezett.",
-                $"Név: {request.Name}",
-                $"Email: {request.Email}",
-                $"Telefon: {request.Phone ?? "Nincs megadva"}",
-                $"Tárgy: {request.Subject ?? "Nincs megadva"}",
-                $"Üzenet: {request.Message}"
-            ],
+            bodyParagraphs: bodyLines,
             actionText: "Válasz emailben",
             actionUrl: $"mailto:{request.Email}",
             note: "A válaszhoz használd a megadott email címet, vagy keresd a látogatót telefonon, ha adott meg telefonszámot.");
 
-        return new EmailMessage
-        {
-            To = recipientEmail,
-            Subject = $"{subject} - {_brandingOptions.CompanyName}",
-            PlainTextBody = plainTextBody,
-            HtmlBody = htmlBody
-        };
+        return CreateMessage(recipientEmail, BuildBrandedSubject(subject), plainTextBody, htmlBody);
     }
 
     public EmailMessage BuildContactVisitorConfirmationMessage(
@@ -228,66 +146,25 @@ public sealed class EmailTemplateService : IEmailTemplateService
     {
         const string title = "Megkaptuk az üzenetedet";
         var submittedDetails = FormatContactSubmittedDetails(request);
-
-        var plainTextBody = $"""
-            Kedves {request.Name}!
-
-            Köszönjük, hogy írtál nekünk. Megkaptuk az üzenetedet, és hamarosan válaszolunk a megadott elérhetőségeden.
-
-            {submittedDetails}
-
-            Az elküldött üzeneted:
-            {request.Message}
-
-            Üdvözlettel:
-            {_brandingOptions.CompanyName}
-
-            {_brandingOptions.ContactEmail}
-            {_brandingOptions.PhoneNumber}
-            {_brandingOptions.Address}
-            {_brandingOptions.WebsiteUrl}
-            """;
+        var bodyLines = BuildContactVisitorBodyLines(request, submittedDetails);
+        var plainTextBody = BuildContactVisitorPlainTextBody(request, submittedDetails);
 
         var htmlBody = BuildHtmlBody(
             title: title,
             preheader: "Köszönjük a megkeresést, hamarosan válaszolunk.",
             greeting: $"Kedves {request.Name}!",
-            bodyParagraphs:
-            [
-                "Köszönjük, hogy írtál nekünk. Megkaptuk az üzenetedet, és hamarosan válaszolunk a megadott elérhetőségeden.",
-                submittedDetails,
-                $"Az elküldött üzeneted: {request.Message}"
-            ],
+            bodyParagraphs: bodyLines,
             actionText: "Weboldal megnyitása",
             actionUrl: _brandingOptions.WebsiteUrl,
             note: "Ez egy automatikus visszaigazolás, válaszolnod nem szükséges.");
 
-        return new EmailMessage
-        {
-            To = recipientEmail,
-            Subject = $"{title} - {_brandingOptions.CompanyName}",
-            PlainTextBody = plainTextBody,
-            HtmlBody = htmlBody
-        };
+        return CreateMessage(recipientEmail, BuildBrandedSubject(title), plainTextBody, htmlBody);
     }
 
     public EmailMessage BuildOrderConfirmationMessage(string recipientEmail, OrderDto order)
     {
         const string title = "Rendelésedet megkaptuk";
-
-        var bodyLines = new[]
-        {
-            "Köszönjük a rendelésedet. A rendelésedet megkaptuk, feldolgozása hamarosan megkezdődik.",
-            $"Rendelésszám: {order.OrderNumber}",
-            $"Rendelés állapota: {FormatOrderStatus(order.Status)}",
-            $"Fizetés állapota: {FormatPaymentStatus(order.PaymentStatus)}",
-            $"Átvétel módja: {FormatFulfillmentMethod(order.FulfillmentMethod)}",
-            FormatCustomerDetails(order),
-            FormatCustomerBillingDocumentDetails(order),
-            FormatDeliveryDetails(order),
-            $"Végösszeg: {FormatPrice(order.TotalPrice)}",
-            FormatOrderItemsList(order)
-        };
+        var bodyLines = BuildOrderConfirmationBodyLines(order);
 
         var plainTextBody = BuildPlainTextBody(
             greeting: "Kedves Felhasználónk!",
@@ -305,29 +182,13 @@ public sealed class EmailTemplateService : IEmailTemplateService
             actionUrl: _brandingOptions.WebsiteUrl,
             note: "A rendelés feldolgozásáról és állapotváltozásairól emailben értesítünk.");
 
-        return new EmailMessage
-        {
-            To = recipientEmail,
-            Subject = $"{title} - {_brandingOptions.CompanyName}",
-            PlainTextBody = plainTextBody,
-            HtmlBody = htmlBody
-        };
+        return CreateMessage(recipientEmail, BuildBrandedSubject(title), plainTextBody, htmlBody);
     }
 
     public EmailMessage BuildOrderBusinessNotificationMessage(string recipientEmail, OrderDto order)
     {
         var adminUrl = BuildAdminDashboardUrl();
-        var bodyLines = new[]
-        {
-            "Új rendelés érkezett a weboldalon.",
-            "A rendelést az admin felületen tudod feldolgozni.",
-            $"Rendelésszám: {order.OrderNumber}",
-            FormatCustomerDetails(order),
-            FormatAdminBillingDocumentDetails(order),
-            $"Átvétel módja: {FormatFulfillmentMethod(order.FulfillmentMethod)}",
-            $"Végösszeg: {FormatPrice(order.TotalPrice)}",
-            FormatOrderItemsList(order)
-        };
+        var bodyLines = BuildOrderBusinessBodyLines(order);
 
         var plainTextBody = BuildInternalPlainTextBody(
             greeting: "Új rendelés érkezett",
@@ -345,27 +206,17 @@ public sealed class EmailTemplateService : IEmailTemplateService
             actionUrl: adminUrl,
             note: "Ha a gomb nem működik, használd a fenti admin linket.");
 
-        return new EmailMessage
-        {
-            To = recipientEmail,
-            Subject = $"Új rendelés érkezett - {_brandingOptions.CompanyName}",
-            PlainTextBody = plainTextBody,
-            HtmlBody = htmlBody
-        };
+        return CreateMessage(
+            recipientEmail,
+            BuildBrandedSubject("Új rendelés érkezett"),
+            plainTextBody,
+            htmlBody);
     }
 
     public EmailMessage BuildOrderStatusChangedMessage(string recipientEmail, OrderDto order)
     {
         const string title = "Rendelésed állapota frissült";
-
-        var bodyLines = new[]
-        {
-            $"A rendelésed állapota megváltozott: {FormatOrderStatus(order.Status)}.",
-            $"Rendelésszám: {order.OrderNumber}",
-            $"Fizetés állapota: {FormatPaymentStatus(order.PaymentStatus)}",
-            $"Átvétel módja: {FormatFulfillmentMethod(order.FulfillmentMethod)}",
-            $"Végösszeg: {FormatPrice(order.TotalPrice)}"
-        };
+        var bodyLines = BuildOrderStatusChangedBodyLines(order);
 
         var plainTextBody = BuildPlainTextBody(
             greeting: "Kedves Felhasználónk!",
@@ -383,13 +234,7 @@ public sealed class EmailTemplateService : IEmailTemplateService
             actionUrl: $"mailto:{_brandingOptions.ContactEmail}",
             note: "Ha kérdésed van a rendeléseddel kapcsolatban, válaszolj erre az emailre vagy vedd fel velünk a kapcsolatot.");
 
-        return new EmailMessage
-        {
-            To = recipientEmail,
-            Subject = $"{title} - {_brandingOptions.CompanyName}",
-            PlainTextBody = plainTextBody,
-            HtmlBody = htmlBody
-        };
+        return CreateMessage(recipientEmail, BuildBrandedSubject(title), plainTextBody, htmlBody);
     }
 
     public EmailMessage BuildOrderWithdrawalBusinessNotificationMessage(
@@ -398,35 +243,25 @@ public sealed class EmailTemplateService : IEmailTemplateService
         OrderWithdrawalRequestDto request)
     {
         var adminUrl = BuildAdminDashboardUrl();
-        var bodyLines = new[]
-        {
-            "Új elállási vagy fogyasztói kérés érkezett.",
-            $"Rendelésszám: {order.OrderNumber}",
-            $"Vevő: {request.CustomerName}",
-            $"Email: {request.CustomerEmail}",
-            $"Kérés ideje: {request.RequestedAtUtc:yyyy. MM. dd. HH:mm}",
-            $"Üzenet: {request.Reason}"
-        };
+        var bodyLines = BuildWithdrawalBusinessBodyLines(order, request);
 
-        return new EmailMessage
-        {
-            To = recipientEmail,
-            Subject = $"Elállási vagy fogyasztói kérés - {order.OrderNumber} - {_brandingOptions.CompanyName}",
-            PlainTextBody = BuildPlainTextBody(
+        return CreateMessage(
+            recipientEmail,
+            BuildBrandedSubject($"Elállási vagy fogyasztói kérés - {order.OrderNumber}"),
+            BuildInternalPlainTextBody(
                 greeting: "Új kérés érkezett",
                 bodyLines: bodyLines,
                 actionText: "Admin felület megnyitása",
                 actionUrl: adminUrl,
                 note: "A kérést az admin felületen, a rendelés részleteinél látod."),
-            HtmlBody = BuildInternalHtmlBody(
+            BuildInternalHtmlBody(
                 title: "Új elállási vagy fogyasztói kérés",
                 preheader: $"Új kérés érkezett: {order.OrderNumber}.",
                 greeting: "Új kérés érkezett",
                 bodyParagraphs: bodyLines,
                 actionText: "Admin felület megnyitása",
                 actionUrl: adminUrl,
-                note: "A kérést az admin felületen, a rendelés részleteinél látod.")
-        };
+                note: "A kérést az admin felületen, a rendelés részleteinél látod."));
     }
 
     public EmailMessage BuildOrderWithdrawalCustomerConfirmationMessage(
@@ -434,32 +269,25 @@ public sealed class EmailTemplateService : IEmailTemplateService
         OrderDto order,
         OrderWithdrawalRequestDto request)
     {
-        var bodyLines = new[]
-        {
-            $"Megkaptuk a(z) {order.OrderNumber} számú rendeléshez kapcsolódó kérésedet.",
-            "A kérésedet rögzítettük, és a feldolgozásáról a megadott elérhetőségen egyeztetünk.",
-            $"Megadott üzenet: {request.Reason}"
-        };
+        var bodyLines = BuildWithdrawalCustomerBodyLines(order, request);
 
-        return new EmailMessage
-        {
-            To = recipientEmail,
-            Subject = $"Megkaptuk a rendeléshez kapcsolódó kérésedet - {order.OrderNumber} - {_brandingOptions.CompanyName}",
-            PlainTextBody = BuildPlainTextBody(
+        return CreateMessage(
+            recipientEmail,
+            BuildBrandedSubject($"Megkaptuk a rendeléshez kapcsolódó kérésedet - {order.OrderNumber}"),
+            BuildPlainTextBody(
                 greeting: $"Kedves {order.CustomerName}!",
                 bodyLines: bodyLines,
                 actionText: "Kapcsolat",
                 actionUrl: $"mailto:{_brandingOptions.ContactEmail}",
                 note: "Ez az email a kérés rögzítését igazolja, nem jelenti automatikusan annak elfogadását."),
-            HtmlBody = BuildHtmlBody(
+            BuildHtmlBody(
                 title: "Megkaptuk a kérésedet",
                 preheader: $"Rögzítettük a(z) {order.OrderNumber} rendeléshez kapcsolódó kérésedet.",
                 greeting: $"Kedves {order.CustomerName}!",
                 bodyParagraphs: bodyLines,
                 actionText: "Kapcsolat",
                 actionUrl: $"mailto:{_brandingOptions.ContactEmail}",
-                note: "Ez az email a kérés rögzítését igazolja, nem jelenti automatikusan annak elfogadását.")
-        };
+                note: "Ez az email a kérés rögzítését igazolja, nem jelenti automatikusan annak elfogadását."));
     }
 
     private string BuildPlainTextBody(
@@ -516,37 +344,107 @@ public sealed class EmailTemplateService : IEmailTemplateService
             """;
     }
 
+    private static AccountNotificationContent BuildPasswordChangedContent() =>
+        new(
+            Title: "Jelszavad megváltozott",
+            Preheader: "Sikeresen megváltozott a Bakony Kincse Biokertészet fiókod jelszava.",
+            BodyLines:
+            [
+                "Ezúton jelezzük, hogy a Bakony Kincse Biokertészet fiókod jelszava sikeresen megváltozott.",
+                "Ha te végezted a műveletet, nincs további teendőd."
+            ],
+            Note: "Ha nem te kezdeményezted a jelszóváltoztatást, kérj jelszó-visszaállítást, és minél előbb vedd fel velünk a kapcsolatot.");
+
+    private static AccountNotificationContent BuildAccountDeactivatedContent() =>
+        new(
+            Title: "Fiókod deaktiválva lett",
+            Preheader: "A Bakony Kincse Biokertészet fiókod jelenleg nem aktív.",
+            BodyLines:
+            [
+                "A Bakony Kincse Biokertészet fiókod deaktiválva lett.",
+                "A fiókba jelenleg nem lehet bejelentkezni, de az adatok megmaradnak, ezért a fiók később újraaktiválható.",
+                "Ha folyamatban lévő rendelésed van, annak teljesítéséről továbbra is egyeztetünk."
+            ],
+            Note: "Ha szeretnéd újraaktiválni a fiókodat, kérjük, vedd fel velünk a kapcsolatot.");
+
+    private static AccountNotificationContent BuildAccountReactivatedContent() =>
+        new(
+            Title: "Fiókod újra aktiválva lett",
+            Preheader: "A Bakony Kincse Biokertészet fiókod újra használható.",
+            BodyLines:
+            [
+                "A Bakony Kincse Biokertészet fiókod újra aktiválva lett.",
+                "Mostantól ismét be tudsz jelentkezni a fiókodba.",
+                "A korábban mentett adataid a fiókodban ismét elérhetők."
+            ],
+            Note: "Ha nem te kérted a fiók újraaktiválását, kérjük, jelezd felénk.");
+
+    private static AccountNotificationContent BuildAccountDeletedContent() =>
+        new(
+            Title: "Fiókod törölve lett",
+            Preheader: "A Bakony Kincse Biokertészet fiókod és mentett személyes adataid törlésre kerültek.",
+            BodyLines:
+            [
+                "A Bakony Kincse Biokertészet fiókod törlésre került.",
+                "Mivel nem tartozott hozzá rendelési előzmény, a fiókot és a mentett személyes adatokat töröltük."
+            ],
+            Note: "Ha kérdésed van a törléssel kapcsolatban, kérjük, vedd fel velünk a kapcsolatot.");
+
+    private static AccountNotificationContent BuildAccountAnonymizedContent() =>
+        new(
+            Title: "Fiókadataid anonimizálva lettek",
+            Preheader: "A Bakony Kincse Biokertészet fiókod mentett személyes adatait anonimizáltuk.",
+            BodyLines:
+            [
+                "A Bakony Kincse Biokertészet fiókod mentett személyes adatait anonimizáltuk.",
+                "A korábbi rendelési és számlázási adatok a jogszabályi megőrzési kötelezettségek miatt megmaradnak."
+            ],
+            Note: "Az anonimizált fiók már nem használható bejelentkezésre.");
+
     private EmailMessage BuildAccountNotificationMessage(
         string recipientEmail,
-        string title,
-        string preheader,
-        IReadOnlyList<string> bodyLines,
-        string note)
+        AccountNotificationContent content)
     {
         var plainTextBody = BuildPlainTextBody(
             greeting: "Kedves Felhasználónk!",
-            bodyLines: bodyLines,
+            bodyLines: content.BodyLines,
             actionText: "Kapcsolat",
             actionUrl: $"mailto:{_brandingOptions.ContactEmail}",
-            note: note);
+            note: content.Note);
 
         var htmlBody = BuildHtmlBody(
-            title: title,
-            preheader: preheader,
+            title: content.Title,
+            preheader: content.Preheader,
             greeting: "Kedves Felhasználónk!",
-            bodyParagraphs: bodyLines,
+            bodyParagraphs: content.BodyLines,
             actionText: "Kapcsolatfelvétel",
             actionUrl: $"mailto:{_brandingOptions.ContactEmail}",
-            note: note);
+            note: content.Note);
 
-        return new EmailMessage
+        return CreateMessage(recipientEmail, BuildBrandedSubject(content.Title), plainTextBody, htmlBody);
+    }
+
+    private sealed record AccountNotificationContent(
+        string Title,
+        string Preheader,
+        IReadOnlyList<string> BodyLines,
+        string Note);
+
+    private EmailMessage CreateMessage(
+        string recipientEmail,
+        string subject,
+        string plainTextBody,
+        string htmlBody) =>
+        new()
         {
             To = recipientEmail,
-            Subject = $"{title} - {_brandingOptions.CompanyName}",
+            Subject = subject,
             PlainTextBody = plainTextBody,
             HtmlBody = htmlBody
         };
-    }
+
+    private string BuildBrandedSubject(string subject) =>
+        $"{subject} - {_brandingOptions.CompanyName}";
 
     private string BuildHtmlBody(
         string title,
@@ -713,6 +611,116 @@ public sealed class EmailTemplateService : IEmailTemplateService
     {
         return $"{_brandingOptions.WebsiteUrl.TrimEnd('/')}/admin";
     }
+
+    private static IReadOnlyList<string> BuildContactBusinessBodyLines(ContactMessageRequestDto request) =>
+    [
+        "A weboldal Kapcsolat űrlapján keresztül új megkeresés érkezett.",
+        $"Név: {request.Name}",
+        $"Email: {request.Email}",
+        $"Telefon: {request.Phone ?? "Nincs megadva"}",
+        $"Tárgy: {request.Subject ?? "Nincs megadva"}",
+        $"Üzenet: {request.Message}"
+    ];
+
+    private static string BuildContactBusinessPlainTextBody(ContactMessageRequestDto request) =>
+        $"""
+        Új üzenet érkezett a weboldal Kapcsolat űrlapjáról.
+
+        Név: {request.Name}
+        Email: {request.Email}
+        Telefon: {request.Phone ?? "Nincs megadva"}
+        Tárgy: {request.Subject ?? "Nincs megadva"}
+
+        Üzenet:
+        {request.Message}
+        """;
+
+    private static IReadOnlyList<string> BuildContactVisitorBodyLines(
+        ContactMessageRequestDto request,
+        string submittedDetails) =>
+    [
+        "Köszönjük, hogy írtál nekünk. Megkaptuk az üzenetedet, és hamarosan válaszolunk a megadott elérhetőségeden.",
+        submittedDetails,
+        $"Az elküldött üzeneted: {request.Message}"
+    ];
+
+    private string BuildContactVisitorPlainTextBody(
+        ContactMessageRequestDto request,
+        string submittedDetails) =>
+        $"""
+        Kedves {request.Name}!
+
+        Köszönjük, hogy írtál nekünk. Megkaptuk az üzenetedet, és hamarosan válaszolunk a megadott elérhetőségeden.
+
+        {submittedDetails}
+
+        Az elküldött üzeneted:
+        {request.Message}
+
+        Üdvözlettel:
+        {_brandingOptions.CompanyName}
+
+        {_brandingOptions.ContactEmail}
+        {_brandingOptions.PhoneNumber}
+        {_brandingOptions.Address}
+        {_brandingOptions.WebsiteUrl}
+        """;
+
+    private static IReadOnlyList<string> BuildOrderConfirmationBodyLines(OrderDto order) =>
+    [
+        "Köszönjük a rendelésedet. A rendelésedet megkaptuk, feldolgozása hamarosan megkezdődik.",
+        $"Rendelésszám: {order.OrderNumber}",
+        $"Rendelés állapota: {FormatOrderStatus(order.Status)}",
+        $"Fizetés állapota: {FormatPaymentStatus(order.PaymentStatus)}",
+        $"Átvétel módja: {FormatFulfillmentMethod(order.FulfillmentMethod)}",
+        FormatCustomerDetails(order),
+        FormatCustomerBillingDocumentDetails(order),
+        FormatDeliveryDetails(order),
+        $"Végösszeg: {FormatPrice(order.TotalPrice)}",
+        FormatOrderItemsList(order)
+    ];
+
+    private static IReadOnlyList<string> BuildOrderBusinessBodyLines(OrderDto order) =>
+    [
+        "Új rendelés érkezett a weboldalon.",
+        "A rendelést az admin felületen tudod feldolgozni.",
+        $"Rendelésszám: {order.OrderNumber}",
+        FormatCustomerDetails(order),
+        FormatAdminBillingDocumentDetails(order),
+        $"Átvétel módja: {FormatFulfillmentMethod(order.FulfillmentMethod)}",
+        $"Végösszeg: {FormatPrice(order.TotalPrice)}",
+        FormatOrderItemsList(order)
+    ];
+
+    private static IReadOnlyList<string> BuildOrderStatusChangedBodyLines(OrderDto order) =>
+    [
+        $"A rendelésed állapota megváltozott: {FormatOrderStatus(order.Status)}.",
+        $"Rendelésszám: {order.OrderNumber}",
+        $"Fizetés állapota: {FormatPaymentStatus(order.PaymentStatus)}",
+        $"Átvétel módja: {FormatFulfillmentMethod(order.FulfillmentMethod)}",
+        $"Végösszeg: {FormatPrice(order.TotalPrice)}"
+    ];
+
+    private static IReadOnlyList<string> BuildWithdrawalBusinessBodyLines(
+        OrderDto order,
+        OrderWithdrawalRequestDto request) =>
+    [
+        "Új elállási vagy fogyasztói kérés érkezett.",
+        $"Rendelésszám: {order.OrderNumber}",
+        $"Vevő: {request.CustomerName}",
+        $"Email: {request.CustomerEmail}",
+        $"Kérés ideje: {request.RequestedAtUtc:yyyy. MM. dd. HH:mm}",
+        $"Üzenet: {request.Reason}"
+    ];
+
+    private static IReadOnlyList<string> BuildWithdrawalCustomerBodyLines(
+        OrderDto order,
+        OrderWithdrawalRequestDto request) =>
+    [
+        $"Megkaptuk a(z) {order.OrderNumber} számú rendeléshez kapcsolódó kérésedet.",
+        "A kérésedet rögzítettük, és a feldolgozásáról a megadott elérhetőségen egyeztetünk.",
+        $"Megadott üzenet: {request.Reason}"
+    ];
 
     private static string FormatCustomerDetails(OrderDto order)
     {
