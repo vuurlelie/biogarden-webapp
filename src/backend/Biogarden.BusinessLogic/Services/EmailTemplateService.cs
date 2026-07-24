@@ -248,7 +248,7 @@ public sealed class EmailTemplateService : IEmailTemplateService
         return CreateMessage(
             recipientEmail,
             BuildBrandedSubject($"Elállási vagy fogyasztói kérés - {order.OrderNumber}"),
-            BuildPlainTextBody(
+            BuildInternalPlainTextBody(
                 greeting: "Új kérés érkezett",
                 bodyLines: bodyLines,
                 actionText: "Admin felület megnyitása",
