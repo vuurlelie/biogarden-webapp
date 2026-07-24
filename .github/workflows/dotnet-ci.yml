@@ -24,7 +24,7 @@ jobs:
           dotnet-version: 9.0.x
 
       - name: Restore dependencies
-        run: dotnet restore ./src/backend/Biogarden.sln
+        run: dotnet restore ./src/backend/Biogarden.sln --locked-mode
 
       - name: Audit backend dependencies
         run: dotnet list ./src/backend/Biogarden.sln package --vulnerable --include-transitive
