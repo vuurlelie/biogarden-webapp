@@ -250,20 +250,7 @@ public sealed class EmailTemplateService : IEmailTemplateService
     public EmailMessage BuildOrderConfirmationMessage(string recipientEmail, OrderDto order)
     {
         const string title = "Rendelésedet megkaptuk";
-
-        var bodyLines = new[]
-        {
-            "Köszönjük a rendelésedet. A rendelésedet megkaptuk, feldolgozása hamarosan megkezdődik.",
-            $"Rendelésszám: {order.OrderNumber}",
-            $"Rendelés állapota: {FormatOrderStatus(order.Status)}",
-            $"Fizetés állapota: {FormatPaymentStatus(order.PaymentStatus)}",
-            $"Átvétel módja: {FormatFulfillmentMethod(order.FulfillmentMethod)}",
-            FormatCustomerDetails(order),
-            FormatCustomerBillingDocumentDetails(order),
-            FormatDeliveryDetails(order),
-            $"Végösszeg: {FormatPrice(order.TotalPrice)}",
-            FormatOrderItemsList(order)
-        };
+        var bodyLines = BuildOrderConfirmationBodyLines(order);
 
         var plainTextBody = BuildPlainTextBody(
             greeting: "Kedves Felhasználónk!",
@@ -287,17 +274,7 @@ public sealed class EmailTemplateService : IEmailTemplateService
     public EmailMessage BuildOrderBusinessNotificationMessage(string recipientEmail, OrderDto order)
     {
         var adminUrl = BuildAdminDashboardUrl();
-        var bodyLines = new[]
-        {
-            "Új rendelés érkezett a weboldalon.",
-            "A rendelést az admin felületen tudod feldolgozni.",
-            $"Rendelésszám: {order.OrderNumber}",
-            FormatCustomerDetails(order),
-            FormatAdminBillingDocumentDetails(order),
-            $"Átvétel módja: {FormatFulfillmentMethod(order.FulfillmentMethod)}",
-            $"Végösszeg: {FormatPrice(order.TotalPrice)}",
-            FormatOrderItemsList(order)
-        };
+        var bodyLines = BuildOrderBusinessBodyLines(order);
 
         var plainTextBody = BuildInternalPlainTextBody(
             greeting: "Új rendelés érkezett",
@@ -325,15 +302,7 @@ public sealed class EmailTemplateService : IEmailTemplateService
     public EmailMessage BuildOrderStatusChangedMessage(string recipientEmail, OrderDto order)
     {
         const string title = "Rendelésed állapota frissült";
-
-        var bodyLines = new[]
-        {
-            $"A rendelésed állapota megváltozott: {FormatOrderStatus(order.Status)}.",
-            $"Rendelésszám: {order.OrderNumber}",
-            $"Fizetés állapota: {FormatPaymentStatus(order.PaymentStatus)}",
-            $"Átvétel módja: {FormatFulfillmentMethod(order.FulfillmentMethod)}",
-            $"Végösszeg: {FormatPrice(order.TotalPrice)}"
-        };
+        var bodyLines = BuildOrderStatusChangedBodyLines(order);
 
         var plainTextBody = BuildPlainTextBody(
             greeting: "Kedves Felhasználónk!",
@@ -360,15 +329,7 @@ public sealed class EmailTemplateService : IEmailTemplateService
         OrderWithdrawalRequestDto request)
     {
         var adminUrl = BuildAdminDashboardUrl();
-        var bodyLines = new[]
-        {
-            "Új elállási vagy fogyasztói kérés érkezett.",
-            $"Rendelésszám: {order.OrderNumber}",
-            $"Vevő: {request.CustomerName}",
-            $"Email: {request.CustomerEmail}",
-            $"Kérés ideje: {request.RequestedAtUtc:yyyy. MM. dd. HH:mm}",
-            $"Üzenet: {request.Reason}"
-        };
+        var bodyLines = BuildWithdrawalBusinessBodyLines(order, request);
 
         return CreateMessage(
             recipientEmail,
@@ -394,12 +355,7 @@ public sealed class EmailTemplateService : IEmailTemplateService
         OrderDto order,
         OrderWithdrawalRequestDto request)
     {
-        var bodyLines = new[]
-        {
-            $"Megkaptuk a(z) {order.OrderNumber} számú rendeléshez kapcsolódó kérésedet.",
-            "A kérésedet rögzítettük, és a feldolgozásáról a megadott elérhetőségen egyeztetünk.",
-            $"Megadott üzenet: {request.Reason}"
-        };
+        var bodyLines = BuildWithdrawalCustomerBodyLines(order, request);
 
         return CreateMessage(
             recipientEmail,
@@ -681,6 +637,62 @@ public sealed class EmailTemplateService : IEmailTemplateService
     {
         return $"{_brandingOptions.WebsiteUrl.TrimEnd('/')}/admin";
     }
+
+    private static IReadOnlyList<string> BuildOrderConfirmationBodyLines(OrderDto order) =>
+    [
+        "Köszönjük a rendelésedet. A rendelésedet megkaptuk, feldolgozása hamarosan megkezdődik.",
+        $"Rendelésszám: {order.OrderNumber}",
+        $"Rendelés állapota: {FormatOrderStatus(order.Status)}",
+        $"Fizetés állapota: {FormatPaymentStatus(order.PaymentStatus)}",
+        $"Átvétel módja: {FormatFulfillmentMethod(order.FulfillmentMethod)}",
+        FormatCustomerDetails(order),
+        FormatCustomerBillingDocumentDetails(order),
+        FormatDeliveryDetails(order),
+        $"Végösszeg: {FormatPrice(order.TotalPrice)}",
+        FormatOrderItemsList(order)
+    ];
+
+    private static IReadOnlyList<string> BuildOrderBusinessBodyLines(OrderDto order) =>
+    [
+        "Új rendelés érkezett a weboldalon.",
+        "A rendelést az admin felületen tudod feldolgozni.",
+        $"Rendelésszám: {order.OrderNumber}",
+        FormatCustomerDetails(order),
+        FormatAdminBillingDocumentDetails(order),
+        $"Átvétel módja: {FormatFulfillmentMethod(order.FulfillmentMethod)}",
+        $"Végösszeg: {FormatPrice(order.TotalPrice)}",
+        FormatOrderItemsList(order)
+    ];
+
+    private static IReadOnlyList<string> BuildOrderStatusChangedBodyLines(OrderDto order) =>
+    [
+        $"A rendelésed állapota megváltozott: {FormatOrderStatus(order.Status)}.",
+        $"Rendelésszám: {order.OrderNumber}",
+        $"Fizetés állapota: {FormatPaymentStatus(order.PaymentStatus)}",
+        $"Átvétel módja: {FormatFulfillmentMethod(order.FulfillmentMethod)}",
+        $"Végösszeg: {FormatPrice(order.TotalPrice)}"
+    ];
+
+    private static IReadOnlyList<string> BuildWithdrawalBusinessBodyLines(
+        OrderDto order,
+        OrderWithdrawalRequestDto request) =>
+    [
+        "Új elállási vagy fogyasztói kérés érkezett.",
+        $"Rendelésszám: {order.OrderNumber}",
+        $"Vevő: {request.CustomerName}",
+        $"Email: {request.CustomerEmail}",
+        $"Kérés ideje: {request.RequestedAtUtc:yyyy. MM. dd. HH:mm}",
+        $"Üzenet: {request.Reason}"
+    ];
+
+    private static IReadOnlyList<string> BuildWithdrawalCustomerBodyLines(
+        OrderDto order,
+        OrderWithdrawalRequestDto request) =>
+    [
+        $"Megkaptuk a(z) {order.OrderNumber} számú rendeléshez kapcsolódó kérésedet.",
+        "A kérésedet rögzítettük, és a feldolgozásáról a megadott elérhetőségen egyeztetünk.",
+        $"Megadott üzenet: {request.Reason}"
+    ];
 
     private static string FormatCustomerDetails(OrderDto order)
     {
