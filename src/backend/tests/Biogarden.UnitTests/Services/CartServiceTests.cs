@@ -11,13 +11,14 @@ public sealed class CartServiceTests
     private readonly Mock<IUnitOfWork> _unitOfWork = new(MockBehavior.Strict);
     private readonly Mock<ICartRepository> _carts = new(MockBehavior.Strict);
     private readonly Mock<IProductRepository> _products = new(MockBehavior.Strict);
+    private readonly FakeTimeProvider _timeProvider = new(new DateTimeOffset(2026, 7, 24, 8, 0, 0, TimeSpan.Zero));
     private readonly CartService _service;
 
     public CartServiceTests()
     {
         _unitOfWork.SetupGet(x => x.CartRepository).Returns(_carts.Object);
         _unitOfWork.SetupGet(x => x.ProductRepository).Returns(_products.Object);
-        _service = new CartService(_unitOfWork.Object);
+        _service = new CartService(_unitOfWork.Object, _timeProvider);
     }
 
     [Fact]
@@ -35,7 +36,8 @@ public sealed class CartServiceTests
     public async Task GetCartAsync_ExtendsReservationByThirtyMinutes()
     {
         var userId = Guid.NewGuid();
-        var previousExpiry = DateTime.UtcNow.AddMinutes(2);
+        var now = _timeProvider.GetUtcNow().UtcDateTime;
+        var previousExpiry = now.AddMinutes(2);
         var cart = new Cart { Id = Guid.NewGuid(), UserId = userId, ExpiresAtUtc = previousExpiry };
         _carts.Setup(x => x.GetActiveByUserIdAsync(userId, It.IsAny<CancellationToken>())).ReturnsAsync(cart);
         _unitOfWork.Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
@@ -43,7 +45,8 @@ public sealed class CartServiceTests
         var result = await _service.GetCartAsync(userId, null);
 
         Assert.True(result.ExpiresAtUtc > previousExpiry);
-        Assert.InRange(result.ExpiresAtUtc, DateTime.UtcNow.AddMinutes(29), DateTime.UtcNow.AddMinutes(30).AddSeconds(1));
+        Assert.Equal(now, cart.LastActivityAtUtc);
+        Assert.Equal(now.AddMinutes(30), result.ExpiresAtUtc);
         _unitOfWork.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
     }
 
@@ -105,8 +108,14 @@ public sealed class CartServiceTests
             sessionId: null,
             new AddCartItemDto { ProductId = product.Id, Quantity = 1 });
 
+        var now = _timeProvider.GetUtcNow().UtcDateTime;
+        var createdItem = Assert.Single(cart.Items);
         Assert.Equal(1, result.TotalItemCount);
         Assert.Equal(product.Id, Assert.Single(result.Items).ProductId);
+        Assert.Equal(now, cart.LastActivityAtUtc);
+        Assert.Equal(now.AddMinutes(30), cart.ExpiresAtUtc);
+        Assert.Equal(now, createdItem.CreatedAtUtc);
+        Assert.Equal(now, createdItem.UpdatedAtUtc);
         _carts.Verify(x => x.Update(It.IsAny<Cart>()), Times.Never);
         _unitOfWork.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
     }
@@ -211,8 +220,11 @@ public sealed class CartServiceTests
 
         var result = await _service.MergeGuestCartIntoUserCartAsync(userId, guestSessionId);
 
+        var now = _timeProvider.GetUtcNow().UtcDateTime;
         Assert.True(guestCart.IsCheckedOut);
-        Assert.NotNull(guestCart.CheckedOutAtUtc);
+        Assert.Equal(now, guestCart.CheckedOutAtUtc);
+        Assert.Equal(now, userCart.LastActivityAtUtc);
+        Assert.Equal(now.AddMinutes(30), userCart.ExpiresAtUtc);
         Assert.Equal(5, userCart.Items.Single().Quantity);
         Assert.Equal(5, result.TotalItemCount);
         Assert.Equal(4500, result.TotalPrice);
@@ -311,5 +323,10 @@ public sealed class CartServiceTests
             Quantity = quantity
         });
         return cart;
+    }
+
+    private sealed class FakeTimeProvider(DateTimeOffset utcNow) : TimeProvider
+    {
+        public override DateTimeOffset GetUtcNow() => utcNow;
     }
 }
