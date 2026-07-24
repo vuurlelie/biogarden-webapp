@@ -144,13 +144,21 @@ public sealed class AdminOrderServiceTests
                     nameof(IQueryProvider.Execute),
                     1,
                     [typeof(Expression)])
-                ?.MakeGenericMethod(expectedResultType)
+                ?? throw new InvalidOperationException("IQueryProvider.Execute method was not found.");
+            var typedExecutionResult = executionResult
+                .MakeGenericMethod(expectedResultType)
                 .Invoke(this, [expression]);
 
-            return (TResult)typeof(Task)
-                .GetMethod(nameof(Task.FromResult))!
+            var fromResultMethod = typeof(Task)
+                .GetMethod(nameof(Task.FromResult))
+                ?? throw new InvalidOperationException("Task.FromResult method was not found.");
+
+            var taskResult = fromResultMethod
                 .MakeGenericMethod(expectedResultType)
-                .Invoke(null, [executionResult])!;
+                .Invoke(null, [typedExecutionResult])
+                ?? throw new InvalidOperationException("Task.FromResult invocation returned null.");
+
+            return (TResult)taskResult;
         }
     }
 

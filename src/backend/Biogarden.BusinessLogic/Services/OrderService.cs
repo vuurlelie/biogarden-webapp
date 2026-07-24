@@ -104,7 +104,7 @@ public class OrderService : IOrderService
         }
 
         if (dto.FulfillmentMethod != FulfillmentMethod.PersonalPickup &&
-            cart.Items.Any(item => !item.Product.DeliveryAvailable))
+            cart.Items.Any(item => item.Product?.DeliveryAvailable == false))
         {
             throw new InvalidOperationException(
                 "The cart contains a product that is available only for personal pickup.");

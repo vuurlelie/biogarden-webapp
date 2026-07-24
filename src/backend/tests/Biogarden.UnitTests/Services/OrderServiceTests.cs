@@ -10,6 +10,7 @@ using Biogarden.DataAccess.Entities;
 using Biogarden.DataAccess.Enums;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Moq;
 
@@ -42,8 +43,7 @@ public sealed class OrderServiceTests
                 (operation, token) => operation(token));
 
         var userStore = new Mock<IUserStore<ApplicationUser>>(MockBehavior.Strict);
-        var userManager = new Mock<UserManager<ApplicationUser>>(
-            userStore.Object, null!, null!, null!, null!, null!, null!, null!, null!);
+        var userManager = CreateUserManagerMock(userStore.Object);
 
         _service = new OrderService(
             _unitOfWork.Object,
@@ -132,7 +132,8 @@ public sealed class OrderServiceTests
         Assert.Equal(LegalDocumentVersions.CurrentPrivacyPolicyVersion, result.AcceptedPrivacyPolicyVersion);
         Assert.True(cart.IsCheckedOut);
         Assert.Equal(_timeProvider.GetUtcNow().UtcDateTime, cart.CheckedOutAtUtc);
-        Assert.Equal(_timeProvider.GetUtcNow().UtcDateTime, savedOrder!.CreatedAtUtc);
+        Assert.NotNull(savedOrder);
+        Assert.Equal(_timeProvider.GetUtcNow().UtcDateTime, savedOrder.CreatedAtUtc);
         _emailTemplateService.Verify(
             x => x.BuildOrderConfirmationMessage(
                 "guest@example.com",
@@ -890,7 +891,8 @@ public sealed class OrderServiceTests
 
         Assert.Equal(13, result.Id);
         Assert.Equal(order.Id, result.OrderId);
-        Assert.Null(savedRequest!.UserId);
+        Assert.NotNull(savedRequest);
+        Assert.Null(savedRequest.UserId);
         Assert.Equal("Szeretnék elállási kérelmet rögzíteni.", result.Reason);
         Assert.Equal(_timeProvider.GetUtcNow().UtcDateTime, result.RequestedAtUtc);
         Assert.Equal(OrderWithdrawalRequestStatus.Pending, result.Status);
@@ -1007,4 +1009,17 @@ public sealed class OrderServiceTests
     {
         public override DateTimeOffset GetUtcNow() => utcNow;
     }
+
+    private static Mock<UserManager<ApplicationUser>> CreateUserManagerMock(
+        IUserStore<ApplicationUser> userStore) =>
+        new(
+            userStore,
+            Options.Create(new IdentityOptions()),
+            new PasswordHasher<ApplicationUser>(),
+            Array.Empty<IUserValidator<ApplicationUser>>(),
+            Array.Empty<IPasswordValidator<ApplicationUser>>(),
+            new UpperInvariantLookupNormalizer(),
+            new IdentityErrorDescriber(),
+            new Mock<IServiceProvider>(MockBehavior.Strict).Object,
+            NullLogger<UserManager<ApplicationUser>>.Instance);
 }

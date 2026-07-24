@@ -10,6 +10,7 @@ using Biogarden.DataAccess.Entities;
 using Biogarden.DataAccess.Enums;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore.Query;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Moq;
 
@@ -26,8 +27,7 @@ public sealed class AuthServiceTests
     public AuthServiceTests()
     {
         var userStore = new Mock<IUserStore<ApplicationUser>>(MockBehavior.Strict);
-        _userManager = new Mock<UserManager<ApplicationUser>>(
-            userStore.Object, null!, null!, null!, null!, null!, null!, null!, null!);
+        _userManager = CreateUserManagerMock(userStore.Object);
 
         _userManager
             .SetupGet(manager => manager.Users)
@@ -471,6 +471,19 @@ public sealed class AuthServiceTests
         return new TestAsyncEnumerable<TEntity>(entities);
     }
 
+    private static Mock<UserManager<ApplicationUser>> CreateUserManagerMock(
+        IUserStore<ApplicationUser> userStore) =>
+        new(
+            userStore,
+            Options.Create(new IdentityOptions()),
+            new PasswordHasher<ApplicationUser>(),
+            Array.Empty<IUserValidator<ApplicationUser>>(),
+            Array.Empty<IPasswordValidator<ApplicationUser>>(),
+            new UpperInvariantLookupNormalizer(),
+            new IdentityErrorDescriber(),
+            new Mock<IServiceProvider>(MockBehavior.Strict).Object,
+            NullLogger<UserManager<ApplicationUser>>.Instance);
+
     private sealed class TestAsyncQueryProvider<TEntity> : IAsyncQueryProvider
     {
         private readonly IQueryProvider _inner;
@@ -510,13 +523,21 @@ public sealed class AuthServiceTests
                     nameof(IQueryProvider.Execute),
                     1,
                     [typeof(Expression)])
-                ?.MakeGenericMethod(expectedResultType)
+                ?? throw new InvalidOperationException("IQueryProvider.Execute method was not found.");
+            var typedExecutionResult = executionResult
+                .MakeGenericMethod(expectedResultType)
                 .Invoke(this, [expression]);
 
-            return (TResult)typeof(Task)
-                .GetMethod(nameof(Task.FromResult))!
+            var fromResultMethod = typeof(Task)
+                .GetMethod(nameof(Task.FromResult))
+                ?? throw new InvalidOperationException("Task.FromResult method was not found.");
+
+            var taskResult = fromResultMethod
                 .MakeGenericMethod(expectedResultType)
-                .Invoke(null, [executionResult])!;
+                .Invoke(null, [typedExecutionResult])
+                ?? throw new InvalidOperationException("Task.FromResult invocation returned null.");
+
+            return (TResult)taskResult;
         }
     }
 

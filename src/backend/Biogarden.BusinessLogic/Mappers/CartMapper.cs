@@ -13,6 +13,8 @@ public static class CartMapper
             .OrderBy(cartItem => cartItem.CreatedAtUtc)
             .Select(cartItem =>
             {
+                var product = cartItem.Product
+                    ?? throw new InvalidOperationException("Cart item product must be loaded before mapping.");
                 var reservedQuantityExcludingCurrentCart =
                     reservedQuantitiesByProductId.TryGetValue(
                         cartItem.ProductId,
@@ -23,24 +25,24 @@ public static class CartMapper
                 var availableQuantityForCart =
                     Math.Max(
                         0,
-                        cartItem.Product.StockQuantity - reservedQuantityExcludingCurrentCart);
+                        product.StockQuantity - reservedQuantityExcludingCurrentCart);
 
                 return new CartItemDto
                 {
                     Id = cartItem.Id,
                     ProductId = cartItem.ProductId,
-                    ProductName = cartItem.Product.Name,
-                    ProductDescription = cartItem.Product.Description,
-                    UnitPrice = cartItem.Product.Price,
-                    Image = cartItem.Product.Image,
-                    Unit = cartItem.Product.Unit,
+                    ProductName = product.Name,
+                    ProductDescription = product.Description,
+                    UnitPrice = product.Price,
+                    Image = product.Image,
+                    Unit = product.Unit,
                     Quantity = cartItem.Quantity,
-                    StockQuantity = cartItem.Product.StockQuantity,
+                    StockQuantity = product.StockQuantity,
                     ReservedQuantityExcludingCurrentCart = reservedQuantityExcludingCurrentCart,
                     AvailableQuantityForCart = availableQuantityForCart,
-                    Available = cartItem.Product.Available,
-                    DeliveryAvailable = cartItem.Product.DeliveryAvailable,
-                    LineTotal = cartItem.Product.Price * cartItem.Quantity
+                    Available = product.Available,
+                    DeliveryAvailable = product.DeliveryAvailable,
+                    LineTotal = product.Price * cartItem.Quantity
                 };
             })
             .ToList();
