@@ -26,10 +26,30 @@ public static class ServiceCollectionExtensions
         this IServiceCollection services,
         IConfiguration configuration)
     {
-        services.AddControllers();
+        services.AddWebApiCore();
+        services.AddForwardedHeaders();
+        services.AddValidatedOptions(configuration);
+        services.AddAppRateLimiting(configuration);
+        services.AddFrontendCors();
+        services.AddDataAccess(configuration);
+        services.AddAppHealthChecks();
+        services.AddAppIdentityAndAuthentication(configuration);
 
+        services.AddAuthorization();
+
+        return services;
+    }
+
+    private static IServiceCollection AddWebApiCore(this IServiceCollection services)
+    {
+        services.AddControllers();
         services.AddEndpointsApiExplorer();
 
+        return services;
+    }
+
+    private static IServiceCollection AddForwardedHeaders(this IServiceCollection services)
+    {
         services.Configure<ForwardedHeadersOptions>(options =>
         {
             options.ForwardedHeaders =
@@ -37,15 +57,13 @@ public static class ServiceCollectionExtensions
                 ForwardedHeaders.XForwardedProto;
         });
 
-        services.AddOptions<AbuseProtectionOptions>()
-            .Bind(configuration.GetSection(AbuseProtectionOptions.SectionName))
-            .Validate(options =>
-            {
-                options.ValidateForStartup();
-                return true;
-            })
-            .ValidateOnStart();
+        return services;
+    }
 
+    private static IServiceCollection AddAppRateLimiting(
+        this IServiceCollection services,
+        IConfiguration configuration)
+    {
         var abuseProtectionOptions = configuration
             .GetSection(AbuseProtectionOptions.SectionName)
             .Get<AbuseProtectionOptions>()
@@ -111,6 +129,11 @@ public static class ServiceCollectionExtensions
                     _ => CreateFixedWindowOptions(abuseProtectionOptions.Payment)));
         });
 
+        return services;
+    }
+
+    private static IServiceCollection AddFrontendCors(this IServiceCollection services)
+    {
         services.AddCors(options =>
         {
             options.AddPolicy("FrontendDev", policy =>
@@ -123,17 +146,45 @@ public static class ServiceCollectionExtensions
             });
         });
 
+        return services;
+    }
+
+    private static IServiceCollection AddDataAccess(
+        this IServiceCollection services,
+        IConfiguration configuration)
+    {
         services.AddDbContext<AppDbContext>(options =>
             options.UseSqlServer(
                 configuration.GetConnectionString("DefaultConnection")));
 
+        services.AddScoped<IAppDbContext>(serviceProvider =>
+            serviceProvider.GetRequiredService<AppDbContext>());
+
+        return services;
+    }
+
+    private static IServiceCollection AddAppHealthChecks(this IServiceCollection services)
+    {
         services
             .AddHealthChecks()
             .AddCheck("self", () => Microsoft.Extensions.Diagnostics.HealthChecks.HealthCheckResult.Healthy(), tags: ["live"])
             .AddCheck<DatabaseHealthCheck>("database", tags: ["ready"]);
 
-        services.AddScoped<IAppDbContext>(serviceProvider =>
-            serviceProvider.GetRequiredService<AppDbContext>());
+        return services;
+    }
+
+    private static IServiceCollection AddValidatedOptions(
+        this IServiceCollection services,
+        IConfiguration configuration)
+    {
+        services.AddOptions<AbuseProtectionOptions>()
+            .Bind(configuration.GetSection(AbuseProtectionOptions.SectionName))
+            .Validate(options =>
+            {
+                options.ValidateForStartup();
+                return true;
+            })
+            .ValidateOnStart();
 
         services.AddOptions<JwtSettings>()
             .Bind(configuration.GetSection(JwtSettings.SectionName))
@@ -189,6 +240,13 @@ public static class ServiceCollectionExtensions
             })
             .ValidateOnStart();
 
+        return services;
+    }
+
+    private static IServiceCollection AddAppIdentityAndAuthentication(
+        this IServiceCollection services,
+        IConfiguration configuration)
+    {
         var jwtSettings = configuration
             .GetSection(JwtSettings.SectionName)
             .Get<JwtSettings>()
@@ -237,8 +295,6 @@ public static class ServiceCollectionExtensions
                 ClockSkew = TimeSpan.Zero
             };
         });
-
-        services.AddAuthorization();
 
         return services;
     }
