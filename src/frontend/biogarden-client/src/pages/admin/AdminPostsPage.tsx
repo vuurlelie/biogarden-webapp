@@ -1,12 +1,15 @@
-import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useState } from "react";
 import {
   deleteAdminPost,
   getAdminPostPage,
 } from "../../features/admin/api/adminPostsApi";
 import type { Post, PostCategory } from "../../features/posts/types/post.types";
+import AdminDeleteConfirmationModal from "../../shared/components/admin/AdminDeleteConfirmationModal";
+import AdminFeedbackMessages from "../../shared/components/admin/AdminFeedbackMessages";
+import AdminListEmptyState from "../../shared/components/admin/AdminListEmptyState";
+import AdminListSkeletonGrid from "../../shared/components/admin/AdminListSkeletonGrid";
 import AdminPageHeader from "../../shared/components/admin/AdminPageHeader";
 import AdminPagination from "../../shared/components/admin/AdminPagination";
-import { useModalFocus } from "../../shared/hooks/useModalFocus";
 import { getErrorMessage, isAbortError } from "../../shared/utils/errorHandling";
 import { getPostCategoryLabel } from "../../shared/utils/postCategory";
 
@@ -50,14 +53,6 @@ export default function AdminPostsPage() {
   const [editingPost, setEditingPost] = useState<Post | null | undefined>(undefined);
   const [deletingPost, setDeletingPost] = useState<Post | null>(null);
   const [deleting, setDeleting] = useState(false);
-  const deleteModalRef = useRef<HTMLElement | null>(null);
-
-  useModalFocus(deleteModalRef, {
-    isOpen: Boolean(deletingPost),
-    onClose: () => {
-      if (!deleting) setDeletingPost(null);
-    },
-  });
 
   const loadPosts = useCallback(async (signal?: AbortSignal) => {
     setLoading(true);
@@ -149,24 +144,12 @@ export default function AdminPostsPage() {
         )}
       />
 
-      {message && (
-        <div role="status" className="rounded-sm border border-site-green/25 bg-site-surface-soft p-4 font-semibold text-site-green-dark">
-          {message}
-        </div>
-      )}
-
-      {error && (
-        <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-sm bg-site-danger-soft p-4 text-site-danger">
-          <span>{error}</span>
-          <button
-            type="button"
-            onClick={() => void loadPosts()}
-            className="rounded-sm border border-site-danger px-3 py-2 text-sm font-semibold"
-          >
-            Újrapróbálás
-          </button>
-        </div>
-      )}
+      <AdminFeedbackMessages
+        message={message}
+        error={error}
+        retryLabel="Újrapróbálás"
+        onRetry={() => void loadPosts()}
+      />
 
       <section
         className="rounded-sm border border-site-border bg-white p-4 shadow-sm sm:p-5"
@@ -225,16 +208,12 @@ export default function AdminPostsPage() {
       </section>
 
       {loading ? (
-        <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-          {Array.from({ length: 6 }, (_, index) => (
-            <div key={index} className="h-96 animate-pulse rounded-sm border border-site-border bg-white" />
-          ))}
-        </div>
+        <AdminListSkeletonGrid itemHeightClassName="h-96" />
       ) : totalCount === 0 ? (
-        <section className="rounded-sm border border-site-border bg-white p-8 text-center shadow-sm">
-          <h2 className="text-lg font-bold text-site-heading">Nincs találat</h2>
-          <p className="mt-2 text-sm text-site-muted">Módosítsd a keresési vagy szűrési feltételeket.</p>
-        </section>
+        <AdminListEmptyState
+          title="Nincs találat"
+          description="Módosítsd a keresési vagy szűrési feltételeket."
+        />
       ) : (
         <section className="grid gap-5 md:grid-cols-2 xl:grid-cols-3" aria-label="Bejegyzéslista">
           {posts.map((post) => (
@@ -295,44 +274,18 @@ export default function AdminPostsPage() {
       )}
 
       {deletingPost && (
-        <div
-          className="fixed inset-0 z-[90] grid place-items-center bg-black/55 p-4"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="delete-post-title"
-        >
-          <section
-            ref={deleteModalRef}
-            tabIndex={-1}
-            className="w-full max-w-md rounded-sm bg-white p-6 shadow-xl outline-none"
-          >
-            <h2 id="delete-post-title" className="text-xl font-bold text-site-heading">
-              Bejegyzés törlése
-            </h2>
-            <p className="mt-3 leading-6 text-site-muted">
-              Biztosan törölni szeretnéd ezt a bejegyzést:{" "}
-              <strong className="text-site-heading">{deletingPost.title}</strong>?
-            </p>
-            <p className="mt-2 text-sm text-site-danger">A bejegyzés többé nem jelenik meg a látogatóknak.</p>
-            <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-              <button
-                type="button"
-                onClick={() => setDeletingPost(null)}
-                className="rounded-sm border border-site-border px-4 py-3 font-semibold"
-              >
-                Mégse
-              </button>
-              <button
-                type="button"
-                disabled={deleting}
-                onClick={() => void confirmDelete()}
-                className="rounded-sm bg-site-danger px-4 py-3 font-semibold text-white disabled:opacity-60"
-              >
-                {deleting ? "Törlés..." : "Törlés"}
-              </button>
-            </div>
-          </section>
-        </div>
+        <AdminDeleteConfirmationModal
+          title="Bejegyzés törlése"
+          itemName={deletingPost.title}
+          description="Biztosan törölni szeretnéd ezt a bejegyzést:"
+          warning="A bejegyzés többé nem jelenik meg a látogatóknak."
+          deleting={deleting}
+          cancelLabel="Mégse"
+          confirmLabel="Törlés"
+          deletingLabel="Törlés..."
+          onCancel={() => setDeletingPost(null)}
+          onConfirm={() => void confirmDelete()}
+        />
       )}
     </div>
   );
