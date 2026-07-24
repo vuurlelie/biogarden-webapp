@@ -1,12 +1,14 @@
 type AdminListSkeletonGridProps = {
+  gridClassName?: string;
   itemHeightClassName?: string;
 };
 
 export default function AdminListSkeletonGrid({
+  gridClassName = "grid gap-5 md:grid-cols-2 xl:grid-cols-3",
   itemHeightClassName = "h-80",
 }: AdminListSkeletonGridProps) {
   return (
-    <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+    <div className={gridClassName}>
       {Array.from({ length: 6 }, (_, index) => (
         <div
           key={index}

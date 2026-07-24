@@ -11,6 +11,9 @@ import {
 } from "../../features/admin/api/adminUsersApi";
 import type { AdminUser, AdminUserErasureResult } from "../../features/admin/types/users.types";
 import { getAuthSession } from "../../features/auth/utils/authStorage";
+import AdminFeedbackMessages from "../../shared/components/admin/AdminFeedbackMessages";
+import AdminListEmptyState from "../../shared/components/admin/AdminListEmptyState";
+import AdminListSkeletonGrid from "../../shared/components/admin/AdminListSkeletonGrid";
 import AdminPageHeader from "../../shared/components/admin/AdminPageHeader";
 import AdminPagination from "../../shared/components/admin/AdminPagination";
 import { getErrorMessage, isAbortError } from "../../shared/utils/errorHandling";
@@ -250,7 +253,9 @@ export default function AdminAccountsPage() {
   }, []);
 
   useEffect(() => {
-    void load();
+    const controller = new AbortController();
+    void load(controller.signal);
+    return () => controller.abort();
   }, [load]);
 
   useEffect(() => {
@@ -290,8 +295,7 @@ export default function AdminAccountsPage() {
     <div className="space-y-6">
       <AdminPageHeader title="Felhasználók" description="Regisztrált felhasználók, jogosultságok és adatkezelési kérelmek." />
 
-      {message && <div role="status" className="rounded-sm bg-site-surface-soft p-4 font-semibold text-site-green-dark">{message}</div>}
-      {error && <div role="alert" className="rounded-sm bg-site-danger-soft p-4 text-site-danger">{error}</div>}
+      <AdminFeedbackMessages message={message} error={error} />
 
       <section className="grid gap-4 rounded-sm border border-site-border bg-white p-4 shadow-sm md:grid-cols-3">
         <label htmlFor="admin-account-search" className="text-sm font-semibold">
@@ -318,11 +322,9 @@ export default function AdminAccountsPage() {
       </section>
 
       {loading ? (
-        <div className="grid gap-5 xl:grid-cols-2">
-          {Array.from({ length: 6 }, (_, index) => <div key={index} className="h-72 animate-pulse rounded-sm bg-white" />)}
-        </div>
+        <AdminListSkeletonGrid gridClassName="grid gap-5 xl:grid-cols-2" itemHeightClassName="h-72" />
       ) : shown.length === 0 ? (
-        <div className="rounded-sm border border-site-border bg-white p-8 text-center">Nincs találat.</div>
+        <AdminListEmptyState />
       ) : (
         <section className="grid min-w-0 items-start gap-5 xl:grid-cols-2">
           {shown.map((user) => <UserCard key={user.id} user={user} onUpdate={updateUser} onErase={eraseUser} onMessage={setMessage} />)}
