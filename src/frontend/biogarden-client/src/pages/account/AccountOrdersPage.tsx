@@ -1,8 +1,12 @@
 import { useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import {
   getOrders,
 } from "../../features/account/api/ordersApi";
+import AccountFeedback from "../../features/account/components/AccountFeedback";
+import AccountLoadingPanel from "../../features/account/components/AccountLoadingPanel";
+import AccountPageShell from "../../features/account/components/AccountPageShell";
+import { useAccountErrorHandler } from "../../features/account/hooks/useAccountErrorHandler";
 import type { Order } from "../../features/account/types/order.types";
 import {
   formatOrderDate,
@@ -12,10 +16,9 @@ import {
   getPaymentStatusLabel,
 } from "../../features/account/utils/orderLabels";
 import { ROUTES } from "../../shared/constants/routes";
-import { getErrorMessage, hasErrorStatus } from "../../shared/utils/errorHandling";
 
 export default function AccountOrdersPage() {
-  const navigate = useNavigate();
+  const handleAccountError = useAccountErrorHandler();
   const [orders, setOrders] = useState<Order[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
@@ -29,11 +32,7 @@ export default function AccountOrdersPage() {
         if (!shouldIgnoreResult) setOrders(loadedOrders);
       } catch (loadError) {
         if (shouldIgnoreResult) return;
-        if (hasErrorStatus(loadError, 401)) {
-          navigate(ROUTES.login, { replace: true });
-          return;
-        }
-        setError(getErrorMessage(loadError, "A rendelések betöltése nem sikerült."));
+        setError(handleAccountError(loadError, "A rendelések betöltése nem sikerült.") ?? "");
       } finally {
         if (!shouldIgnoreResult) setIsLoading(false);
       }
@@ -43,19 +42,18 @@ export default function AccountOrdersPage() {
     return () => {
       shouldIgnoreResult = true;
     };
-  }, [navigate]);
+  }, [handleAccountError]);
 
   if (isLoading) {
-    return <div className="rounded-sm bg-site-surface-soft p-10 text-center shadow-md">Rendelések betöltése...</div>;
+    return <AccountLoadingPanel label="Rendelések betöltése..." />;
   }
 
   return (
-    <div className="rounded-sm border border-site-border bg-white p-6 shadow-lg sm:p-8">
-      <p className="text-xs font-bold uppercase tracking-[0.15em] text-site-green-dark">Fiókom</p>
-      <h1 className="mt-2 text-3xl font-bold text-site-heading">Rendeléseim</h1>
-      <p className="mt-2 text-sm leading-6 text-site-text">Korábbi rendeléseid és azok aktuális állapota.</p>
-
-      {error && <div className="mt-6 rounded-sm bg-site-danger-soft p-3 text-sm text-site-danger" role="alert">{error}</div>}
+    <AccountPageShell
+      title="Rendeléseim"
+      description="Korábbi rendeléseid és azok aktuális állapota."
+    >
+      <AccountFeedback error={error} success="" />
 
       {!error && orders.length === 0 && (
         <div className="mt-8 rounded-sm bg-site-surface-soft p-8 text-center">
@@ -96,7 +94,7 @@ export default function AccountOrdersPage() {
           ))}
         </div>
       )}
-    </div>
+    </AccountPageShell>
   );
 }
 

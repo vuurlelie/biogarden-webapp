@@ -1,15 +1,17 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { requestAccountLifecycle } from "../../features/account/api/profileApi";
+import AccountFeedback from "../../features/account/components/AccountFeedback";
+import { useAccountErrorHandler } from "../../features/account/hooks/useAccountErrorHandler";
 import type { AccountLifecycleRequestType } from "../../features/account/types/profile.types";
 import { clearAuthSession } from "../../features/auth/utils/authStorage";
 import { ROUTES } from "../../shared/constants/routes";
-import { getErrorMessage, hasErrorStatus } from "../../shared/utils/errorHandling";
+import { useNavigate } from "react-router-dom";
 
 type ActionState = "idle" | "deactivation" | "erasure";
 
 export default function AccountDeletePage() {
   const navigate = useNavigate();
+  const handleAccountError = useAccountErrorHandler();
   const [reason, setReason] = useState("");
   const [saving, setSaving] = useState<ActionState>("idle");
   const [message, setMessage] = useState<string | null>(null);
@@ -31,12 +33,12 @@ export default function AccountDeletePage() {
         window.setTimeout(() => navigate(ROUTES.home, { replace: true }), 1800);
       }
     } catch (submitError) {
-      if (hasErrorStatus(submitError, 401)) {
+      const message = handleAccountError(submitError, "A kérelem elküldése nem sikerült.");
+      if (message === null) {
         clearAuthSession();
-        navigate(ROUTES.login, { replace: true });
         return;
       }
-      setError(getErrorMessage(submitError, "A kérelem elküldése nem sikerült."));
+      setError(message);
     } finally {
       setSaving("idle");
     }
@@ -49,16 +51,7 @@ export default function AccountDeletePage() {
         <h1 className="mt-2 text-3xl font-bold text-site-heading">Deaktiválás vagy törlés</h1>
       </header>
 
-      {message && (
-        <div role="status" className="rounded-sm bg-site-surface-soft p-4 font-semibold text-site-green-dark">
-          {message}
-        </div>
-      )}
-      {error && (
-        <div role="alert" className="rounded-sm bg-site-danger-soft p-4 text-site-danger">
-          {error}
-        </div>
-      )}
+      <AccountFeedback error={error ?? ""} success={message ?? ""} />
 
       <section className="rounded-sm border border-site-border bg-white p-5 shadow-sm">
         <label className="block text-sm font-semibold text-site-heading">
