@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { getPostPage } from "../../features/posts/api/postsApi";
 import Contents from "../../features/posts/components/Contents";
 import FilterAndSort from "../../features/posts/components/FilterAndSort";
@@ -20,9 +20,12 @@ export default function PostsPage() {
   const [totalCount, setTotalCount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
+  const latestLoadId = useRef(0);
 
   useEffect(() => {
-    const controller = new AbortController();
+    const loadId = latestLoadId.current + 1;
+    latestLoadId.current = loadId;
+    const isStaleLoad = () => latestLoadId.current !== loadId;
 
     async function loadPosts() {
       try {
@@ -36,27 +39,26 @@ export default function PostsPage() {
             category: selectedCategory,
             sort: sortOrder,
           },
-          controller.signal,
         );
+
+        if (isStaleLoad()) return;
 
         setPosts(result.items);
         setTotalPages(result.totalPages);
         setTotalCount(result.totalCount);
       } catch (error) {
-        if (controller.signal.aborted) return;
+        if (isStaleLoad()) return;
 
         console.error(error);
         setHasError(true);
       } finally {
-        if (!controller.signal.aborted) {
+        if (!isStaleLoad()) {
           setIsLoading(false);
         }
       }
     }
 
     void loadPosts();
-
-    return () => controller.abort();
   }, [selectedCategory, sortOrder, currentPage]);
 
   function resetToFirstPage() {

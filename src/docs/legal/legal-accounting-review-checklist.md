@@ -1,6 +1,6 @@
 # Legal and Accounting Review Checklist
 
-This checklist is a handoff aid for the client's lawyer and accountant. It is not legal or accounting advice, and production release should wait for professional approval of the final wording and operational process.
+This checklist is a handoff aid for legal and accounting review. It is not legal or accounting advice, and production release should wait for professional approval of the final wording and operational process.
 
 ## Scope To Review
 

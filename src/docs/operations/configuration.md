@@ -49,7 +49,7 @@ Non-secret operational settings should still be reviewed before release:
 
 ## SumUp Release Setup
 
-Do not commit real SumUp values. When the client provides the account details, enter them only through the production host's secret/environment setting UI:
+Do not commit real SumUp values. When the production account details are available, enter them only through the production host's secret/environment setting UI:
 
 ```text
 SumUp__Enabled=true
@@ -66,7 +66,7 @@ Before enabling real customer payments:
 - Confirm the API and frontend domains use HTTPS.
 - Confirm `SumUp__RedirectUrl` contains `{CHECKOUT_REFERENCE}` exactly once.
 - Confirm `SumUp__ReturnUrl` points to the public API endpoint reachable by SumUp.
-- Place a low-value test order using the client's SumUp account.
+- Place a low-value test order using the production SumUp account.
 - Verify the customer return page changes from checking to successful payment.
 - Verify the order appears as paid and confirmed in the admin order list.
 - Verify a row is created in `PaymentProviderEvents` with `ProcessedAtUtc` set and no `ProcessingError`.
@@ -103,4 +103,4 @@ Do not commit:
 - `.env` or `.env.*`
 - log files
 - `bin/`, `obj/`, `dist/`, `node_modules/`, or `artifacts/`
-- private audit notes under `docs/audits/`
+- local-only audit notes or work-in-progress documents

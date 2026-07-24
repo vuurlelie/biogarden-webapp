@@ -1,73 +1,51 @@
-# React + TypeScript + Vite
+# Biogarden Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+React + TypeScript + Vite client for the Biogarden website, webshop, account area, checkout, and admin interface.
 
-Currently, two official plugins are available:
+## Local Commands
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+Run commands from the repository `src` directory:
 
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm.cmd --prefix frontend/biogarden-client install
+npm.cmd --prefix frontend/biogarden-client run dev
+npm.cmd --prefix frontend/biogarden-client run typecheck
+npm.cmd --prefix frontend/biogarden-client run lint
+npm.cmd --prefix frontend/biogarden-client run build
+npm.cmd --prefix frontend/biogarden-client run test:e2e
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+Use `npm` instead of `npm.cmd` on Linux/macOS or in GitHub Actions.
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+## Environment
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+The browser app reads the API base URL from:
+
+```text
+VITE_API_BASE_URL=https://your-api-domain.example
 ```
+
+For local development this is usually the WebApi URL shown by Visual Studio or `dotnet run`. Do not commit `.env` files with real production values.
+
+## Structure
+
+- `src/app`: app-level routing, providers, and layouts.
+- `src/features`: feature-owned API clients, components, types, and utilities.
+- `src/pages`: route-level page components.
+- `src/shared`: cross-feature components, hooks, constants, API helpers, and utilities.
+- `e2e`: Playwright browser tests for critical public/account flows.
+- `scripts`: SEO file generation and verification scripts.
+
+## Quality Checks
+
+Before opening a frontend PR, run:
+
+```bash
+npm.cmd --prefix frontend/biogarden-client run typecheck
+npm.cmd --prefix frontend/biogarden-client run lint
+npm.cmd --prefix frontend/biogarden-client run build
+npm.cmd --prefix frontend/biogarden-client run test:e2e
+npm.cmd --prefix frontend/biogarden-client audit --audit-level=moderate
+```
+
+The build generates SEO files and must not leave generated artifacts staged unless the source change intentionally updates them.

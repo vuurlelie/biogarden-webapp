@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useEffect, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
 import {
   deleteAdminPost,
   getAdminPostPage,
@@ -10,7 +10,7 @@ import AdminListEmptyState from "../../shared/components/admin/AdminListEmptySta
 import AdminListSkeletonGrid from "../../shared/components/admin/AdminListSkeletonGrid";
 import AdminPageHeader from "../../shared/components/admin/AdminPageHeader";
 import AdminPagination from "../../shared/components/admin/AdminPagination";
-import { getErrorMessage, isAbortError } from "../../shared/utils/errorHandling";
+import { getErrorMessage } from "../../shared/utils/errorHandling";
 import { getPostCategoryLabel } from "../../shared/utils/postCategory";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
@@ -53,8 +53,13 @@ export default function AdminPostsPage() {
   const [editingPost, setEditingPost] = useState<Post | null | undefined>(undefined);
   const [deletingPost, setDeletingPost] = useState<Post | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const latestLoadId = useRef(0);
 
-  const loadPosts = useCallback(async (signal?: AbortSignal) => {
+  const loadPosts = useCallback(async () => {
+    const loadId = latestLoadId.current + 1;
+    latestLoadId.current = loadId;
+    const isStaleLoad = () => latestLoadId.current !== loadId;
+
     setLoading(true);
     setError(null);
 
@@ -67,24 +72,23 @@ export default function AdminPostsPage() {
           category,
           status,
         },
-        signal,
       );
+      if (isStaleLoad()) return;
+
       setPosts(result.items);
       setTotalCount(result.totalCount);
       setTotalPages(result.totalPages);
     } catch (loadError) {
-      if (!isAbortError(loadError)) {
-        setError(getErrorMessage(loadError, "A bejegyzések betöltése nem sikerült."));
-      }
+      if (isStaleLoad()) return;
+
+      setError(getErrorMessage(loadError, "A bejegyzések betöltése nem sikerült."));
     } finally {
-      if (!signal?.aborted) setLoading(false);
+      if (!isStaleLoad()) setLoading(false);
     }
   }, [category, page, search, status]);
 
   useEffect(() => {
-    const controller = new AbortController();
-    void loadPosts(controller.signal);
-    return () => controller.abort();
+    void loadPosts();
   }, [loadPosts]);
 
   useEffect(() => {

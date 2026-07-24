@@ -9,7 +9,7 @@ The production system has two important data stores:
 
 ## Recovery Targets
 
-Set these targets before launch with the client and hosting provider:
+Set these targets before launch with the site owner and hosting provider:
 
 | Target | Initial recommendation |
 | --- | --- |
