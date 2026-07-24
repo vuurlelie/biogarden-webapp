@@ -1,9 +1,6 @@
-import { getApiErrorMessage } from "../../../shared/api/httpClient";
 import type { PagedResult } from "../../../shared/types/pagination";
-import { getAuthSession } from "../../auth/utils/authStorage";
 import type { ProductCategory, ProductDetails, UnitOfMeasure } from "../../products/types/product.types";
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+import { adminRequest } from "./adminApiClient";
 
 export type AdminProductInput = {
   name: string;
@@ -27,12 +24,6 @@ export type AdminProductListQuery = {
   availability?: "all" | "available" | "unavailable";
 };
 
-function authorizationHeaders(): HeadersInit {
-  const auth = getAuthSession();
-  if (!auth) throw new Error("A munkamenet lejárt. Jelentkezz be újra.");
-  return { Authorization: `Bearer ${auth.token}` };
-}
-
 function buildProductQuery(query: AdminProductListQuery = {}) {
   const params = new URLSearchParams();
 
@@ -49,71 +40,51 @@ function buildProductQuery(query: AdminProductListQuery = {}) {
   return queryString ? `?${queryString}` : "";
 }
 
-async function errorMessage(response: Response): Promise<string> {
-  return getApiErrorMessage(response, "A művelet nem sikerült.");
-}
-
-async function ensureSuccess(response: Response): Promise<void> {
-  if (!response.ok) throw new Error(await errorMessage(response));
-}
-
 export async function getAdminProductPage(
   query: AdminProductListQuery = {},
   signal?: AbortSignal,
 ): Promise<PagedResult<ProductDetails>> {
-  const response = await fetch(`${API_BASE_URL}/api/admin/products${buildProductQuery(query)}`, {
-    headers: authorizationHeaders(),
+  const response = await adminRequest(`/products${buildProductQuery(query)}`, {
     signal,
   });
-  await ensureSuccess(response);
   return response.json() as Promise<PagedResult<ProductDetails>>;
 }
 
 export async function createAdminProduct(product: AdminProductInput): Promise<number> {
-  const response = await fetch(`${API_BASE_URL}/api/admin/products`, {
+  const response = await adminRequest("/products", {
     method: "POST",
-    headers: { ...authorizationHeaders(), "Content-Type": "application/json" },
-    body: JSON.stringify(product),
+    jsonBody: product,
   });
-  await ensureSuccess(response);
   return response.json() as Promise<number>;
 }
 
 export async function updateAdminProduct(productId: number, product: AdminProductInput): Promise<void> {
-  const response = await fetch(`${API_BASE_URL}/api/admin/products/${productId}`, {
+  await adminRequest(`/products/${productId}`, {
     method: "PUT",
-    headers: { ...authorizationHeaders(), "Content-Type": "application/json" },
-    body: JSON.stringify(product),
+    jsonBody: product,
   });
-  await ensureSuccess(response);
 }
 
 export async function deleteAdminProduct(productId: number): Promise<void> {
-  const response = await fetch(`${API_BASE_URL}/api/admin/products/${productId}`, {
+  await adminRequest(`/products/${productId}`, {
     method: "DELETE",
-    headers: authorizationHeaders(),
   });
-  await ensureSuccess(response);
 }
 
 export async function uploadAdminProductImage(image: File): Promise<string> {
   const data = new FormData();
   data.append("image", image);
-  const response = await fetch(`${API_BASE_URL}/api/admin/products/image`, {
+  const response = await adminRequest("/products/image", {
     method: "POST",
-    headers: authorizationHeaders(),
     body: data,
   });
-  await ensureSuccess(response);
   const result = await response.json() as { path: string };
   return result.path;
 }
 
 export async function deleteUnusedAdminProductImage(path: string): Promise<void> {
-  const response = await fetch(`${API_BASE_URL}/api/admin/products/image`, {
+  await adminRequest("/products/image", {
     method: "DELETE",
-    headers: { ...authorizationHeaders(), "Content-Type": "application/json" },
-    body: JSON.stringify({ path }),
+    jsonBody: { path },
   });
-  await ensureSuccess(response);
 }

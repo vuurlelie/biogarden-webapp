@@ -1,8 +1,5 @@
-import { getAuthSession } from "../../auth/utils/authStorage";
 import type { UnitOfMeasure } from "../../products/types/product.types";
-import { TOO_MANY_REQUESTS_MESSAGE } from "../../../shared/api/httpClient";
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+import { adminRequest } from "./adminApiClient";
 
 export type AdminInventoryItem = {
   productId: number;
@@ -16,34 +13,10 @@ export type AdminInventoryItem = {
   deliveryAvailable: boolean;
 };
 
-function headers(): HeadersInit {
-  const auth = getAuthSession();
-  if (!auth) throw new Error("A munkamenet lejárt. Jelentkezz be újra.");
-  return { Authorization: `Bearer ${auth.token}` };
-}
-
-async function ensure(response: Response) {
-  if (response.ok) return;
-
-  if (response.status === 429) {
-    throw new Error(TOO_MANY_REQUESTS_MESSAGE);
-  }
-
-  try {
-    const body = await response.json() as { detail?: string; Detail?: string };
-    throw new Error(body.detail ?? body.Detail ?? "A művelet nem sikerült.");
-  } catch (error) {
-    if (error instanceof Error && error.message !== "Unexpected end of JSON input") throw error;
-    throw new Error("A művelet nem sikerült.");
-  }
-}
-
 export async function getAdminInventory(signal?: AbortSignal): Promise<AdminInventoryItem[]> {
-  const response = await fetch(`${API_BASE_URL}/api/admin/inventory`, {
-    headers: headers(),
+  const response = await adminRequest("/inventory", {
     signal,
   });
-  await ensure(response);
   return response.json() as Promise<AdminInventoryItem[]>;
 }
 
@@ -52,11 +25,9 @@ export async function updateAdminInventory(
   stockQuantity: number,
   available: boolean,
 ): Promise<AdminInventoryItem> {
-  const response = await fetch(`${API_BASE_URL}/api/admin/inventory/${productId}`, {
+  const response = await adminRequest(`/inventory/${productId}`, {
     method: "PUT",
-    headers: { ...headers(), "Content-Type": "application/json" },
-    body: JSON.stringify({ stockQuantity, available }),
+    jsonBody: { stockQuantity, available },
   });
-  await ensure(response);
   return response.json() as Promise<AdminInventoryItem>;
 }
