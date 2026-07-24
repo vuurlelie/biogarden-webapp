@@ -97,6 +97,7 @@ public class CartRepository : ICartRepository
         var query = _context.CartItems
             .Where(cartItem =>
                 cartItem.ProductId == productId &&
+                cartItem.Cart != null &&
                 !cartItem.Cart.IsCheckedOut &&
                 cartItem.Cart.ExpiresAtUtc > DateTime.UtcNow);
 

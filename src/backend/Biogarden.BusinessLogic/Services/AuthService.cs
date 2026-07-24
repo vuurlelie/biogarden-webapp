@@ -49,6 +49,7 @@ public class AuthService : IAuthService
 
         var companyName = NormalizeOptional(registerRequestDto.CompanyName);
         var taxNumber = NormalizeOptional(registerRequestDto.TaxNumber);
+        AddressCreateDto? billingAddress = null;
 
         if (registerRequestDto.CustomerType == CustomerType.Company)
         {
@@ -64,6 +65,8 @@ public class AuthService : IAuthService
                 return AuthOperationResultDto.Failure(
                     "Céges fiókhoz a számlázási cím megadása kötelező.");
             }
+
+            billingAddress = registerRequestDto.BillingAddress;
 
             if (!IsValidTaxNumber(taxNumber))
             {
@@ -96,9 +99,7 @@ public class AuthService : IAuthService
             CustomerType = registerRequestDto.CustomerType,
             CompanyName = companyName,
             TaxNumber = taxNumber,
-            BillingAddress = registerRequestDto.CustomerType == CustomerType.Company
-                ? registerRequestDto.BillingAddress!.ToEntity()
-                : null,
+            BillingAddress = billingAddress?.ToEntity(),
             PrintedInvoiceRequested = registerRequestDto.PrintedInvoiceRequested
         };
 

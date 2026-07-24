@@ -10,6 +10,7 @@ using Biogarden.DataAccess.Entities;
 using Biogarden.DataAccess.Enums;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Moq;
 
@@ -42,8 +43,7 @@ public sealed class OrderServiceTests
                 (operation, token) => operation(token));
 
         var userStore = new Mock<IUserStore<ApplicationUser>>(MockBehavior.Strict);
-        var userManager = new Mock<UserManager<ApplicationUser>>(
-            userStore.Object, null!, null!, null!, null!, null!, null!, null!, null!);
+        var userManager = CreateUserManagerMock(userStore.Object);
 
         _service = new OrderService(
             _unitOfWork.Object,
@@ -110,9 +110,9 @@ public sealed class OrderServiceTests
         var result = await _service.CreateOrderFromCartAsync(null, sessionId, new PlaceOrderDto
         {
             IdempotencyKey = IdempotencyKey,
-            CustomerName = "Teszt Elek",
-            CustomerEmail = "guest@example.com",
-            CustomerPhone = "+361234567",
+            CustomerName = " Teszt Elek ",
+            CustomerEmail = " guest@example.com ",
+            CustomerPhone = " +361234567 ",
             PostalCode = "8200",
             City = "Veszprém",
             Street = "Kert utca",
@@ -125,12 +125,15 @@ public sealed class OrderServiceTests
         Assert.Null(result.UserId);
         Assert.Null(result.AddressId);
         Assert.StartsWith("BK-20260724-", result.OrderNumber, StringComparison.Ordinal);
+        Assert.Equal("Teszt Elek", result.CustomerName);
         Assert.Equal("guest@example.com", result.CustomerEmail);
+        Assert.Equal("+361234567", result.CustomerPhone);
         Assert.Equal(LegalDocumentVersions.CurrentTermsVersion, result.AcceptedTermsVersion);
         Assert.Equal(LegalDocumentVersions.CurrentPrivacyPolicyVersion, result.AcceptedPrivacyPolicyVersion);
         Assert.True(cart.IsCheckedOut);
         Assert.Equal(_timeProvider.GetUtcNow().UtcDateTime, cart.CheckedOutAtUtc);
-        Assert.Equal(_timeProvider.GetUtcNow().UtcDateTime, savedOrder!.CreatedAtUtc);
+        Assert.NotNull(savedOrder);
+        Assert.Equal(_timeProvider.GetUtcNow().UtcDateTime, savedOrder.CreatedAtUtc);
         _emailTemplateService.Verify(
             x => x.BuildOrderConfirmationMessage(
                 "guest@example.com",
@@ -517,6 +520,30 @@ public sealed class OrderServiceTests
     }
 
     [Fact]
+    public async Task ConfirmOrderPaymentAsync_WhenSavedOrderCannotBeReloaded_ThrowsClearFailure()
+    {
+        var userId = Guid.NewGuid();
+        var order = CreateOrder(userId);
+        order.Status = OrderStatus.Pending;
+        order.PaymentStatus = PaymentStatus.Pending;
+        order.StockCommitted = true;
+        _orders
+            .SetupSequence(x => x.GetByIdWithItemsAsync(order.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(order)
+            .ReturnsAsync((Order?)null);
+        _orders.Setup(x => x.Update(order));
+        _unitOfWork
+            .Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(1);
+
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _service.ConfirmOrderPaymentAsync(userId, order.Id));
+
+        Assert.Equal("Order reload failed after saving changes.", exception.Message);
+        _unitOfWork.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
     public async Task CreateSumUpCheckoutAsync_AsGuestWithMatchingCartSession_StoresCheckoutId()
     {
         const string sessionId = "guest-session";
@@ -864,7 +891,8 @@ public sealed class OrderServiceTests
 
         Assert.Equal(13, result.Id);
         Assert.Equal(order.Id, result.OrderId);
-        Assert.Null(savedRequest!.UserId);
+        Assert.NotNull(savedRequest);
+        Assert.Null(savedRequest.UserId);
         Assert.Equal("Szeretnék elállási kérelmet rögzíteni.", result.Reason);
         Assert.Equal(_timeProvider.GetUtcNow().UtcDateTime, result.RequestedAtUtc);
         Assert.Equal(OrderWithdrawalRequestStatus.Pending, result.Status);
@@ -981,4 +1009,17 @@ public sealed class OrderServiceTests
     {
         public override DateTimeOffset GetUtcNow() => utcNow;
     }
+
+    private static Mock<UserManager<ApplicationUser>> CreateUserManagerMock(
+        IUserStore<ApplicationUser> userStore) =>
+        new(
+            userStore,
+            Options.Create(new IdentityOptions()),
+            new PasswordHasher<ApplicationUser>(),
+            Array.Empty<IUserValidator<ApplicationUser>>(),
+            Array.Empty<IPasswordValidator<ApplicationUser>>(),
+            new UpperInvariantLookupNormalizer(),
+            new IdentityErrorDescriber(),
+            new Mock<IServiceProvider>(MockBehavior.Strict).Object,
+            NullLogger<UserManager<ApplicationUser>>.Instance);
 }

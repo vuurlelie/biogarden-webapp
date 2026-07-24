@@ -38,7 +38,12 @@ public sealed class AdminUserService : IAdminUserService
         var orderCounts = await _databaseContext.Orders
             .AsNoTracking()
             .Where(order => order.UserId.HasValue && userIds.Contains(order.UserId.Value))
-            .GroupBy(order => order.UserId!.Value)
+            .Select(order => new
+            {
+                order.UserId,
+                order.Status
+            })
+            .GroupBy(order => order.UserId)
             .Select(group => new
             {
                 UserId = group.Key,
@@ -47,7 +52,7 @@ public sealed class AdminUserService : IAdminUserService
                     || order.Status == OrderStatus.Confirmed
                     || order.Status == OrderStatus.Shipped)
             })
-            .ToDictionaryAsync(item => item.UserId, cancellationToken);
+            .ToDictionaryAsync(item => item.UserId.GetValueOrDefault(), cancellationToken);
 
         var pendingRequests = await _databaseContext.AccountLifecycleRequests
             .AsNoTracking()
@@ -198,10 +203,8 @@ public sealed class AdminUserService : IAdminUserService
         CancellationToken cancellationToken = default)
     {
         var request = await _databaseContext.AccountLifecycleRequests
-            .Include(item => item.User)
-                .ThenInclude(user => user!.ShippingAddress)
-            .Include(item => item.User)
-                .ThenInclude(user => user!.BillingAddress)
+            .Include("User.ShippingAddress")
+            .Include("User.BillingAddress")
             .FirstOrDefaultAsync(item => item.Id == requestId, cancellationToken)
             ?? throw new KeyNotFoundException("Account lifecycle request not found.");
 

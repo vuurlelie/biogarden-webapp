@@ -31,13 +31,13 @@ public sealed class AdminInventoryService : IAdminInventoryService
                 Unit = product.Unit,
                 StockQuantity = product.StockQuantity,
                 ReservedQuantity = _databaseContext.CartItems
-                    .Where(item => item.ProductId == product.Id && !item.Cart.IsCheckedOut && item.Cart.ExpiresAtUtc > now)
+                    .Where(item => item.ProductId == product.Id && item.Cart != null && !item.Cart.IsCheckedOut && item.Cart.ExpiresAtUtc > now)
                     .Sum(item => (int?)item.Quantity) ?? 0,
                 AvailableQuantity = product.StockQuantity - (_databaseContext.CartItems
-                    .Where(item => item.ProductId == product.Id && !item.Cart.IsCheckedOut && item.Cart.ExpiresAtUtc > now)
+                    .Where(item => item.ProductId == product.Id && item.Cart != null && !item.Cart.IsCheckedOut && item.Cart.ExpiresAtUtc > now)
                     .Sum(item => (int?)item.Quantity) ?? 0) > 0
                     ? product.StockQuantity - (_databaseContext.CartItems
-                        .Where(item => item.ProductId == product.Id && !item.Cart.IsCheckedOut && item.Cart.ExpiresAtUtc > now)
+                        .Where(item => item.ProductId == product.Id && item.Cart != null && !item.Cart.IsCheckedOut && item.Cart.ExpiresAtUtc > now)
                         .Sum(item => (int?)item.Quantity) ?? 0)
                     : 0,
                 Available = product.Available,
@@ -51,7 +51,7 @@ public sealed class AdminInventoryService : IAdminInventoryService
             ?? throw new KeyNotFoundException($"Product {productId} not found.");
         var now = DateTime.UtcNow;
         var reserved = await _databaseContext.CartItems
-            .Where(item => item.ProductId == productId && !item.Cart.IsCheckedOut && item.Cart.ExpiresAtUtc > now)
+            .Where(item => item.ProductId == productId && item.Cart != null && !item.Cart.IsCheckedOut && item.Cart.ExpiresAtUtc > now)
             .SumAsync(item => (int?)item.Quantity, cancellationToken) ?? 0;
 
         if (changes.StockQuantity < reserved)

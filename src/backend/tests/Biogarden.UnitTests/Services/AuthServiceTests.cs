@@ -1,13 +1,16 @@
 using System.Collections;
 using System.Linq.Expressions;
 using Biogarden.BusinessLogic.Abstractions;
+using Biogarden.BusinessLogic.DTOs.Addresses;
 using Biogarden.BusinessLogic.DTOs.Auth;
 using Biogarden.BusinessLogic.Models.Email;
 using Biogarden.BusinessLogic.Options;
 using Biogarden.BusinessLogic.Services;
 using Biogarden.DataAccess.Entities;
+using Biogarden.DataAccess.Enums;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore.Query;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Moq;
 
@@ -24,8 +27,7 @@ public sealed class AuthServiceTests
     public AuthServiceTests()
     {
         var userStore = new Mock<IUserStore<ApplicationUser>>(MockBehavior.Strict);
-        _userManager = new Mock<UserManager<ApplicationUser>>(
-            userStore.Object, null!, null!, null!, null!, null!, null!, null!, null!);
+        _userManager = CreateUserManagerMock(userStore.Object);
 
         _userManager
             .SetupGet(manager => manager.Users)
@@ -94,6 +96,72 @@ public sealed class AuthServiceTests
         Assert.True(result.Succeeded);
         _emailService.VerifyAll();
         _emailTemplateService.VerifyAll();
+    }
+
+    [Fact]
+    public async Task RegisterAsync_ForCompanyAccount_CreatesUserWithBillingAddressAndInvoicePreference()
+    {
+        ApplicationUser? createdUser = null;
+
+        _userManager
+            .Setup(manager => manager.FindByEmailAsync("ceg@example.com"))
+            .ReturnsAsync((ApplicationUser?)null);
+        _userManager
+            .Setup(manager => manager.CreateAsync(
+                It.IsAny<ApplicationUser>(),
+                "Password1"))
+            .Callback<ApplicationUser, string>((user, _) => createdUser = user)
+            .ReturnsAsync(IdentityResult.Success);
+        _userManager
+            .Setup(manager => manager.GenerateEmailConfirmationTokenAsync(
+                It.IsAny<ApplicationUser>()))
+            .ReturnsAsync("token value");
+        _emailTemplateService
+            .Setup(service => service.BuildEmailConfirmationMessage(
+                "ceg@example.com",
+                It.IsAny<string>()))
+            .Returns(new EmailMessage
+            {
+                To = "ceg@example.com",
+                Subject = "Email confirmation",
+                PlainTextBody = "confirmation email",
+                HtmlBody = "<p>confirmation email</p>"
+            });
+        _emailService
+            .Setup(service => service.SendAsync(
+                It.Is<EmailMessage>(message => message.To == "ceg@example.com"),
+                It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        var result = await _service.RegisterAsync(new RegisterRequestDto
+        {
+            Email = " ceg@example.com ",
+            Password = "Password1",
+            ConfirmPassword = "Password1",
+            CustomerType = CustomerType.Company,
+            CompanyName = " Teszt Kft. ",
+            TaxNumber = "12345678-1-12",
+            PrintedInvoiceRequested = true,
+            BillingAddress = new AddressCreateDto
+            {
+                PostalCode = " 2112 ",
+                City = " Veresegyhaz ",
+                Street = " Szemere Pal utca ",
+                HouseNumber = " 25 "
+            }
+        });
+
+        Assert.True(result.Succeeded);
+        Assert.NotNull(createdUser);
+        Assert.Equal(CustomerType.Company, createdUser.CustomerType);
+        Assert.Equal("Teszt Kft.", createdUser.CompanyName);
+        Assert.Equal("12345678-1-12", createdUser.TaxNumber);
+        Assert.True(createdUser.PrintedInvoiceRequested);
+        Assert.NotNull(createdUser.BillingAddress);
+        Assert.Equal("2112", createdUser.BillingAddress.PostalCode);
+        Assert.Equal("Veresegyhaz", createdUser.BillingAddress.City);
+        Assert.Equal("Szemere Pal utca", createdUser.BillingAddress.Street);
+        Assert.Equal("25", createdUser.BillingAddress.HouseNumber);
     }
 
     [Fact]
@@ -403,6 +471,19 @@ public sealed class AuthServiceTests
         return new TestAsyncEnumerable<TEntity>(entities);
     }
 
+    private static Mock<UserManager<ApplicationUser>> CreateUserManagerMock(
+        IUserStore<ApplicationUser> userStore) =>
+        new(
+            userStore,
+            Options.Create(new IdentityOptions()),
+            new PasswordHasher<ApplicationUser>(),
+            Array.Empty<IUserValidator<ApplicationUser>>(),
+            Array.Empty<IPasswordValidator<ApplicationUser>>(),
+            new UpperInvariantLookupNormalizer(),
+            new IdentityErrorDescriber(),
+            new Mock<IServiceProvider>(MockBehavior.Strict).Object,
+            NullLogger<UserManager<ApplicationUser>>.Instance);
+
     private sealed class TestAsyncQueryProvider<TEntity> : IAsyncQueryProvider
     {
         private readonly IQueryProvider _inner;
@@ -442,13 +523,21 @@ public sealed class AuthServiceTests
                     nameof(IQueryProvider.Execute),
                     1,
                     [typeof(Expression)])
-                ?.MakeGenericMethod(expectedResultType)
+                ?? throw new InvalidOperationException("IQueryProvider.Execute method was not found.");
+            var typedExecutionResult = executionResult
+                .MakeGenericMethod(expectedResultType)
                 .Invoke(this, [expression]);
 
-            return (TResult)typeof(Task)
-                .GetMethod(nameof(Task.FromResult))!
+            var fromResultMethod = typeof(Task)
+                .GetMethod(nameof(Task.FromResult))
+                ?? throw new InvalidOperationException("Task.FromResult method was not found.");
+
+            var taskResult = fromResultMethod
                 .MakeGenericMethod(expectedResultType)
-                .Invoke(null, [executionResult])!;
+                .Invoke(null, [typedExecutionResult])
+                ?? throw new InvalidOperationException("Task.FromResult invocation returned null.");
+
+            return (TResult)taskResult;
         }
     }
 

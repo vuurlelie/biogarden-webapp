@@ -104,7 +104,7 @@ public class OrderService : IOrderService
         }
 
         if (dto.FulfillmentMethod != FulfillmentMethod.PersonalPickup &&
-            cart.Items.Any(item => !item.Product.DeliveryAvailable))
+            cart.Items.Any(item => item.Product?.DeliveryAvailable == false))
         {
             throw new InvalidOperationException(
                 "The cart contains a product that is available only for personal pickup.");
@@ -183,11 +183,11 @@ public class OrderService : IOrderService
                 await _unitOfWork.OrderRepository.AddAsync(order, transactionToken);
                 await _unitOfWork.SaveChangesAsync(transactionToken);
 
-                var createdOrder = await _unitOfWork.OrderRepository.GetByIdWithItemsAsync(
+                var createdOrder = await ReloadOrderWithItemsAsync(
                     order.Id,
                     transactionToken);
 
-                return createdOrder!.ToDto();
+                return createdOrder.ToDto();
             }, cancellationToken);
         }
         catch (DbUpdateConcurrencyException exception)
@@ -254,11 +254,11 @@ public class OrderService : IOrderService
         _unitOfWork.OrderRepository.Update(order);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
-        var confirmedOrder = await _unitOfWork.OrderRepository.GetByIdWithItemsAsync(
+        var confirmedOrder = await ReloadOrderWithItemsAsync(
             order.Id,
             cancellationToken);
 
-        return confirmedOrder!.ToDto();
+        return confirmedOrder.ToDto();
     }
 
     public async Task<SumUpCheckoutDto> CreateSumUpCheckoutAsync(
@@ -416,11 +416,11 @@ public class OrderService : IOrderService
         _unitOfWork.OrderRepository.Update(order);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
-        var cancelledOrder = await _unitOfWork.OrderRepository.GetByIdWithItemsAsync(
+        var cancelledOrder = await ReloadOrderWithItemsAsync(
             order.Id,
             cancellationToken);
 
-        return cancelledOrder!.ToDto();
+        return cancelledOrder.ToDto();
     }
 
     public async Task<OrderWithdrawalRequestDto> RequestWithdrawalAsync(
@@ -711,14 +711,7 @@ public class OrderService : IOrderService
         var useManualContact = !string.IsNullOrWhiteSpace(dto.CustomerName) ||
             !string.IsNullOrWhiteSpace(dto.CustomerEmail) ||
             !string.IsNullOrWhiteSpace(dto.CustomerPhone);
-        if (user is null || useManualContact)
-        {
-            ValidateGuestContactDetails(dto);
-        }
-        else
-        {
-            ValidateAccountContactDetails(user);
-        }
+        var customerContact = BuildCustomerContact(user, useManualContact, dto);
 
         var customerType = user?.CustomerType ?? dto.CustomerType;
         if (!Enum.IsDefined(customerType))
@@ -787,11 +780,9 @@ public class OrderService : IOrderService
 
         return new OrderCustomerSnapshot(
             AddressId: customerType == CustomerType.Company ? dto.AddressId : null,
-            CustomerName: user is null || useManualContact
-                ? dto.CustomerName!.Trim()
-                : $"{user.LastName} {user.FirstName}".Trim(),
-            CustomerEmail: user is null || useManualContact ? dto.CustomerEmail!.Trim() : user.Email!.Trim(),
-            CustomerPhone: user is null || useManualContact ? dto.CustomerPhone!.Trim() : user.PhoneNumber!.Trim(),
+            CustomerName: customerContact.Name,
+            CustomerEmail: customerContact.Email,
+            CustomerPhone: customerContact.Phone,
             PostalCode: billingAddress?.PostalCode ?? NormalizeOptional(dto.PostalCode) ?? string.Empty,
             City: billingAddress?.City ?? NormalizeOptional(dto.City) ?? string.Empty,
             Street: billingAddress?.Street ?? NormalizeOptional(dto.Street) ?? string.Empty,
@@ -814,21 +805,33 @@ public class OrderService : IOrderService
             DeliveryDoorbell: deliveryAddress?.Doorbell ?? NormalizeOptional(dto.DeliveryDoorbell));
     }
 
-    private static void ValidateGuestContactDetails(PlaceOrderDto dto)
+    private static OrderCustomerContact BuildCustomerContact(
+        ApplicationUser? user,
+        bool useManualContact,
+        PlaceOrderDto dto) =>
+        user is null || useManualContact
+            ? BuildGuestContact(dto)
+            : BuildAccountContact(user);
+
+    private static OrderCustomerContact BuildGuestContact(PlaceOrderDto dto)
     {
-        var required = new[]
-        {
-            dto.CustomerName, dto.CustomerEmail, dto.CustomerPhone
-        };
-        if (required.Any(string.IsNullOrWhiteSpace))
+        var customerName = NormalizeOptional(dto.CustomerName);
+        var customerEmail = NormalizeOptional(dto.CustomerEmail);
+        var customerPhone = NormalizeOptional(dto.CustomerPhone);
+        if (customerName is null || customerEmail is null || customerPhone is null)
         {
             throw new ArgumentException("Guest customer and address details are required.");
         }
 
-        if (!System.Net.Mail.MailAddress.TryCreate(dto.CustomerEmail, out _))
+        if (!System.Net.Mail.MailAddress.TryCreate(customerEmail, out _))
         {
             throw new ArgumentException("Invalid email address.");
         }
+
+        return new OrderCustomerContact(
+            customerName,
+            customerEmail,
+            customerPhone);
     }
 
     private static void ValidateAcceptedLegalVersions(PlaceOrderDto dto)
@@ -861,16 +864,22 @@ public class OrderService : IOrderService
             throw new ArgumentException("Az adószám formátuma hibás. Példa: 12345678-1-12.");
     }
 
-    private static void ValidateAccountContactDetails(ApplicationUser user)
+    private static OrderCustomerContact BuildAccountContact(ApplicationUser user)
     {
-        if (string.IsNullOrWhiteSpace(user.FirstName) ||
-            string.IsNullOrWhiteSpace(user.LastName) ||
-            string.IsNullOrWhiteSpace(user.Email) ||
-            string.IsNullOrWhiteSpace(user.PhoneNumber))
+        var firstName = NormalizeOptional(user.FirstName);
+        var lastName = NormalizeOptional(user.LastName);
+        var email = NormalizeOptional(user.Email);
+        var phone = NormalizeOptional(user.PhoneNumber);
+        if (firstName is null || lastName is null || email is null || phone is null)
         {
             throw new ArgumentException(
                 "A fiók személyes adatai hiányosak. Töltsd ki a nevet, email címet és telefonszámot, vagy válaszd a Más adatok megadása lehetőséget.");
         }
+
+        return new OrderCustomerContact(
+            $"{lastName} {firstName}".Trim(),
+            email,
+            phone);
     }
 
     private static string? NormalizeOptional(string? value) =>
@@ -957,6 +966,12 @@ public class OrderService : IOrderService
                 cancellationToken);
     }
 
+    private async Task<Order> ReloadOrderWithItemsAsync(
+        Guid orderId,
+        CancellationToken cancellationToken) =>
+        await _unitOfWork.OrderRepository.GetByIdWithItemsAsync(orderId, cancellationToken)
+            ?? throw new InvalidOperationException("Order reload failed after saving changes.");
+
     private async Task SendOrderCreatedEmailsAsync(
         OrderDto order,
         CancellationToken cancellationToken)
@@ -997,4 +1012,9 @@ public class OrderService : IOrderService
         string? DeliveryFloor,
         string? DeliveryDoor,
         string? DeliveryDoorbell);
+
+    private sealed record OrderCustomerContact(
+        string Name,
+        string Email,
+        string Phone);
 }
