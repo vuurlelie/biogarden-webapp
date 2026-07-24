@@ -94,74 +94,27 @@ public sealed class EmailTemplateService : IEmailTemplateService
 
     public EmailMessage BuildPasswordChangedMessage(string recipientEmail)
     {
-        return BuildAccountNotificationMessage(
-            recipientEmail,
-            title: "Jelszavad megváltozott",
-            preheader: "Sikeresen megváltozott a Bakony Kincse Biokertészet fiókod jelszava.",
-            bodyLines:
-            [
-                "Ezúton jelezzük, hogy a Bakony Kincse Biokertészet fiókod jelszava sikeresen megváltozott.",
-                "Ha te végezted a műveletet, nincs további teendőd."
-            ],
-            note: "Ha nem te kezdeményezted a jelszóváltoztatást, kérj jelszó-visszaállítást, és minél előbb vedd fel velünk a kapcsolatot.");
+        return BuildAccountNotificationMessage(recipientEmail, BuildPasswordChangedContent());
     }
 
     public EmailMessage BuildAccountDeactivatedMessage(string recipientEmail)
     {
-        return BuildAccountNotificationMessage(
-            recipientEmail,
-            title: "Fiókod deaktiválva lett",
-            preheader: "A Bakony Kincse Biokertészet fiókod jelenleg nem aktív.",
-            bodyLines:
-            [
-                "A Bakony Kincse Biokertészet fiókod deaktiválva lett.",
-                "A fiókba jelenleg nem lehet bejelentkezni, de az adatok megmaradnak, ezért a fiók később újraaktiválható.",
-                "Ha folyamatban lévő rendelésed van, annak teljesítéséről továbbra is egyeztetünk."
-            ],
-            note: "Ha szeretnéd újraaktiválni a fiókodat, kérjük, vedd fel velünk a kapcsolatot.");
+        return BuildAccountNotificationMessage(recipientEmail, BuildAccountDeactivatedContent());
     }
 
     public EmailMessage BuildAccountReactivatedMessage(string recipientEmail)
     {
-        return BuildAccountNotificationMessage(
-            recipientEmail,
-            title: "Fiókod újra aktiválva lett",
-            preheader: "A Bakony Kincse Biokertészet fiókod újra használható.",
-            bodyLines:
-            [
-                "A Bakony Kincse Biokertészet fiókod újra aktiválva lett.",
-                "Mostantól ismét be tudsz jelentkezni a fiókodba.",
-                "A korábban mentett adataid a fiókodban ismét elérhetők."
-            ],
-            note: "Ha nem te kérted a fiók újraaktiválását, kérjük, jelezd felénk.");
+        return BuildAccountNotificationMessage(recipientEmail, BuildAccountReactivatedContent());
     }
 
     public EmailMessage BuildAccountDeletedMessage(string recipientEmail)
     {
-        return BuildAccountNotificationMessage(
-            recipientEmail,
-            title: "Fiókod törölve lett",
-            preheader: "A Bakony Kincse Biokertészet fiókod és mentett személyes adataid törlésre kerültek.",
-            bodyLines:
-            [
-                "A Bakony Kincse Biokertészet fiókod törlésre került.",
-                "Mivel nem tartozott hozzá rendelési előzmény, a fiókot és a mentett személyes adatokat töröltük."
-            ],
-            note: "Ha kérdésed van a törléssel kapcsolatban, kérjük, vedd fel velünk a kapcsolatot.");
+        return BuildAccountNotificationMessage(recipientEmail, BuildAccountDeletedContent());
     }
 
     public EmailMessage BuildAccountAnonymizedMessage(string recipientEmail)
     {
-        return BuildAccountNotificationMessage(
-            recipientEmail,
-            title: "Fiókadataid anonimizálva lettek",
-            preheader: "A Bakony Kincse Biokertészet fiókod mentett személyes adatait anonimizáltuk.",
-            bodyLines:
-            [
-                "A Bakony Kincse Biokertészet fiókod mentett személyes adatait anonimizáltuk.",
-                "A korábbi rendelési és számlázási adatok a jogszabályi megőrzési kötelezettségek miatt megmaradnak."
-            ],
-            note: "Az anonimizált fiók már nem használható bejelentkezésre.");
+        return BuildAccountNotificationMessage(recipientEmail, BuildAccountAnonymizedContent());
     }
 
     public EmailMessage BuildContactBusinessNotificationMessage(
@@ -172,31 +125,14 @@ public sealed class EmailTemplateService : IEmailTemplateService
             ? "Új kapcsolatfelvételi üzenet"
             : $"Új kapcsolatfelvételi üzenet: {request.Subject}";
 
-        var plainTextBody = $"""
-            Új üzenet érkezett a weboldal Kapcsolat űrlapjáról.
-
-            Név: {request.Name}
-            Email: {request.Email}
-            Telefon: {request.Phone ?? "Nincs megadva"}
-            Tárgy: {request.Subject ?? "Nincs megadva"}
-
-            Üzenet:
-            {request.Message}
-            """;
+        var bodyLines = BuildContactBusinessBodyLines(request);
+        var plainTextBody = BuildContactBusinessPlainTextBody(request);
 
         var htmlBody = BuildInternalHtmlBody(
             title: "Új kapcsolatfelvételi üzenet",
             preheader: $"Új üzenet érkezett: {request.Name}",
             greeting: "Új üzenet érkezett",
-            bodyParagraphs:
-            [
-                "A weboldal Kapcsolat űrlapján keresztül új megkeresés érkezett.",
-                $"Név: {request.Name}",
-                $"Email: {request.Email}",
-                $"Telefon: {request.Phone ?? "Nincs megadva"}",
-                $"Tárgy: {request.Subject ?? "Nincs megadva"}",
-                $"Üzenet: {request.Message}"
-            ],
+            bodyParagraphs: bodyLines,
             actionText: "Válasz emailben",
             actionUrl: $"mailto:{request.Email}",
             note: "A válaszhoz használd a megadott email címet, vagy keresd a látogatót telefonon, ha adott meg telefonszámot.");
@@ -210,36 +146,14 @@ public sealed class EmailTemplateService : IEmailTemplateService
     {
         const string title = "Megkaptuk az üzenetedet";
         var submittedDetails = FormatContactSubmittedDetails(request);
-
-        var plainTextBody = $"""
-            Kedves {request.Name}!
-
-            Köszönjük, hogy írtál nekünk. Megkaptuk az üzenetedet, és hamarosan válaszolunk a megadott elérhetőségeden.
-
-            {submittedDetails}
-
-            Az elküldött üzeneted:
-            {request.Message}
-
-            Üdvözlettel:
-            {_brandingOptions.CompanyName}
-
-            {_brandingOptions.ContactEmail}
-            {_brandingOptions.PhoneNumber}
-            {_brandingOptions.Address}
-            {_brandingOptions.WebsiteUrl}
-            """;
+        var bodyLines = BuildContactVisitorBodyLines(request, submittedDetails);
+        var plainTextBody = BuildContactVisitorPlainTextBody(request, submittedDetails);
 
         var htmlBody = BuildHtmlBody(
             title: title,
             preheader: "Köszönjük a megkeresést, hamarosan válaszolunk.",
             greeting: $"Kedves {request.Name}!",
-            bodyParagraphs:
-            [
-                "Köszönjük, hogy írtál nekünk. Megkaptuk az üzenetedet, és hamarosan válaszolunk a megadott elérhetőségeden.",
-                submittedDetails,
-                $"Az elküldött üzeneted: {request.Message}"
-            ],
+            bodyParagraphs: bodyLines,
             actionText: "Weboldal megnyitása",
             actionUrl: _brandingOptions.WebsiteUrl,
             note: "Ez egy automatikus visszaigazolás, válaszolnod nem szükséges.");
@@ -430,31 +344,91 @@ public sealed class EmailTemplateService : IEmailTemplateService
             """;
     }
 
+    private static AccountNotificationContent BuildPasswordChangedContent() =>
+        new(
+            Title: "Jelszavad megváltozott",
+            Preheader: "Sikeresen megváltozott a Bakony Kincse Biokertészet fiókod jelszava.",
+            BodyLines:
+            [
+                "Ezúton jelezzük, hogy a Bakony Kincse Biokertészet fiókod jelszava sikeresen megváltozott.",
+                "Ha te végezted a műveletet, nincs további teendőd."
+            ],
+            Note: "Ha nem te kezdeményezted a jelszóváltoztatást, kérj jelszó-visszaállítást, és minél előbb vedd fel velünk a kapcsolatot.");
+
+    private static AccountNotificationContent BuildAccountDeactivatedContent() =>
+        new(
+            Title: "Fiókod deaktiválva lett",
+            Preheader: "A Bakony Kincse Biokertészet fiókod jelenleg nem aktív.",
+            BodyLines:
+            [
+                "A Bakony Kincse Biokertészet fiókod deaktiválva lett.",
+                "A fiókba jelenleg nem lehet bejelentkezni, de az adatok megmaradnak, ezért a fiók később újraaktiválható.",
+                "Ha folyamatban lévő rendelésed van, annak teljesítéséről továbbra is egyeztetünk."
+            ],
+            Note: "Ha szeretnéd újraaktiválni a fiókodat, kérjük, vedd fel velünk a kapcsolatot.");
+
+    private static AccountNotificationContent BuildAccountReactivatedContent() =>
+        new(
+            Title: "Fiókod újra aktiválva lett",
+            Preheader: "A Bakony Kincse Biokertészet fiókod újra használható.",
+            BodyLines:
+            [
+                "A Bakony Kincse Biokertészet fiókod újra aktiválva lett.",
+                "Mostantól ismét be tudsz jelentkezni a fiókodba.",
+                "A korábban mentett adataid a fiókodban ismét elérhetők."
+            ],
+            Note: "Ha nem te kérted a fiók újraaktiválását, kérjük, jelezd felénk.");
+
+    private static AccountNotificationContent BuildAccountDeletedContent() =>
+        new(
+            Title: "Fiókod törölve lett",
+            Preheader: "A Bakony Kincse Biokertészet fiókod és mentett személyes adataid törlésre kerültek.",
+            BodyLines:
+            [
+                "A Bakony Kincse Biokertészet fiókod törlésre került.",
+                "Mivel nem tartozott hozzá rendelési előzmény, a fiókot és a mentett személyes adatokat töröltük."
+            ],
+            Note: "Ha kérdésed van a törléssel kapcsolatban, kérjük, vedd fel velünk a kapcsolatot.");
+
+    private static AccountNotificationContent BuildAccountAnonymizedContent() =>
+        new(
+            Title: "Fiókadataid anonimizálva lettek",
+            Preheader: "A Bakony Kincse Biokertészet fiókod mentett személyes adatait anonimizáltuk.",
+            BodyLines:
+            [
+                "A Bakony Kincse Biokertészet fiókod mentett személyes adatait anonimizáltuk.",
+                "A korábbi rendelési és számlázási adatok a jogszabályi megőrzési kötelezettségek miatt megmaradnak."
+            ],
+            Note: "Az anonimizált fiók már nem használható bejelentkezésre.");
+
     private EmailMessage BuildAccountNotificationMessage(
         string recipientEmail,
-        string title,
-        string preheader,
-        IReadOnlyList<string> bodyLines,
-        string note)
+        AccountNotificationContent content)
     {
         var plainTextBody = BuildPlainTextBody(
             greeting: "Kedves Felhasználónk!",
-            bodyLines: bodyLines,
+            bodyLines: content.BodyLines,
             actionText: "Kapcsolat",
             actionUrl: $"mailto:{_brandingOptions.ContactEmail}",
-            note: note);
+            note: content.Note);
 
         var htmlBody = BuildHtmlBody(
-            title: title,
-            preheader: preheader,
+            title: content.Title,
+            preheader: content.Preheader,
             greeting: "Kedves Felhasználónk!",
-            bodyParagraphs: bodyLines,
+            bodyParagraphs: content.BodyLines,
             actionText: "Kapcsolatfelvétel",
             actionUrl: $"mailto:{_brandingOptions.ContactEmail}",
-            note: note);
+            note: content.Note);
 
-        return CreateMessage(recipientEmail, BuildBrandedSubject(title), plainTextBody, htmlBody);
+        return CreateMessage(recipientEmail, BuildBrandedSubject(content.Title), plainTextBody, htmlBody);
     }
+
+    private sealed record AccountNotificationContent(
+        string Title,
+        string Preheader,
+        IReadOnlyList<string> BodyLines,
+        string Note);
 
     private EmailMessage CreateMessage(
         string recipientEmail,
@@ -637,6 +611,60 @@ public sealed class EmailTemplateService : IEmailTemplateService
     {
         return $"{_brandingOptions.WebsiteUrl.TrimEnd('/')}/admin";
     }
+
+    private static IReadOnlyList<string> BuildContactBusinessBodyLines(ContactMessageRequestDto request) =>
+    [
+        "A weboldal Kapcsolat űrlapján keresztül új megkeresés érkezett.",
+        $"Név: {request.Name}",
+        $"Email: {request.Email}",
+        $"Telefon: {request.Phone ?? "Nincs megadva"}",
+        $"Tárgy: {request.Subject ?? "Nincs megadva"}",
+        $"Üzenet: {request.Message}"
+    ];
+
+    private static string BuildContactBusinessPlainTextBody(ContactMessageRequestDto request) =>
+        $"""
+        Új üzenet érkezett a weboldal Kapcsolat űrlapjáról.
+
+        Név: {request.Name}
+        Email: {request.Email}
+        Telefon: {request.Phone ?? "Nincs megadva"}
+        Tárgy: {request.Subject ?? "Nincs megadva"}
+
+        Üzenet:
+        {request.Message}
+        """;
+
+    private static IReadOnlyList<string> BuildContactVisitorBodyLines(
+        ContactMessageRequestDto request,
+        string submittedDetails) =>
+    [
+        "Köszönjük, hogy írtál nekünk. Megkaptuk az üzenetedet, és hamarosan válaszolunk a megadott elérhetőségeden.",
+        submittedDetails,
+        $"Az elküldött üzeneted: {request.Message}"
+    ];
+
+    private string BuildContactVisitorPlainTextBody(
+        ContactMessageRequestDto request,
+        string submittedDetails) =>
+        $"""
+        Kedves {request.Name}!
+
+        Köszönjük, hogy írtál nekünk. Megkaptuk az üzenetedet, és hamarosan válaszolunk a megadott elérhetőségeden.
+
+        {submittedDetails}
+
+        Az elküldött üzeneted:
+        {request.Message}
+
+        Üdvözlettel:
+        {_brandingOptions.CompanyName}
+
+        {_brandingOptions.ContactEmail}
+        {_brandingOptions.PhoneNumber}
+        {_brandingOptions.Address}
+        {_brandingOptions.WebsiteUrl}
+        """;
 
     private static IReadOnlyList<string> BuildOrderConfirmationBodyLines(OrderDto order) =>
     [
