@@ -33,3 +33,23 @@ export async function getPostPage(
   });
   return response.json() as Promise<PagedResult<Post>>;
 }
+
+export async function getAllPosts(): Promise<Post[]> {
+  const pageSize = 60;
+  const firstPage = await getPostPage({ page: 1, pageSize, sort: "newest" });
+
+  if (firstPage.totalPages <= 1) {
+    return firstPage.items;
+  }
+
+  const remainingPages = await Promise.all(
+    Array.from({ length: firstPage.totalPages - 1 }, (_, index) =>
+      getPostPage({ page: index + 2, pageSize, sort: "newest" }),
+    ),
+  );
+
+  return [
+    ...firstPage.items,
+    ...remainingPages.flatMap((page) => page.items),
+  ];
+}

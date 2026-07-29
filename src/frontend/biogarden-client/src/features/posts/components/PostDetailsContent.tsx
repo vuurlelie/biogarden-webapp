@@ -1,5 +1,7 @@
 import parse from "html-react-parser";
 import type { PostDetails } from "../types/post.types";
+import { ROUTES } from "../../../shared/constants/routes";
+import FacebookPostActions from "./FacebookPostActions";
 import PostDetailsNavigation from "./PostDetailsNavigation";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
@@ -23,6 +25,7 @@ export default function PostDetailsContent({
   post,
 }: PostDetailsContentProps) {
   const imageUrl = `${API_BASE_URL}/${post.image}`;
+  const postPath = `${ROUTES.posts}/${post.id}`;
 
   return (
     <div className="pb-12">
@@ -46,6 +49,10 @@ export default function PostDetailsContent({
           <h1 className="mt-3 break-words text-3xl font-bold text-site-heading md:text-4xl lg:text-5xl">
             {post.title}
           </h1>
+
+          <div className="mt-5">
+            <FacebookPostActions postPath={postPath} title={post.title} />
+          </div>
         </div>
 
         <div className="relative overflow-hidden rounded-sm shadow-lg">

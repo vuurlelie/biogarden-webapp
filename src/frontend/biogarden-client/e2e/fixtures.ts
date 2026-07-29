@@ -79,7 +79,7 @@ const pageTwoPost = {
   category: 1,
   article: "Hasznos tudastar tartalom masodik oldalon.",
   image: "uploads/posts/defaultimg.png",
-  publishedAt: "2026-07-19T10:00:00Z",
+  publishedAt: "2025-05-19T10:00:00Z",
   draft: false,
 };
 
@@ -189,13 +189,57 @@ export async function mockCatalogPaginationApi(page: Page) {
     async (route) => {
       const requestUrl = new URL(route.request().url());
       const pageNumber = Number(requestUrl.searchParams.get("page") ?? "1");
-      const items = pageNumber === 2 ? [pageTwoPost] : pagedPosts;
+      const pageSize = Number(requestUrl.searchParams.get("pageSize") ?? "12");
+      const items = pageSize >= 60
+        ? [...pagedPosts, pageTwoPost]
+        : pageNumber === 2 ? [pageTwoPost] : pagedPosts;
 
       await route.fulfill({
         json: createPagedResult(items, pageNumber, 4, 5),
       });
     },
   );
+}
+
+export async function mockKnowledgePostsApi(page: Page) {
+  await page.route(`${apiBaseUrl}/uploads/**`, async (route) => {
+    await route.fulfill({ status: 204 });
+  });
+
+  await page.route(
+    (url) => url.origin === apiBaseUrl && url.pathname === "/api/cart",
+    async (route) => {
+      if (route.request().method() === "GET") {
+        await route.fulfill({ json: createCart([]) });
+        return;
+      }
+
+      await route.fallback();
+    },
+  );
+
+  await page.route(
+    (url) => url.origin === apiBaseUrl && url.pathname === "/api/posts",
+    async (route) => {
+      const requestUrl = new URL(route.request().url());
+      const pageSize = Number(requestUrl.searchParams.get("pageSize") ?? "12");
+
+      await route.fulfill({
+        json: createPagedResult(
+          pageSize >= 60 ? [...pagedPosts, pageTwoPost] : pagedPosts,
+          1,
+          pageSize >= 60 ? 60 : 4,
+          pageSize >= 60 ? pagedPosts.length + 1 : pagedPosts.length,
+        ),
+      });
+    },
+  );
+
+  await page.route(`${apiBaseUrl}/api/posts/1`, async (route) => {
+    await route.fulfill({
+      json: pageOnePost,
+    });
+  });
 }
 
 export async function mockPublicShopApi(page: Page) {

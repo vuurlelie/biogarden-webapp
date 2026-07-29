@@ -35,7 +35,7 @@ export default function ProductsPage() {
     : "all";
 
   useEffect(() => {
-    const controller = new AbortController();
+    let isCurrentRequest = true;
 
     async function loadProducts() {
       try {
@@ -50,19 +50,20 @@ export default function ProductsPage() {
             availableOnly,
             deliveryOnly,
           },
-          controller.signal,
         );
+
+        if (!isCurrentRequest) return;
 
         setProducts(result.items);
         setTotalCount(result.totalCount);
         setTotalPages(result.totalPages);
       } catch (error) {
-        if (controller.signal.aborted) return;
+        if (!isCurrentRequest) return;
 
         console.error(error);
         setHasError(true);
       } finally {
-        if (!controller.signal.aborted) {
+        if (isCurrentRequest) {
           setIsLoading(false);
         }
       }
@@ -70,7 +71,9 @@ export default function ProductsPage() {
 
     void loadProducts();
 
-    return () => controller.abort();
+    return () => {
+      isCurrentRequest = false;
+    };
   }, [selectedCategory, sortOrder, availableOnly, deliveryOnly, currentPage]);
 
   function resetToFirstPage() {

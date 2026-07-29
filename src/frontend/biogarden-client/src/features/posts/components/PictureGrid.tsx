@@ -35,9 +35,7 @@ export default function PictureGrid({ posts }: PictureGridProps) {
                   src={imageUrl}
                   alt={post.title}
                   title={post.title}
-                  className="aspect-square h-full w-full object-cover shadow-lg transition duration-300 group-hover:scale-105"
-                  width={600}
-                  height={600}
+                  className="h-full w-full object-cover shadow-lg transition duration-300 group-hover:scale-105"
                   loading="lazy"
                   decoding="async"
                 />

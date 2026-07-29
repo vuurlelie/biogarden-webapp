@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { getPostPage } from "../../features/posts/api/postsApi";
+import { getAllPosts, getPostPage } from "../../features/posts/api/postsApi";
 import Contents from "../../features/posts/components/Contents";
 import FilterAndSort from "../../features/posts/components/FilterAndSort";
 import KnowledgeCards from "../../features/posts/components/KnowledgeCards";
@@ -13,6 +13,7 @@ const POSTS_PER_PAGE = 4;
 
 export default function PostsPage() {
   const [posts, setPosts] = useState<Post[]>([]);
+  const [sidebarPosts, setSidebarPosts] = useState<Post[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<"all" | 0 | 1>("all");
   const [sortOrder, setSortOrder] = useState<PostSortOrder>("newest");
   const [currentPage, setCurrentPage] = useState(1);
@@ -22,7 +23,7 @@ export default function PostsPage() {
   const [hasError, setHasError] = useState(false);
 
   useEffect(() => {
-    const controller = new AbortController();
+    let isCurrentRequest = true;
 
     async function loadPosts() {
       try {
@@ -36,19 +37,20 @@ export default function PostsPage() {
             category: selectedCategory,
             sort: sortOrder,
           },
-          controller.signal,
         );
+
+        if (!isCurrentRequest) return;
 
         setPosts(result.items);
         setTotalPages(result.totalPages);
         setTotalCount(result.totalCount);
       } catch (error) {
-        if (controller.signal.aborted) return;
+        if (!isCurrentRequest) return;
 
         console.error(error);
         setHasError(true);
       } finally {
-        if (!controller.signal.aborted) {
+        if (isCurrentRequest) {
           setIsLoading(false);
         }
       }
@@ -56,8 +58,34 @@ export default function PostsPage() {
 
     void loadPosts();
 
-    return () => controller.abort();
+    return () => {
+      isCurrentRequest = false;
+    };
   }, [selectedCategory, sortOrder, currentPage]);
+
+  useEffect(() => {
+    let isCurrentRequest = true;
+
+    async function loadSidebarPosts() {
+      try {
+        const allPosts = await getAllPosts();
+
+        if (isCurrentRequest) {
+          setSidebarPosts(allPosts);
+        }
+      } catch (error) {
+        if (isCurrentRequest) {
+          console.error(error);
+        }
+      }
+    }
+
+    void loadSidebarPosts();
+
+    return () => {
+      isCurrentRequest = false;
+    };
+  }, []);
 
   function resetToFirstPage() {
     setCurrentPage(1);
@@ -155,8 +183,8 @@ export default function PostsPage() {
         </div>
 
         <div className="space-y-8">
-          <Contents posts={posts} />
-          <PictureGrid posts={posts} />
+          <Contents posts={sidebarPosts.length > 0 ? sidebarPosts : posts} />
+          <PictureGrid posts={sidebarPosts.length > 0 ? sidebarPosts : posts} />
         </div>
       </div>
     </div>
