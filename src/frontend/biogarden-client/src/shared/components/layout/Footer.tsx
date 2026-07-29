@@ -1,5 +1,5 @@
 import { lazy, Suspense, useRef, useState, type MouseEvent, type ReactNode } from "react";
-import { NavLink, useLocation } from "react-router-dom";
+import { NavLink, useLocation } from "react-router";
 import { ROUTES } from "../../constants/routes";
 import { useModalFocus } from "../../hooks/useModalFocus";
 import { OPEN_CONSENT_PREFERENCES_EVENT } from "../../../features/analytics/utils/analyticsEvents";

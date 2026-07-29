@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import { Link } from "react-router";
 import { LEGAL_DOCUMENT_VERSIONS } from "../../shared/constants/legalDocuments";
 import { ROUTES } from "../../shared/constants/routes";
 import Seo from "../../shared/seo/Seo";

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useParams } from "react-router";
 import type { PostDetails } from "../../features/posts/types/post.types";
 import PostDetailsContent from "../../features/posts/components/PostDetailsContent";
 import NotFoundPage from "./NotFoundPage";

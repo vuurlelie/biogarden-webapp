@@ -1,4 +1,4 @@
-import { Navigate, Outlet } from "react-router-dom";
+import { Navigate, Outlet } from "react-router";
 import { isAuthenticated } from "../../features/auth/utils/authStorage";
 import { ROUTES } from "../../shared/constants/routes";
 

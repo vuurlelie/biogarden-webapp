@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router";
 import { confirmEmail } from "../../features/auth/api/authApi";
 import { ROUTES } from "../../shared/constants/routes";
 

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react";
-import { Link } from "react-router-dom";
+import { Link } from "react-router";
 import { getAdminDashboard } from "../../features/admin/api/dashboardApi";
 import type { AdminDashboard } from "../../features/admin/types/dashboard.types";
 import AdminPageHeader from "../../shared/components/admin/AdminPageHeader";

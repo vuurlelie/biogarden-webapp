@@ -6,6 +6,7 @@ import {
   mockCancelledPaymentRetryApi,
   mockCatalogPaginationApi,
   mockCheckoutApi,
+  mockKnowledgePostsApi,
   mockPublicShopApi,
   mockSumUpReturnStatusApi,
   signInAsAdmin,
@@ -50,7 +51,23 @@ test("public catalog pages request and render paged results", async ({ page }) =
 
   await page.getByRole("button", { name: "2" }).first().click();
   await expect(page.getByText("Masodik oldali bejegyzes")).toBeVisible();
+  await expect(page.getByRole("link", { name: "Elso teszt bejegyzes" }).first()).toBeVisible();
+  await expect(page.getByRole("button", { name: /május|majus/ })).toBeVisible();
   await expect(postRequests.some((query) => query.includes("page=2"))).toBe(true);
+});
+
+test("public post pages expose facebook share controls", async ({ page }) => {
+  await mockKnowledgePostsApi(page);
+
+  await page.goto("/tudastar");
+  await expect(page.getByRole("link", { name: /Bejegyzés megosztása Facebookon|Bejegyzes megosztasa Facebookon/ }).first()).toBeVisible();
+
+  await page.goto("/tudastar/1");
+  const shareLink = page.getByRole("link", { name: /Bejegyzés megosztása Facebookon|Bejegyzes megosztasa Facebookon/ });
+
+  await expect(shareLink).toBeVisible();
+  await expect(shareLink).toHaveAttribute("href", /facebook\.com\/sharer\/sharer\.php/);
+  expect(decodeURIComponent(await shareLink.getAttribute("href") ?? "")).toContain("/tudastar/1");
 });
 
 test("customer can browse products, open details, and add an item to the cart", async ({ page }) => {

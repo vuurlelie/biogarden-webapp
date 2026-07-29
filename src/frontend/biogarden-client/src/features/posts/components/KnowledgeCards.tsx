@@ -1,6 +1,7 @@
-import { NavLink } from "react-router-dom";
+import { NavLink } from "react-router";
 import type { Post } from "../types/post.types";
 import { ROUTES } from "../../../shared/constants/routes";
+import FacebookPostActions from "./FacebookPostActions";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
@@ -33,11 +34,12 @@ export default function KnowledgeCards({ posts }: KnowledgeCardsProps) {
     <div className="grid gap-8">
       {posts.map((post) => {
         const imageUrl = `${API_BASE_URL}/${post.image}`;
+        const postPath = `${ROUTES.posts}/${post.id}`;
 
         return (
           <div key={post.id}>
-            <NavLink to={`${ROUTES.posts}/${post.id}`} className="block">
-              <article className="rounded-sm bg-white shadow-sm transition hover:shadow-xl">
+            <article className="rounded-sm bg-white shadow-sm transition hover:shadow-xl">
+              <NavLink to={postPath} className="block">
                 
                 {/* KÉP KERETTEL */}
                 <div className="p-4">
@@ -84,8 +86,12 @@ export default function KnowledgeCards({ posts }: KnowledgeCardsProps) {
                     Tovább →
                   </div>
                 </div>
-              </article>
-            </NavLink>
+              </NavLink>
+
+              <div className="border-t border-site-border px-6 py-4">
+                <FacebookPostActions compact postPath={postPath} title={post.title} />
+              </div>
+            </article>
           </div>
         );
       })}

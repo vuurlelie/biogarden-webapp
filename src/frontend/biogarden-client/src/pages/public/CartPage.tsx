@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link } from "react-router";
 import { useCart } from "../../features/cart/context/useCart";
 import type { CartItem } from "../../features/cart/types/cart.types";
 import { getUnitLabel } from "../../features/products/utils/productLabels";

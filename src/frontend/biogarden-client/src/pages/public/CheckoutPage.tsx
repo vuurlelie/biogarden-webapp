@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
-import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router";
 import { createOrder, createSumUpCheckout } from "../../features/account/api/ordersApi";
 import { getAddresses, getProfile } from "../../features/account/api/profileApi";
 import type { UserAddresses } from "../../features/account/types/address.types";

@@ -1,5 +1,5 @@
 import { useCallback } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import { ROUTES } from "../../../shared/constants/routes";
 import { getErrorMessage, hasErrorStatus } from "../../../shared/utils/errorHandling";
 
