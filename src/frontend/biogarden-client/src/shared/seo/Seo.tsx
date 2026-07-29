@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { useLocation } from "react-router-dom";
+import { useLocation } from "react-router";
 import defaultImage from "../../assets/images/logo.png";
 
 const SITE_NAME = "Bakony Kincse Biokertészet";

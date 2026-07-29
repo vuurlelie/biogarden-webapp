@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import { Link } from "react-router";
 import { getAuthSession } from "../../features/auth/utils/authStorage";
 import { ROUTES } from "../../shared/constants/routes";
 

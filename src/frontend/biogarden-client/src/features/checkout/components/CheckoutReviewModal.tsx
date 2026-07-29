@@ -1,5 +1,5 @@
 import type { RefObject } from "react";
-import { Link } from "react-router-dom";
+import { Link } from "react-router";
 import type { Cart } from "../../cart/types/cart.types";
 import { ROUTES } from "../../../shared/constants/routes";
 import type { CheckoutDraft, CheckoutFieldErrors, FulfillmentMethod, PaymentMethod } from "../types/checkout.types";

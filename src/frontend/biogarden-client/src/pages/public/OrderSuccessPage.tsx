@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link, useLocation, useSearchParams } from "react-router-dom";
+import { Link, useLocation, useSearchParams } from "react-router";
 import { getPublicOrderPaymentStatus } from "../../features/account/api/ordersApi";
 import type { Order } from "../../features/account/types/order.types";
 import { useAnalytics } from "../../features/analytics/context/AnalyticsContextCore";

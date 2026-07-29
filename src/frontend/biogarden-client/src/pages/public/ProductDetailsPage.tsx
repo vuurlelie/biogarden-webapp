@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams } from "react-router";
 import { getProductById, getProducts } from "../../features/products/api/productsApi";
 import ProductCards from "../../features/products/components/ProductCards";
 import type {

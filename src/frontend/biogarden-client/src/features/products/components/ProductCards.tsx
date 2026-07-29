@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link } from "react-router";
 import { useCart } from "../../cart/context/useCart";
 import { ROUTES } from "../../../shared/constants/routes";
 import type { ProductListItem } from "../types/product.types";

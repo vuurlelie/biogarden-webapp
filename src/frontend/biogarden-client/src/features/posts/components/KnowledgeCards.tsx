@@ -1,4 +1,4 @@
-import { NavLink } from "react-router-dom";
+import { NavLink } from "react-router";
 import type { Post } from "../types/post.types";
 import { ROUTES } from "../../../shared/constants/routes";
 import FacebookPostActions from "./FacebookPostActions";

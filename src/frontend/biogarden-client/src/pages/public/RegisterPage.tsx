@@ -1,5 +1,5 @@
 import { useRef, useState, type FormEvent } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router";
 import { register } from "../../features/auth/api/authApi";
 import AddressFields from "../../features/account/components/AddressFields";
 import type { AddressFormData } from "../../features/account/types/address.types";

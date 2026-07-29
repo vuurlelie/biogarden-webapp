@@ -5,7 +5,7 @@ import { useAccountErrorHandler } from "../../features/account/hooks/useAccountE
 import type { AccountLifecycleRequestType } from "../../features/account/types/profile.types";
 import { clearAuthSession } from "../../features/auth/utils/authStorage";
 import { ROUTES } from "../../shared/constants/routes";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 
 type ActionState = "idle" | "deactivation" | "erasure";
 
