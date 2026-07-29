@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { getAllPosts, getPostPage } from "../../features/posts/api/postsApi";
 import Contents from "../../features/posts/components/Contents";
 import FilterAndSort from "../../features/posts/components/FilterAndSort";
@@ -21,9 +21,12 @@ export default function PostsPage() {
   const [totalCount, setTotalCount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
+  const latestLoadId = useRef(0);
 
   useEffect(() => {
-    let isCurrentRequest = true;
+    const loadId = latestLoadId.current + 1;
+    latestLoadId.current = loadId;
+    const isStaleLoad = () => latestLoadId.current !== loadId;
 
     async function loadPosts() {
       try {
@@ -39,28 +42,24 @@ export default function PostsPage() {
           },
         );
 
-        if (!isCurrentRequest) return;
+        if (isStaleLoad()) return;
 
         setPosts(result.items);
         setTotalPages(result.totalPages);
         setTotalCount(result.totalCount);
       } catch (error) {
-        if (!isCurrentRequest) return;
+        if (isStaleLoad()) return;
 
         console.error(error);
         setHasError(true);
       } finally {
-        if (isCurrentRequest) {
+        if (!isStaleLoad()) {
           setIsLoading(false);
         }
       }
     }
 
     void loadPosts();
-
-    return () => {
-      isCurrentRequest = false;
-    };
   }, [selectedCategory, sortOrder, currentPage]);
 
   useEffect(() => {

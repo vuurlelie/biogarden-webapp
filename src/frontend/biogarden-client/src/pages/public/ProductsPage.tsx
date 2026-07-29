@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { getProductPage } from "../../features/products/api/productsApi";
 import ProductCards from "../../features/products/components/ProductCards";
@@ -26,6 +26,7 @@ export default function ProductsPage() {
   const [totalCount, setTotalCount] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
   const [searchParams, setSearchParams] = useSearchParams();
+  const latestLoadId = useRef(0);
 
   const categoryParam = searchParams.get("category");
   const selectedCategory: ProductCategoryFilter = isProductCategoryFilter(
@@ -35,7 +36,9 @@ export default function ProductsPage() {
     : "all";
 
   useEffect(() => {
-    let isCurrentRequest = true;
+    const loadId = latestLoadId.current + 1;
+    latestLoadId.current = loadId;
+    const isStaleLoad = () => latestLoadId.current !== loadId;
 
     async function loadProducts() {
       try {
@@ -52,28 +55,24 @@ export default function ProductsPage() {
           },
         );
 
-        if (!isCurrentRequest) return;
+        if (isStaleLoad()) return;
 
         setProducts(result.items);
         setTotalCount(result.totalCount);
         setTotalPages(result.totalPages);
       } catch (error) {
-        if (!isCurrentRequest) return;
+        if (isStaleLoad()) return;
 
         console.error(error);
         setHasError(true);
       } finally {
-        if (isCurrentRequest) {
+        if (!isStaleLoad()) {
           setIsLoading(false);
         }
       }
     }
 
     void loadProducts();
-
-    return () => {
-      isCurrentRequest = false;
-    };
   }, [selectedCategory, sortOrder, availableOnly, deliveryOnly, currentPage]);
 
   function resetToFirstPage() {
