@@ -75,22 +75,13 @@ public class UserService : IUserService
         var companyName = NormalizeOptional(dto.CompanyName);
         var taxNumber = NormalizeOptional(dto.TaxNumber);
 
-        if (dto.CustomerType == CustomerType.Company)
+        if (taxNumber is not null && !IsValidTaxNumber(taxNumber))
         {
-            if (companyName is null || taxNumber is null)
-            {
-                throw new ArgumentException("Céges fiókhoz a cégnév és az adószám megadása kötelező.");
-            }
-
-            if (!IsValidTaxNumber(taxNumber))
-            {
-                throw new ArgumentException("Az adószám formátuma hibás. Példa: 12345678-1-12.");
-            }
+            throw new ArgumentException("Az adószám formátuma hibás. Példa: 12345678-1-12.");
         }
-        else
+
+        if (dto.CustomerType == CustomerType.Private)
         {
-            companyName = null;
-            taxNumber = null;
             dto.PrintedInvoiceRequested = false;
             user.BillingAddressId = null;
         }
@@ -102,9 +93,6 @@ public class UserService : IUserService
         user.CompanyName = companyName;
         user.TaxNumber = taxNumber;
         user.PrintedInvoiceRequested = dto.PrintedInvoiceRequested;
-
-        if (companyName != user.CompanyName && false)
-            throw new ArgumentException("Céges számlázáshoz a cégnév és az adószám együttes megadása szükséges.");
 
         var result = await _userManager.UpdateAsync(user);
 
@@ -217,6 +205,8 @@ public class UserService : IUserService
             .FirstOrDefaultAsync(item => item.Id == userId, cancellationToken)
             ?? throw new KeyNotFoundException($"User with id {userId} was not found.");
 
+        await EnsureAccountLifecycleDoesNotRemoveLastAdminAsync(user);
+
         var orderCount = await _databaseContext.Orders
             .CountAsync(order => order.UserId == userId, cancellationToken);
         var activeOrderCount = await _databaseContext.Orders
@@ -291,6 +281,26 @@ public class UserService : IUserService
     }
 
     internal static bool IsActiveOrderStatus(OrderStatus status) => ActiveOrderStatuses.Contains(status);
+
+    private async Task EnsureAccountLifecycleDoesNotRemoveLastAdminAsync(ApplicationUser user)
+    {
+        if (!await _userManager.IsInRoleAsync(user, "Admin"))
+        {
+            return;
+        }
+
+        var admins = await _userManager.GetUsersInRoleAsync("Admin");
+        var activeAdminCount = admins.Count(admin =>
+            admin.RecordStatus == RecordStatus.Active
+            && admin.DeactivatedAtUtc is null
+            && admin.AnonymizedAtUtc is null);
+
+        if (activeAdminCount <= 1)
+        {
+            throw new InvalidOperationException(
+                "Az utolsó aktív admin fiók nem deaktiválható vagy törölhető. Előbb adj admin jogosultságot egy másik aktív fióknak.");
+        }
+    }
 
     internal static async Task DeactivateUserAsync(ApplicationUser user, UserManager<ApplicationUser> userManager)
     {

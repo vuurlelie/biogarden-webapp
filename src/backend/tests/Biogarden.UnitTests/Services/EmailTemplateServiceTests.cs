@@ -139,8 +139,9 @@ public sealed class EmailTemplateServiceTests
         Assert.Contains("- Email: visitor@example.com", message.PlainTextBody);
         Assert.Contains("- Telefon: +36 20 123 4567", message.PlainTextBody);
         Assert.Contains("https://bakonykincse.hu", message.HtmlBody);
-        Assert.Contains("Megadott adataid:", message.HtmlBody);
-        Assert.Contains("<br>", message.HtmlBody);
+        Assert.Contains(">Megadott adataid<", message.HtmlBody);
+        Assert.Contains("zeneted", message.HtmlBody);
+        Assert.Contains("visitor@example.com", message.HtmlBody);
     }
 
     [Fact]
@@ -234,7 +235,9 @@ public sealed class EmailTemplateServiceTests
         Assert.Contains("- Magánszemélyként a rendeléshez papíralapú nyugtát mellékelünk.", message.PlainTextBody);
         Assert.DoesNotContain("Számlázási adatok:", message.PlainTextBody);
         Assert.DoesNotContain("Cégnév:", message.PlainTextBody);
-        Assert.Contains("Bizonylat:", message.HtmlBody);
+        Assert.Contains(">Bizonylat<", message.HtmlBody);
+        Assert.Contains("Pap", message.HtmlBody);
+        Assert.Contains("nyugt", message.HtmlBody);
     }
 
     [Fact]
@@ -280,8 +283,9 @@ public sealed class EmailTemplateServiceTests
         Assert.Contains("Teszt Elek", message.PlainTextBody);
         Assert.Contains("customer@example.com", message.PlainTextBody);
         Assert.Contains("customer@example.com", message.HtmlBody);
-        Assert.Contains("Vevő adatai:", message.HtmlBody);
-        Assert.Contains("<br>", message.HtmlBody);
+        Assert.Contains(">Vevő adatai<", message.HtmlBody);
+        Assert.Contains("bizonylat", message.HtmlBody);
+        Assert.Contains("Term", message.HtmlBody);
         Assert.Contains("href=\"https://bakonykincse.hu/admin\"", message.HtmlBody);
         Assert.Contains("https://bakonykincse.hu/admin", message.PlainTextBody);
         Assert.DoesNotContain("Üdvözlettel:", message.PlainTextBody);
@@ -322,7 +326,8 @@ public sealed class EmailTemplateServiceTests
             message.PlainTextBody);
         Assert.Contains("- Cégnév: Teszt Kft.", message.PlainTextBody);
         Assert.Contains("- Adószám: 12345678-1-12", message.PlainTextBody);
-        Assert.Contains("Admin teendő:", message.HtmlBody);
+        Assert.Contains(">Teendő<", message.HtmlBody);
+        Assert.Contains("nyomtatott", message.HtmlBody);
     }
 
     [Fact]

@@ -4,7 +4,6 @@ import {
   getProfile,
   updateAddresses,
 } from "../../features/account/api/profileApi";
-import AddressFields from "../../features/account/components/AddressFields";
 import AccountFeedback from "../../features/account/components/AccountFeedback";
 import AccountLoadingPanel from "../../features/account/components/AccountLoadingPanel";
 import AccountPageShell from "../../features/account/components/AccountPageShell";
@@ -13,6 +12,8 @@ import type {
   AddressDetails,
   AddressFormData,
 } from "../../features/account/types/address.types";
+import AddressFields from "../../shared/components/forms/AddressFields";
+import { isPostalCodeCityPairValid } from "../../shared/utils/postalCodeLookup";
 
 const EMPTY_ADDRESS: AddressFormData = {
   postalCode: "",
@@ -140,10 +141,13 @@ export default function AccountAddressesPage() {
     }
 
     if (!address.postalCode.trim()) errors.postalCode = `${prefix} irányítószám megadása kötelező.`;
-  else if (!/^\d{4}$/.test(address.postalCode.trim())) {
-    errors.postalCode = `${prefix} irányítószámként 4 számjegyet adj meg.`;
-  }
-  if (!address.city.trim()) errors.city = `${prefix} település megadása kötelező.`;
+    else if (!/^\d{4}$/.test(address.postalCode.trim())) {
+      errors.postalCode = `${prefix} irányítószámként 4 számjegyet adj meg.`;
+    }
+    if (!address.city.trim()) errors.city = `${prefix} település megadása kötelező.`;
+    else if (!errors.postalCode && !isPostalCodeCityPairValid(address.postalCode, address.city)) {
+      errors.city = `${prefix} település nem tartozik ehhez az irányítószámhoz.`;
+    }
     if (!address.street.trim()) errors.street = `${prefix} közterület megadása kötelező.`;
     if (!address.houseNumber.trim()) errors.houseNumber = `${prefix} házszám megadása kötelező.`;
 
@@ -231,10 +235,15 @@ export default function AccountAddressesPage() {
     return <AccountLoadingPanel label="Címek betöltése..." />;
   }
 
+  const pageDescription =
+    customerType === 0
+      ? "Itt tudod elmenteni a rendeléseknél használni kívánt szállítási címet."
+      : "Itt tudod elmenteni a rendeléseknél használni kívánt szállítási és számlázási címet.";
+
   return (
     <AccountPageShell
       title="Mentett címek"
-      description="Add meg a rendeléseknél használni kívánt szállítási és számlázási címet."
+      description={pageDescription}
     >
       <AccountFeedback error={pageError} success="" />
 
@@ -245,6 +254,8 @@ export default function AccountAddressesPage() {
             idPrefix="shipping"
             value={shippingAddress}
             onChange={handleShippingChange}
+            required={false}
+            autoCompleteScope="shipping"
             invalidFields={{
               postalCode: Boolean(shippingErrors.postalCode),
               city: Boolean(shippingErrors.city),
@@ -287,6 +298,7 @@ export default function AccountAddressesPage() {
               idPrefix="billing"
               value={billingAddress}
               onChange={handleBillingChange}
+              required={false}
               invalidFields={{
                 postalCode: Boolean(billingErrors.postalCode),
                 city: Boolean(billingErrors.city),

@@ -123,6 +123,9 @@ public class OrderService : IOrderService
         }
 
         var customerSnapshot = await BuildOrderCustomerSnapshotAsync(userId, dto, cancellationToken);
+        var orderUserId = userId ?? await ResolveGuestOrderUserIdAsync(
+            customerSnapshot.CustomerEmail,
+            cancellationToken);
 
         OrderDto createdOrderDto;
 
@@ -136,7 +139,7 @@ public class OrderService : IOrderService
                     Id = Guid.NewGuid(),
                     OrderNumber = GenerateOrderNumber(),
                     IdempotencyKey = idempotencyKey,
-                    UserId = userId,
+                    UserId = orderUserId,
                     AddressId = customerSnapshot.AddressId,
                     CustomerName = customerSnapshot.CustomerName,
                     CustomerEmail = customerSnapshot.CustomerEmail,
@@ -803,6 +806,23 @@ public class OrderService : IOrderService
             DeliveryFloor: deliveryAddress?.Floor ?? NormalizeOptional(dto.DeliveryFloor),
             DeliveryDoor: deliveryAddress?.Door ?? NormalizeOptional(dto.DeliveryDoor),
             DeliveryDoorbell: deliveryAddress?.Doorbell ?? NormalizeOptional(dto.DeliveryDoorbell));
+    }
+
+    private async Task<Guid?> ResolveGuestOrderUserIdAsync(
+        string customerEmail,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var user = await _userManager.FindByEmailAsync(customerEmail);
+        if (user is null ||
+            !user.EmailConfirmed ||
+            user.RecordStatus != RecordStatus.Active)
+        {
+            return null;
+        }
+
+        return user.Id;
     }
 
     private static OrderCustomerContact BuildCustomerContact(

@@ -28,7 +28,9 @@ export default function ForgotPasswordPage() {
     try {
       setIsSubmitting(true);
       await forgotPassword({ email: email.trim() });
-      setMessage("Ha létezik fiók ezzel az email címmel, elküldtük a jelszó-visszaállító linket.");
+      setMessage(
+        "Ha létezik fiók ezzel az email címmel, elküldtük a jelszó-visszaállító linket. Nézd meg a spam és promóciók mappát is.",
+      );
     } catch (submitError) {
       setError(getErrorMessage(submitError, "A jelszó-visszaállító email küldése nem sikerült."));
     } finally {

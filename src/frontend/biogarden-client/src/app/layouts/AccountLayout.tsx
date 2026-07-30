@@ -20,6 +20,14 @@ const accountLinkClass = ({ isActive }: { isActive: boolean }) =>
       : "text-site-nav hover:bg-site-surface-soft hover:text-site-green-dark",
   ].join(" ");
 
+const accountDeleteLinkClass = ({ isActive }: { isActive: boolean }) =>
+  [
+    "whitespace-nowrap rounded-sm px-4 py-3 text-sm font-semibold transition-colors",
+    isActive
+      ? "bg-site-danger text-white"
+      : "text-site-danger hover:bg-site-danger-soft",
+  ].join(" ");
+
 export default function AccountLayout() {
   const navigate = useNavigate();
   const auth = getAuthSession();
@@ -65,7 +73,7 @@ export default function AccountLayout() {
             <NavLink to={ROUTES.accountOrders} className={accountLinkClass}>
               Rendeléseim
             </NavLink>
-            <NavLink to={ROUTES.accountDelete} className={accountLinkClass}>
+            <NavLink to={ROUTES.accountDelete} className={accountDeleteLinkClass}>
               Fiók törlése
             </NavLink>
           </nav>
@@ -73,7 +81,7 @@ export default function AccountLayout() {
           <button
             type="button"
             onClick={handleLogout}
-            className="mt-3 w-full rounded-sm border border-site-border px-4 py-2.5 text-left text-sm font-semibold text-site-danger transition hover:bg-site-danger-soft"
+            className="mt-3 w-full rounded-sm border border-site-green-dark/45 px-4 py-2.5 text-left text-sm font-semibold text-site-green-dark transition hover:bg-site-surface-soft"
           >
             Kijelentkezés
           </button>

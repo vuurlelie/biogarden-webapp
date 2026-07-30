@@ -28,6 +28,7 @@ public sealed class OrderServiceTests
     private readonly Mock<IEmailService> _emailService = new(MockBehavior.Strict);
     private readonly Mock<IEmailTemplateService> _emailTemplateService = new(MockBehavior.Strict);
     private readonly Mock<ISumUpCheckoutService> _sumUpCheckoutService = new(MockBehavior.Strict);
+    private readonly Mock<UserManager<ApplicationUser>> _userManager;
     private readonly FakeTimeProvider _timeProvider = new(new DateTimeOffset(2026, 7, 24, 8, 0, 0, TimeSpan.Zero));
     private readonly OrderService _service;
 
@@ -43,12 +44,15 @@ public sealed class OrderServiceTests
                 (operation, token) => operation(token));
 
         var userStore = new Mock<IUserStore<ApplicationUser>>(MockBehavior.Strict);
-        var userManager = CreateUserManagerMock(userStore.Object);
+        _userManager = CreateUserManagerMock(userStore.Object);
+        _userManager
+            .Setup(x => x.FindByEmailAsync(It.IsAny<string>()))
+            .ReturnsAsync((ApplicationUser?)null);
 
         _service = new OrderService(
             _unitOfWork.Object,
             _cartService.Object,
-            userManager.Object,
+            _userManager.Object,
             _emailService.Object,
             _emailTemplateService.Object,
             _sumUpCheckoutService.Object,
@@ -151,6 +155,43 @@ public sealed class OrderServiceTests
                 It.IsAny<Func<CancellationToken, Task<OrderDto>>>(),
                 It.IsAny<CancellationToken>()),
             Times.Once);
+    }
+
+    [Fact]
+    public async Task CreateOrderFromCartAsync_AsGuestWithConfirmedAccountEmail_LinksOrderToAccount()
+    {
+        const string sessionId = "guest-session";
+        var userId = Guid.NewGuid();
+        var product = new Product { Id = 4, Name = "Bazsalikom", Available = true, StockQuantity = 3, Price = 900 };
+        var cart = new Cart { Id = Guid.NewGuid(), SessionId = sessionId };
+        cart.Items.Add(new CartItem { Id = Guid.NewGuid(), CartId = cart.Id, ProductId = product.Id, Product = product, Quantity = 2 });
+        Order? savedOrder = null;
+        SetupGuestOrderCreation(sessionId, cart, product, order => savedOrder = order);
+        _userManager
+            .Setup(x => x.FindByEmailAsync("guest@example.com"))
+            .ReturnsAsync(new ApplicationUser
+            {
+                Id = userId,
+                Email = "guest@example.com",
+                EmailConfirmed = true,
+                RecordStatus = RecordStatus.Active
+            });
+
+        var result = await _service.CreateOrderFromCartAsync(null, sessionId, new PlaceOrderDto
+        {
+            IdempotencyKey = IdempotencyKey,
+            CustomerName = "Teszt Elek",
+            CustomerEmail = "guest@example.com",
+            CustomerPhone = "+361234567",
+            AcceptedTermsVersion = LegalDocumentVersions.CurrentTermsVersion,
+            AcceptedPrivacyPolicyVersion = LegalDocumentVersions.CurrentPrivacyPolicyVersion,
+            FulfillmentMethod = FulfillmentMethod.PersonalPickup
+        });
+
+        Assert.NotNull(savedOrder);
+        Assert.Equal(userId, result.UserId);
+        Assert.Equal(userId, savedOrder.UserId);
+        Assert.Equal("guest@example.com", result.CustomerEmail);
     }
 
     [Fact]

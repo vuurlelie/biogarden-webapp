@@ -37,6 +37,7 @@ export default function AccountProfilePage() {
   const [formError, setFormError] = useState("");
   const [success, setSuccess] = useState("");
   const [fieldErrors, setFieldErrors] = useState<ProfileFieldErrors>({});
+  const [showCompanyDataChoice, setShowCompanyDataChoice] = useState(false);
   const companyNameInputRef = useRef<HTMLInputElement | null>(null);
   const taxNumberInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -115,23 +116,31 @@ export default function AccountProfilePage() {
     inputRefs[field]?.focus();
   }
 
+  function hasSavedCompanyData() {
+    return Boolean(profile.companyName?.trim() || profile.taxNumber?.trim() || profile.printedInvoiceRequested);
+  }
+
+  function switchToPrivate(keepCompanyData: boolean) {
+    setProfile((currentProfile) => ({
+      ...currentProfile,
+      customerType: 0,
+      companyName: keepCompanyData ? currentProfile.companyName : null,
+      taxNumber: keepCompanyData ? currentProfile.taxNumber : null,
+      printedInvoiceRequested: false,
+    }));
+    setShowCompanyDataChoice(false);
+    setFieldErrors({});
+    setFormError("");
+    setSuccess("");
+  }
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setFormError("");
     setSuccess("");
     setFieldErrors({});
 
-    if (profile.customerType === 1) {
-      if (!profile.companyName?.trim()) {
-        markInvalid("companyName", "Céges fiókhoz a cégnév megadása kötelező.");
-        return;
-      }
-
-      if (!profile.taxNumber?.trim()) {
-        markInvalid("taxNumber", "Céges fiókhoz az adószám megadása kötelező.");
-        return;
-      }
-
+    if (profile.taxNumber?.trim()) {
       if (!/^\d{8}(-\d-\d{2})?$/.test(profile.taxNumber.trim())) {
         markInvalid("taxNumber", "Az adószám formátuma hibás. Példa: 12345678-1-12.");
         return;
@@ -145,8 +154,8 @@ export default function AccountProfilePage() {
         firstName: normalizeOptional(profile.firstName ?? ""),
         lastName: normalizeOptional(profile.lastName ?? ""),
         phoneNumber: normalizeOptional(profile.phoneNumber ?? ""),
-        companyName: profile.customerType === 1 ? normalizeOptional(profile.companyName ?? "") : null,
-        taxNumber: profile.customerType === 1 ? normalizeOptional(profile.taxNumber ?? "") : null,
+        companyName: normalizeOptional(profile.companyName ?? ""),
+        taxNumber: normalizeOptional(profile.taxNumber ?? ""),
         printedInvoiceRequested: profile.customerType === 1 && profile.printedInvoiceRequested,
       });
       setSuccess("A személyes adatok mentése sikerült.");
@@ -180,7 +189,7 @@ export default function AccountProfilePage() {
             disabled
             className="mt-2 block w-full rounded-sm border border-site-border bg-site-surface-soft px-3 py-2.5 text-site-muted"
           />
-          <p className="mt-1 text-xs text-site-muted">Az email cím jelenleg nem módosítható.</p>
+          <p className="mt-1 text-xs text-site-muted">Az email cím nem módosítható.</p>
         </div>
 
         <div className="grid gap-5 sm:grid-cols-2">
@@ -228,7 +237,7 @@ export default function AccountProfilePage() {
         </div>
 
         <fieldset className="rounded-sm border border-site-border p-5">
-          <legend className="px-2 font-bold text-site-heading">Vásárlói típus</legend>
+          <legend className="px-2 font-bold text-site-heading">Alapértelmezett rendelési mód</legend>
           <div className="grid gap-3 sm:grid-cols-2">
             <label className="flex cursor-pointer gap-3 rounded-sm border border-site-border p-3 text-sm text-site-text">
               <input
@@ -236,16 +245,12 @@ export default function AccountProfilePage() {
                 name="profileCustomerType"
                 checked={profile.customerType === 0}
                 onChange={() => {
-                  setProfile((currentProfile) => ({
-                    ...currentProfile,
-                    customerType: 0,
-                    companyName: null,
-                    taxNumber: null,
-                    printedInvoiceRequested: false,
-                  }));
-                  setFieldErrors({});
-                  setFormError("");
-                  setSuccess("");
+                  if (profile.customerType === 1 && hasSavedCompanyData()) {
+                    setShowCompanyDataChoice(true);
+                    return;
+                  }
+
+                  switchToPrivate(false);
                 }}
                 className="mt-1 h-4 w-4 accent-site-green"
               />
@@ -261,6 +266,7 @@ export default function AccountProfilePage() {
                 checked={profile.customerType === 1}
                 onChange={() => {
                   setProfile((currentProfile) => ({ ...currentProfile, customerType: 1 }));
+                  setShowCompanyDataChoice(false);
                   setFieldErrors({});
                   setFormError("");
                   setSuccess("");
@@ -275,14 +281,50 @@ export default function AccountProfilePage() {
           </div>
         </fieldset>
 
+        {showCompanyDataChoice && (
+          <div
+            className="rounded-sm border border-site-border bg-site-surface-soft p-4 shadow-sm"
+            role="alertdialog"
+            aria-labelledby="company-data-choice-title"
+            aria-describedby="company-data-choice-description"
+          >
+            <h2 id="company-data-choice-title" className="text-base font-bold text-site-heading">
+              Megtartsuk a céges adataidat?
+            </h2>
+            <p id="company-data-choice-description" className="mt-2 text-sm leading-6 text-site-text">
+              Magánszemélyes rendelési módban nem használjuk a céges adatokat. Megtarthatod őket későbbre, ha később újra céges rendelési módra váltanál.
+            </p>
+            <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+              <button
+                type="button"
+                className="rounded-sm bg-site-green px-4 py-2 text-sm font-semibold text-white transition hover:bg-site-green-hover"
+                onClick={() => switchToPrivate(true)}
+              >
+                Megtartom későbbre
+              </button>
+              <button
+                type="button"
+                className="rounded-sm border border-site-border bg-white px-4 py-2 text-sm font-semibold text-site-heading transition hover:bg-site-surface"
+                onClick={() => switchToPrivate(false)}
+              >
+                Törlöm a céges adatokat
+              </button>
+              <button
+                type="button"
+                className="rounded-sm px-4 py-2 text-sm font-semibold text-site-green-dark transition hover:bg-white"
+                onClick={() => setShowCompanyDataChoice(false)}
+              >
+                Mégsem
+              </button>
+            </div>
+          </div>
+        )}
+
         {profile.customerType === 1 && (
         <fieldset className="rounded-sm border border-site-border p-5">
           <legend className="px-2 font-bold text-site-heading">
             Céges számlázási adatok
           </legend>
-          <p className="mb-4 text-xs text-site-muted">
-            Céges fiókkal történő rendelés esetén a cégnév és az adószám kötelező.
-          </p>
           <p className="mb-4 text-xs leading-5 text-site-muted">
             Alapértelmezetten elektronikus számlát küldünk emailben. A számlázási címet a Mentett címek oldalon tudod megadni.
           </p>

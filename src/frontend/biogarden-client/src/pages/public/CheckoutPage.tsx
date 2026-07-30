@@ -17,11 +17,7 @@ import {
   CheckoutLoadingView,
 } from "../../features/checkout/components/CheckoutStatusViews";
 import {
-  BILLING_FIELDS,
   CONTACT_FIELDS,
-  DELIVERY_FIELDS,
-  REQUIRED_BILLING_FIELDS,
-  REQUIRED_DELIVERY_FIELDS,
 } from "../../features/checkout/constants/checkoutFields";
 import type {
   CheckoutDraft,
@@ -49,7 +45,9 @@ import {
   validateCheckoutFields,
 } from "../../features/checkout/utils/checkoutValidation";
 import { ROUTES } from "../../shared/constants/routes";
+import AddressFields from "../../shared/components/forms/AddressFields";
 import { useModalFocus } from "../../shared/hooks/useModalFocus";
+import type { AddressFormData } from "../../shared/types/address.types";
 import { getErrorMessage, hasErrorStatus } from "../../shared/utils/errorHandling";
 
 export default function CheckoutPage() {
@@ -86,6 +84,26 @@ export default function CheckoutPage() {
   const paymentFee = paymentMethod === "cash-on-delivery" ? 500 : 0;
   const grandTotal = (cart?.totalPrice ?? 0) + deliveryFee + paymentFee;
   const effectiveCustomerType = authenticated && profile ? profile.customerType : draft.customerType;
+  const billingAddress: AddressFormData = {
+    postalCode: draft.postalCode,
+    city: draft.city,
+    street: draft.street,
+    houseNumber: draft.houseNumber,
+    building: draft.building,
+    floor: draft.floor,
+    door: draft.door,
+    doorbell: draft.doorbell,
+  };
+  const deliveryAddress: AddressFormData = {
+    postalCode: draft.deliveryPostalCode,
+    city: draft.deliveryCity,
+    street: draft.deliveryStreet,
+    houseNumber: draft.deliveryHouseNumber,
+    building: draft.deliveryBuilding,
+    floor: draft.deliveryFloor,
+    door: draft.deliveryDoor,
+    doorbell: draft.deliveryDoorbell,
+  };
   const cancelledSumUpOrderId = searchParams.get("sumup") === "cancelled"
     ? searchParams.get("orderId")
     : null;
@@ -191,6 +209,42 @@ export default function CheckoutPage() {
       });
       return next;
     });
+  }
+
+  function handleBillingAddressChange(address: AddressFormData) {
+    clearFieldErrors(["postalCode", "city", "street", "houseNumber", "billingAddress"]);
+    setDraft((current) => ({
+      ...current,
+      postalCode: address.postalCode,
+      city: address.city,
+      street: address.street,
+      houseNumber: address.houseNumber,
+      building: address.building ?? "",
+      floor: address.floor ?? "",
+      door: address.door ?? "",
+      doorbell: address.doorbell ?? "",
+    }));
+  }
+
+  function handleDeliveryAddressChange(address: AddressFormData) {
+    clearFieldErrors([
+      "deliveryPostalCode",
+      "deliveryCity",
+      "deliveryStreet",
+      "deliveryHouseNumber",
+      "deliveryAddress",
+    ]);
+    setDraft((current) => ({
+      ...current,
+      deliveryPostalCode: address.postalCode,
+      deliveryCity: address.city,
+      deliveryStreet: address.street,
+      deliveryHouseNumber: address.houseNumber,
+      deliveryBuilding: address.building ?? "",
+      deliveryFloor: address.floor ?? "",
+      deliveryDoor: address.door ?? "",
+      deliveryDoorbell: address.doorbell ?? "",
+    }));
   }
 
   function handleAccountContactChange(checked: boolean) {
@@ -405,7 +459,7 @@ export default function CheckoutPage() {
         <div className={`space-y-6 ${step === "payment" ? "hidden" : ""}`}>
           {!authenticated && (
             <fieldset className="rounded-sm border border-site-border bg-white p-6 shadow-md">
-              <legend className="px-2 text-xl font-bold">Vásárlói típus</legend>
+              <legend className="px-2 text-xl font-bold">Alapértelmezett rendelési mód</legend>
               <div className="grid gap-3 sm:grid-cols-2">
                 <label className="flex cursor-pointer gap-3 rounded-sm border border-site-border p-3 text-sm text-site-text">
                   <input
@@ -425,7 +479,6 @@ export default function CheckoutPage() {
                   />
                   <span>
                     <strong className="block text-site-heading">Magánszemély</strong>
-                    Papíralapú nyugtát kapsz a rendelés mellé.
                   </span>
                 </label>
                 <label className="flex cursor-pointer gap-3 rounded-sm border border-site-border p-3 text-sm text-site-text">
@@ -438,7 +491,6 @@ export default function CheckoutPage() {
                   />
                   <span>
                     <strong className="block text-site-heading">Cég</strong>
-                    Céges rendeléshez számlázási adatok szükségesek.
                   </span>
                 </label>
               </div>
@@ -550,10 +602,12 @@ export default function CheckoutPage() {
             )}
 
             <div className="grid gap-4 sm:grid-cols-2">
-              {BILLING_FIELDS.map(([key, label, autoComplete]) => (
+              {([
+                ["billingCompanyName", "Cégnév", "organization"],
+                ["billingTaxNumber", "Adószám (céges számlához)", "off"],
+              ] as const).map(([key, label, autoComplete]) => (
                 <label key={key} className="text-sm font-semibold">
-                  {label}
-                  {REQUIRED_BILLING_FIELDS.includes(key) && <span className="text-site-danger"> *</span>}
+                  {label} <span className="text-site-danger">*</span>
                   <input
                     value={draft[key]}
                     disabled={!billingManual}
@@ -567,6 +621,28 @@ export default function CheckoutPage() {
                   )}
                 </label>
               ))}
+            </div>
+            <div className="mt-5">
+              <AddressFields
+                idPrefix="checkout-billing"
+                value={billingAddress}
+                onChange={handleBillingAddressChange}
+                disabled={!billingManual}
+                required
+                autoCompleteScope="billing"
+                invalidFields={{
+                  postalCode: Boolean(fieldErrors.postalCode),
+                  city: Boolean(fieldErrors.city),
+                  street: Boolean(fieldErrors.street),
+                  houseNumber: Boolean(fieldErrors.houseNumber),
+                }}
+                errorMessages={{
+                  postalCode: fieldErrors.postalCode,
+                  city: fieldErrors.city,
+                  street: fieldErrors.street,
+                  houseNumber: fieldErrors.houseNumber,
+                }}
+              />
             </div>
             <label className="mt-4 flex items-start gap-3 rounded-sm bg-site-surface-soft p-3 text-sm text-site-text">
               <input
@@ -607,25 +683,26 @@ export default function CheckoutPage() {
                 </p>
               )}
 
-              <div className="grid gap-4 sm:grid-cols-2">
-                {DELIVERY_FIELDS.map(([key, label, autoComplete]) => (
-                  <label key={key} className="text-sm font-semibold">
-                    {label}
-                    {REQUIRED_DELIVERY_FIELDS.includes(key) && <span className="text-site-danger"> *</span>}
-                    <input
-                      value={draft[key]}
-                      disabled={!deliveryManual}
-                      onChange={(event) => update(key, event.target.value)}
-                      autoComplete={autoComplete}
-                      aria-invalid={Boolean(fieldErrors[key])}
-                      className={fieldClass(key)}
-                    />
-                    {fieldErrors[key] && (
-                      <span className="mt-1 block text-xs text-site-danger">{fieldErrors[key]}</span>
-                    )}
-                  </label>
-                ))}
-              </div>
+              <AddressFields
+                idPrefix="checkout-delivery"
+                value={deliveryAddress}
+                onChange={handleDeliveryAddressChange}
+                disabled={!deliveryManual}
+                required
+                autoCompleteScope="shipping"
+                invalidFields={{
+                  postalCode: Boolean(fieldErrors.deliveryPostalCode),
+                  city: Boolean(fieldErrors.deliveryCity),
+                  street: Boolean(fieldErrors.deliveryStreet),
+                  houseNumber: Boolean(fieldErrors.deliveryHouseNumber),
+                }}
+                errorMessages={{
+                  postalCode: fieldErrors.deliveryPostalCode,
+                  city: fieldErrors.deliveryCity,
+                  street: fieldErrors.deliveryStreet,
+                  houseNumber: fieldErrors.deliveryHouseNumber,
+                }}
+              />
             </fieldset>
           )}
         </div>

@@ -100,7 +100,6 @@ export default function AdminDashboardPage() {
         eyebrow="Bakony Kincse"
         title="Adminisztrációs áttekintés"
         description="A webáruház legfontosabb adatai, figyelmeztetései és legutóbbi rendelései egy helyen."
-        actions={<Link to={ROUTES.adminProducts} className="rounded-sm bg-site-green px-4 py-3 text-sm font-semibold text-white hover:bg-site-green-hover">Termékek kezelése</Link>}
       />
 
       {error && (

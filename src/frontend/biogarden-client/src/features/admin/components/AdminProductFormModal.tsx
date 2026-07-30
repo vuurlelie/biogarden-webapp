@@ -21,15 +21,24 @@ const categories: Array<[ProductCategory, string]> = [
   [5, "Fűszer"],
 ];
 
-const units: Array<[UnitOfMeasure, string]> = [
+const kilogramUnit: UnitOfMeasure = 1;
+const defaultPackageMeasure: UnitOfMeasure = 2;
+
+const salesUnits: Array<[UnitOfMeasure, string]> = [
   [0, "darab"],
+  [5, "csomag"],
+  [6, "üveg"],
+  [1, "kilogramm"],
+];
+
+const packageMeasures: Array<[UnitOfMeasure, string]> = [
   [1, "kilogramm"],
   [2, "gramm"],
   [3, "milliliter"],
   [4, "liter"],
-  [5, "csomag"],
-  [6, "üveg"],
 ];
+
+const packageMeasureValues = new Set(packageMeasures.map(([value]) => value));
 
 type FormState = {
   name: string;
@@ -61,7 +70,7 @@ function initialState(product: ProductDetails | null): FormState {
       image: "",
       unit: 0,
       unitAmount: "",
-      unitAmountMeasure: 2,
+      unitAmountMeasure: defaultPackageMeasure,
       stockQuantity: "0",
       available: false,
       deliveryAvailable: false,
@@ -75,12 +84,16 @@ function initialState(product: ProductDetails | null): FormState {
     category: product.category,
     image: product.image,
     unit: product.unit,
-    unitAmount: product.unitAmount?.toString() ?? "",
-    unitAmountMeasure: product.unitAmountMeasure ?? 2,
+    unitAmount: product.unit === kilogramUnit ? "" : product.unitAmount?.toString() ?? "",
+    unitAmountMeasure: normalizePackageMeasure(product.unitAmountMeasure),
     stockQuantity: String(product.stockQuantity),
     available: product.available,
     deliveryAvailable: product.deliveryAvailable,
   };
+}
+
+function normalizePackageMeasure(unit: UnitOfMeasure | null | undefined): UnitOfMeasure {
+  return unit !== null && unit !== undefined && packageMeasureValues.has(unit) ? unit : defaultPackageMeasure;
 }
 
 function imageUrl(path: string): string {
@@ -121,13 +134,23 @@ export default function AdminProductFormModal({ product, onClose, onSaved }: Pro
     setForm((current) => ({ ...current, [key]: value }));
   }
 
+  function updateUnit(unit: UnitOfMeasure) {
+    setForm((current) => ({
+      ...current,
+      unit,
+      unitAmount: unit === kilogramUnit ? "" : current.unitAmount,
+      unitAmountMeasure: unit === kilogramUnit ? defaultPackageMeasure : normalizePackageMeasure(current.unitAmountMeasure),
+    }));
+  }
+
   async function submit(event: FormEvent) {
     event.preventDefault();
     setError(null);
 
     const price = Number(form.price);
     const stockQuantity = Number(form.stockQuantity);
-    const unitAmount = form.unitAmount === "" ? null : Number(form.unitAmount);
+    const canSetPackage = form.unit !== kilogramUnit;
+    const unitAmount = !canSetPackage || form.unitAmount === "" ? null : Number(form.unitAmount);
 
     if (form.name.trim().length < 2) {
       setError("A termék neve legalább 2 karakter legyen.");
@@ -170,7 +193,7 @@ export default function AdminProductFormModal({ product, onClose, onSaved }: Pro
         image,
         unit: form.unit,
         unitAmount,
-        unitAmountMeasure: unitAmount === null ? null : form.unitAmountMeasure,
+        unitAmountMeasure: unitAmount === null ? null : normalizePackageMeasure(form.unitAmountMeasure),
         stockQuantity,
         available: stockQuantity > 0 && form.available,
         deliveryAvailable: form.deliveryAvailable,
@@ -280,9 +303,9 @@ export default function AdminProductFormModal({ product, onClose, onSaved }: Pro
               <select
                 className={inputClass}
                 value={form.unit}
-                onChange={(event) => update("unit", Number(event.target.value) as UnitOfMeasure)}
+                onChange={(event) => updateUnit(Number(event.target.value) as UnitOfMeasure)}
               >
-                {units.map(([value, label]) => (
+                {salesUnits.map(([value, label]) => (
                   <option key={value} value={value}>{label}</option>
                 ))}
               </select>
@@ -304,34 +327,40 @@ export default function AdminProductFormModal({ product, onClose, onSaved }: Pro
               />
             </label>
 
-            <div className="grid grid-cols-2 gap-3">
-              <label className="text-sm font-semibold">
-                Kiszerelés
-                <input
-                  ref={unitAmountInputRef}
-                  className={inputClass}
-                  type="number"
-                  min="0.01"
-                  step="0.01"
-                  value={form.unitAmount}
-                  onChange={(event) => update("unitAmount", event.target.value)}
-                />
-              </label>
+            {form.unit === kilogramUnit ? (
+              <p className="rounded border border-site-border bg-site-soft px-4 py-3 text-sm text-site-muted">
+                Kilogrammos értékesítésnél nincs külön kiszerelés.
+              </p>
+            ) : (
+              <div className="grid grid-cols-2 gap-3">
+                <label className="text-sm font-semibold">
+                  Kiszerelés
+                  <input
+                    ref={unitAmountInputRef}
+                    className={inputClass}
+                    type="number"
+                    min="0.01"
+                    step="0.01"
+                    value={form.unitAmount}
+                    onChange={(event) => update("unitAmount", event.target.value)}
+                  />
+                </label>
 
-              <label className="text-sm font-semibold">
-                Mértékegysége
-                <select
-                  className={inputClass}
-                  value={form.unitAmountMeasure}
-                  disabled={!form.unitAmount}
-                  onChange={(event) => update("unitAmountMeasure", Number(event.target.value) as UnitOfMeasure)}
-                >
-                  {units.map(([value, label]) => (
-                    <option key={value} value={value}>{label}</option>
-                  ))}
-                </select>
-              </label>
-            </div>
+                <label className="text-sm font-semibold">
+                  Mértékegység
+                  <select
+                    className={inputClass}
+                    value={form.unitAmountMeasure}
+                    disabled={!form.unitAmount}
+                    onChange={(event) => update("unitAmountMeasure", Number(event.target.value) as UnitOfMeasure)}
+                  >
+                    {packageMeasures.map(([value, label]) => (
+                      <option key={value} value={value}>{label}</option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+            )}
           </div>
 
           <label className="block text-sm font-semibold">
