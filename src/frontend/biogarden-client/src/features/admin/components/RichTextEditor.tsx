@@ -7,7 +7,7 @@ import { TextStyle } from "@tiptap/extension-text-style";
 import Underline from "@tiptap/extension-underline";
 import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 
 type RichTextEditorProps = {
   id: string;
@@ -15,6 +15,7 @@ type RichTextEditorProps = {
   value: string;
   onChange: (value: string) => void;
   required?: boolean;
+  error?: string;
 };
 
 const fontFamilies = [
@@ -89,8 +90,10 @@ export default function RichTextEditor({
   value,
   onChange,
   required = false,
+  error,
 }: RichTextEditorProps) {
   const [textColor, setTextColor] = useState("#243127");
+  const [editorStateVersion, setEditorStateVersion] = useState(0);
 
   const editor = useEditor({
     immediatelyRender: false,
@@ -117,8 +120,10 @@ export default function RichTextEditor({
       attributes: {
         id,
         class:
-          "prose prose-neutral min-h-80 max-w-none overflow-y-auto bg-white px-5 py-4 leading-7 text-site-text outline-none focus:ring-2 focus:ring-site-green/20",
+          "rich-text-content min-h-80 max-w-none overflow-y-auto bg-white px-5 py-4 leading-7 text-site-text outline-none focus:ring-2 focus:ring-site-green/20",
         "aria-required": String(required),
+        "aria-invalid": String(Boolean(error)),
+        ...(error ? { "aria-describedby": `${id}-error` } : {}),
       },
     },
     onUpdate: ({ editor: updatedEditor }) => {
@@ -133,13 +138,29 @@ export default function RichTextEditor({
     }
   }, [editor, value]);
 
-  const currentBlock = useMemo(() => {
+  useEffect(() => {
+    if (!editor) return;
+
+    const refreshToolbarState = () => setEditorStateVersion((version) => version + 1);
+    editor.on("transaction", refreshToolbarState);
+    editor.on("selectionUpdate", refreshToolbarState);
+    editor.on("update", refreshToolbarState);
+
+    return () => {
+      editor.off("transaction", refreshToolbarState);
+      editor.off("selectionUpdate", refreshToolbarState);
+      editor.off("update", refreshToolbarState);
+    };
+  }, [editor]);
+
+  const currentBlock = (() => {
+    void editorStateVersion;
     if (!editor) return "paragraph";
     if (editor.isActive("heading", { level: 2 })) return "h2";
     if (editor.isActive("heading", { level: 3 })) return "h3";
     if (editor.isActive("heading", { level: 4 })) return "h4";
     return "paragraph";
-  }, [editor]);
+  })();
 
   if (!editor) {
     return (
@@ -180,8 +201,17 @@ export default function RichTextEditor({
         {label} {required && <span className="text-site-danger">*</span>}
       </label>
 
-      <div className="mt-1.5 overflow-hidden rounded-sm border border-site-border bg-white shadow-sm">
-        <div className="border-b border-site-border bg-[#f7f8f5]">
+      <div
+        className={`mt-1.5 overflow-hidden rounded-sm border bg-white shadow-sm ${
+          error ? "border-site-danger" : "border-site-border"
+        }`}
+      >
+        <div
+          className="border-b border-site-border bg-[#f7f8f5]"
+          onMouseDown={(event) => {
+            if ((event.target as HTMLElement).closest("button")) event.preventDefault();
+          }}
+        >
           <div className="flex flex-wrap items-center gap-1 px-3 py-2">
             <button
               type="button"
@@ -292,9 +322,9 @@ export default function RichTextEditor({
               value={currentBlock}
               onChange={(event) => {
                 const block = event.target.value;
-                if (block === "h2") editor.chain().focus().toggleHeading({ level: 2 }).run();
-                else if (block === "h3") editor.chain().focus().toggleHeading({ level: 3 }).run();
-                else if (block === "h4") editor.chain().focus().toggleHeading({ level: 4 }).run();
+                if (block === "h2") editor.chain().focus().setHeading({ level: 2 }).run();
+                else if (block === "h3") editor.chain().focus().setHeading({ level: 3 }).run();
+                else if (block === "h4") editor.chain().focus().setHeading({ level: 4 }).run();
                 else editor.chain().focus().setParagraph().run();
               }}
             >
@@ -410,6 +440,11 @@ export default function RichTextEditor({
 
         <EditorContent editor={editor} />
       </div>
+      {error && (
+        <p id={`${id}-error`} className="mt-1 text-xs font-semibold text-site-danger">
+          {error}
+        </p>
+      )}
     </div>
   );
 }

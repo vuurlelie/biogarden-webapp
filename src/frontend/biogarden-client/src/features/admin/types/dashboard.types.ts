@@ -9,6 +9,14 @@ export type AdminRecentOrder = {
   fulfillmentMethod: number;
 };
 
+export type AdminWithdrawalRequestPreview = {
+  id: number;
+  orderId: string;
+  orderNumber: string;
+  customerName: string;
+  requestedAtUtc: string;
+};
+
 export type AdminLowStockProduct = {
   id: number;
   name: string;
@@ -21,10 +29,12 @@ export type AdminDashboard = {
   availableProductCount: number;
   lowStockProductCount: number;
   pendingOrderCount: number;
+  pendingWithdrawalRequestCount: number;
   todayOrderCount: number;
   userCount: number;
   publishedPostCount: number;
   activeOrderValue: number;
   recentOrders: AdminRecentOrder[];
+  pendingWithdrawalRequests: AdminWithdrawalRequestPreview[];
   lowStockProducts: AdminLowStockProduct[];
 };

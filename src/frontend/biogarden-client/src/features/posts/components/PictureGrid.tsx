@@ -29,7 +29,7 @@ export default function PictureGrid({ posts }: PictureGridProps) {
                 key={post.id}
                 to={`${ROUTES.posts}/${post.id}`}
                 title={post.title}
-                className="group overflow-hidden rounded-sm"
+                className="group block aspect-[16/9] overflow-hidden rounded-sm"
               >
                 <img
                   src={imageUrl}

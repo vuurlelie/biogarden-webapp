@@ -131,7 +131,9 @@ export default function ProductsPage() {
         title="Termékek"
         description="Válogass a Bakony Kincse Biokertészet természetes termékei között: gyógynövények, teák, fűszerek, illóolajok és hidrolátumok."
       />
-      <ProductNavigation />
+      <ProductNavigation
+        currentCategory={selectedCategory === "all" ? undefined : selectedCategory}
+      />
 
       <section
         id="products-top"

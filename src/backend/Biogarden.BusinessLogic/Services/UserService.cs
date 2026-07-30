@@ -7,6 +7,7 @@ using Biogarden.DataAccess.Entities;
 using Biogarden.DataAccess.Enums;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using System.Text.RegularExpressions;
 
 namespace Biogarden.BusinessLogic.Services;
 
@@ -74,22 +75,13 @@ public class UserService : IUserService
         var companyName = NormalizeOptional(dto.CompanyName);
         var taxNumber = NormalizeOptional(dto.TaxNumber);
 
-        if (dto.CustomerType == CustomerType.Company)
+        if (taxNumber is not null && !IsValidTaxNumber(taxNumber))
         {
-            if (companyName is null || taxNumber is null)
-            {
-                throw new ArgumentException("Céges fiókhoz a cégnév és az adószám megadása kötelező.");
-            }
-
-            if (!IsValidTaxNumber(taxNumber))
-            {
-                throw new ArgumentException("Az adószám formátuma hibás. Példa: 12345678-1-12.");
-            }
+            throw new ArgumentException("Az adószám formátuma hibás. Példa: 12345678-1-12.");
         }
-        else
+
+        if (dto.CustomerType == CustomerType.Private)
         {
-            companyName = null;
-            taxNumber = null;
             dto.PrintedInvoiceRequested = false;
             user.BillingAddressId = null;
         }
@@ -101,9 +93,6 @@ public class UserService : IUserService
         user.CompanyName = companyName;
         user.TaxNumber = taxNumber;
         user.PrintedInvoiceRequested = dto.PrintedInvoiceRequested;
-
-        if (companyName != user.CompanyName && false)
-            throw new ArgumentException("Céges számlázáshoz a cégnév és az adószám együttes megadása szükséges.");
 
         var result = await _userManager.UpdateAsync(user);
 
@@ -148,19 +137,23 @@ public class UserService : IUserService
                 $"User with id {userId} was not found.");
         }
 
+        var previousShippingAddressId = user.ShippingAddressId;
+        Address? shippingAddress = null;
+
         if (dto.ShippingAddress is null)
         {
-            throw new ArgumentException("A szállítási cím megadása kötelező.");
+            user.ShippingAddressId = null;
         }
+        else
+        {
+            ValidateAddress(dto.ShippingAddress);
+            shippingAddress = await UpsertAddressAsync(
+                user.ShippingAddress,
+                dto.ShippingAddress);
 
-        ValidateAddress(dto.ShippingAddress);
-        var previousShippingAddressId = user.ShippingAddressId;
-        var shippingAddress = await UpsertAddressAsync(
-            user.ShippingAddress,
-            dto.ShippingAddress);
-
-        await _unitOfWork.SaveChangesAsync();
-        user.ShippingAddressId = shippingAddress.Id;
+            await _unitOfWork.SaveChangesAsync();
+            user.ShippingAddressId = shippingAddress.Id;
+        }
 
         if (user.CustomerType == CustomerType.Private)
         {
@@ -168,26 +161,28 @@ public class UserService : IUserService
         }
         else if (dto.UseShippingAsBilling)
         {
-            user.BillingAddressId = shippingAddress.Id;
+            user.BillingAddressId = shippingAddress?.Id;
         }
         else
         {
             if (dto.BillingAddress is null)
             {
-                throw new ArgumentException("A számlázási cím megadása kötelező.");
+                user.BillingAddressId = null;
             }
+            else
+            {
+                ValidateAddress(dto.BillingAddress);
 
-            ValidateAddress(dto.BillingAddress);
+                var existingBillingAddress = user.BillingAddressId == previousShippingAddressId
+                    ? null
+                    : user.BillingAddress;
+                var billingAddress = await UpsertAddressAsync(
+                    existingBillingAddress,
+                    dto.BillingAddress);
 
-            var existingBillingAddress = user.BillingAddressId == previousShippingAddressId
-                ? null
-                : user.BillingAddress;
-            var billingAddress = await UpsertAddressAsync(
-                existingBillingAddress,
-                dto.BillingAddress);
-
-            await _unitOfWork.SaveChangesAsync();
-            user.BillingAddressId = billingAddress.Id;
+                await _unitOfWork.SaveChangesAsync();
+                user.BillingAddressId = billingAddress.Id;
+            }
         }
 
         var result = await _userManager.UpdateAsync(user);
@@ -209,6 +204,8 @@ public class UserService : IUserService
             .Include(item => item.BillingAddress)
             .FirstOrDefaultAsync(item => item.Id == userId, cancellationToken)
             ?? throw new KeyNotFoundException($"User with id {userId} was not found.");
+
+        await EnsureAccountLifecycleDoesNotRemoveLastAdminAsync(user);
 
         var orderCount = await _databaseContext.Orders
             .CountAsync(order => order.UserId == userId, cancellationToken);
@@ -284,6 +281,26 @@ public class UserService : IUserService
     }
 
     internal static bool IsActiveOrderStatus(OrderStatus status) => ActiveOrderStatuses.Contains(status);
+
+    private async Task EnsureAccountLifecycleDoesNotRemoveLastAdminAsync(ApplicationUser user)
+    {
+        if (!await _userManager.IsInRoleAsync(user, "Admin"))
+        {
+            return;
+        }
+
+        var admins = await _userManager.GetUsersInRoleAsync("Admin");
+        var activeAdminCount = admins.Count(admin =>
+            admin.RecordStatus == RecordStatus.Active
+            && admin.DeactivatedAtUtc is null
+            && admin.AnonymizedAtUtc is null);
+
+        if (activeAdminCount <= 1)
+        {
+            throw new InvalidOperationException(
+                "Az utolsó aktív admin fiók nem deaktiválható vagy törölhető. Előbb adj admin jogosultságot egy másik aktív fióknak.");
+        }
+    }
 
     internal static async Task DeactivateUserAsync(ApplicationUser user, UserManager<ApplicationUser> userManager)
     {
@@ -386,6 +403,12 @@ public class UserService : IUserService
         {
             throw new ArgumentException(
                 "Az irányítószám, település, közterület és házszám megadása kötelező.");
+        }
+
+        if (!Regex.IsMatch(address.PostalCode.Trim(), @"^\d{4}$"))
+        {
+            throw new ArgumentException(
+                "Az irányítószámnak 4 számjegyből kell állnia.");
         }
     }
 

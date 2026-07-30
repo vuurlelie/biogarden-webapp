@@ -122,8 +122,6 @@ test("private guest checkout sends receipt-only billing payload", async ({ page 
   await page.getByLabel(/Email cim|Email cím/).fill("teszt@example.com");
   await page.getByLabel(/Telefonszam|Telefonszám/).fill("+36301234567");
 
-  await expect(page.getByText(/papiralapu nyugtat kapsz|papíralapú nyugtát kapsz/i)).toBeVisible();
-  await expect(page.getByText(/nem kell szamlazasi cimet|nem kell számlázási címet/i)).toBeVisible();
   await expect(page.getByLabel(/Cegnev|Cégnév/)).toHaveCount(0);
 
   await page.getByRole("button", { name: /Tovabb a penztarhoz|Tovább a pénztárhoz/ }).click();

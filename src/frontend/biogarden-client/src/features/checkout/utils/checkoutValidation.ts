@@ -4,6 +4,7 @@ import type {
   CheckoutFieldErrors,
   FulfillmentMethod,
 } from "../types/checkout.types";
+import { isPostalCodeCityPairValid } from "../../../shared/utils/postalCodeLookup";
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const POSTAL_CODE_PATTERN = /^\d{4}$/;
@@ -49,6 +50,8 @@ export function validateCheckoutFields(
     }
     if (draft.city.trim().length < 2) {
       errors.city = "A település megadása kötelező.";
+    } else if (!errors.postalCode && !isPostalCodeCityPairValid(draft.postalCode, draft.city)) {
+      errors.city = "A település nem tartozik ehhez az irányítószámhoz.";
     }
     if (draft.street.trim().length < 2) {
       errors.street = "A közterület megadása kötelező.";
@@ -73,6 +76,11 @@ export function validateCheckoutFields(
     }
     if (draft.deliveryCity.trim().length < 2) {
       errors.deliveryCity = "A település megadása kötelező.";
+    } else if (
+      !errors.deliveryPostalCode
+      && !isPostalCodeCityPairValid(draft.deliveryPostalCode, draft.deliveryCity)
+    ) {
+      errors.deliveryCity = "A település nem tartozik ehhez az irányítószámhoz.";
     }
     if (draft.deliveryStreet.trim().length < 2) {
       errors.deliveryStreet = "A közterület megadása kötelező.";

@@ -24,6 +24,12 @@ public sealed class AdminOrdersController : ControllerBase
         return Ok(await _service.GetAllAsync(token));
     }
 
+    [HttpGet("withdrawal-requests")]
+    public async Task<ActionResult<IReadOnlyList<AdminOrderWithdrawalRequestDto>>> GetWithdrawalRequests(CancellationToken token)
+    {
+        return Ok(await _service.GetWithdrawalRequestsAsync(token));
+    }
+
     [HttpPut("{orderId:guid}")]
     public async Task<ActionResult<OrderDto>> Update(
         Guid orderId,
@@ -31,5 +37,13 @@ public sealed class AdminOrdersController : ControllerBase
         CancellationToken token)
     {
         return Ok(await _service.UpdateAsync(orderId, changes, token));
+    }
+
+    [HttpPut("withdrawal-requests/{requestId:int}/handled")]
+    public async Task<ActionResult<AdminOrderWithdrawalRequestDto>> MarkWithdrawalRequestHandled(
+        int requestId,
+        CancellationToken token)
+    {
+        return Ok(await _service.MarkWithdrawalRequestHandledAsync(requestId, token));
     }
 }

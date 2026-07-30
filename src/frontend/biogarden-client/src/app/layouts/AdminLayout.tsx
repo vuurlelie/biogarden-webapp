@@ -27,22 +27,22 @@ const navigationItems: NavigationItem[] = [
     ),
   },
   {
-    label: "Termékek",
-    description: "Kínálat és termékadatok",
-    to: ROUTES.adminProducts,
-    icon: (
-      <svg aria-hidden="true" className={iconClass} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-        <path d="m4 7 8-4 8 4-8 4-8-4Zm0 0v10l8 4m0-10v10m8-14v10l-8 4" />
-      </svg>
-    ),
-  },
-  {
     label: "Rendelések",
     description: "Beérkezett rendelések",
     to: ROUTES.adminOrders,
     icon: (
       <svg aria-hidden="true" className={iconClass} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
         <path d="M7 3h10v4H7V3ZM5 5H3v16h18V5h-2M7 12h10M7 16h7" />
+      </svg>
+    ),
+  },
+  {
+    label: "Fogyasztói kérések",
+    description: "Elállás, panasz, kérés",
+    to: ROUTES.adminWithdrawalRequests,
+    icon: (
+      <svg aria-hidden="true" className={iconClass} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+        <path d="M5 4h14v16H5V4Zm4 5h6m-6 4h6m-6 4h4M18 6l2 2 3-4" />
       </svg>
     ),
   },
@@ -57,22 +57,32 @@ const navigationItems: NavigationItem[] = [
     ),
   },
   {
-    label: "Bejegyzések",
-    description: "Tudástár kezelése",
-    to: ROUTES.adminPosts,
-    icon: (
-      <svg aria-hidden="true" className={iconClass} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-        <path d="M5 3h14v18H5V3Zm4 5h6M9 12h6M9 16h4" />
-      </svg>
-    ),
-  },
-  {
     label: "Felhasználók",
     description: "Fiókok és jogosultságok",
     to: ROUTES.adminAccounts,
     icon: (
       <svg aria-hidden="true" className={iconClass} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
         <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2m7-10a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm8-1v6m3-3h-6" />
+      </svg>
+    ),
+  },
+  {
+    label: "Termékek",
+    description: "Kínálat és termékadatok",
+    to: ROUTES.adminProducts,
+    icon: (
+      <svg aria-hidden="true" className={iconClass} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+        <path d="m4 7 8-4 8 4-8 4-8-4Zm0 0v10l8 4m0-10v10m8-14v10l-8 4" />
+      </svg>
+    ),
+  },
+  {
+    label: "Bejegyzések",
+    description: "Tudástár kezelése",
+    to: ROUTES.adminPosts,
+    icon: (
+      <svg aria-hidden="true" className={iconClass} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+        <path d="M5 3h14v18H5V3Zm4 5h6M9 12h6M9 16h4" />
       </svg>
     ),
   },
@@ -132,7 +142,12 @@ export default function AdminLayout() {
         <div className="mt-6 border-t border-white/15 pt-5">
           <p className="truncate text-xs text-white/60">{auth?.email}</p>
           <div className="mt-3 grid grid-cols-2 gap-2">
-            <Link to={ROUTES.home} className="rounded-sm border border-white/25 px-3 py-2 text-center text-xs font-semibold text-white hover:bg-white/10">
+            <Link
+              to={ROUTES.home}
+              target="_blank"
+              rel="noreferrer"
+              className="rounded-sm border border-white/25 px-3 py-2 text-center text-xs font-semibold text-white hover:bg-white/10"
+            >
               Weboldal
             </Link>
             <button type="button" onClick={logout} className="rounded-sm bg-white px-3 py-2 text-xs font-semibold text-site-nav hover:bg-site-surface-soft">
@@ -166,7 +181,13 @@ export default function AdminLayout() {
             <div id="admin-mobile-menu" className="max-h-[calc(100vh-4rem)] overflow-y-auto bg-site-nav px-4 py-4 text-white sm:px-6">
               <AdminNavigation onNavigate={() => setMobileMenuOpen(false)} />
               <div className="mt-4 grid grid-cols-2 gap-3 border-t border-white/15 pt-4">
-                <Link to={ROUTES.home} onClick={() => setMobileMenuOpen(false)} className="rounded-sm border border-white/25 px-4 py-3 text-center text-sm font-semibold text-white">
+                <Link
+                  to={ROUTES.home}
+                  target="_blank"
+                  rel="noreferrer"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="rounded-sm border border-white/25 px-4 py-3 text-center text-sm font-semibold text-white"
+                >
                   Weboldal
                 </Link>
                 <button type="button" onClick={logout} className="rounded-sm bg-white px-4 py-3 text-sm font-semibold text-site-nav">

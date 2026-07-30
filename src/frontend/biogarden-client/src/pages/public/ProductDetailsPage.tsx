@@ -269,7 +269,7 @@ export default function ProductDetailsPage() {
             </div>
 
             {product.description && (
-              <p className="mt-5 whitespace-pre-line text-justify text-base italic leading-7 text-site-text">
+              <p className="mt-5 whitespace-pre-line text-justify text-sm italic leading-6 text-site-text">
                 {product.description}
               </p>
             )}

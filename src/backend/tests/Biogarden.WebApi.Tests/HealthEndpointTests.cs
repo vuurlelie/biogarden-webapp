@@ -54,6 +54,7 @@ public sealed class HealthEndpointTests : IClassFixture<BiogardenWebApiFactory>
         var contentSecurityPolicy = Assert.Single(values);
         Assert.Contains("frame-ancestors 'none'", contentSecurityPolicy);
         Assert.Contains("frame-src https://www.google.com https://maps.google.com", contentSecurityPolicy);
+        Assert.Contains("img-src 'self' data: blob:", contentSecurityPolicy);
     }
 
     private static void AssertHeader(

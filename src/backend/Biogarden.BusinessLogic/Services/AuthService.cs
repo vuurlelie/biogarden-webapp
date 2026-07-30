@@ -190,6 +190,14 @@ public class AuthService : IAuthService
 
         if (!result.Succeeded)
         {
+            var refreshedUser = await _userManager.FindByIdAsync(
+                confirmEmailRequestDto.UserId.ToString());
+
+            if (refreshedUser?.EmailConfirmed == true)
+            {
+                return AuthOperationResultDto.Success();
+            }
+
             return AuthOperationResultDto.Failure("Az email megerősítés nem sikerült.");
         }
 

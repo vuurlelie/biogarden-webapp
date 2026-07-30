@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import type { Post, PostCategory } from "../../posts/types/post.types";
 import { useModalFocus } from "../../../shared/hooks/useModalFocus";
 import { getErrorMessage } from "../../../shared/utils/errorHandling";
@@ -13,6 +13,8 @@ import RichTextEditor from "./RichTextEditor";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 const MAX_IMAGE_UPLOAD_SIZE_BYTES = 2 * 1024 * 1024;
+const POST_IMAGE_WIDTH = 1600;
+const POST_IMAGE_HEIGHT = 1200;
 
 const categories: Array<[PostCategory, string]> = [
   [0, "Tudástár"],
@@ -27,6 +29,9 @@ type FormState = {
   publishedAt: string;
   draft: boolean;
 };
+
+type PostInvalidField = "title" | "article" | "publishedAt" | "image";
+type PostFieldErrors = Partial<Record<PostInvalidField, string>>;
 
 type Props = {
   post: Post | null;
@@ -67,19 +72,97 @@ function imageUrl(path: string): string {
   return path ? `${API_BASE_URL}/${path.replace(/^\/+/, "")}` : "";
 }
 
+function loadSelectedImage(file: File): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+
+    reader.onload = () => {
+      if (typeof reader.result !== "string") {
+        reject(new Error("A kiválasztott kép nem tölthető be."));
+        return;
+      }
+
+      const image = new Image();
+      image.onload = () => resolve(image);
+      image.onerror = () => reject(new Error("A kiválasztott kép nem tölthető be."));
+      image.src = reader.result;
+    };
+    reader.onerror = () => reject(new Error("A kiválasztott kép nem tölthető be."));
+    reader.readAsDataURL(file);
+  });
+}
+
+function canvasToJpegFile(canvas: HTMLCanvasElement, originalFile: File, quality: number): Promise<File> {
+  return new Promise((resolve, reject) => {
+    canvas.toBlob(
+      (blob) => {
+        if (!blob) {
+          reject(new Error("A kép feldolgozása nem sikerült."));
+          return;
+        }
+
+        const fileName = originalFile.name.replace(/\.[^.]+$/, "") || "bejegyzes-kep";
+        resolve(new File([blob], `${fileName}.jpg`, { type: "image/jpeg" }));
+      },
+      "image/jpeg",
+      quality,
+    );
+  });
+}
+
+async function normalizePostImageFile(file: File): Promise<File> {
+  const image = await loadSelectedImage(file);
+  const canvas = document.createElement("canvas");
+  canvas.width = POST_IMAGE_WIDTH;
+  canvas.height = POST_IMAGE_HEIGHT;
+
+  const context = canvas.getContext("2d");
+  if (!context) throw new Error("A kép feldolgozása nem támogatott ebben a böngészőben.");
+
+  const targetRatio = POST_IMAGE_WIDTH / POST_IMAGE_HEIGHT;
+  const sourceRatio = image.naturalWidth / image.naturalHeight;
+  const sourceWidth = sourceRatio > targetRatio ? image.naturalHeight * targetRatio : image.naturalWidth;
+  const sourceHeight = sourceRatio > targetRatio ? image.naturalHeight : image.naturalWidth / targetRatio;
+  const sourceX = Math.max(0, (image.naturalWidth - sourceWidth) / 2);
+  const sourceY = Math.max(0, (image.naturalHeight - sourceHeight) / 2);
+
+  context.fillStyle = "#ffffff";
+  context.fillRect(0, 0, POST_IMAGE_WIDTH, POST_IMAGE_HEIGHT);
+  context.drawImage(
+    image,
+    sourceX,
+    sourceY,
+    sourceWidth,
+    sourceHeight,
+    0,
+    0,
+    POST_IMAGE_WIDTH,
+    POST_IMAGE_HEIGHT,
+  );
+
+  let normalizedFile = await canvasToJpegFile(canvas, file, 0.9);
+  for (const quality of [0.82, 0.74, 0.66]) {
+    if (normalizedFile.size <= MAX_IMAGE_UPLOAD_SIZE_BYTES) break;
+    normalizedFile = await canvasToJpegFile(canvas, file, quality);
+  }
+
+  return normalizedFile;
+}
+
 export default function AdminPostFormModal({ post, onClose, onSaved }: Props) {
   const [form, setForm] = useState(() => initialState(post));
   const [imageFile, setImageFile] = useState<File | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [selectedImagePreviewUrl, setSelectedImagePreviewUrl] = useState("");
+  const [previewFailed, setPreviewFailed] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<PostFieldErrors>({});
   const [saving, setSaving] = useState(false);
   const modalRef = useRef<HTMLElement | null>(null);
   const titleInputRef = useRef<HTMLInputElement | null>(null);
+  const publishedAtInputRef = useRef<HTMLInputElement | null>(null);
   const imageInputRef = useRef<HTMLInputElement | null>(null);
 
-  const previewUrl = useMemo(
-    () => (imageFile ? URL.createObjectURL(imageFile) : imageUrl(form.image)),
-    [imageFile, form.image],
-  );
+  const previewUrl = selectedImagePreviewUrl || imageUrl(form.image);
 
   useModalFocus(modalRef, {
     isOpen: true,
@@ -89,34 +172,112 @@ export default function AdminPostFormModal({ post, onClose, onSaved }: Props) {
   });
 
   useEffect(() => {
-    return () => {
-      if (imageFile && previewUrl.startsWith("blob:")) URL.revokeObjectURL(previewUrl);
+    setPreviewFailed(false);
+  }, [previewUrl]);
+
+  useEffect(() => {
+    if (!imageFile) {
+      setSelectedImagePreviewUrl("");
+      return;
+    }
+
+    let cancelled = false;
+    const reader = new FileReader();
+
+    reader.onload = () => {
+      if (!cancelled && typeof reader.result === "string") {
+        setSelectedImagePreviewUrl(reader.result);
+      }
     };
-  }, [imageFile, previewUrl]);
+
+    reader.onerror = () => {
+      if (!cancelled) {
+        setSelectedImagePreviewUrl("");
+        setPreviewFailed(true);
+      }
+    };
+
+    reader.readAsDataURL(imageFile);
+
+    return () => {
+      cancelled = true;
+      if (reader.readyState === FileReader.LOADING) {
+        reader.abort();
+      }
+    };
+  }, [imageFile]);
 
   function update<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((current) => ({ ...current, [key]: value }));
   }
 
+  function getInputClassName(field?: PostInvalidField) {
+    const hasError = field ? Boolean(fieldErrors[field]) : false;
+    return [
+      "mt-1.5 w-full rounded-sm border bg-white px-3 py-2.5 text-site-text outline-none transition focus:ring-2",
+      hasError
+        ? "border-site-danger bg-site-danger-soft focus:border-site-danger focus:ring-site-danger/20"
+        : "border-site-border focus:border-site-green focus:ring-site-green/20",
+    ].join(" ");
+  }
+
+  function getErrorId(field: PostInvalidField) {
+    return `admin-post-${field}-error`;
+  }
+
+  function renderFieldError(field: PostInvalidField) {
+    if (!fieldErrors[field]) return null;
+
+    return (
+      <p id={getErrorId(field)} className="mt-1 text-xs font-semibold text-site-danger">
+        {fieldErrors[field]}
+      </p>
+    );
+  }
+
+  function clearFieldError(field: PostInvalidField) {
+    setFieldErrors((current) => {
+      if (!current[field]) return current;
+      const next = { ...current };
+      delete next[field];
+      return next;
+    });
+  }
+
+  function markInvalid(field: PostInvalidField, message: string) {
+    setFormError(null);
+    setFieldErrors({ [field]: message });
+    const inputRefs: Record<PostInvalidField, HTMLElement | null> = {
+      title: titleInputRef.current,
+      article: document.getElementById("post-article"),
+      publishedAt: publishedAtInputRef.current,
+      image: imageInputRef.current,
+    };
+    inputRefs[field]?.focus();
+  }
+
   async function submit(event: FormEvent) {
     event.preventDefault();
-    setError(null);
+    setFormError(null);
+    setFieldErrors({});
 
     if (form.title.trim().length < 3) {
-      setError("A bejegyzés címe legalább 3 karakter legyen.");
-      titleInputRef.current?.focus();
+      markInvalid("title", "A bejegyzés címe legalább 3 karakter legyen.");
       return;
     }
 
     if (form.article.trim().length < 20) {
-      setError("A bejegyzés szövege legalább 20 karakter legyen.");
-      document.getElementById("post-article")?.focus();
+      markInvalid("article", "A bejegyzés szövege legalább 20 karakter legyen.");
+      return;
+    }
+
+    if (!form.publishedAt || Number.isNaN(new Date(form.publishedAt).getTime())) {
+      markInvalid("publishedAt", "Adj meg érvényes megjelenési dátumot.");
       return;
     }
 
     if (imageFile && imageFile.size > MAX_IMAGE_UPLOAD_SIZE_BYTES) {
-      setError("A kép mérete legfeljebb 2 MB lehet. Bejegyzésképhez kb. 1600 x 1200 px, JPG vagy WEBP ajánlott.");
-      imageInputRef.current?.focus();
+      markInvalid("image", "A kép mérete legfeljebb 2 MB lehet. Bejegyzésképhez kb. 1600 x 1200 px, JPG vagy WEBP ajánlott.");
       return;
     }
 
@@ -150,14 +311,11 @@ export default function AdminPostFormModal({ post, onClose, onSaved }: Props) {
           // The original save error is more useful to the administrator.
         }
       }
-      setError(getErrorMessage(saveError, "A mentés nem sikerült."));
+      setFormError(getErrorMessage(saveError, "A mentés nem sikerült."));
     } finally {
       setSaving(false);
     }
   }
-
-  const inputClass =
-    "mt-1.5 w-full rounded-sm border border-site-border bg-white px-3 py-2.5 text-site-text outline-none focus:border-site-green focus:ring-2 focus:ring-site-green/20";
 
   return (
     <div
@@ -190,9 +348,9 @@ export default function AdminPostFormModal({ post, onClose, onSaved }: Props) {
         </div>
 
         <form onSubmit={submit} className="space-y-6 p-5 sm:p-6">
-          {error && (
+          {formError && (
             <div role="alert" className="rounded-sm bg-site-danger-soft p-4 text-site-danger">
-              {error}
+              {formError}
             </div>
           )}
 
@@ -203,17 +361,23 @@ export default function AdminPostFormModal({ post, onClose, onSaved }: Props) {
                   Cím <span className="text-site-danger">*</span>
                   <input
                     ref={titleInputRef}
-                    className={inputClass}
+                    className={getInputClassName("title")}
                     value={form.title}
-                    onChange={(event) => update("title", event.target.value)}
+                    onChange={(event) => {
+                      update("title", event.target.value);
+                      clearFieldError("title");
+                    }}
                     maxLength={200}
+                    aria-invalid={Boolean(fieldErrors.title)}
+                    aria-describedby={fieldErrors.title ? getErrorId("title") : undefined}
                   />
+                  {renderFieldError("title")}
                 </label>
 
                 <label className="text-sm font-semibold">
                   Kategória <span className="text-site-danger">*</span>
                   <select
-                    className={inputClass}
+                    className={getInputClassName()}
                     value={form.category}
                     onChange={(event) => update("category", Number(event.target.value) as PostCategory)}
                   >
@@ -226,11 +390,18 @@ export default function AdminPostFormModal({ post, onClose, onSaved }: Props) {
                 <label className="text-sm font-semibold">
                   Megjelenés dátuma <span className="text-site-danger">*</span>
                   <input
-                    className={inputClass}
+                    ref={publishedAtInputRef}
+                    className={getInputClassName("publishedAt")}
                     type="datetime-local"
                     value={form.publishedAt}
-                    onChange={(event) => update("publishedAt", event.target.value)}
+                    onChange={(event) => {
+                      update("publishedAt", event.target.value);
+                      clearFieldError("publishedAt");
+                    }}
+                    aria-invalid={Boolean(fieldErrors.publishedAt)}
+                    aria-describedby={fieldErrors.publishedAt ? getErrorId("publishedAt") : undefined}
                   />
+                  {renderFieldError("publishedAt")}
                 </label>
               </div>
 
@@ -238,14 +409,18 @@ export default function AdminPostFormModal({ post, onClose, onSaved }: Props) {
                 id="post-article"
                 label="Bejegyzés szövege"
                 value={form.article}
-                onChange={(nextArticle) => update("article", nextArticle)}
+                onChange={(nextArticle) => {
+                  update("article", nextArticle);
+                  clearFieldError("article");
+                }}
+                error={fieldErrors.article}
                 required
               />
             </div>
 
             <aside className="space-y-4">
               <div className="overflow-hidden rounded-sm border border-site-border bg-site-surface-soft">
-                {previewUrl ? (
+                {previewUrl && !previewFailed ? (
                   <img src={previewUrl} alt="Bejegyzés képe" className="aspect-[4/3] w-full object-cover" />
                 ) : (
                   <div className="grid aspect-[4/3] place-items-center px-4 text-center text-sm text-site-muted">
@@ -258,11 +433,42 @@ export default function AdminPostFormModal({ post, onClose, onSaved }: Props) {
                 Kép
                 <input
                   ref={imageInputRef}
-                  className="mt-2 block w-full rounded-sm border border-site-border p-3 text-sm file:mr-3 file:rounded-sm file:border-0 file:bg-site-surface-soft file:px-3 file:py-2 file:font-semibold file:text-site-green-dark"
+                  className={`mt-2 block w-full rounded-sm border p-3 text-sm file:mr-3 file:rounded-sm file:border-0 file:bg-site-surface-soft file:px-3 file:py-2 file:font-semibold file:text-site-green-dark ${
+                    fieldErrors.image ? "border-site-danger bg-site-danger-soft" : "border-site-border"
+                  }`}
                   type="file"
                   accept="image/jpeg,image/png,image/webp"
-                  onChange={(event) => setImageFile(event.target.files?.[0] ?? null)}
+                  onChange={async (event) => {
+                    const input = event.currentTarget;
+                    const selectedFile = input.files?.[0] ?? null;
+                    setPreviewFailed(false);
+                    clearFieldError("image");
+
+                    if (!selectedFile) {
+                      setImageFile(null);
+                      return;
+                    }
+
+                    try {
+                      const normalizedFile = await normalizePostImageFile(selectedFile);
+                      if (normalizedFile.size > MAX_IMAGE_UPLOAD_SIZE_BYTES) {
+                        input.value = "";
+                        setImageFile(null);
+                        markInvalid("image", "A kép mérete feldolgozás után is túl nagy. Válassz kisebb képet.");
+                        return;
+                      }
+
+                      setImageFile(normalizedFile);
+                    } catch (processingError) {
+                      input.value = "";
+                      setImageFile(null);
+                      markInvalid("image", getErrorMessage(processingError, "A kép feldolgozása nem sikerült."));
+                    }
+                  }}
+                  aria-invalid={Boolean(fieldErrors.image)}
+                  aria-describedby={fieldErrors.image ? getErrorId("image") : undefined}
                 />
+                {renderFieldError("image")}
               </label>
               <p className="text-xs text-site-muted">
                 JPG vagy WEBP ajánlott, kb. 1600 x 1200 px, legfeljebb 2 MB.
@@ -273,6 +479,7 @@ export default function AdminPostFormModal({ post, onClose, onSaved }: Props) {
                   type="button"
                   onClick={() => {
                     setImageFile(null);
+                    setPreviewFailed(false);
                     update("image", "");
                   }}
                   className="w-full rounded-sm border border-site-danger/40 px-4 py-2 text-sm font-semibold text-site-danger hover:bg-site-danger-soft"

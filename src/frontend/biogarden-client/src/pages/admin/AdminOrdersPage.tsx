@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useSearchParams } from "react-router";
 import type {
   FulfillmentMethod,
   Order,
@@ -329,11 +330,12 @@ function OrderCard({
 }
 
 export default function AdminOrdersPage() {
+  const [searchParams] = useSearchParams();
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState(() => searchParams.get("search") ?? "");
   const [status, setStatus] = useState<"all" | OrderStatus>("all");
   const [fulfillment, setFulfillment] = useState<"all" | FulfillmentMethod>("all");
   const [page, setPage] = useState(1);

@@ -8,6 +8,7 @@ import AdminLayout from "../layouts/AdminLayout";
 
 import ProtectedRoute from "./ProtectedRoute";
 import AdminRoute from "./AdminRoute";
+import GuestOnlyRoute from "./GuestOnlyRoute";
 
 const HomePage = lazy(() => import("../../pages/public/HomePage"));
 const AboutPage = lazy(() => import("../../pages/public/AboutPage"));
@@ -39,6 +40,7 @@ const AdminDashboardPage = lazy(() => import("../../pages/admin/AdminDashboardPa
 const AdminLoginPage = lazy(() => import("../../pages/admin/AdminLoginPage"));
 const AdminProductsPage = lazy(() => import("../../pages/admin/AdminProductsPage"));
 const AdminOrdersPage = lazy(() => import("../../pages/admin/AdminOrdersPage"));
+const AdminWithdrawalRequestsPage = lazy(() => import("../../pages/admin/AdminWithdrawalRequestsPage"));
 const AdminInventoryPage = lazy(() => import("../../pages/admin/AdminInventoryPage"));
 const AdminPostsPage = lazy(() => import("../../pages/admin/AdminPostsPage"));
 const AdminAccountsPage = lazy(() => import("../../pages/admin/AdminAccountsPage"));
@@ -66,8 +68,13 @@ export const router = createBrowserRouter([
       { path: "termekek/:productId", element: routeElement(<ProductDetailsPage />) },
       { path: "tudastar", element: routeElement(<PostsPage />) },
       { path: "tudastar/:postId", element: routeElement(<PostDetailsPage />) },
-      { path: ROUTES.login.slice(1), element: routeElement(<LoginPage />) },
-      { path: ROUTES.register.slice(1), element: routeElement(<RegisterPage />) },
+      {
+        element: <GuestOnlyRoute />,
+        children: [
+          { path: ROUTES.login.slice(1), element: routeElement(<LoginPage />) },
+          { path: ROUTES.register.slice(1), element: routeElement(<RegisterPage />) },
+        ],
+      },
       { path: ROUTES.emailConfirmation.slice(1), element: routeElement(<EmailConfirmationPage />) },
       { path: ROUTES.forgotPassword.slice(1), element: routeElement(<ForgotPasswordPage />) },
       { path: ROUTES.resetPassword.slice(1), element: routeElement(<ResetPasswordPage />) },
@@ -106,6 +113,7 @@ export const router = createBrowserRouter([
           { index: true, element: routeElement(<AdminDashboardPage />) },
           { path: "termekek", element: routeElement(<AdminProductsPage />) },
           { path: "rendelesek", element: routeElement(<AdminOrdersPage />) },
+          { path: "elallasi-keresek", element: routeElement(<AdminWithdrawalRequestsPage />) },
           { path: "raktarkeszlet", element: routeElement(<AdminInventoryPage />) },
           { path: "bejegyzesek", element: routeElement(<AdminPostsPage />) },
           { path: "fiok", element: routeElement(<AdminAccountsPage />) },

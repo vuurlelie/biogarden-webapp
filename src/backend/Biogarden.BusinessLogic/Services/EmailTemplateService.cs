@@ -132,10 +132,14 @@ public sealed class EmailTemplateService : IEmailTemplateService
             title: "Új kapcsolatfelvételi üzenet",
             preheader: $"Új üzenet érkezett: {request.Name}",
             greeting: "Új üzenet érkezett",
-            bodyParagraphs: bodyLines,
+            bodyParagraphs:
+            [
+                "A weboldal Kapcsolat űrlapján keresztül új megkeresés érkezett."
+            ],
             actionText: "Válasz emailben",
             actionUrl: $"mailto:{request.Email}",
-            note: "A válaszhoz használd a megadott email címet, vagy keresd a látogatót telefonon, ha adott meg telefonszámot.");
+            note: "A válaszhoz használd a megadott email címet, vagy keresd a látogatót telefonon, ha adott meg telefonszámot.",
+            extraHtmlContent: BuildContactBusinessHtmlSummary(request));
 
         return CreateMessage(recipientEmail, BuildBrandedSubject(subject), plainTextBody, htmlBody);
     }
@@ -153,10 +157,14 @@ public sealed class EmailTemplateService : IEmailTemplateService
             title: title,
             preheader: "Köszönjük a megkeresést, hamarosan válaszolunk.",
             greeting: $"Kedves {request.Name}!",
-            bodyParagraphs: bodyLines,
+            bodyParagraphs:
+            [
+                "Köszönjük, hogy írtál nekünk. Megkaptuk az üzenetedet, és hamarosan válaszolunk a megadott elérhetőségeden."
+            ],
             actionText: "Weboldal megnyitása",
             actionUrl: _brandingOptions.WebsiteUrl,
-            note: "Ez egy automatikus visszaigazolás, válaszolnod nem szükséges.");
+            note: "Ez egy automatikus visszaigazolás, válaszolnod nem szükséges.",
+            extraHtmlContent: BuildContactVisitorHtmlSummary(request));
 
         return CreateMessage(recipientEmail, BuildBrandedSubject(title), plainTextBody, htmlBody);
     }
@@ -177,10 +185,14 @@ public sealed class EmailTemplateService : IEmailTemplateService
             title: title,
             preheader: $"Megkaptuk a rendelésedet: {order.OrderNumber}.",
             greeting: "Kedves Felhasználónk!",
-            bodyParagraphs: bodyLines,
+            bodyParagraphs:
+            [
+                "Köszönjük a rendelésedet. A rendelésedet megkaptuk, feldolgozása hamarosan megkezdődik."
+            ],
             actionText: "Weboldal megnyitása",
             actionUrl: _brandingOptions.WebsiteUrl,
-            note: "A rendelés feldolgozásáról és állapotváltozásairól emailben értesítünk.");
+            note: "A rendelés feldolgozásáról és állapotváltozásairól emailben értesítünk.",
+            extraHtmlContent: BuildOrderConfirmationHtmlSummary(order));
 
         return CreateMessage(recipientEmail, BuildBrandedSubject(title), plainTextBody, htmlBody);
     }
@@ -201,10 +213,15 @@ public sealed class EmailTemplateService : IEmailTemplateService
             title: "Új rendelés érkezett",
             preheader: $"Új rendelés érkezett: {order.OrderNumber}.",
             greeting: "Új rendelés érkezett",
-            bodyParagraphs: bodyLines,
+            bodyParagraphs:
+            [
+                "Új rendelés érkezett a weboldalon.",
+                "A rendelést az admin felületen tudod feldolgozni."
+            ],
             actionText: "Admin felület megnyitása",
             actionUrl: adminUrl,
-            note: "Ha a gomb nem működik, használd a fenti admin linket.");
+            note: "Ha a gomb nem működik, használd a fenti admin linket.",
+            extraHtmlContent: BuildOrderBusinessHtmlSummary(order));
 
         return CreateMessage(
             recipientEmail,
@@ -229,10 +246,14 @@ public sealed class EmailTemplateService : IEmailTemplateService
             title: title,
             preheader: $"A rendelésed új állapota: {FormatOrderStatus(order.Status)}.",
             greeting: "Kedves Felhasználónk!",
-            bodyParagraphs: bodyLines,
+            bodyParagraphs:
+            [
+                $"A rendelésed állapota megváltozott: {FormatOrderStatus(order.Status)}."
+            ],
             actionText: "Kapcsolatfelvétel",
             actionUrl: $"mailto:{_brandingOptions.ContactEmail}",
-            note: "Ha kérdésed van a rendeléseddel kapcsolatban, válaszolj erre az emailre vagy vedd fel velünk a kapcsolatot.");
+            note: "Ha kérdésed van a rendeléseddel kapcsolatban, válaszolj erre az emailre vagy vedd fel velünk a kapcsolatot.",
+            extraHtmlContent: BuildOrderStatusChangedHtmlSummary(order));
 
         return CreateMessage(recipientEmail, BuildBrandedSubject(title), plainTextBody, htmlBody);
     }
@@ -258,10 +279,14 @@ public sealed class EmailTemplateService : IEmailTemplateService
                 title: "Új elállási vagy fogyasztói kérés",
                 preheader: $"Új kérés érkezett: {order.OrderNumber}.",
                 greeting: "Új kérés érkezett",
-                bodyParagraphs: bodyLines,
+                bodyParagraphs:
+                [
+                    "Új elállási vagy fogyasztói kérés érkezett."
+                ],
                 actionText: "Admin felület megnyitása",
                 actionUrl: adminUrl,
-                note: "A kérést az admin felületen, a rendelés részleteinél látod."));
+                note: "A kérést az admin felületen, a rendelés részleteinél látod.",
+                extraHtmlContent: BuildWithdrawalBusinessHtmlSummary(order, request)));
     }
 
     public EmailMessage BuildOrderWithdrawalCustomerConfirmationMessage(
@@ -284,10 +309,15 @@ public sealed class EmailTemplateService : IEmailTemplateService
                 title: "Megkaptuk a kérésedet",
                 preheader: $"Rögzítettük a(z) {order.OrderNumber} rendeléshez kapcsolódó kérésedet.",
                 greeting: $"Kedves {order.CustomerName}!",
-                bodyParagraphs: bodyLines,
+                bodyParagraphs:
+                [
+                    $"Megkaptuk a(z) {order.OrderNumber} számú rendeléshez kapcsolódó kérésedet.",
+                    "A kérésedet rögzítettük, és a feldolgozásáról a megadott elérhetőségen egyeztetünk."
+                ],
                 actionText: "Kapcsolat",
                 actionUrl: $"mailto:{_brandingOptions.ContactEmail}",
-                note: "Ez az email a kérés rögzítését igazolja, nem jelenti automatikusan annak elfogadását."));
+                note: "Ez az email a kérés rögzítését igazolja, nem jelenti automatikusan annak elfogadását.",
+                extraHtmlContent: BuildWithdrawalCustomerHtmlSummary(order, request)));
     }
 
     private string BuildPlainTextBody(
@@ -453,7 +483,8 @@ public sealed class EmailTemplateService : IEmailTemplateService
         IReadOnlyList<string> bodyParagraphs,
         string actionText,
         string actionUrl,
-        string note)
+        string note,
+        string? extraHtmlContent = null)
     {
         var paragraphs = string.Join(
             Environment.NewLine,
@@ -484,6 +515,7 @@ public sealed class EmailTemplateService : IEmailTemplateService
                         <td style="padding:30px 28px 26px;">
                           <p style="margin:0 0 16px;color:#263124;font-size:17px;line-height:1.65;font-weight:700;">{{HtmlEncode(greeting)}}</p>
                           {{paragraphs}}
+                          {{extraHtmlContent ?? string.Empty}}
                           <table role="presentation" cellspacing="0" cellpadding="0" style="margin:26px 0;">
                             <tr>
                               <td style="border-radius:4px;background:#6f8b22;">
@@ -510,6 +542,291 @@ public sealed class EmailTemplateService : IEmailTemplateService
             """;
     }
 
+    private static string BuildOrderConfirmationHtmlSummary(OrderDto order)
+    {
+        var orderSummaryRows = new[]
+        {
+            ("Rendelésszám", order.OrderNumber),
+            ("Rendelés állapota", FormatOrderStatus(order.Status)),
+            ("Fizetés állapota", FormatPaymentStatus(order.PaymentStatus)),
+            ("Átvétel módja", FormatFulfillmentMethod(order.FulfillmentMethod)),
+            ("Végösszeg", FormatPrice(order.TotalPrice))
+        };
+
+        var customerRows = new[]
+        {
+            ("Név", order.CustomerName),
+            ("Email", order.CustomerEmail),
+            ("Telefon", order.CustomerPhone)
+        };
+
+        var documentRows = order.CustomerType == CustomerType.Private
+            ? new[]
+            {
+                ("Bizonylat", "Papíralapú nyugtát mellékelünk a rendeléshez.")
+            }
+            : new[]
+            {
+                ("Cégnév", order.BillingCompanyName ?? "Nincs megadva"),
+                ("Adószám", order.BillingTaxNumber ?? "Nincs megadva"),
+                ("Számlázási cím", FormatAddress(
+                    order.PostalCode,
+                    order.City,
+                    order.Street,
+                    order.HouseNumber,
+                    order.Building,
+                    order.Floor,
+                    order.Door,
+                    order.Doorbell)),
+                ("Számla átvétele", order.PrintedInvoiceRequested
+                    ? "Elektronikus számlát küldünk emailben, és nyomtatott számlát is mellékelünk."
+                    : "Elektronikus számlát küldünk emailben.")
+            };
+
+        var fulfillmentRows = order.FulfillmentMethod == FulfillmentMethod.PersonalPickup
+            ? new[]
+            {
+                ("Átvétel", "Személyes átvétel")
+            }
+            : new[]
+            {
+                ("Cím", FormatAddress(
+                    order.DeliveryPostalCode,
+                    order.DeliveryCity,
+                    order.DeliveryStreet,
+                    order.DeliveryHouseNumber,
+                    order.DeliveryBuilding,
+                    order.DeliveryFloor,
+                    order.DeliveryDoor,
+                    order.DeliveryDoorbell))
+            };
+
+        return string.Join(
+            Environment.NewLine,
+            new[]
+            {
+                BuildHtmlSection("Rendelés összefoglaló", BuildHtmlDetailsTable(orderSummaryRows)),
+                BuildHtmlSection("Megadott adataid", BuildHtmlDetailsTable(customerRows)),
+                BuildHtmlSection(order.CustomerType == CustomerType.Private ? "Bizonylat" : "Számlázási adatok", BuildHtmlDetailsTable(documentRows)),
+                BuildHtmlSection(order.FulfillmentMethod == FulfillmentMethod.PersonalPickup ? "Átvételi adatok" : "Szállítási adatok", BuildHtmlDetailsTable(fulfillmentRows)),
+                BuildHtmlSection("Termékek", BuildHtmlOrderItemsTable(order))
+            });
+    }
+
+    private static string BuildOrderBusinessHtmlSummary(OrderDto order)
+    {
+        var orderSummaryRows = new[]
+        {
+            ("Rendelésszám", order.OrderNumber),
+            ("Rendelés állapota", FormatOrderStatus(order.Status)),
+            ("Fizetés állapota", FormatPaymentStatus(order.PaymentStatus)),
+            ("Átvétel módja", FormatFulfillmentMethod(order.FulfillmentMethod)),
+            ("Végösszeg", FormatPrice(order.TotalPrice))
+        };
+
+        var customerRows = new[]
+        {
+            ("Név", order.CustomerName),
+            ("Email", order.CustomerEmail),
+            ("Telefon", order.CustomerPhone)
+        };
+
+        var documentRows = order.CustomerType == CustomerType.Private
+            ? new[]
+            {
+                ("Teendő", "Papíralapú nyugta szükséges."),
+                ("Megjegyzés", "A nyugtát mellékeld a rendeléshez.")
+            }
+            : new[]
+            {
+                ("Teendő", order.PrintedInvoiceRequested
+                    ? "Elektronikus számla szükséges, és nyomtatott számlát is mellékelni kell."
+                    : "Elektronikus számla szükséges."),
+                ("Cégnév", order.BillingCompanyName ?? "Nincs megadva"),
+                ("Adószám", order.BillingTaxNumber ?? "Nincs megadva"),
+                ("Számlázási cím", FormatAddress(
+                    order.PostalCode,
+                    order.City,
+                    order.Street,
+                    order.HouseNumber,
+                    order.Building,
+                    order.Floor,
+                    order.Door,
+                    order.Doorbell))
+            };
+
+        return string.Join(
+            Environment.NewLine,
+            new[]
+            {
+                BuildHtmlSection("Rendelés összefoglaló", BuildHtmlDetailsTable(orderSummaryRows)),
+                BuildHtmlSection("Vevő adatai", BuildHtmlDetailsTable(customerRows)),
+                BuildHtmlSection("Kiállítandó bizonylat", BuildHtmlDetailsTable(documentRows)),
+                BuildHtmlSection("Termékek", BuildHtmlOrderItemsTable(order))
+            });
+    }
+
+    private static string BuildOrderStatusChangedHtmlSummary(OrderDto order) =>
+        BuildHtmlSection(
+            "Rendelés adatai",
+            BuildHtmlDetailsTable(
+            [
+                ("Rendelésszám", order.OrderNumber),
+                ("Rendelés állapota", FormatOrderStatus(order.Status)),
+                ("Fizetés állapota", FormatPaymentStatus(order.PaymentStatus)),
+                ("Átvétel módja", FormatFulfillmentMethod(order.FulfillmentMethod)),
+                ("Végösszeg", FormatPrice(order.TotalPrice))
+            ]));
+
+    private static string BuildContactBusinessHtmlSummary(ContactMessageRequestDto request) =>
+        string.Join(
+            Environment.NewLine,
+            new[]
+            {
+                BuildHtmlSection(
+                    "Megadott adatok",
+                    BuildHtmlDetailsTable(
+                    [
+                        ("Név", request.Name),
+                        ("Email", request.Email),
+                        ("Telefon", request.Phone ?? "Nincs megadva"),
+                        ("Tárgy", request.Subject ?? "Nincs megadva")
+                    ])),
+                BuildHtmlSection(
+                    "Üzenet",
+                    BuildHtmlDetailsTable(
+                    [
+                        ("Üzenet", request.Message)
+                    ]))
+            });
+
+    private static string BuildContactVisitorHtmlSummary(ContactMessageRequestDto request)
+    {
+        var rows = new List<(string Label, string Value)>
+        {
+            ("Név", request.Name),
+            ("Email", request.Email)
+        };
+
+        if (!string.IsNullOrWhiteSpace(request.Phone))
+        {
+            rows.Add(("Telefon", request.Phone));
+        }
+
+        return string.Join(
+            Environment.NewLine,
+            new[]
+            {
+                BuildHtmlSection("Megadott adataid", BuildHtmlDetailsTable(rows)),
+                BuildHtmlSection(
+                    "Elküldött üzeneted",
+                    BuildHtmlDetailsTable(
+                    [
+                        ("Üzenet", request.Message)
+                    ]))
+            });
+    }
+
+    private static string BuildWithdrawalBusinessHtmlSummary(
+        OrderDto order,
+        OrderWithdrawalRequestDto request) =>
+        BuildHtmlSection(
+            "Kérés adatai",
+            BuildHtmlDetailsTable(
+            [
+                ("Rendelésszám", order.OrderNumber),
+                ("Vevő", request.CustomerName),
+                ("Email", request.CustomerEmail),
+                ("Kérés ideje", $"{request.RequestedAtUtc:yyyy. MM. dd. HH:mm}"),
+                ("Üzenet", request.Reason)
+            ]));
+
+    private static string BuildWithdrawalCustomerHtmlSummary(
+        OrderDto order,
+        OrderWithdrawalRequestDto request) =>
+        BuildHtmlSection(
+            "Rögzített kérés",
+            BuildHtmlDetailsTable(
+            [
+                ("Rendelésszám", order.OrderNumber),
+                ("Kérés ideje", $"{request.RequestedAtUtc:yyyy. MM. dd. HH:mm}"),
+                ("Megadott üzenet", request.Reason)
+            ]));
+
+    private static string BuildHtmlSection(string title, string content) =>
+        $"""
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:18px 0 0;">
+          <tr>
+            <td style="padding:0 0 8px;">
+              <h2 style="margin:0;color:#263124;font-size:18px;line-height:1.35;font-weight:700;">{HtmlEncode(title)}</h2>
+            </td>
+          </tr>
+          <tr>
+            <td>
+              {content}
+            </td>
+          </tr>
+        </table>
+        """;
+
+    private static string BuildHtmlDetailsTable(IEnumerable<(string Label, string Value)> rows)
+    {
+        var htmlRows = string.Join(
+            Environment.NewLine,
+            rows.Select(row =>
+                $"""
+                <tr>
+                  <td style="width:38%;padding:10px 12px;border-bottom:1px solid #d9dfd1;color:#65705f;font-size:14px;line-height:1.45;font-weight:700;vertical-align:top;">{HtmlEncode(row.Label)}</td>
+                  <td style="padding:10px 12px;border-bottom:1px solid #d9dfd1;color:#263124;font-size:14px;line-height:1.45;vertical-align:top;">{HtmlEncode(row.Value)}</td>
+                </tr>
+                """));
+
+        return $"""
+            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border:1px solid #d9dfd1;border-radius:6px;background:#f7f8f4;border-collapse:separate;border-spacing:0;overflow:hidden;">
+              {htmlRows}
+            </table>
+            """;
+    }
+
+    private static string BuildHtmlOrderItemsTable(OrderDto order)
+    {
+        if (order.Items.Count == 0)
+        {
+            return BuildHtmlDetailsTable(
+            [
+                ("Termékek", "Nincs termékadat.")
+            ]);
+        }
+
+        var itemRows = string.Join(
+            Environment.NewLine,
+            order.Items.Select(item =>
+                $"""
+                <tr>
+                  <td style="padding:10px 12px;border-bottom:1px solid #d9dfd1;color:#263124;font-size:14px;line-height:1.45;vertical-align:top;">{HtmlEncode(item.ProductName)}</td>
+                  <td align="center" style="padding:10px 12px;border-bottom:1px solid #d9dfd1;color:#4f584b;font-size:14px;line-height:1.45;vertical-align:top;">{item.Quantity} {HtmlEncode(FormatUnit(item.Unit))}</td>
+                  <td align="right" style="padding:10px 12px;border-bottom:1px solid #d9dfd1;color:#4f584b;font-size:14px;line-height:1.45;vertical-align:top;">{HtmlEncode(FormatPrice(item.UnitPrice))}</td>
+                  <td align="right" style="padding:10px 12px;border-bottom:1px solid #d9dfd1;color:#263124;font-size:14px;line-height:1.45;font-weight:700;vertical-align:top;">{HtmlEncode(FormatPrice(item.LineTotal))}</td>
+                </tr>
+                """));
+
+        return $"""
+            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border:1px solid #d9dfd1;border-radius:6px;background:#ffffff;border-collapse:separate;border-spacing:0;overflow:hidden;">
+              <tr>
+                <th align="left" style="padding:10px 12px;background:#eef3e7;border-bottom:1px solid #d9dfd1;color:#263124;font-size:13px;line-height:1.35;text-transform:uppercase;">Termék</th>
+                <th align="center" style="padding:10px 12px;background:#eef3e7;border-bottom:1px solid #d9dfd1;color:#263124;font-size:13px;line-height:1.35;text-transform:uppercase;">Mennyiség</th>
+                <th align="right" style="padding:10px 12px;background:#eef3e7;border-bottom:1px solid #d9dfd1;color:#263124;font-size:13px;line-height:1.35;text-transform:uppercase;">Egységár</th>
+                <th align="right" style="padding:10px 12px;background:#eef3e7;border-bottom:1px solid #d9dfd1;color:#263124;font-size:13px;line-height:1.35;text-transform:uppercase;">Összeg</th>
+              </tr>
+              {itemRows}
+              <tr>
+                <td colspan="3" align="right" style="padding:12px;border-top:1px solid #d9dfd1;color:#263124;font-size:15px;line-height:1.4;font-weight:700;">Végösszeg</td>
+                <td align="right" style="padding:12px;border-top:1px solid #d9dfd1;color:#263124;font-size:15px;line-height:1.4;font-weight:700;">{HtmlEncode(FormatPrice(order.TotalPrice))}</td>
+              </tr>
+            </table>
+            """;
+    }
+
     private static string BuildInternalHtmlBody(
         string title,
         string preheader,
@@ -517,7 +834,8 @@ public sealed class EmailTemplateService : IEmailTemplateService
         IReadOnlyList<string> bodyParagraphs,
         string actionText,
         string actionUrl,
-        string note)
+        string note,
+        string? extraHtmlContent = null)
     {
         var paragraphs = string.Join(
             Environment.NewLine,
@@ -542,6 +860,7 @@ public sealed class EmailTemplateService : IEmailTemplateService
                         <td style="padding:30px 28px 26px;">
                           <h1 style="margin:0 0 18px;color:#263124;font-size:26px;line-height:1.25;font-weight:700;">{{HtmlEncode(greeting)}}</h1>
                           {{paragraphs}}
+                          {{extraHtmlContent ?? string.Empty}}
                           <table role="presentation" cellspacing="0" cellpadding="0" style="margin:26px 0;">
                             <tr>
                               <td style="border-radius:4px;background:#6f8b22;">

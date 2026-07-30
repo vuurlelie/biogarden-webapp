@@ -1,3 +1,5 @@
+import type { AddressFormData } from "../../../shared/types/address.types";
+
 export type AddressDetails = {
   id: number;
   postalCode: string;
@@ -11,7 +13,7 @@ export type AddressDetails = {
   fullAddress: string;
 };
 
-export type AddressFormData = Omit<AddressDetails, "id" | "fullAddress">;
+export type { AddressFormData };
 
 export type UserAddresses = {
   shippingAddress: AddressDetails | null;
@@ -19,7 +21,7 @@ export type UserAddresses = {
 };
 
 export type UpdateUserAddresses = {
-  shippingAddress: AddressFormData;
+  shippingAddress: AddressFormData | null;
   billingAddress: AddressFormData | null;
   useShippingAsBilling: boolean;
 };

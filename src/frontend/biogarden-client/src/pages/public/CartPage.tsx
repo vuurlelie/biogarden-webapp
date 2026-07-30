@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router";
 import { useCart } from "../../features/cart/context/useCart";
 import type { CartItem } from "../../features/cart/types/cart.types";
@@ -6,6 +6,7 @@ import { getUnitLabel } from "../../features/products/utils/productLabels";
 import { ROUTES } from "../../shared/constants/routes";
 import { useAnalytics } from "../../features/analytics/context/AnalyticsContextCore";
 import { getCartValueBucket } from "../../features/analytics/utils/eventValidation";
+import { useModalFocus } from "../../shared/hooks/useModalFocus";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 const PRICE_FORMATTER = new Intl.NumberFormat("hu-HU", {
@@ -107,8 +108,17 @@ export default function CartPage() {
   const { cart, isLoading, error, refresh, updateQuantity, removeItem, clear } = useCart();
   const [updatingItemId, setUpdatingItemId] = useState<string | null>(null);
   const [isClearing, setIsClearing] = useState(false);
+  const [clearConfirmOpen, setClearConfirmOpen] = useState(false);
   const [now, setNow] = useState(Date.now());
+  const clearConfirmRef = useRef<HTMLElement | null>(null);
+  const clearButtonRef = useRef<HTMLButtonElement | null>(null);
   const { track } = useAnalytics();
+
+  useModalFocus(clearConfirmRef, {
+    isOpen: clearConfirmOpen,
+    onClose: () => setClearConfirmOpen(false),
+    returnFocusRef: clearButtonRef,
+  });
 
   useEffect(() => {
     void refresh().then(() => setNow(Date.now())).catch(() => undefined);
@@ -155,7 +165,7 @@ export default function CartPage() {
   }
 
   async function handleClear() {
-    if (!window.confirm("Biztosan kiüríted a kosarat?")) return;
+    setClearConfirmOpen(false);
     setIsClearing(true);
     try {
       await clear();
@@ -167,11 +177,11 @@ export default function CartPage() {
   }
 
   if (isLoading) {
-    return <div className="mx-auto max-w-7xl px-4 py-12 text-center text-site-text">A kosár betöltése...</div>;
+    return <div className="mx-auto max-w-6xl px-4 py-12 text-center text-site-text">A kosár betöltése...</div>;
   }
 
   return (
-    <main className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+    <main className="mx-auto w-full max-w-6xl px-4 py-6">
       <nav className="mb-5 flex items-center gap-2 text-sm text-site-text" aria-label="Morzsamenü">
         <Link to={ROUTES.home} className="font-bold text-site-green-dark hover:underline">Kezdőlap</Link>
         <span aria-hidden="true">/</span>
@@ -188,7 +198,13 @@ export default function CartPage() {
           )}
         </div>
         {cart && cart.items.length > 0 && (
-          <button type="button" onClick={() => void handleClear()} disabled={isClearing} className="text-sm font-semibold text-site-danger hover:underline disabled:opacity-50">
+          <button
+            ref={clearButtonRef}
+            type="button"
+            onClick={() => setClearConfirmOpen(true)}
+            disabled={isClearing}
+            className="text-sm font-semibold text-site-danger hover:underline disabled:opacity-50"
+          >
             {isClearing ? "Kosár ürítése..." : "Kosár kiürítése"}
           </button>
         )}
@@ -231,6 +247,54 @@ export default function CartPage() {
               Vásárlás folytatása
             </Link>
           </aside>
+        </div>
+      )}
+
+      {clearConfirmOpen && (
+        <div
+          className="fixed inset-0 z-[120] flex items-center justify-center bg-site-heading/55 px-4 py-8 backdrop-blur-sm"
+          role="presentation"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) setClearConfirmOpen(false);
+          }}
+        >
+          <section
+            ref={clearConfirmRef}
+            tabIndex={-1}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="clear-cart-title"
+            aria-describedby="clear-cart-description"
+            className="w-full max-w-md rounded-sm border border-site-border bg-white p-6 text-left shadow-2xl outline-none"
+          >
+            <p className="text-xs font-bold uppercase tracking-[0.16em] text-site-green-dark">
+              Kosár művelet
+            </p>
+            <h2 id="clear-cart-title" className="mt-2 text-2xl font-bold text-site-heading">
+              Kiüríted a kosarat?
+            </h2>
+            <p id="clear-cart-description" className="mt-3 text-sm leading-6 text-site-text">
+              A kosárban lévő termékek kikerülnek a foglalásból. Ezt a műveletet csak új kosárba helyezéssel tudod visszafordítani.
+            </p>
+
+            <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                onClick={() => setClearConfirmOpen(false)}
+                className="rounded-sm border border-site-border px-5 py-3 text-sm font-semibold text-site-heading transition hover:bg-site-surface-soft"
+              >
+                Mégsem
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleClear()}
+                disabled={isClearing}
+                className="rounded-sm bg-site-danger px-5 py-3 text-sm font-semibold text-white transition hover:bg-site-danger/90 disabled:cursor-wait disabled:opacity-60"
+              >
+                {isClearing ? "Ürítés..." : "Igen, kiürítem"}
+              </button>
+            </div>
+          </section>
         </div>
       )}
     </main>

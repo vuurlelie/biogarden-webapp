@@ -216,7 +216,16 @@ className="inline-flex items-center text-[0.95rem] lg:text-base uppercase tracki
                 </NavLink>
                 <div className="invisible absolute right-0 top-full w-64 rounded-sm border border-site-border bg-white p-2 opacity-0 shadow-xl transition-all group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100">
                   <NavLink to={ROUTES.account} className="block rounded-sm px-4 py-3 text-sm text-site-nav hover:bg-site-surface-soft hover:text-site-green-dark">Adataim</NavLink>
-                  {isAdmin && <NavLink to={ROUTES.admin} className="block rounded-sm px-4 py-3 text-sm text-site-nav hover:bg-site-surface-soft hover:text-site-green-dark">Adminisztrációs felület</NavLink>}
+                  {isAdmin && (
+                    <NavLink
+                      to={ROUTES.admin}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="block rounded-sm px-4 py-3 text-sm text-site-nav hover:bg-site-surface-soft hover:text-site-green-dark"
+                    >
+                      Adminisztrációs felület
+                    </NavLink>
+                  )}
                   <button type="button" onClick={logout} className="block w-full rounded-sm px-4 py-3 text-left text-sm font-semibold text-site-danger hover:bg-site-danger-soft">Kijelentkezés</button>
                 </div>
               </div>
@@ -357,7 +366,17 @@ className="inline-flex items-center text-[0.95rem] lg:text-base uppercase tracki
             {isAuthenticated && mobileAccountOpen && (
               <div className="grid gap-1 rounded-xl border border-site-border bg-white p-2 shadow-sm">
                 <NavLink to={ROUTES.account} onClick={closeMobile} className="rounded-lg px-4 py-3 text-sm text-site-nav hover:bg-site-surface-soft hover:text-site-green-dark">Adataim</NavLink>
-                {isAdmin && <NavLink to={ROUTES.admin} onClick={closeMobile} className="rounded-lg px-4 py-3 text-sm text-site-nav hover:bg-site-surface-soft hover:text-site-green-dark">Adminisztrációs felület</NavLink>}
+                {isAdmin && (
+                  <NavLink
+                    to={ROUTES.admin}
+                    target="_blank"
+                    rel="noreferrer"
+                    onClick={closeMobile}
+                    className="rounded-lg px-4 py-3 text-sm text-site-nav hover:bg-site-surface-soft hover:text-site-green-dark"
+                  >
+                    Adminisztrációs felület
+                  </NavLink>
+                )}
                 <button type="button" onClick={logout} className="rounded-lg px-4 py-3 text-left text-sm font-semibold text-site-danger hover:bg-site-danger-soft">Kijelentkezés</button>
               </div>
             )}
