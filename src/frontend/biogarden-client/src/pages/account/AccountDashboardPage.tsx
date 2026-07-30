@@ -11,7 +11,7 @@ export default function AccountDashboardPage() {
         Vásárlói fiók
       </p>
       <h1 className="mt-2 text-3xl font-bold text-site-heading">Üdvözlünk!</h1>
-      <p className="mt-3 max-w-2xl leading-7 text-site-text">
+      <p className="mt-3 max-w-2xl text-sm leading-6 text-site-text">
         Bejelentkezve mint <span className="font-semibold text-site-heading">{auth?.email}</span>.
         Innen kezelheted a személyes adataidat, mentett címeidet és rendeléseidet.
       </p>

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router";
 import { confirmEmail } from "../../features/auth/api/authApi";
 import { ROUTES } from "../../shared/constants/routes";
@@ -10,6 +10,7 @@ export default function EmailConfirmationPage() {
   const userId = searchParams.get("userId");
   const token = searchParams.get("token");
   const hasRequiredParams = Boolean(userId && token);
+  const hasSubmittedRef = useRef(false);
   const [confirmationState, setConfirmationState] = useState<ConfirmationState>(
     hasRequiredParams ? "loading" : "error",
   );
@@ -23,6 +24,11 @@ export default function EmailConfirmationPage() {
     if (!hasRequiredParams || !userId || !token) {
       return;
     }
+
+    if (hasSubmittedRef.current) {
+      return;
+    }
+    hasSubmittedRef.current = true;
 
     const confirmationUserId = userId;
     const confirmationToken = token;

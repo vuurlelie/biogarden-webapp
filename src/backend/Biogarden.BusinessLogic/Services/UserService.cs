@@ -7,6 +7,7 @@ using Biogarden.DataAccess.Entities;
 using Biogarden.DataAccess.Enums;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using System.Text.RegularExpressions;
 
 namespace Biogarden.BusinessLogic.Services;
 
@@ -148,19 +149,23 @@ public class UserService : IUserService
                 $"User with id {userId} was not found.");
         }
 
+        var previousShippingAddressId = user.ShippingAddressId;
+        Address? shippingAddress = null;
+
         if (dto.ShippingAddress is null)
         {
-            throw new ArgumentException("A szállítási cím megadása kötelező.");
+            user.ShippingAddressId = null;
         }
+        else
+        {
+            ValidateAddress(dto.ShippingAddress);
+            shippingAddress = await UpsertAddressAsync(
+                user.ShippingAddress,
+                dto.ShippingAddress);
 
-        ValidateAddress(dto.ShippingAddress);
-        var previousShippingAddressId = user.ShippingAddressId;
-        var shippingAddress = await UpsertAddressAsync(
-            user.ShippingAddress,
-            dto.ShippingAddress);
-
-        await _unitOfWork.SaveChangesAsync();
-        user.ShippingAddressId = shippingAddress.Id;
+            await _unitOfWork.SaveChangesAsync();
+            user.ShippingAddressId = shippingAddress.Id;
+        }
 
         if (user.CustomerType == CustomerType.Private)
         {
@@ -168,26 +173,28 @@ public class UserService : IUserService
         }
         else if (dto.UseShippingAsBilling)
         {
-            user.BillingAddressId = shippingAddress.Id;
+            user.BillingAddressId = shippingAddress?.Id;
         }
         else
         {
             if (dto.BillingAddress is null)
             {
-                throw new ArgumentException("A számlázási cím megadása kötelező.");
+                user.BillingAddressId = null;
             }
+            else
+            {
+                ValidateAddress(dto.BillingAddress);
 
-            ValidateAddress(dto.BillingAddress);
+                var existingBillingAddress = user.BillingAddressId == previousShippingAddressId
+                    ? null
+                    : user.BillingAddress;
+                var billingAddress = await UpsertAddressAsync(
+                    existingBillingAddress,
+                    dto.BillingAddress);
 
-            var existingBillingAddress = user.BillingAddressId == previousShippingAddressId
-                ? null
-                : user.BillingAddress;
-            var billingAddress = await UpsertAddressAsync(
-                existingBillingAddress,
-                dto.BillingAddress);
-
-            await _unitOfWork.SaveChangesAsync();
-            user.BillingAddressId = billingAddress.Id;
+                await _unitOfWork.SaveChangesAsync();
+                user.BillingAddressId = billingAddress.Id;
+            }
         }
 
         var result = await _userManager.UpdateAsync(user);
@@ -386,6 +393,12 @@ public class UserService : IUserService
         {
             throw new ArgumentException(
                 "Az irányítószám, település, közterület és házszám megadása kötelező.");
+        }
+
+        if (!Regex.IsMatch(address.PostalCode.Trim(), @"^\d{4}$"))
+        {
+            throw new ArgumentException(
+                "Az irányítószámnak 4 számjegyből kell állnia.");
         }
     }
 

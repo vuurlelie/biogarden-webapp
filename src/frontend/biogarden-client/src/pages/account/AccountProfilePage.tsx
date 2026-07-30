@@ -26,17 +26,51 @@ function normalizeOptional(value: string): string | null {
 }
 
 type ProfileInvalidField = "companyName" | "taxNumber";
+type ProfileFieldErrors = Partial<Record<ProfileInvalidField, string>>;
 
 export default function AccountProfilePage() {
   const handleAccountError = useAccountErrorHandler();
   const [profile, setProfile] = useState<UserProfile>(EMPTY_PROFILE);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
-  const [error, setError] = useState("");
+  const [pageError, setPageError] = useState("");
+  const [formError, setFormError] = useState("");
   const [success, setSuccess] = useState("");
-  const [invalidField, setInvalidField] = useState<ProfileInvalidField | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<ProfileFieldErrors>({});
   const companyNameInputRef = useRef<HTMLInputElement | null>(null);
   const taxNumberInputRef = useRef<HTMLInputElement | null>(null);
+
+  const inputClassName =
+    "mt-2 block w-full rounded-sm border border-site-border px-3 py-2.5 text-site-heading outline-none focus:border-site-green focus:ring-2 focus:ring-site-green/20";
+  const invalidInputClassName =
+    "mt-2 block w-full rounded-sm border border-site-danger bg-site-danger-soft px-3 py-2.5 text-site-heading outline-none focus:border-site-danger focus:ring-2 focus:ring-site-danger/20";
+
+  function getInputClassName(field: ProfileInvalidField) {
+    return fieldErrors[field] ? invalidInputClassName : inputClassName;
+  }
+
+  function getErrorId(field: ProfileInvalidField) {
+    return `profile-${field}-error`;
+  }
+
+  function renderFieldError(field: ProfileInvalidField) {
+    if (!fieldErrors[field]) return null;
+
+    return (
+      <p id={getErrorId(field)} className="mt-1 text-xs font-semibold text-site-danger">
+        {fieldErrors[field]}
+      </p>
+    );
+  }
+
+  function clearFieldError(field: ProfileInvalidField) {
+    setFieldErrors((current) => {
+      if (!current[field]) return current;
+      const next = { ...current };
+      delete next[field];
+      return next;
+    });
+  }
 
   useEffect(() => {
     let shouldIgnoreResult = false;
@@ -44,12 +78,12 @@ export default function AccountProfilePage() {
     async function loadProfile() {
       try {
         setIsLoading(true);
-        setError("");
+        setPageError("");
         const loadedProfile = await getProfile();
         if (!shouldIgnoreResult) setProfile(loadedProfile);
       } catch (loadError) {
         if (shouldIgnoreResult) return;
-        setError(handleAccountError(loadError, "A profil betöltése nem sikerült.") ?? "");
+        setPageError(handleAccountError(loadError, "A profil betöltése nem sikerült.") ?? "");
       } finally {
         if (!shouldIgnoreResult) setIsLoading(false);
       }
@@ -66,13 +100,14 @@ export default function AccountProfilePage() {
     value: string,
   ) {
     setProfile((currentProfile) => ({ ...currentProfile, [field]: value }));
-    if (field === invalidField) setInvalidField(null);
+    if (field === "companyName" || field === "taxNumber") clearFieldError(field);
+    setFormError("");
     setSuccess("");
   }
 
   function markInvalid(field: ProfileInvalidField, message: string) {
-    setInvalidField(field);
-    setError(message);
+    setFormError("");
+    setFieldErrors({ [field]: message });
     const inputRefs: Record<ProfileInvalidField, HTMLInputElement | null> = {
       companyName: companyNameInputRef.current,
       taxNumber: taxNumberInputRef.current,
@@ -82,9 +117,9 @@ export default function AccountProfilePage() {
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setError("");
+    setFormError("");
     setSuccess("");
-    setInvalidField(null);
+    setFieldErrors({});
 
     if (profile.customerType === 1) {
       if (!profile.companyName?.trim()) {
@@ -116,7 +151,7 @@ export default function AccountProfilePage() {
       });
       setSuccess("A személyes adatok mentése sikerült.");
     } catch (saveError) {
-      setError(handleAccountError(saveError, "A mentés nem sikerült.") ?? "");
+      setFormError(handleAccountError(saveError, "A mentés nem sikerült.") ?? "");
     } finally {
       setIsSaving(false);
     }
@@ -131,7 +166,7 @@ export default function AccountProfilePage() {
       title="Személyes adatok"
       description="Ezeket az adatokat a rendelések és a kapcsolattartás során használjuk."
     >
-      <AccountFeedback error={error} success={success} />
+      <AccountFeedback error={pageError} success="" />
 
       <form onSubmit={handleSubmit} noValidate className="mt-7 space-y-5">
         <div>
@@ -208,7 +243,8 @@ export default function AccountProfilePage() {
                     taxNumber: null,
                     printedInvoiceRequested: false,
                   }));
-                  setInvalidField(null);
+                  setFieldErrors({});
+                  setFormError("");
                   setSuccess("");
                 }}
                 className="mt-1 h-4 w-4 accent-site-green"
@@ -225,7 +261,8 @@ export default function AccountProfilePage() {
                 checked={profile.customerType === 1}
                 onChange={() => {
                   setProfile((currentProfile) => ({ ...currentProfile, customerType: 1 }));
-                  setInvalidField(null);
+                  setFieldErrors({});
+                  setFormError("");
                   setSuccess("");
                 }}
                 className="mt-1 h-4 w-4 accent-site-green"
@@ -244,7 +281,7 @@ export default function AccountProfilePage() {
             Céges számlázási adatok
           </legend>
           <p className="mb-4 text-xs text-site-muted">
-            Céges fiók esetén a cégnév és az adószám megadása kötelező.
+            Céges fiókkal történő rendelés esetén a cégnév és az adószám kötelező.
           </p>
           <p className="mb-4 text-xs leading-5 text-site-muted">
             Alapértelmezetten elektronikus számlát küldünk emailben. A számlázási címet a Mentett címek oldalon tudod megadni.
@@ -257,9 +294,11 @@ export default function AccountProfilePage() {
                 value={profile.companyName ?? ""}
                 onChange={(event) => updateField("companyName", event.target.value)}
                 autoComplete="organization"
-                className="mt-2 block w-full rounded-sm border border-site-border px-3 py-2.5"
-                aria-invalid={invalidField === "companyName"}
+                className={getInputClassName("companyName")}
+                aria-invalid={Boolean(fieldErrors.companyName)}
+                aria-describedby={fieldErrors.companyName ? getErrorId("companyName") : undefined}
               />
+              {renderFieldError("companyName")}
             </label>
             <label className="text-sm font-semibold text-site-heading">
               Adószám
@@ -268,9 +307,11 @@ export default function AccountProfilePage() {
                 value={profile.taxNumber ?? ""}
                 onChange={(event) => updateField("taxNumber", event.target.value)}
                 placeholder="12345678-1-12"
-                className="mt-2 block w-full rounded-sm border border-site-border px-3 py-2.5"
-                aria-invalid={invalidField === "taxNumber"}
+                className={getInputClassName("taxNumber")}
+                aria-invalid={Boolean(fieldErrors.taxNumber)}
+                aria-describedby={fieldErrors.taxNumber ? getErrorId("taxNumber") : undefined}
               />
+              {renderFieldError("taxNumber")}
             </label>
           </div>
           <label className="mt-4 flex items-start gap-3 rounded-sm bg-site-surface-soft p-3 text-sm text-site-text">
@@ -291,14 +332,29 @@ export default function AccountProfilePage() {
         </fieldset>
         )}
 
-        <div className="pt-2">
+        <div className="flex flex-col gap-3 pt-2 sm:flex-row sm:items-center">
           <button
             type="submit"
             disabled={isSaving}
-            className="rounded-sm bg-site-green px-6 py-3 font-semibold text-white transition hover:bg-site-green-hover disabled:cursor-not-allowed disabled:opacity-60"
+            className="w-full rounded-sm bg-site-green px-6 py-3 font-semibold text-white transition hover:bg-site-green-hover disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
           >
             {isSaving ? "Mentés..." : "Adatok mentése"}
           </button>
+
+          {success && (
+            <p
+              className="rounded-sm border border-site-green/30 bg-site-surface-soft px-3 py-2 text-sm text-site-green-dark"
+              role="status"
+            >
+              {success}
+            </p>
+          )}
+
+          {formError && (
+            <p className="rounded-sm bg-site-danger-soft px-3 py-2 text-sm text-site-danger" role="alert">
+              {formError}
+            </p>
+          )}
         </div>
       </form>
     </AccountPageShell>

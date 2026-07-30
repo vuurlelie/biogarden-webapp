@@ -380,7 +380,7 @@ export default function CheckoutPage() {
   }
 
   return (
-    <main className="mx-auto w-full max-w-7xl px-4 py-8">
+    <main className="mx-auto w-full max-w-6xl px-4 py-8">
       <h1 className="text-3xl font-bold text-site-heading">Pénztár</h1>
       {cancelledSumUpOrderId && (
         <div role="status" className="mt-5 rounded-sm border border-site-green/30 bg-site-surface-soft p-4 text-site-green-dark">

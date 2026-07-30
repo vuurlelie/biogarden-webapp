@@ -25,6 +25,8 @@ const EMPTY_ADDRESS: AddressFormData = {
   doorbell: null,
 };
 
+type AddressFieldErrors = Partial<Record<keyof AddressFormData, string>>;
+
 function toFormData(address: AddressDetails | null): AddressFormData {
   if (!address) return { ...EMPTY_ADDRESS };
   return {
@@ -53,6 +55,39 @@ function normalizeAddress(address: AddressFormData): AddressFormData {
   };
 }
 
+function hasAddressValue(address: AddressFormData) {
+  return Object.values(address).some((value) => typeof value === "string" && value.trim().length > 0);
+}
+
+function getAddressSaveSuccessMessage(
+  customerType: 0 | 1,
+  useShippingAsBilling: boolean,
+  hasShippingAddress: boolean,
+  hasBillingAddress: boolean,
+) {
+  if (!hasShippingAddress && !hasBillingAddress) {
+    return "Nincs mentett cím a fiókodban.";
+  }
+
+  if (customerType === 0) {
+    return "A szállítási cím mentése sikerült.";
+  }
+
+  if (hasShippingAddress && !hasBillingAddress && !useShippingAsBilling) {
+    return "A szállítási cím mentése sikerült.";
+  }
+
+  if (!hasShippingAddress && hasBillingAddress) {
+    return "A számlázási cím mentése sikerült.";
+  }
+
+  if (useShippingAsBilling) {
+    return "A szállítási cím mentése sikerült, ezt használjuk számlázási címként is.";
+  }
+
+  return "A szállítási és számlázási cím mentése sikerült.";
+}
+
 export default function AccountAddressesPage() {
   const handleAccountError = useAccountErrorHandler();
   const [customerType, setCustomerType] = useState<0 | 1>(0);
@@ -61,8 +96,11 @@ export default function AccountAddressesPage() {
   const [useShippingAsBilling, setUseShippingAsBilling] = useState(true);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
-  const [error, setError] = useState("");
+  const [pageError, setPageError] = useState("");
+  const [formError, setFormError] = useState("");
   const [success, setSuccess] = useState("");
+  const [shippingErrors, setShippingErrors] = useState<AddressFieldErrors>({});
+  const [billingErrors, setBillingErrors] = useState<AddressFieldErrors>({});
 
   useEffect(() => {
     let shouldIgnoreResult = false;
@@ -81,7 +119,7 @@ export default function AccountAddressesPage() {
         );
       } catch (loadError) {
         if (shouldIgnoreResult) return;
-        setError(handleAccountError(loadError, "A címek betöltése nem sikerült.") ?? "");
+        setPageError(handleAccountError(loadError, "A címek betöltése nem sikerült.") ?? "");
       } finally {
         if (!shouldIgnoreResult) setIsLoading(false);
       }
@@ -93,21 +131,97 @@ export default function AccountAddressesPage() {
     };
   }, [handleAccountError]);
 
+  function validateAddress(address: AddressFormData, label: "shipping" | "billing") {
+    const errors: AddressFieldErrors = {};
+    const prefix = label === "shipping" ? "Szállítási" : "Számlázási";
+
+    if (!hasAddressValue(address)) {
+      return errors;
+    }
+
+    if (!address.postalCode.trim()) errors.postalCode = `${prefix} irányítószám megadása kötelező.`;
+  else if (!/^\d{4}$/.test(address.postalCode.trim())) {
+    errors.postalCode = `${prefix} irányítószámként 4 számjegyet adj meg.`;
+  }
+  if (!address.city.trim()) errors.city = `${prefix} település megadása kötelező.`;
+    if (!address.street.trim()) errors.street = `${prefix} közterület megadása kötelező.`;
+    if (!address.houseNumber.trim()) errors.houseNumber = `${prefix} házszám megadása kötelező.`;
+
+    return errors;
+  }
+
+  function focusFirstInvalidAddressField(prefix: "shipping" | "billing", errors: AddressFieldErrors) {
+    const firstInvalidField = (["postalCode", "city", "street", "houseNumber"] as const).find(
+      (field) => Boolean(errors[field]),
+    );
+    if (!firstInvalidField) return;
+
+    const inputIdByField: Record<typeof firstInvalidField, string> = {
+      postalCode: `${prefix}-postal-code`,
+      city: `${prefix}-city`,
+      street: `${prefix}-street`,
+      houseNumber: `${prefix}-house-number`,
+    };
+    document.getElementById(inputIdByField[firstInvalidField])?.focus();
+  }
+
+  function handleShippingChange(nextAddress: AddressFormData) {
+    setShippingAddress(nextAddress);
+    setShippingErrors({});
+    setFormError("");
+    setSuccess("");
+  }
+
+  function handleBillingChange(nextAddress: AddressFormData) {
+    setBillingAddress(nextAddress);
+    setBillingErrors({});
+    setFormError("");
+    setSuccess("");
+  }
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setError("");
+    setFormError("");
     setSuccess("");
+    setShippingErrors({});
+    setBillingErrors({});
+
+    const nextShippingErrors = validateAddress(shippingAddress, "shipping");
+    if (Object.keys(nextShippingErrors).length > 0) {
+      setShippingErrors(nextShippingErrors);
+      focusFirstInvalidAddressField("shipping", nextShippingErrors);
+      return;
+    }
+
+    if (customerType === 1 && !useShippingAsBilling) {
+      const nextBillingErrors = validateAddress(billingAddress, "billing");
+      if (Object.keys(nextBillingErrors).length > 0) {
+        setBillingErrors(nextBillingErrors);
+        focusFirstInvalidAddressField("billing", nextBillingErrors);
+        return;
+      }
+    }
 
     try {
       setIsSaving(true);
+      const shouldSaveShippingAddress = hasAddressValue(shippingAddress);
+      const shouldSaveBillingAddress = customerType === 1 && !useShippingAsBilling && hasAddressValue(billingAddress);
+
       await updateAddresses({
-        shippingAddress: normalizeAddress(shippingAddress),
-        billingAddress: customerType === 1 && !useShippingAsBilling ? normalizeAddress(billingAddress) : null,
-        useShippingAsBilling: customerType === 1 && useShippingAsBilling,
+        shippingAddress: shouldSaveShippingAddress ? normalizeAddress(shippingAddress) : null,
+        billingAddress: shouldSaveBillingAddress ? normalizeAddress(billingAddress) : null,
+        useShippingAsBilling: customerType === 1 && useShippingAsBilling && shouldSaveShippingAddress,
       });
-      setSuccess("A szállítási és számlázási cím mentése sikerült.");
+      setSuccess(
+        getAddressSaveSuccessMessage(
+          customerType,
+          useShippingAsBilling,
+          shouldSaveShippingAddress,
+          shouldSaveBillingAddress,
+        ),
+      );
     } catch (saveError) {
-      setError(handleAccountError(saveError, "A címek mentése nem sikerült.") ?? "");
+      setFormError(handleAccountError(saveError, "A címek mentése nem sikerült.") ?? "");
     } finally {
       setIsSaving(false);
     }
@@ -122,12 +236,23 @@ export default function AccountAddressesPage() {
       title="Mentett címek"
       description="Add meg a rendeléseknél használni kívánt szállítási és számlázási címet."
     >
-      <AccountFeedback error={error} success={success} />
+      <AccountFeedback error={pageError} success="" />
 
-      <form onSubmit={handleSubmit} className="mt-8 space-y-8">
+      <form onSubmit={handleSubmit} noValidate className="mt-8 space-y-8">
         <fieldset>
           <legend className="mb-5 text-xl font-bold text-site-heading">Szállítási cím</legend>
-          <AddressFields idPrefix="shipping" value={shippingAddress} onChange={setShippingAddress} />
+          <AddressFields
+            idPrefix="shipping"
+            value={shippingAddress}
+            onChange={handleShippingChange}
+            invalidFields={{
+              postalCode: Boolean(shippingErrors.postalCode),
+              city: Boolean(shippingErrors.city),
+              street: Boolean(shippingErrors.street),
+              houseNumber: Boolean(shippingErrors.houseNumber),
+            }}
+            errorMessages={shippingErrors}
+          />
         </fieldset>
 
         {customerType === 0 ? (
@@ -142,7 +267,12 @@ export default function AccountAddressesPage() {
             <input
               type="checkbox"
               checked={useShippingAsBilling}
-              onChange={(event) => setUseShippingAsBilling(event.target.checked)}
+              onChange={(event) => {
+                setUseShippingAsBilling(event.target.checked);
+                setBillingErrors({});
+                setFormError("");
+                setSuccess("");
+              }}
               className="mt-1 h-4 w-4 accent-site-green"
             />
             <span>A számlázási cím megegyezik a szállítási címmel.</span>
@@ -153,17 +283,45 @@ export default function AccountAddressesPage() {
         {customerType === 1 && !useShippingAsBilling && (
           <fieldset className="border-t border-site-border pt-7">
             <legend className="mb-5 text-xl font-bold text-site-heading">Számlázási cím</legend>
-            <AddressFields idPrefix="billing" value={billingAddress} onChange={setBillingAddress} />
+            <AddressFields
+              idPrefix="billing"
+              value={billingAddress}
+              onChange={handleBillingChange}
+              invalidFields={{
+                postalCode: Boolean(billingErrors.postalCode),
+                city: Boolean(billingErrors.city),
+                street: Boolean(billingErrors.street),
+                houseNumber: Boolean(billingErrors.houseNumber),
+              }}
+              errorMessages={billingErrors}
+            />
           </fieldset>
         )}
 
-        <button
-          type="submit"
-          disabled={isSaving}
-          className="rounded-sm bg-site-green px-6 py-3 font-semibold text-white transition hover:bg-site-green-hover disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          {isSaving ? "Mentés..." : "Címek mentése"}
-        </button>
+        <div className="flex flex-col gap-3 pt-2 sm:flex-row sm:items-center">
+          <button
+            type="submit"
+            disabled={isSaving}
+            className="w-full rounded-sm bg-site-green px-6 py-3 font-semibold text-white transition hover:bg-site-green-hover disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+          >
+            {isSaving ? "Mentés..." : "Címek mentése"}
+          </button>
+
+          {success && (
+            <p
+              className="rounded-sm border border-site-green/30 bg-site-surface-soft px-3 py-2 text-sm text-site-green-dark"
+              role="status"
+            >
+              {success}
+            </p>
+          )}
+
+          {formError && (
+            <p className="rounded-sm bg-site-danger-soft px-3 py-2 text-sm text-site-danger" role="alert">
+              {formError}
+            </p>
+          )}
+        </div>
       </form>
     </AccountPageShell>
   );

@@ -19,7 +19,7 @@ export type UserAddresses = {
 };
 
 export type UpdateUserAddresses = {
-  shippingAddress: AddressFormData;
+  shippingAddress: AddressFormData | null;
   billingAddress: AddressFormData | null;
   useShippingAsBilling: boolean;
 };

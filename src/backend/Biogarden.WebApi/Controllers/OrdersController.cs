@@ -118,11 +118,35 @@ public class OrdersController : ControllerBase
         [FromBody] PublicOrderWithdrawalRequestDto requestDto,
         CancellationToken cancellationToken)
     {
-        var request = await _orderService.RequestWithdrawalByOrderLookupAsync(
-            requestDto,
-            cancellationToken);
+        try
+        {
+            var request = await _orderService.RequestWithdrawalByOrderLookupAsync(
+                requestDto,
+                cancellationToken);
 
-        return Ok(request);
+            return Ok(request);
+        }
+        catch (KeyNotFoundException exception)
+        {
+            return NotFound(CreateProblemDetails(
+                StatusCodes.Status404NotFound,
+                "A rendelés nem található.",
+                exception.Message));
+        }
+        catch (ArgumentException exception)
+        {
+            return BadRequest(CreateProblemDetails(
+                StatusCodes.Status400BadRequest,
+                "Hibás adatok.",
+                exception.Message));
+        }
+        catch (InvalidOperationException exception)
+        {
+            return Conflict(CreateProblemDetails(
+                StatusCodes.Status409Conflict,
+                "A kérés nem rögzíthető.",
+                exception.Message));
+        }
     }
 
     [HttpGet]
@@ -201,5 +225,19 @@ public class OrdersController : ControllerBase
         }
 
         return null;
+    }
+
+    private ProblemDetails CreateProblemDetails(
+        int statusCode,
+        string title,
+        string detail)
+    {
+        return new ProblemDetails
+        {
+            Status = statusCode,
+            Title = title,
+            Detail = detail,
+            Instance = HttpContext.Request.Path
+        };
     }
 }

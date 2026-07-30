@@ -466,6 +466,40 @@ public sealed class AuthServiceTests
             Times.Never);
     }
 
+    [Fact]
+    public async Task ConfirmEmailAsync_WhenTokenFailsButEmailWasConfirmed_ReturnsSuccess()
+    {
+        var userId = Guid.NewGuid();
+        var userBeforeConfirmation = new ApplicationUser
+        {
+            Id = userId,
+            Email = "vasarlo@example.com",
+            EmailConfirmed = false
+        };
+        var userAfterConfirmation = new ApplicationUser
+        {
+            Id = userId,
+            Email = "vasarlo@example.com",
+            EmailConfirmed = true
+        };
+
+        _userManager
+            .SetupSequence(manager => manager.FindByIdAsync(userId.ToString()))
+            .ReturnsAsync(userBeforeConfirmation)
+            .ReturnsAsync(userAfterConfirmation);
+        _userManager
+            .Setup(manager => manager.ConfirmEmailAsync(userBeforeConfirmation, "token"))
+            .ReturnsAsync(IdentityResult.Failed());
+
+        var result = await _service.ConfirmEmailAsync(new ConfirmEmailRequestDto
+        {
+            UserId = userId,
+            Token = "token"
+        });
+
+        Assert.True(result.Succeeded);
+    }
+
     private static IQueryable<TEntity> CreateAsyncQueryable<TEntity>(IEnumerable<TEntity> entities)
     {
         return new TestAsyncEnumerable<TEntity>(entities);

@@ -15,7 +15,7 @@ export function CheckoutLoadingView({
   label = "A pénztár betöltése...",
 }: CheckoutLoadingViewProps) {
   return (
-    <div className="mx-auto max-w-7xl px-4 py-12 text-center">
+    <div className="mx-auto max-w-6xl px-4 py-12 text-center">
       {label}
     </div>
   );

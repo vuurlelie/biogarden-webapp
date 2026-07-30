@@ -18,6 +18,7 @@ type RegisterInvalidField =
   | "billingCity"
   | "billingStreet"
   | "billingHouseNumber";
+type RegisterFieldErrors = Partial<Record<RegisterInvalidField, string>>;
 
 const EMPTY_ADDRESS: AddressFormData = {
   postalCode: "",
@@ -55,8 +56,8 @@ export default function RegisterPage() {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [acceptedTerms, setAcceptedTerms] = useState(false);
-  const [error, setError] = useState("");
-  const [invalidField, setInvalidField] = useState<RegisterInvalidField | null>(null);
+  const [formError, setFormError] = useState("");
+  const [fieldErrors, setFieldErrors] = useState<RegisterFieldErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const emailInputRef = useRef<HTMLInputElement | null>(null);
   const passwordInputRef = useRef<HTMLInputElement | null>(null);
@@ -65,9 +66,41 @@ export default function RegisterPage() {
   const taxNumberInputRef = useRef<HTMLInputElement | null>(null);
   const termsInputRef = useRef<HTMLInputElement | null>(null);
 
+  const inputClassName =
+    "mt-2 block w-full rounded-sm border border-site-border bg-white px-3 py-2.5 text-site-heading outline-none transition focus:border-site-green focus:ring-2 focus:ring-site-green/20";
+  const invalidInputClassName =
+    "mt-2 block w-full rounded-sm border border-site-danger bg-site-danger-soft px-3 py-2.5 text-site-heading outline-none transition focus:border-site-danger focus:ring-2 focus:ring-site-danger/20";
+
+  function getInputClassName(field: RegisterInvalidField) {
+    return fieldErrors[field] ? invalidInputClassName : inputClassName;
+  }
+
+  function getErrorId(field: RegisterInvalidField) {
+    return `register-${field}-error`;
+  }
+
+  function renderFieldError(field: RegisterInvalidField) {
+    if (!fieldErrors[field]) return null;
+
+    return (
+      <p id={getErrorId(field)} className="mt-1 text-xs font-semibold text-site-danger">
+        {fieldErrors[field]}
+      </p>
+    );
+  }
+
+  function clearFieldError(field: RegisterInvalidField) {
+    setFieldErrors((current) => {
+      if (!current[field]) return current;
+      const next = { ...current };
+      delete next[field];
+      return next;
+    });
+  }
+
   function markInvalid(field: RegisterInvalidField, message: string) {
-    setInvalidField(field);
-    setError(message);
+    setFormError("");
+    setFieldErrors({ [field]: message });
     const inputRefs: Partial<Record<RegisterInvalidField, HTMLElement | null>> = {
       email: emailInputRef.current,
       password: passwordInputRef.current,
@@ -83,10 +116,25 @@ export default function RegisterPage() {
     inputRefs[field]?.focus();
   }
 
+  function getServerField(message: string): RegisterInvalidField | null {
+    const normalizedMessage = message.toLocaleLowerCase("hu-HU");
+    if (normalizedMessage.includes("email")) return "email";
+    if (normalizedMessage.includes("jelsz")) return "password";
+    if (normalizedMessage.includes("cég") || normalizedMessage.includes("ceg")) return "companyName";
+    if (normalizedMessage.includes("adó") || normalizedMessage.includes("ado")) return "taxNumber";
+    if (normalizedMessage.includes("irányítószám") || normalizedMessage.includes("iranyitoszam")) {
+      return "billingPostalCode";
+    }
+    if (normalizedMessage.includes("település") || normalizedMessage.includes("telepules")) return "billingCity";
+    if (normalizedMessage.includes("közterület") || normalizedMessage.includes("kozterulet")) return "billingStreet";
+    if (normalizedMessage.includes("házszám") || normalizedMessage.includes("hazszam")) return "billingHouseNumber";
+    return null;
+  }
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setError("");
-    setInvalidField(null);
+    setFormError("");
+    setFieldErrors({});
 
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
       markInvalid("email", "Adj meg egy érvényes email címet.");
@@ -159,7 +207,13 @@ export default function RegisterPage() {
         state: { registrationRequiresConfirmation: true },
       });
     } catch (submitError) {
-      setError(getErrorMessage(submitError, "A regisztráció nem sikerült."));
+      const message = getErrorMessage(submitError, "A regisztráció nem sikerült.");
+      const serverField = getServerField(message);
+      if (serverField) {
+        markInvalid(serverField, message);
+      } else {
+        setFormError(message);
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -167,20 +221,14 @@ export default function RegisterPage() {
 
   return (
     <main className="bg-site-surface-soft px-4 pb-10 pt-6 sm:pb-14 sm:pt-8">
-      <section className="mx-auto w-full max-w-lg rounded-sm border border-site-border bg-white p-6 shadow-lg sm:p-8">
+      <section className="mx-auto w-full max-w-2xl rounded-sm border border-site-border bg-white p-6 shadow-lg sm:p-8">
         <div className="text-center">
           <p className="text-xs font-bold uppercase tracking-[0.16em] text-site-green-dark">Új vásárlói fiók</p>
           <h1 className="mt-2 text-3xl font-bold text-site-heading">Regisztráció</h1>
-          <p className="mt-2 text-sm text-site-text">
+          <p className="mt-2 text-xs text-site-text">
             Hozz létre fiókot a gyorsabb rendeléshez és a korábbi rendelések követéséhez.
           </p>
         </div>
-
-        {error && (
-          <div className="mt-6 rounded-sm bg-site-danger-soft p-3 text-sm text-site-danger" role="alert">
-            {error}
-          </div>
-        )}
 
         <form onSubmit={handleSubmit} noValidate className="mt-6 space-y-5">
           <fieldset className="rounded-sm border border-site-border p-4">
@@ -194,13 +242,12 @@ export default function RegisterPage() {
                   onChange={() => {
                     setCustomerType(0);
                     setPrintedInvoiceRequested(false);
-                    setInvalidField(null);
+                    setFieldErrors({});
                   }}
                   className="mt-1 h-4 w-4 accent-site-green"
                 />
                 <span>
                   <strong className="block text-site-heading">Magánszemély</strong>
-                  Papíralapú nyugtát kapsz a rendelés mellé.
                 </span>
               </label>
               <label className="flex cursor-pointer gap-3 rounded-sm border border-site-border p-3 text-sm text-site-text">
@@ -210,13 +257,12 @@ export default function RegisterPage() {
                   checked={customerType === 1}
                   onChange={() => {
                     setCustomerType(1);
-                    setInvalidField(null);
+                    setFieldErrors({});
                   }}
                   className="mt-1 h-4 w-4 accent-site-green"
                 />
                 <span>
                   <strong className="block text-site-heading">Cég</strong>
-                  Céges rendeléshez számlázási adatok szükségesek.
                 </span>
               </label>
             </div>
@@ -236,13 +282,15 @@ export default function RegisterPage() {
                     value={companyName}
                     onChange={(event) => {
                       setCompanyName(event.target.value);
-                      if (invalidField === "companyName") setInvalidField(null);
+                      clearFieldError("companyName");
                     }}
                     autoComplete="organization"
-                    className="mt-2 block w-full rounded-sm border border-site-border px-3 py-2.5"
-                    aria-invalid={invalidField === "companyName"}
+                    className={getInputClassName("companyName")}
+                    aria-invalid={Boolean(fieldErrors.companyName)}
+                    aria-describedby={fieldErrors.companyName ? getErrorId("companyName") : undefined}
                     required={customerType === 1}
                   />
+                  {renderFieldError("companyName")}
                 </label>
                 <label className="text-sm font-semibold text-site-heading">
                   Adószám <span className="text-site-danger">*</span>
@@ -251,13 +299,15 @@ export default function RegisterPage() {
                     value={taxNumber}
                     onChange={(event) => {
                       setTaxNumber(event.target.value);
-                      if (invalidField === "taxNumber") setInvalidField(null);
+                      clearFieldError("taxNumber");
                     }}
                     placeholder="12345678-1-12"
-                    className="mt-2 block w-full rounded-sm border border-site-border px-3 py-2.5"
-                    aria-invalid={invalidField === "taxNumber"}
+                    className={getInputClassName("taxNumber")}
+                    aria-invalid={Boolean(fieldErrors.taxNumber)}
+                    aria-describedby={fieldErrors.taxNumber ? getErrorId("taxNumber") : undefined}
                     required={customerType === 1}
                   />
+                  {renderFieldError("taxNumber")}
                 </label>
               </div>
               <div className="mt-5">
@@ -268,13 +318,26 @@ export default function RegisterPage() {
                     value={billingAddress}
                     onChange={(nextAddress) => {
                       setBillingAddress(nextAddress);
-                      if (invalidField?.startsWith("billing")) setInvalidField(null);
+                      setFieldErrors((current) => {
+                        const next = { ...current };
+                        delete next.billingPostalCode;
+                        delete next.billingCity;
+                        delete next.billingStreet;
+                        delete next.billingHouseNumber;
+                        return next;
+                      });
                     }}
                     invalidFields={{
-                      postalCode: invalidField === "billingPostalCode",
-                      city: invalidField === "billingCity",
-                      street: invalidField === "billingStreet",
-                      houseNumber: invalidField === "billingHouseNumber",
+                      postalCode: Boolean(fieldErrors.billingPostalCode),
+                      city: Boolean(fieldErrors.billingCity),
+                      street: Boolean(fieldErrors.billingStreet),
+                      houseNumber: Boolean(fieldErrors.billingHouseNumber),
+                    }}
+                    errorMessages={{
+                      postalCode: fieldErrors.billingPostalCode,
+                      city: fieldErrors.billingCity,
+                      street: fieldErrors.billingStreet,
+                      houseNumber: fieldErrors.billingHouseNumber,
                     }}
                   />
                 </div>
@@ -301,12 +364,14 @@ export default function RegisterPage() {
               value={email}
               onChange={(event) => {
                 setEmail(event.target.value);
-                if (invalidField === "email") setInvalidField(null);
+                clearFieldError("email");
               }}
-              className="mt-2 block w-full rounded-sm border border-site-border bg-white px-3 py-2.5 text-site-heading outline-none transition focus:border-site-green focus:ring-2 focus:ring-site-green/20"
-              aria-invalid={invalidField === "email"}
+              className={getInputClassName("email")}
+              aria-invalid={Boolean(fieldErrors.email)}
+              aria-describedby={fieldErrors.email ? getErrorId("email") : undefined}
               required
             />
+            {renderFieldError("email")}
           </div>
 
           <div className="grid gap-5 sm:grid-cols-2">
@@ -320,12 +385,14 @@ export default function RegisterPage() {
                 value={password}
                 onChange={(event) => {
                   setPassword(event.target.value);
-                  if (invalidField === "password") setInvalidField(null);
+                  clearFieldError("password");
                 }}
-                className="mt-2 block w-full rounded-sm border border-site-border bg-white px-3 py-2.5 text-site-heading outline-none transition focus:border-site-green focus:ring-2 focus:ring-site-green/20"
-                aria-invalid={invalidField === "password"}
+                className={getInputClassName("password")}
+                aria-invalid={Boolean(fieldErrors.password)}
+                aria-describedby={fieldErrors.password ? getErrorId("password") : undefined}
                 required
               />
+              {renderFieldError("password")}
             </div>
             <div>
               <label htmlFor="register-password-again" className="block text-sm font-semibold text-site-heading">Jelszó újra <span className="text-site-danger">*</span></label>
@@ -337,12 +404,14 @@ export default function RegisterPage() {
                 value={confirmPassword}
                 onChange={(event) => {
                   setConfirmPassword(event.target.value);
-                  if (invalidField === "confirmPassword") setInvalidField(null);
+                  clearFieldError("confirmPassword");
                 }}
-                className="mt-2 block w-full rounded-sm border border-site-border bg-white px-3 py-2.5 text-site-heading outline-none transition focus:border-site-green focus:ring-2 focus:ring-site-green/20"
-                aria-invalid={invalidField === "confirmPassword"}
+                className={getInputClassName("confirmPassword")}
+                aria-invalid={Boolean(fieldErrors.confirmPassword)}
+                aria-describedby={fieldErrors.confirmPassword ? getErrorId("confirmPassword") : undefined}
                 required
               />
+              {renderFieldError("confirmPassword")}
             </div>
           </div>
 
@@ -357,10 +426,11 @@ export default function RegisterPage() {
               checked={acceptedTerms}
               onChange={(event) => {
                 setAcceptedTerms(event.target.checked);
-                if (invalidField === "acceptedTerms") setInvalidField(null);
+                clearFieldError("acceptedTerms");
               }}
               className="mt-1 h-4 w-4 accent-site-green"
-              aria-invalid={invalidField === "acceptedTerms"}
+              aria-invalid={Boolean(fieldErrors.acceptedTerms)}
+              aria-describedby={fieldErrors.acceptedTerms ? getErrorId("acceptedTerms") : undefined}
             />
             <span>
               Elolvastam és elfogadom az{" "}
@@ -373,6 +443,13 @@ export default function RegisterPage() {
               </Link>.
             </span>
           </label>
+          {renderFieldError("acceptedTerms")}
+
+          {formError && (
+            <div className="rounded-sm bg-site-danger-soft p-3 text-sm text-site-danger" role="alert">
+              {formError}
+            </div>
+          )}
 
           <button
             type="submit"

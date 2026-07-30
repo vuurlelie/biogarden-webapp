@@ -8,6 +8,7 @@ import AdminLayout from "../layouts/AdminLayout";
 
 import ProtectedRoute from "./ProtectedRoute";
 import AdminRoute from "./AdminRoute";
+import GuestOnlyRoute from "./GuestOnlyRoute";
 
 const HomePage = lazy(() => import("../../pages/public/HomePage"));
 const AboutPage = lazy(() => import("../../pages/public/AboutPage"));
@@ -66,8 +67,13 @@ export const router = createBrowserRouter([
       { path: "termekek/:productId", element: routeElement(<ProductDetailsPage />) },
       { path: "tudastar", element: routeElement(<PostsPage />) },
       { path: "tudastar/:postId", element: routeElement(<PostDetailsPage />) },
-      { path: ROUTES.login.slice(1), element: routeElement(<LoginPage />) },
-      { path: ROUTES.register.slice(1), element: routeElement(<RegisterPage />) },
+      {
+        element: <GuestOnlyRoute />,
+        children: [
+          { path: ROUTES.login.slice(1), element: routeElement(<LoginPage />) },
+          { path: ROUTES.register.slice(1), element: routeElement(<RegisterPage />) },
+        ],
+      },
       { path: ROUTES.emailConfirmation.slice(1), element: routeElement(<EmailConfirmationPage />) },
       { path: ROUTES.forgotPassword.slice(1), element: routeElement(<ForgotPasswordPage />) },
       { path: ROUTES.resetPassword.slice(1), element: routeElement(<ResetPasswordPage />) },
