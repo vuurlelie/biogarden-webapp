@@ -36,6 +36,29 @@ public sealed class AdminOrderService : IAdminOrderService
         return orders.Select(order => order.ToDto()).ToList();
     }
 
+    public async Task<IReadOnlyList<AdminOrderWithdrawalRequestDto>> GetWithdrawalRequestsAsync(CancellationToken cancellationToken = default)
+    {
+        return await _databaseContext.OrderWithdrawalRequests.AsNoTracking()
+            .Include(request => request.Order)
+            .OrderBy(request => request.Status)
+            .ThenByDescending(request => request.RequestedAtUtc)
+            .Select(request => new AdminOrderWithdrawalRequestDto
+            {
+                Id = request.Id,
+                OrderId = request.OrderId,
+                OrderNumber = request.Order == null ? string.Empty : request.Order.OrderNumber,
+                OrderStatus = request.Order == null ? OrderStatus.Pending : request.Order.Status,
+                OrderTotalPrice = request.Order == null ? 0 : request.Order.TotalPrice,
+                CustomerName = request.CustomerName,
+                CustomerEmail = request.CustomerEmail,
+                Reason = request.Reason,
+                Status = request.Status,
+                RequestedAtUtc = request.RequestedAtUtc,
+                HandledAtUtc = request.HandledAtUtc
+            })
+            .ToListAsync(cancellationToken);
+    }
+
     public async Task<OrderDto> UpdateAsync(Guid orderId, AdminOrderUpdateDto changes, CancellationToken cancellationToken = default)
     {
         var order = await _databaseContext.Orders
@@ -99,5 +122,37 @@ public sealed class AdminOrderService : IAdminOrderService
         }
 
         return updatedOrder;
+    }
+
+    public async Task<AdminOrderWithdrawalRequestDto> MarkWithdrawalRequestHandledAsync(
+        int requestId,
+        CancellationToken cancellationToken = default)
+    {
+        var request = await _databaseContext.OrderWithdrawalRequests
+            .Include(item => item.Order)
+            .SingleOrDefaultAsync(item => item.Id == requestId, cancellationToken)
+            ?? throw new KeyNotFoundException("Withdrawal request not found.");
+
+        if (request.Status != OrderWithdrawalRequestStatus.Handled)
+        {
+            request.Status = OrderWithdrawalRequestStatus.Handled;
+            request.HandledAtUtc = DateTime.UtcNow;
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+        }
+
+        return new AdminOrderWithdrawalRequestDto
+        {
+            Id = request.Id,
+            OrderId = request.OrderId,
+            OrderNumber = request.Order?.OrderNumber ?? string.Empty,
+            OrderStatus = request.Order?.Status ?? OrderStatus.Pending,
+            OrderTotalPrice = request.Order?.TotalPrice ?? 0,
+            CustomerName = request.CustomerName,
+            CustomerEmail = request.CustomerEmail,
+            Reason = request.Reason,
+            Status = request.Status,
+            RequestedAtUtc = request.RequestedAtUtc,
+            HandledAtUtc = request.HandledAtUtc
+        };
     }
 }

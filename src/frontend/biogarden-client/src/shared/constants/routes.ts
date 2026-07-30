@@ -32,6 +32,7 @@ export const ROUTES = {
   admin: "/admin",
   adminProducts: "/admin/termekek",
   adminOrders: "/admin/rendelesek",
+  adminWithdrawalRequests: "/admin/elallasi-keresek",
   adminInventory: "/admin/raktarkeszlet",
   adminPosts: "/admin/bejegyzesek",
   adminAccounts: "/admin/fiok",

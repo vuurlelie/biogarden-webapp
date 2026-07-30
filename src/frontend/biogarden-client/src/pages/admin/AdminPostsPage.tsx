@@ -222,7 +222,7 @@ export default function AdminPostsPage() {
         <section className="grid gap-5 md:grid-cols-2 xl:grid-cols-3" aria-label="Bejegyzéslista">
           {posts.map((post) => (
             <article key={post.id} className="flex min-w-0 flex-col overflow-hidden rounded-sm border border-site-border bg-white shadow-sm">
-              <div className="relative aspect-[16/9] bg-site-surface-soft">
+              <div className="relative h-56 overflow-hidden bg-site-surface-soft sm:h-60">
                 <img src={imageUrl(post.image)} alt="" className="h-full w-full object-cover" />
                 <span
                   className={`absolute left-3 top-3 rounded-full px-3 py-1 text-xs font-bold ${

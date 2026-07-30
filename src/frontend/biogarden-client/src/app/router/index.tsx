@@ -40,6 +40,7 @@ const AdminDashboardPage = lazy(() => import("../../pages/admin/AdminDashboardPa
 const AdminLoginPage = lazy(() => import("../../pages/admin/AdminLoginPage"));
 const AdminProductsPage = lazy(() => import("../../pages/admin/AdminProductsPage"));
 const AdminOrdersPage = lazy(() => import("../../pages/admin/AdminOrdersPage"));
+const AdminWithdrawalRequestsPage = lazy(() => import("../../pages/admin/AdminWithdrawalRequestsPage"));
 const AdminInventoryPage = lazy(() => import("../../pages/admin/AdminInventoryPage"));
 const AdminPostsPage = lazy(() => import("../../pages/admin/AdminPostsPage"));
 const AdminAccountsPage = lazy(() => import("../../pages/admin/AdminAccountsPage"));
@@ -112,6 +113,7 @@ export const router = createBrowserRouter([
           { index: true, element: routeElement(<AdminDashboardPage />) },
           { path: "termekek", element: routeElement(<AdminProductsPage />) },
           { path: "rendelesek", element: routeElement(<AdminOrdersPage />) },
+          { path: "elallasi-keresek", element: routeElement(<AdminWithdrawalRequestsPage />) },
           { path: "raktarkeszlet", element: routeElement(<AdminInventoryPage />) },
           { path: "bejegyzesek", element: routeElement(<AdminPostsPage />) },
           { path: "fiok", element: routeElement(<AdminAccountsPage />) },

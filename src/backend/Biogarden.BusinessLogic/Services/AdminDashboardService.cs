@@ -11,7 +11,7 @@ namespace Biogarden.BusinessLogic.Services;
 public sealed class AdminDashboardService : IAdminDashboardService
 {
     private const int LowStockThreshold = 5;
-    private const int PreviewItemCount = 5;
+    private const int RecentActivityDays = 7;
 
     private readonly IAppDbContext _databaseContext;
     private readonly UserManager<ApplicationUser> _userManager;
@@ -27,6 +27,7 @@ public sealed class AdminDashboardService : IAdminDashboardService
     public async Task<AdminDashboardDto> GetAsync(CancellationToken cancellationToken = default)
     {
         var todayUtc = DateTime.UtcNow.Date;
+        var recentActivityFromUtc = todayUtc.AddDays(-RecentActivityDays);
 
         var activeProducts = _databaseContext.Products
             .Where(product => product.RecordStatus == RecordStatus.Active);
@@ -38,6 +39,8 @@ public sealed class AdminDashboardService : IAdminDashboardService
             .CountAsync(product => product.StockQuantity <= LowStockThreshold, cancellationToken);
         var pendingOrderCount = await _databaseContext.Orders
             .CountAsync(order => order.Status == OrderStatus.Pending, cancellationToken);
+        var pendingWithdrawalRequestCount = await _databaseContext.OrderWithdrawalRequests
+            .CountAsync(request => request.Status == OrderWithdrawalRequestStatus.Pending, cancellationToken);
         var todayOrderCount = await _databaseContext.Orders
             .CountAsync(order => order.CreatedAtUtc >= todayUtc, cancellationToken);
         var publishedPostCount = await _databaseContext.Posts
@@ -49,8 +52,8 @@ public sealed class AdminDashboardService : IAdminDashboardService
 
         var recentOrders = await _databaseContext.Orders
             .AsNoTracking()
+            .Where(order => order.CreatedAtUtc >= recentActivityFromUtc)
             .OrderByDescending(order => order.CreatedAtUtc)
-            .Take(PreviewItemCount)
             .Select(order => new AdminRecentOrderDto
             {
                 Id = order.Id,
@@ -69,7 +72,6 @@ public sealed class AdminDashboardService : IAdminDashboardService
             .Where(product => product.StockQuantity <= LowStockThreshold)
             .OrderBy(product => product.StockQuantity)
             .ThenBy(product => product.Name)
-            .Take(PreviewItemCount)
             .Select(product => new AdminLowStockProductDto
             {
                 Id = product.Id,
@@ -79,17 +81,35 @@ public sealed class AdminDashboardService : IAdminDashboardService
             })
             .ToListAsync(cancellationToken);
 
+        var pendingWithdrawalRequests = await _databaseContext.OrderWithdrawalRequests
+            .AsNoTracking()
+            .Include(request => request.Order)
+            .Where(request => request.Status == OrderWithdrawalRequestStatus.Pending)
+            .Where(request => request.RequestedAtUtc >= recentActivityFromUtc)
+            .OrderByDescending(request => request.RequestedAtUtc)
+            .Select(request => new AdminWithdrawalRequestPreviewDto
+            {
+                Id = request.Id,
+                OrderId = request.OrderId,
+                OrderNumber = request.Order == null ? string.Empty : request.Order.OrderNumber,
+                CustomerName = request.CustomerName,
+                RequestedAtUtc = request.RequestedAtUtc
+            })
+            .ToListAsync(cancellationToken);
+
         return new AdminDashboardDto
         {
             ProductCount = productCount,
             AvailableProductCount = availableProductCount,
             LowStockProductCount = lowStockProductCount,
             PendingOrderCount = pendingOrderCount,
+            PendingWithdrawalRequestCount = pendingWithdrawalRequestCount,
             TodayOrderCount = todayOrderCount,
             UserCount = userCount,
             PublishedPostCount = publishedPostCount,
             ActiveOrderValue = activeOrderValue ?? 0,
             RecentOrders = recentOrders,
+            PendingWithdrawalRequests = pendingWithdrawalRequests,
             LowStockProducts = lowStockProducts
         };
     }

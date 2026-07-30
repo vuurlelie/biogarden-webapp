@@ -32,6 +32,7 @@ export default function AccountOrderDetailsPage() {
   const [withdrawalReason, setWithdrawalReason] = useState("");
   const [isRequestingWithdrawal, setIsRequestingWithdrawal] = useState(false);
   const [withdrawalSuccess, setWithdrawalSuccess] = useState<string | null>(null);
+  const [withdrawalValidationError, setWithdrawalValidationError] = useState("");
   const cancellationSuccessModalRef = useRef<HTMLElement | null>(null);
 
   useModalFocus(cancellationSuccessModalRef, {
@@ -41,8 +42,14 @@ export default function AccountOrderDetailsPage() {
 
   async function handleWithdrawalRequest() {
     if (!order) return;
+    if (withdrawalReason.trim().length < 10) {
+      setWithdrawalValidationError("Írd le legalább 10 karakterben a kérésedet.");
+      return;
+    }
+
     setIsRequestingWithdrawal(true);
     setError("");
+    setWithdrawalValidationError("");
     setWithdrawalSuccess(null);
     try {
       const request = await requestOrderWithdrawal(order.id, withdrawalReason);
@@ -230,17 +237,29 @@ export default function AccountOrderDetailsPage() {
           <textarea
             id="account-withdrawal-reason"
             value={withdrawalReason}
-            onChange={(event) => setWithdrawalReason(event.target.value)}
+            onChange={(event) => {
+              setWithdrawalReason(event.target.value);
+              if (withdrawalValidationError) setWithdrawalValidationError("");
+            }}
             disabled={hasPendingWithdrawalRequest}
             maxLength={1000}
             rows={4}
-            className="mt-2 block w-full rounded-sm border border-site-border bg-white px-3 py-2.5 disabled:cursor-not-allowed disabled:bg-site-surface-soft"
+            aria-invalid={Boolean(withdrawalValidationError)}
+            aria-describedby={withdrawalValidationError ? "account-withdrawal-reason-error" : undefined}
+            className={`mt-2 block w-full rounded-sm border bg-white px-3 py-2.5 disabled:cursor-not-allowed disabled:bg-site-surface-soft ${
+              withdrawalValidationError ? "border-site-danger" : "border-site-border"
+            }`}
           />
+          {withdrawalValidationError && (
+            <span id="account-withdrawal-reason-error" className="mt-1 block text-sm text-site-danger">
+              {withdrawalValidationError}
+            </span>
+          )}
         </label>
         <button
           type="button"
           onClick={() => void handleWithdrawalRequest()}
-          disabled={hasPendingWithdrawalRequest || isRequestingWithdrawal || withdrawalReason.trim().length < 10}
+          disabled={hasPendingWithdrawalRequest || isRequestingWithdrawal}
           className="mt-4 rounded-sm bg-site-green px-5 py-2.5 font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
         >
           {hasPendingWithdrawalRequest ? "Kérés feldolgozás alatt" : isRequestingWithdrawal ? "Küldés..." : "Kérés elküldése"}
@@ -296,4 +315,3 @@ export default function AccountOrderDetailsPage() {
     </div>
   );
 }
-

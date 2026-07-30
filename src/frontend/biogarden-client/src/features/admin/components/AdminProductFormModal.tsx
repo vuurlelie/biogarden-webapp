@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import type { ProductCategory, ProductDetails, UnitOfMeasure } from "../../products/types/product.types";
 import { useModalFocus } from "../../../shared/hooks/useModalFocus";
 import { getErrorMessage } from "../../../shared/utils/errorHandling";
@@ -12,6 +12,8 @@ import {
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 const MAX_IMAGE_UPLOAD_SIZE_BYTES = 2 * 1024 * 1024;
+const PRODUCT_IMAGE_SIZE = 1200;
+const defaultProductImagePath = "/uploads/products/defaultimg.png";
 
 const categories: Array<[ProductCategory, string]> = [
   [0, "Zöldség"],
@@ -21,6 +23,7 @@ const categories: Array<[ProductCategory, string]> = [
   [5, "Fűszer"],
 ];
 
+const vegetableCategory: ProductCategory = 0;
 const kilogramUnit: UnitOfMeasure = 1;
 const defaultPackageMeasure: UnitOfMeasure = 2;
 
@@ -54,6 +57,9 @@ type FormState = {
   deliveryAvailable: boolean;
 };
 
+type ProductInvalidField = "name" | "price" | "stockQuantity" | "unitAmount" | "image";
+type ProductFieldErrors = Partial<Record<ProductInvalidField, string>>;
+
 type Props = {
   product: ProductDetails | null;
   onClose: () => void;
@@ -66,7 +72,7 @@ function initialState(product: ProductDetails | null): FormState {
       name: "",
       description: "",
       price: "",
-      category: 0,
+      category: vegetableCategory,
       image: "",
       unit: 0,
       unitAmount: "",
@@ -88,7 +94,7 @@ function initialState(product: ProductDetails | null): FormState {
     unitAmountMeasure: normalizePackageMeasure(product.unitAmountMeasure),
     stockQuantity: String(product.stockQuantity),
     available: product.available,
-    deliveryAvailable: product.deliveryAvailable,
+    deliveryAvailable: product.category === vegetableCategory ? false : product.deliveryAvailable,
   };
 }
 
@@ -100,10 +106,88 @@ function imageUrl(path: string): string {
   return path ? `${API_BASE_URL}/${path.replace(/^\/+/, "")}` : "";
 }
 
+function loadSelectedImage(file: File): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+
+    reader.onload = () => {
+      if (typeof reader.result !== "string") {
+        reject(new Error("A kiválasztott kép nem tölthető be."));
+        return;
+      }
+
+      const image = new Image();
+      image.onload = () => resolve(image);
+      image.onerror = () => reject(new Error("A kiválasztott kép nem tölthető be."));
+      image.src = reader.result;
+    };
+    reader.onerror = () => reject(new Error("A kiválasztott kép nem tölthető be."));
+    reader.readAsDataURL(file);
+  });
+}
+
+function canvasToJpegFile(canvas: HTMLCanvasElement, originalFile: File, quality: number): Promise<File> {
+  return new Promise((resolve, reject) => {
+    canvas.toBlob(
+      (blob) => {
+        if (!blob) {
+          reject(new Error("A kép feldolgozása nem sikerült."));
+          return;
+        }
+
+        const fileName = originalFile.name.replace(/\.[^.]+$/, "") || "termekkep";
+        resolve(new File([blob], `${fileName}.jpg`, { type: "image/jpeg" }));
+      },
+      "image/jpeg",
+      quality,
+    );
+  });
+}
+
+async function normalizeProductImageFile(file: File): Promise<File> {
+  const image = await loadSelectedImage(file);
+  const canvas = document.createElement("canvas");
+  canvas.width = PRODUCT_IMAGE_SIZE;
+  canvas.height = PRODUCT_IMAGE_SIZE;
+
+  const context = canvas.getContext("2d");
+  if (!context) throw new Error("A kép feldolgozása nem támogatott ebben a böngészőben.");
+
+  const sourceSize = Math.min(image.naturalWidth, image.naturalHeight);
+  const sourceX = Math.max(0, (image.naturalWidth - sourceSize) / 2);
+  const sourceY = Math.max(0, (image.naturalHeight - sourceSize) / 2);
+
+  context.fillStyle = "#ffffff";
+  context.fillRect(0, 0, PRODUCT_IMAGE_SIZE, PRODUCT_IMAGE_SIZE);
+  context.drawImage(
+    image,
+    sourceX,
+    sourceY,
+    sourceSize,
+    sourceSize,
+    0,
+    0,
+    PRODUCT_IMAGE_SIZE,
+    PRODUCT_IMAGE_SIZE,
+  );
+
+  let normalizedFile = await canvasToJpegFile(canvas, file, 0.9);
+  for (const quality of [0.82, 0.74, 0.66]) {
+    if (normalizedFile.size <= MAX_IMAGE_UPLOAD_SIZE_BYTES) break;
+    normalizedFile = await canvasToJpegFile(canvas, file, quality);
+  }
+
+  return normalizedFile;
+}
+
 export default function AdminProductFormModal({ product, onClose, onSaved }: Props) {
   const [form, setForm] = useState(() => initialState(product));
   const [imageFile, setImageFile] = useState<File | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [selectedImagePreviewUrl, setSelectedImagePreviewUrl] = useState("");
+  const [formError, setFormError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<ProductFieldErrors>({});
+  const [previewFailed, setPreviewFailed] = useState(false);
+  const [defaultPreviewFailed, setDefaultPreviewFailed] = useState(false);
   const [saving, setSaving] = useState(false);
   const modalRef = useRef<HTMLElement | null>(null);
   const nameInputRef = useRef<HTMLInputElement | null>(null);
@@ -112,10 +196,18 @@ export default function AdminProductFormModal({ product, onClose, onSaved }: Pro
   const unitAmountInputRef = useRef<HTMLInputElement | null>(null);
   const imageInputRef = useRef<HTMLInputElement | null>(null);
 
-  const previewUrl = useMemo(
-    () => (imageFile ? URL.createObjectURL(imageFile) : imageUrl(form.image)),
-    [imageFile, form.image],
-  );
+  const savedImagePreviewUrl = imageUrl(form.image);
+  const previewUrl = selectedImagePreviewUrl || savedImagePreviewUrl;
+
+  const defaultPreviewUrl = imageUrl(defaultProductImagePath);
+  const isSelectedImagePreview = Boolean(selectedImagePreviewUrl);
+  const shouldShowPreview = Boolean(previewUrl) && (isSelectedImagePreview || !previewFailed);
+  const shouldShowDefaultPreview = Boolean(savedImagePreviewUrl) && !isSelectedImagePreview && previewFailed && !defaultPreviewFailed;
+
+  useEffect(() => {
+    setPreviewFailed(false);
+    setDefaultPreviewFailed(false);
+  }, [previewUrl]);
 
   useModalFocus(modalRef, {
     isOpen: true,
@@ -125,13 +217,85 @@ export default function AdminProductFormModal({ product, onClose, onSaved }: Pro
   });
 
   useEffect(() => {
-    return () => {
-      if (imageFile && previewUrl.startsWith("blob:")) URL.revokeObjectURL(previewUrl);
+    if (!imageFile) {
+      setSelectedImagePreviewUrl("");
+      return;
+    }
+
+    let cancelled = false;
+    const reader = new FileReader();
+
+    reader.onload = () => {
+      if (!cancelled && typeof reader.result === "string") {
+        setSelectedImagePreviewUrl(reader.result);
+      }
     };
-  }, [imageFile, previewUrl]);
+
+    reader.onerror = () => {
+      if (!cancelled) {
+        setSelectedImagePreviewUrl("");
+        setPreviewFailed(true);
+      }
+    };
+
+    reader.readAsDataURL(imageFile);
+
+    return () => {
+      cancelled = true;
+      if (reader.readyState === FileReader.LOADING) {
+        reader.abort();
+      }
+    };
+  }, [imageFile]);
 
   function update<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((current) => ({ ...current, [key]: value }));
+  }
+
+  function getInputClassName(field?: ProductInvalidField) {
+    const hasError = field ? Boolean(fieldErrors[field]) : false;
+    return [
+      "mt-1.5 w-full rounded-sm border bg-white px-3 py-2.5 text-site-text outline-none transition focus:ring-2",
+      hasError
+        ? "border-site-danger bg-site-danger-soft focus:border-site-danger focus:ring-site-danger/20"
+        : "border-site-border focus:border-site-green focus:ring-site-green/20",
+    ].join(" ");
+  }
+
+  function getErrorId(field: ProductInvalidField) {
+    return `admin-product-${field}-error`;
+  }
+
+  function renderFieldError(field: ProductInvalidField) {
+    if (!fieldErrors[field]) return null;
+
+    return (
+      <p id={getErrorId(field)} className="mt-1 text-xs font-semibold text-site-danger">
+        {fieldErrors[field]}
+      </p>
+    );
+  }
+
+  function clearFieldError(field: ProductInvalidField) {
+    setFieldErrors((current) => {
+      if (!current[field]) return current;
+      const next = { ...current };
+      delete next[field];
+      return next;
+    });
+  }
+
+  function markInvalid(field: ProductInvalidField, message: string) {
+    setFormError(null);
+    setFieldErrors({ [field]: message });
+    const inputRefs: Record<ProductInvalidField, HTMLElement | null> = {
+      name: nameInputRef.current,
+      price: priceInputRef.current,
+      stockQuantity: stockInputRef.current,
+      unitAmount: unitAmountInputRef.current,
+      image: imageInputRef.current,
+    };
+    inputRefs[field]?.focus();
   }
 
   function updateUnit(unit: UnitOfMeasure) {
@@ -143,9 +307,23 @@ export default function AdminProductFormModal({ product, onClose, onSaved }: Pro
     }));
   }
 
+  function updateCategory(category: ProductCategory) {
+    setForm((current) => ({
+      ...current,
+      category,
+      deliveryAvailable:
+        category === vegetableCategory
+          ? false
+          : current.category === vegetableCategory
+            ? true
+            : current.deliveryAvailable,
+    }));
+  }
+
   async function submit(event: FormEvent) {
     event.preventDefault();
-    setError(null);
+    setFormError(null);
+    setFieldErrors({});
 
     const price = Number(form.price);
     const stockQuantity = Number(form.stockQuantity);
@@ -153,28 +331,31 @@ export default function AdminProductFormModal({ product, onClose, onSaved }: Pro
     const unitAmount = !canSetPackage || form.unitAmount === "" ? null : Number(form.unitAmount);
 
     if (form.name.trim().length < 2) {
-      setError("A termék neve legalább 2 karakter legyen.");
-      nameInputRef.current?.focus();
+      markInvalid("name", "A termék neve legalább 2 karakter legyen.");
       return;
     }
-    if (!Number.isFinite(price) || price < 0) {
-      setError("Adj meg érvényes, nem negatív árat.");
-      priceInputRef.current?.focus();
+    if (!Number.isFinite(price) || price < 0 || !Number.isInteger(price)) {
+      markInvalid("price", "Adj meg érvényes, nem negatív egész forint árat.");
+      return;
+    }
+    if (price > 10000000) {
+      markInvalid("price", "Az ár legfeljebb 10 000 000 Ft lehet.");
       return;
     }
     if (!Number.isInteger(stockQuantity) || stockQuantity < 0) {
-      setError("A készlet nem negatív egész szám legyen.");
-      stockInputRef.current?.focus();
+      markInvalid("stockQuantity", "A készlet nem negatív egész szám legyen.");
       return;
     }
     if (unitAmount !== null && (!Number.isFinite(unitAmount) || unitAmount <= 0)) {
-      setError("A kiszerelés pozitív szám legyen.");
-      unitAmountInputRef.current?.focus();
+      markInvalid("unitAmount", "A kiszerelés pozitív szám legyen.");
+      return;
+    }
+    if (unitAmount !== null && unitAmount > 10000000) {
+      markInvalid("unitAmount", "A kiszerelés legfeljebb 10 000 000 lehet.");
       return;
     }
     if (imageFile && imageFile.size > MAX_IMAGE_UPLOAD_SIZE_BYTES) {
-      setError("A kép mérete legfeljebb 2 MB lehet. Termékképnél kb. 1200 x 1200 px, JPG vagy WEBP ajánlott.");
-      imageInputRef.current?.focus();
+      markInvalid("image", "A kép mérete legfeljebb 2 MB lehet. Termékképnél kb. 1200 x 1200 px, JPG vagy WEBP ajánlott.");
       return;
     }
 
@@ -196,7 +377,7 @@ export default function AdminProductFormModal({ product, onClose, onSaved }: Pro
         unitAmountMeasure: unitAmount === null ? null : normalizePackageMeasure(form.unitAmountMeasure),
         stockQuantity,
         available: stockQuantity > 0 && form.available,
-        deliveryAvailable: form.deliveryAvailable,
+        deliveryAvailable: form.category === vegetableCategory ? false : form.deliveryAvailable,
       };
 
       if (product) {
@@ -214,14 +395,11 @@ export default function AdminProductFormModal({ product, onClose, onSaved }: Pro
           // The original save error is more useful to the administrator.
         }
       }
-      setError(getErrorMessage(saveError, "A mentés nem sikerült."));
+      setFormError(getErrorMessage(saveError, "A mentés nem sikerült. Kérjük, ellenőrizd a megadott adatokat."));
     } finally {
       setSaving(false);
     }
   }
-
-  const inputClass =
-    "mt-1.5 w-full rounded-sm border border-site-border bg-white px-3 py-2.5 text-site-text outline-none focus:border-site-green focus:ring-2 focus:ring-site-green/20";
 
   return (
     <div
@@ -254,9 +432,9 @@ export default function AdminProductFormModal({ product, onClose, onSaved }: Pro
         </div>
 
         <form onSubmit={submit} className="space-y-6 p-5 sm:p-6">
-          {error && (
+          {formError && (
             <div role="alert" className="rounded-sm bg-site-danger-soft p-4 text-site-danger">
-              {error}
+              {formError}
             </div>
           )}
 
@@ -265,19 +443,25 @@ export default function AdminProductFormModal({ product, onClose, onSaved }: Pro
               Név <span className="text-site-danger">*</span>
               <input
                 ref={nameInputRef}
-                className={inputClass}
+                className={getInputClassName("name")}
                 value={form.name}
-                onChange={(event) => update("name", event.target.value)}
+                onChange={(event) => {
+                  update("name", event.target.value);
+                  clearFieldError("name");
+                }}
                 maxLength={200}
+                aria-invalid={Boolean(fieldErrors.name)}
+                aria-describedby={fieldErrors.name ? getErrorId("name") : undefined}
               />
+              {renderFieldError("name")}
             </label>
 
             <label className="text-sm font-semibold">
               Kategória <span className="text-site-danger">*</span>
               <select
-                className={inputClass}
+                className={getInputClassName()}
                 value={form.category}
-                onChange={(event) => update("category", Number(event.target.value) as ProductCategory)}
+                onChange={(event) => updateCategory(Number(event.target.value) as ProductCategory)}
               >
                 {categories.map(([value, label]) => (
                   <option key={value} value={value}>{label}</option>
@@ -289,19 +473,26 @@ export default function AdminProductFormModal({ product, onClose, onSaved }: Pro
               Ár (Ft) <span className="text-site-danger">*</span>
               <input
                 ref={priceInputRef}
-                className={inputClass}
+                className={getInputClassName("price")}
                 type="number"
                 min="0"
                 step="1"
                 value={form.price}
-                onChange={(event) => update("price", event.target.value)}
+                onWheel={(event) => event.currentTarget.blur()}
+                onChange={(event) => {
+                  update("price", event.target.value);
+                  clearFieldError("price");
+                }}
+                aria-invalid={Boolean(fieldErrors.price)}
+                aria-describedby={fieldErrors.price ? getErrorId("price") : undefined}
               />
+              {renderFieldError("price")}
             </label>
 
             <label className="text-sm font-semibold">
               Értékesítési egység <span className="text-site-danger">*</span>
               <select
-                className={inputClass}
+                className={getInputClassName()}
                 value={form.unit}
                 onChange={(event) => updateUnit(Number(event.target.value) as UnitOfMeasure)}
               >
@@ -315,16 +506,21 @@ export default function AdminProductFormModal({ product, onClose, onSaved }: Pro
               Készlet <span className="text-site-danger">*</span>
               <input
                 ref={stockInputRef}
-                className={inputClass}
+                className={getInputClassName("stockQuantity")}
                 type="number"
                 min="0"
                 step="1"
                 value={form.stockQuantity}
+                onWheel={(event) => event.currentTarget.blur()}
                 onChange={(event) => {
                   update("stockQuantity", event.target.value);
+                  clearFieldError("stockQuantity");
                   if (Number(event.target.value) === 0) update("available", false);
                 }}
+                aria-invalid={Boolean(fieldErrors.stockQuantity)}
+                aria-describedby={fieldErrors.stockQuantity ? getErrorId("stockQuantity") : undefined}
               />
+              {renderFieldError("stockQuantity")}
             </label>
 
             {form.unit === kilogramUnit ? (
@@ -337,19 +533,26 @@ export default function AdminProductFormModal({ product, onClose, onSaved }: Pro
                   Kiszerelés
                   <input
                     ref={unitAmountInputRef}
-                    className={inputClass}
+                    className={getInputClassName("unitAmount")}
                     type="number"
                     min="0.01"
                     step="0.01"
                     value={form.unitAmount}
-                    onChange={(event) => update("unitAmount", event.target.value)}
+                    onWheel={(event) => event.currentTarget.blur()}
+                    onChange={(event) => {
+                      update("unitAmount", event.target.value);
+                      clearFieldError("unitAmount");
+                    }}
+                    aria-invalid={Boolean(fieldErrors.unitAmount)}
+                    aria-describedby={fieldErrors.unitAmount ? getErrorId("unitAmount") : undefined}
                   />
+                  {renderFieldError("unitAmount")}
                 </label>
 
                 <label className="text-sm font-semibold">
                   Mértékegység
                   <select
-                    className={inputClass}
+                    className={getInputClassName()}
                     value={form.unitAmountMeasure}
                     disabled={!form.unitAmount}
                     onChange={(event) => update("unitAmountMeasure", Number(event.target.value) as UnitOfMeasure)}
@@ -366,7 +569,7 @@ export default function AdminProductFormModal({ product, onClose, onSaved }: Pro
           <label className="block text-sm font-semibold">
             Leírás
             <textarea
-              className={`${inputClass} min-h-28 resize-y`}
+              className={`${getInputClassName()} min-h-28 resize-y`}
               value={form.description}
               onChange={(event) => update("description", event.target.value)}
               maxLength={1000}
@@ -375,11 +578,25 @@ export default function AdminProductFormModal({ product, onClose, onSaved }: Pro
 
           <div className="grid items-start gap-5 md:grid-cols-[12rem_minmax(0,1fr)]">
             <div className="aspect-square overflow-hidden rounded-sm border border-site-border bg-site-surface-soft">
-              {previewUrl ? (
-                <img src={previewUrl} alt="Termékkép előnézete" className="h-full w-full object-cover" />
+              {shouldShowPreview ? (
+                <img
+                  key={previewUrl}
+                  src={previewUrl}
+                  alt="Termékkép előnézete"
+                  className="h-full w-full object-cover"
+                  onError={() => setPreviewFailed(true)}
+                />
+              ) : shouldShowDefaultPreview ? (
+                <img
+                  key={defaultPreviewUrl}
+                  src={defaultPreviewUrl}
+                  alt="Alapértelmezett termékkép előnézete"
+                  className="h-full w-full object-cover"
+                  onError={() => setDefaultPreviewFailed(true)}
+                />
               ) : (
                 <div className="grid h-full place-items-center px-4 text-center text-sm text-site-muted">
-                  Nincs kiválasztott kép
+                  {previewUrl ? "A kép előnézete nem tölthető be." : "Nincs kiválasztott kép"}
                 </div>
               )}
             </div>
@@ -389,11 +606,43 @@ export default function AdminProductFormModal({ product, onClose, onSaved }: Pro
                 Termékkép
                 <input
                   ref={imageInputRef}
-                  className="mt-2 block w-full rounded-sm border border-site-border p-3 text-sm file:mr-3 file:rounded-sm file:border-0 file:bg-site-surface-soft file:px-3 file:py-2 file:font-semibold file:text-site-green-dark"
+                  className={`mt-2 block w-full rounded-sm border p-3 text-sm file:mr-3 file:rounded-sm file:border-0 file:bg-site-surface-soft file:px-3 file:py-2 file:font-semibold file:text-site-green-dark ${
+                    fieldErrors.image ? "border-site-danger bg-site-danger-soft" : "border-site-border"
+                  }`}
                   type="file"
                   accept="image/jpeg,image/png,image/webp"
-                  onChange={(event) => setImageFile(event.target.files?.[0] ?? null)}
+                  onChange={async (event) => {
+                    const input = event.currentTarget;
+                    const selectedFile = input.files?.[0] ?? null;
+                    setPreviewFailed(false);
+                    setDefaultPreviewFailed(false);
+                    clearFieldError("image");
+
+                    if (!selectedFile) {
+                      setImageFile(null);
+                      return;
+                    }
+
+                    try {
+                      const normalizedFile = await normalizeProductImageFile(selectedFile);
+                      if (normalizedFile.size > MAX_IMAGE_UPLOAD_SIZE_BYTES) {
+                        input.value = "";
+                        setImageFile(null);
+                        markInvalid("image", "A kép mérete feldolgozás után is túl nagy. Válassz kisebb képet.");
+                        return;
+                      }
+
+                      setImageFile(normalizedFile);
+                    } catch (processingError) {
+                      input.value = "";
+                      setImageFile(null);
+                      markInvalid("image", getErrorMessage(processingError, "A kép feldolgozása nem sikerült."));
+                    }
+                  }}
+                  aria-invalid={Boolean(fieldErrors.image)}
+                  aria-describedby={fieldErrors.image ? getErrorId("image") : undefined}
                 />
+                {renderFieldError("image")}
               </label>
               <p className="mt-2 text-xs text-site-muted">
                 JPG vagy WEBP ajánlott, kb. 1200 x 1200 px, legfeljebb 2 MB.
@@ -429,16 +678,29 @@ export default function AdminProductFormModal({ product, onClose, onSaved }: Pro
               </span>
             </label>
 
-            <label className="flex items-start gap-3 rounded-sm border border-site-border p-4">
+            <label
+              className={`flex items-start gap-3 rounded-sm border border-site-border p-4 ${
+                form.category === vegetableCategory
+                  ? "cursor-not-allowed bg-transparent text-site-muted hover:bg-transparent"
+                  : ""
+              }`}
+            >
               <input
                 type="checkbox"
                 className="mt-1"
-                checked={form.deliveryAvailable}
+                checked={form.category === vegetableCategory ? false : form.deliveryAvailable}
+                disabled={form.category === vegetableCategory}
                 onChange={(event) => update("deliveryAvailable", event.target.checked)}
               />
               <span>
-                <strong className="block text-site-heading">Házhoz szállítható</strong>
-                <span className="text-sm text-site-muted">Szállítási rendelésbe is kerülhet.</span>
+                <strong className={`block ${form.category === vegetableCategory ? "text-site-muted" : "text-site-heading"}`}>
+                  Házhoz szállítható
+                </strong>
+                <span className="text-sm text-site-muted">
+                  {form.category === vegetableCategory
+                    ? "Zöldségnél nem választható házhoz szállítás."
+                    : "Szállítási rendelésbe is kerülhet."}
+                </span>
               </span>
             </label>
           </div>

@@ -64,6 +64,7 @@ const icons = {
   user: <svg aria-hidden="true" className={iconClass} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2m7-10a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm7 10v-2a4 4 0 0 0-3-3.87" /></svg>,
   post: <svg aria-hidden="true" className={iconClass} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M5 3h14v18H5V3Zm4 5h6m-6 4h6m-6 4h4" /></svg>,
   value: <svg aria-hidden="true" className={iconClass} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M12 2v20m5-16H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" /></svg>,
+  request: <svg aria-hidden="true" className={iconClass} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M5 4h14v16H5V4Zm4 5h6m-6 4h6m-6 4h4" /></svg>,
 };
 
 function LoadingCards() {
@@ -96,11 +97,19 @@ export default function AdminDashboardPage() {
 
   return (
     <div className="space-y-6">
-      <AdminPageHeader
-        eyebrow="Bakony Kincse"
-        title="Adminisztrációs áttekintés"
-        description="A webáruház legfontosabb adatai, figyelmeztetései és legutóbbi rendelései egy helyen."
-      />
+      <section className="grid gap-4 lg:grid-cols-3" aria-label="Adminisztrációs összefoglaló">
+        <div className="lg:col-span-2">
+          <AdminPageHeader
+            eyebrow="Bakony Kincse"
+            title="Adminisztrációs áttekintés"
+          />
+        </div>
+        {loading ? (
+          <div aria-label="Aktív rendelések értéke betöltése" className="h-36 animate-pulse rounded-sm border border-site-border bg-white" />
+        ) : dashboard && (
+          <SummaryCard to={ROUTES.adminOrders} label="Aktív rendelések értéke" value={PRICE.format(dashboard.activeOrderValue)} detail="A lemondott rendelések nélkül" icon={icons.value} />
+        )}
+      </section>
 
       {error && (
         <div role="alert" className="flex flex-col gap-3 rounded-sm border border-site-danger/25 bg-site-danger-soft p-4 text-site-danger sm:flex-row sm:items-center sm:justify-between">
@@ -114,12 +123,12 @@ export default function AdminDashboardPage() {
           <section aria-labelledby="summary-heading">
             <h2 id="summary-heading" className="sr-only">Összesített adatok</h2>
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-              <SummaryCard to={ROUTES.adminProducts} label="Termékek" value={dashboard.productCount} detail={`${dashboard.availableProductCount} jelenleg elérhető`} icon={icons.product} />
               <SummaryCard to={ROUTES.adminOrders} label="Függőben lévő rendelések" value={dashboard.pendingOrderCount} detail={`${dashboard.todayOrderCount} rendelés érkezett ma`} icon={icons.order} />
+              <SummaryCard to={ROUTES.adminWithdrawalRequests} label="Fogyasztói kérések" value={dashboard.pendingWithdrawalRequestCount} detail="Feldolgozásra váró elállási vagy fogyasztói kérés" icon={icons.request} warning={dashboard.pendingWithdrawalRequestCount > 0} />
               <SummaryCard to={ROUTES.adminInventory} label="Alacsony készlet" value={dashboard.lowStockProductCount} detail="Legfeljebb 5 darab van raktáron" icon={icons.stock} warning={dashboard.lowStockProductCount > 0} />
-              <SummaryCard to={ROUTES.adminAccounts} label="Felhasználók" value={dashboard.userCount} detail="Regisztrált felhasználói fiók" icon={icons.user} />
+              <SummaryCard to={ROUTES.adminProducts} label="Termékek" value={dashboard.productCount} detail={`${dashboard.availableProductCount} jelenleg elérhető`} icon={icons.product} />
               <SummaryCard to={ROUTES.adminPosts} label="Közzétett bejegyzések" value={dashboard.publishedPostCount} detail="A tudástárban látható tartalom" icon={icons.post} />
-              <SummaryCard to={ROUTES.adminOrders} label="Aktív rendelések értéke" value={PRICE.format(dashboard.activeOrderValue)} detail="A lemondott rendelések nélkül" icon={icons.value} />
+              <SummaryCard to={ROUTES.adminAccounts} label="Felhasználók" value={dashboard.userCount} detail="Regisztrált felhasználói fiók" icon={icons.user} />
             </div>
           </section>
 
@@ -152,22 +161,42 @@ export default function AdminDashboardPage() {
               )}
             </section>
 
-            <section className="rounded-sm border border-site-border bg-white p-5 shadow-sm sm:p-6" aria-labelledby="low-stock-heading">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <h2 id="low-stock-heading" className="text-xl font-bold text-site-heading">Készletfigyelő</h2>
-                <Link to={ROUTES.adminInventory} className="text-sm font-semibold text-site-green-dark underline-offset-4 hover:underline">Raktárkészlet</Link>
-              </div>
-              {dashboard.lowStockProducts.length === 0 ? <p className="mt-5 rounded-sm bg-site-surface-soft p-4 text-sm text-site-muted">Nincs alacsony készletű termék.</p> : (
-                <div className="mt-5 space-y-3">
-                  {dashboard.lowStockProducts.map((product) => (
-                    <article key={product.id} className="flex items-center justify-between gap-4 rounded-sm border border-site-border p-4">
-                      <div className="min-w-0"><p className="truncate font-semibold text-site-heading">{product.name}</p><p className="mt-1 text-xs text-site-muted">{product.available ? "Elérhető" : "Nem elérhető"}</p></div>
-                      <span className={`shrink-0 text-lg font-bold ${product.stockQuantity === 0 ? "text-site-danger" : "text-site-heading"}`}>{product.stockQuantity} db</span>
-                    </article>
-                  ))}
+            <div className="space-y-6">
+              <section className="rounded-sm border border-site-border bg-white p-5 shadow-sm sm:p-6" aria-labelledby="withdrawal-requests-heading">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <h2 id="withdrawal-requests-heading" className="text-xl font-bold text-site-heading">Fogyasztói kérések</h2>
+                  <Link to={ROUTES.adminWithdrawalRequests} className="text-sm font-semibold text-site-green-dark underline-offset-4 hover:underline">Kérések kezelése</Link>
                 </div>
-              )}
-            </section>
+                {dashboard.pendingWithdrawalRequests.length === 0 ? <p className="mt-5 rounded-sm bg-site-surface-soft p-4 text-sm text-site-muted">Nincs feldolgozásra váró kérés.</p> : (
+                  <div className="mt-5 space-y-3">
+                    {dashboard.pendingWithdrawalRequests.map((request) => (
+                      <article key={request.id} className="rounded-sm border border-site-danger/25 p-4">
+                        <p className="font-semibold text-site-heading">{request.orderNumber}</p>
+                        <p className="mt-1 text-sm text-site-muted">{request.customerName}</p>
+                        <p className="mt-2 text-xs text-site-muted">{DATE.format(new Date(request.requestedAtUtc))}</p>
+                      </article>
+                    ))}
+                  </div>
+                )}
+              </section>
+
+              <section className="rounded-sm border border-site-border bg-white p-5 shadow-sm sm:p-6" aria-labelledby="low-stock-heading">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <h2 id="low-stock-heading" className="text-xl font-bold text-site-heading">Készletfigyelő</h2>
+                  <Link to={ROUTES.adminInventory} className="text-sm font-semibold text-site-green-dark underline-offset-4 hover:underline">Raktárkészlet</Link>
+                </div>
+                {dashboard.lowStockProducts.length === 0 ? <p className="mt-5 rounded-sm bg-site-surface-soft p-4 text-sm text-site-muted">Nincs alacsony készletű termék.</p> : (
+                  <div className="mt-5 space-y-3">
+                    {dashboard.lowStockProducts.map((product) => (
+                      <article key={product.id} className="flex items-center justify-between gap-4 rounded-sm border border-site-border p-4">
+                        <div className="min-w-0"><p className="truncate font-semibold text-site-heading">{product.name}</p><p className="mt-1 text-xs text-site-muted">{product.available ? "Elérhető" : "Nem elérhető"}</p></div>
+                        <span className={`shrink-0 text-lg font-bold ${product.stockQuantity === 0 ? "text-site-danger" : "text-site-heading"}`}>{product.stockQuantity} db</span>
+                      </article>
+                    ))}
+                  </div>
+                )}
+              </section>
+            </div>
           </div>
         </>
       )}
