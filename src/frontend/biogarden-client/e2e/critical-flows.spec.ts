@@ -238,7 +238,7 @@ test("customer can view account order history and details", async ({ page }) => 
   await expect(page).toHaveURL(new RegExp(`/fiokom/rendeleseim/${successfulOrder.id}$`));
   await expect(page.getByRole("heading", { name: successfulOrder.orderNumber })).toBeVisible();
   await expect(page.getByText(/papiralapu nyugtat|papíralapú nyugtát/)).toBeVisible();
-  await expect(page.getByText(successfulOrder.items[0].productName)).toBeVisible();
+  await expect(page.getByRole("cell", { name: successfulOrder.items[0].productName })).toBeVisible();
 });
 
 test("admin can review an order and update its status", async ({ page }) => {
