@@ -5,6 +5,12 @@ import Seo from "../../shared/seo/Seo";
 import { getErrorMessage } from "../../shared/utils/errorHandling";
 
 type WithdrawalField = "orderNumber" | "customerEmail" | "reason";
+type WithdrawalFieldErrors = Partial<Record<WithdrawalField, string>>;
+
+const fieldClassName =
+  "mt-2 block w-full rounded-sm border border-site-border bg-white px-3 py-2.5 text-site-heading outline-none transition focus:border-site-green focus:ring-2 focus:ring-site-green/20";
+const invalidFieldClassName =
+  "mt-2 block w-full rounded-sm border border-site-danger bg-site-danger-soft px-3 py-2.5 text-site-heading outline-none transition focus:border-site-danger focus:ring-2 focus:ring-site-danger/20";
 
 export default function OrderWithdrawalRequestPage() {
   const [orderNumber, setOrderNumber] = useState("");
@@ -12,7 +18,7 @@ export default function OrderWithdrawalRequestPage() {
   const [reason, setReason] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
-  const [invalidField, setInvalidField] = useState<WithdrawalField | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<WithdrawalFieldErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const orderNumberInputRef = useRef<HTMLInputElement | null>(null);
   const emailInputRef = useRef<HTMLInputElement | null>(null);
@@ -20,8 +26,8 @@ export default function OrderWithdrawalRequestPage() {
   const { track } = useAnalytics();
 
   function markInvalid(field: WithdrawalField, messageText: string) {
-    setInvalidField(field);
-    setError(messageText);
+    setFieldErrors({ [field]: messageText });
+    setError("");
     const inputRefs: Record<WithdrawalField, HTMLInputElement | HTMLTextAreaElement | null> = {
       orderNumber: orderNumberInputRef.current,
       customerEmail: emailInputRef.current,
@@ -30,11 +36,40 @@ export default function OrderWithdrawalRequestPage() {
     inputRefs[field]?.focus();
   }
 
+  function clearFieldError(field: WithdrawalField) {
+    setFieldErrors((currentErrors) => {
+      if (!currentErrors[field]) return currentErrors;
+      const nextErrors = { ...currentErrors };
+      delete nextErrors[field];
+      return nextErrors;
+    });
+  }
+
+  function getErrorId(field: WithdrawalField) {
+    return `withdrawal-${field}-error`;
+  }
+
+  function getFieldClassName(field: WithdrawalField) {
+    return fieldErrors[field] ? invalidFieldClassName : fieldClassName;
+  }
+
+  function renderFieldError(field: WithdrawalField) {
+    const fieldError = fieldErrors[field];
+
+    if (!fieldError) return null;
+
+    return (
+      <p id={getErrorId(field)} className="mt-1.5 text-sm text-site-danger" role="alert">
+        {fieldError}
+      </p>
+    );
+  }
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setMessage("");
     setError("");
-    setInvalidField(null);
+    setFieldErrors({});
 
     if (!orderNumber.trim()) {
       markInvalid("orderNumber", "Add meg a rendelés azonosítóját.");
@@ -60,12 +95,19 @@ export default function OrderWithdrawalRequestPage() {
       });
       track("withdrawal_request_submitted", { source: "public_form" });
       setReason("");
+      setFieldErrors({});
       setMessage("A kérésedet rögzítettük, és emailben is visszaigazoltuk.");
     } catch (submitError) {
-      setError(getErrorMessage(
+      const errorMessage = getErrorMessage(
         submitError,
         "A kérés elküldése nem sikerült. Kérjük, ellenőrizd az adatokat és próbáld újra.",
-      ));
+      );
+      setFieldErrors({
+        orderNumber: errorMessage,
+        customerEmail: errorMessage,
+      });
+      setError("");
+      orderNumberInputRef.current?.focus();
     } finally {
       setIsSubmitting(false);
     }
@@ -113,13 +155,15 @@ export default function OrderWithdrawalRequestPage() {
               value={orderNumber}
               onChange={(event) => {
                 setOrderNumber(event.target.value);
-                if (invalidField === "orderNumber") setInvalidField(null);
+                clearFieldError("orderNumber");
               }}
               placeholder="BK-..."
-              className="mt-2 block w-full rounded-sm border border-site-border bg-white px-3 py-2.5 text-site-heading outline-none transition focus:border-site-green focus:ring-2 focus:ring-site-green/20"
-              aria-invalid={invalidField === "orderNumber"}
+              className={getFieldClassName("orderNumber")}
+              aria-invalid={Boolean(fieldErrors.orderNumber)}
+              aria-describedby={fieldErrors.orderNumber ? getErrorId("orderNumber") : undefined}
               required
             />
+            {renderFieldError("orderNumber")}
           </div>
 
           <div>
@@ -134,12 +178,14 @@ export default function OrderWithdrawalRequestPage() {
               value={customerEmail}
               onChange={(event) => {
                 setCustomerEmail(event.target.value);
-                if (invalidField === "customerEmail") setInvalidField(null);
+                clearFieldError("customerEmail");
               }}
-              className="mt-2 block w-full rounded-sm border border-site-border bg-white px-3 py-2.5 text-site-heading outline-none transition focus:border-site-green focus:ring-2 focus:ring-site-green/20"
-              aria-invalid={invalidField === "customerEmail"}
+              className={getFieldClassName("customerEmail")}
+              aria-invalid={Boolean(fieldErrors.customerEmail)}
+              aria-describedby={fieldErrors.customerEmail ? getErrorId("customerEmail") : undefined}
               required
             />
+            {renderFieldError("customerEmail")}
           </div>
 
           <div>
@@ -152,14 +198,16 @@ export default function OrderWithdrawalRequestPage() {
               value={reason}
               onChange={(event) => {
                 setReason(event.target.value);
-                if (invalidField === "reason") setInvalidField(null);
+                clearFieldError("reason");
               }}
               maxLength={1000}
               rows={5}
-              className="mt-2 block w-full rounded-sm border border-site-border bg-white px-3 py-2.5 text-site-heading outline-none transition focus:border-site-green focus:ring-2 focus:ring-site-green/20"
-              aria-invalid={invalidField === "reason"}
+              className={getFieldClassName("reason")}
+              aria-invalid={Boolean(fieldErrors.reason)}
+              aria-describedby={fieldErrors.reason ? getErrorId("reason") : undefined}
               required
             />
+            {renderFieldError("reason")}
             <p className="mt-1 text-xs text-site-muted">Legfeljebb 1000 karakter.</p>
           </div>
 

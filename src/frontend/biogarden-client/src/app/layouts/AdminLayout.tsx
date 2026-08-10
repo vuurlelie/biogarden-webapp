@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { Link, NavLink, Outlet, useNavigate } from "react-router";
 import { clearAuthSession, getAuthSession } from "../../features/auth/utils/authStorage";
 import { ROUTES } from "../../shared/constants/routes";
@@ -120,6 +120,19 @@ export default function AdminLayout() {
   const navigate = useNavigate();
   const auth = getAuthSession();
 
+  useEffect(() => {
+    if (!mobileMenuOpen) {
+      return;
+    }
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [mobileMenuOpen]);
+
   function logout() {
     clearAuthSession();
     navigate(ROUTES.login, { replace: true });
@@ -178,7 +191,7 @@ export default function AdminLayout() {
           </div>
 
           {mobileMenuOpen && (
-            <div id="admin-mobile-menu" className="max-h-[calc(100vh-4rem)] overflow-y-auto bg-site-nav px-4 py-4 text-white sm:px-6">
+            <div id="admin-mobile-menu" className="max-h-[calc(100dvh-4rem)] overflow-y-auto overscroll-contain bg-site-nav px-4 py-4 text-white sm:px-6">
               <AdminNavigation onNavigate={() => setMobileMenuOpen(false)} />
               <div className="mt-4 grid grid-cols-2 gap-3 border-t border-white/15 pt-4">
                 <Link

@@ -12,6 +12,12 @@ type LoginLocationState = {
 };
 
 type LoginField = "email" | "password";
+type LoginFieldErrors = Partial<Record<LoginField, string>>;
+
+const inputClassName =
+  "mt-2 block w-full rounded-sm border border-site-border bg-white px-3 py-2.5 text-site-heading outline-none transition focus:border-site-green focus:ring-2 focus:ring-site-green/20";
+const invalidInputClassName =
+  "mt-2 block w-full rounded-sm border border-site-danger bg-site-danger-soft px-3 py-2.5 text-site-heading outline-none transition focus:border-site-danger focus:ring-2 focus:ring-site-danger/20";
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -26,7 +32,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [infoMessage, setInfoMessage] = useState("");
-  const [invalidField, setInvalidField] = useState<LoginField | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<LoginFieldErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isResendingConfirmation, setIsResendingConfirmation] = useState(false);
   const [showResendConfirmation, setShowResendConfirmation] = useState(registrationRequiresConfirmation);
@@ -34,8 +40,8 @@ export default function LoginPage() {
   const passwordInputRef = useRef<HTMLInputElement | null>(null);
 
   function markInvalid(field: LoginField, message: string) {
-    setInvalidField(field);
-    setError(message);
+    setFieldErrors({ [field]: message });
+    setError("");
     const inputRefs: Record<LoginField, HTMLInputElement | null> = {
       email: emailInputRef.current,
       password: passwordInputRef.current,
@@ -43,11 +49,40 @@ export default function LoginPage() {
     inputRefs[field]?.focus();
   }
 
+  function clearFieldError(field: LoginField) {
+    setFieldErrors((currentErrors) => {
+      if (!currentErrors[field]) return currentErrors;
+      const nextErrors = { ...currentErrors };
+      delete nextErrors[field];
+      return nextErrors;
+    });
+  }
+
+  function getErrorId(field: LoginField) {
+    return `login-${field}-error`;
+  }
+
+  function getInputClassName(field: LoginField) {
+    return fieldErrors[field] ? invalidInputClassName : inputClassName;
+  }
+
+  function renderFieldError(field: LoginField) {
+    const fieldError = fieldErrors[field];
+
+    if (!fieldError) return null;
+
+    return (
+      <p id={getErrorId(field)} className="mt-1.5 text-sm text-site-danger" role="alert">
+        {fieldError}
+      </p>
+    );
+  }
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
     setInfoMessage("");
-    setInvalidField(null);
+    setFieldErrors({});
 
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
       markInvalid("email", "Adj meg egy érvényes email címet.");
@@ -81,7 +116,7 @@ export default function LoginPage() {
   async function handleResendConfirmation() {
     setError("");
     setInfoMessage("");
-    setInvalidField(null);
+    setFieldErrors({});
 
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
       markInvalid("email", "Add meg az email címedet az új megerősítő email küldéséhez.");
@@ -149,12 +184,14 @@ export default function LoginPage() {
               value={email}
               onChange={(event) => {
                 setEmail(event.target.value);
-                if (invalidField === "email") setInvalidField(null);
+                clearFieldError("email");
               }}
-              className="mt-2 block w-full rounded-sm border border-site-border bg-white px-3 py-2.5 text-site-heading outline-none transition focus:border-site-green focus:ring-2 focus:ring-site-green/20"
-              aria-invalid={invalidField === "email"}
+              className={getInputClassName("email")}
+              aria-invalid={Boolean(fieldErrors.email)}
+              aria-describedby={fieldErrors.email ? getErrorId("email") : undefined}
               required
             />
+            {renderFieldError("email")}
           </div>
 
           <div>
@@ -174,12 +211,14 @@ export default function LoginPage() {
               value={password}
               onChange={(event) => {
                 setPassword(event.target.value);
-                if (invalidField === "password") setInvalidField(null);
+                clearFieldError("password");
               }}
-              className="mt-2 block w-full rounded-sm border border-site-border bg-white px-3 py-2.5 text-site-heading outline-none transition focus:border-site-green focus:ring-2 focus:ring-site-green/20"
-              aria-invalid={invalidField === "password"}
+              className={getInputClassName("password")}
+              aria-invalid={Boolean(fieldErrors.password)}
+              aria-describedby={fieldErrors.password ? getErrorId("password") : undefined}
               required
             />
+            {renderFieldError("password")}
           </div>
 
           <button

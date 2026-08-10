@@ -8,7 +8,7 @@ export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
-  const [emailInvalid, setEmailInvalid] = useState(false);
+  const [emailError, setEmailError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const emailInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -16,11 +16,10 @@ export default function ForgotPasswordPage() {
     event.preventDefault();
     setMessage("");
     setError("");
-    setEmailInvalid(false);
+    setEmailError("");
 
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
-      setEmailInvalid(true);
-      setError("Adj meg egy érvényes email címet.");
+      setEmailError("Adj meg egy érvényes email címet.");
       emailInputRef.current?.focus();
       return;
     }
@@ -76,12 +75,22 @@ export default function ForgotPasswordPage() {
               value={email}
               onChange={(event) => {
                 setEmail(event.target.value);
-                if (emailInvalid) setEmailInvalid(false);
+                if (emailError) setEmailError("");
               }}
-              className="mt-2 block w-full rounded-sm border border-site-border bg-white px-3 py-2.5 text-site-heading outline-none transition focus:border-site-green focus:ring-2 focus:ring-site-green/20"
-              aria-invalid={emailInvalid}
+              className={`mt-2 block w-full rounded-sm border px-3 py-2.5 text-site-heading outline-none transition ${
+                emailError
+                  ? "border-site-danger bg-site-danger-soft focus:border-site-danger focus:ring-2 focus:ring-site-danger/20"
+                  : "border-site-border bg-white focus:border-site-green focus:ring-2 focus:ring-site-green/20"
+              }`}
+              aria-invalid={Boolean(emailError)}
+              aria-describedby={emailError ? "forgot-password-email-error" : undefined}
               required
             />
+            {emailError && (
+              <p id="forgot-password-email-error" className="mt-1.5 text-sm text-site-danger" role="alert">
+                {emailError}
+              </p>
+            )}
           </div>
 
           <button

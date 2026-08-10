@@ -30,16 +30,20 @@ function InventoryCard({
   const [available, setAvailable] = useState(item.available);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [quantityError, setQuantityError] = useState<string | null>(null);
+  const quantityErrorId = `inventory-${item.productId}-quantity-error`;
 
   async function save() {
     const value = Number(quantity);
 
     if (!Number.isInteger(value) || value < item.reservedQuantity) {
-      setError(`A készlet legalább a lefoglalt ${item.reservedQuantity} darab legyen.`);
+      setQuantityError(`A készlet legalább a lefoglalt ${item.reservedQuantity} darab legyen.`);
+      setError(null);
       return;
     }
 
     setSaving(true);
+    setQuantityError(null);
     setError(null);
 
     try {
@@ -57,6 +61,7 @@ function InventoryCard({
     setQuantity(String(item.stockQuantity));
     setAvailable(item.available);
     setError(null);
+    setQuantityError(null);
     setEditing(false);
   }
 
@@ -122,9 +127,19 @@ function InventoryCard({
                   onChange={(event) => {
                     setQuantity(event.target.value);
                     if (Number(event.target.value) === 0) setAvailable(false);
+                    if (quantityError) setQuantityError(null);
                   }}
-                  className="mt-1 w-full rounded-sm border border-site-border px-3 py-2"
+                  aria-invalid={Boolean(quantityError)}
+                  aria-describedby={quantityError ? quantityErrorId : undefined}
+                  className={`mt-1 w-full rounded-sm border px-3 py-2 ${
+                    quantityError ? "border-site-danger bg-white" : "border-site-border"
+                  }`}
                 />
+                {quantityError && (
+                  <span id={quantityErrorId} role="alert" className="mt-1 block text-xs text-site-danger">
+                    {quantityError}
+                  </span>
+                )}
               </label>
 
               <label className="flex items-center gap-2 text-sm font-semibold">
