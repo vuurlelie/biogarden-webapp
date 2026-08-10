@@ -207,7 +207,7 @@ public sealed class EmailTemplateService : IEmailTemplateService
             bodyLines: bodyLines,
             actionText: "Admin felület megnyitása",
             actionUrl: adminUrl,
-            note: "Ha a gomb nem működik, használd a fenti admin linket.");
+            note: "Ellenőrizd az átvételi módot, a fizetési módot és a kiállítandó bizonylat típusát.");
 
         var htmlBody = BuildInternalHtmlBody(
             title: "Új rendelés érkezett",
@@ -220,7 +220,7 @@ public sealed class EmailTemplateService : IEmailTemplateService
             ],
             actionText: "Admin felület megnyitása",
             actionUrl: adminUrl,
-            note: "Ha a gomb nem működik, használd a fenti admin linket.",
+            note: "Ellenőrizd az átvételi módot, a fizetési módot és a kiállítandó bizonylat típusát.",
             extraHtmlContent: BuildOrderBusinessHtmlSummary(order));
 
         return CreateMessage(
@@ -498,6 +498,10 @@ public sealed class EmailTemplateService : IEmailTemplateService
               <meta charset="utf-8">
               <meta name="viewport" content="width=device-width,initial-scale=1">
               <title>{{HtmlEncode(title)}}</title>
+              <style>
+                a[x-apple-data-detectors] { color: inherit !important; text-decoration: none !important; }
+                .email-data-text { color: #263124 !important; text-decoration: none !important; }
+              </style>
             </head>
             <body style="margin:0;padding:0;background:#f3f5ef;font-family:Arial,Helvetica,sans-serif;">
               <span style="display:none!important;visibility:hidden;opacity:0;color:transparent;height:0;width:0;overflow:hidden;">{{HtmlEncode(preheader)}}</span>
@@ -523,8 +527,6 @@ public sealed class EmailTemplateService : IEmailTemplateService
                               </td>
                             </tr>
                           </table>
-                          <p style="margin:0 0 16px;color:#4f584b;font-size:14px;line-height:1.65;">Ha a gomb nem működik, másold be ezt a linket a böngésződbe:</p>
-                          <p style="margin:0 0 22px;word-break:break-all;color:#557018;font-size:13px;line-height:1.6;">{{HtmlEncode(actionUrl)}}</p>
                           <p style="margin:0;color:#65705f;font-size:14px;line-height:1.65;">{{HtmlEncode(note)}}</p>
                         </td>
                       </tr>
@@ -590,7 +592,7 @@ public sealed class EmailTemplateService : IEmailTemplateService
             }
             : new[]
             {
-                ("Cím", FormatAddress(
+                ("Szállítási cím", FormatAddress(
                     order.DeliveryPostalCode,
                     order.DeliveryCity,
                     order.DeliveryStreet,
@@ -776,8 +778,8 @@ public sealed class EmailTemplateService : IEmailTemplateService
             rows.Select(row =>
                 $"""
                 <tr>
-                  <td style="width:38%;padding:10px 12px;border-bottom:1px solid #d9dfd1;color:#65705f;font-size:14px;line-height:1.45;font-weight:700;vertical-align:top;">{HtmlEncode(row.Label)}</td>
-                  <td style="padding:10px 12px;border-bottom:1px solid #d9dfd1;color:#263124;font-size:14px;line-height:1.45;vertical-align:top;">{HtmlEncode(row.Value)}</td>
+                  <td style="width:38%;padding:10px 12px;border-bottom:1px solid #d9dfd1;color:#65705f;font-size:14px;line-height:1.45;font-weight:700;vertical-align:top;"><span class="email-data-text" style="color:#65705f;text-decoration:none;">{HtmlEncode(row.Label)}</span></td>
+                  <td style="padding:10px 12px;border-bottom:1px solid #d9dfd1;color:#263124;font-size:14px;line-height:1.45;vertical-align:top;"><span class="email-data-text" style="color:#263124;text-decoration:none;">{HtmlEncode(row.Value)}</span></td>
                 </tr>
                 """));
 
@@ -820,8 +822,14 @@ public sealed class EmailTemplateService : IEmailTemplateService
               </tr>
               {itemRows}
               <tr>
-                <td colspan="3" align="right" style="padding:12px;border-top:1px solid #d9dfd1;color:#263124;font-size:15px;line-height:1.4;font-weight:700;">Végösszeg</td>
-                <td align="right" style="padding:12px;border-top:1px solid #d9dfd1;color:#263124;font-size:15px;line-height:1.4;font-weight:700;">{HtmlEncode(FormatPrice(order.TotalPrice))}</td>
+                <td colspan="4" style="padding:0;border-top:1px solid #d9dfd1;">
+                  <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+                    <tr>
+                      <td align="left" style="padding:12px;color:#263124;font-size:15px;line-height:1.4;font-weight:700;">Végösszeg</td>
+                      <td align="right" style="padding:12px;color:#263124;font-size:15px;line-height:1.4;font-weight:700;white-space:nowrap;min-width:120px;">{HtmlEncode(FormatPrice(order.TotalPrice))}</td>
+                    </tr>
+                  </table>
+                </td>
               </tr>
             </table>
             """;
@@ -849,6 +857,10 @@ public sealed class EmailTemplateService : IEmailTemplateService
               <meta charset="utf-8">
               <meta name="viewport" content="width=device-width,initial-scale=1">
               <title>{{HtmlEncode(title)}}</title>
+              <style>
+                a[x-apple-data-detectors] { color: inherit !important; text-decoration: none !important; }
+                .email-data-text { color: #263124 !important; text-decoration: none !important; }
+              </style>
             </head>
             <body style="margin:0;padding:0;background:#f3f5ef;font-family:Arial,Helvetica,sans-serif;">
               <span style="display:none!important;visibility:hidden;opacity:0;color:transparent;height:0;width:0;overflow:hidden;">{{HtmlEncode(preheader)}}</span>
@@ -868,8 +880,6 @@ public sealed class EmailTemplateService : IEmailTemplateService
                               </td>
                             </tr>
                           </table>
-                          <p style="margin:0 0 16px;color:#4f584b;font-size:14px;line-height:1.65;">Ha a gomb nem működik, másold be ezt a linket a böngésződbe:</p>
-                          <p style="margin:0 0 22px;word-break:break-all;color:#557018;font-size:13px;line-height:1.6;">{{HtmlEncode(actionUrl)}}</p>
                           <p style="margin:0;color:#65705f;font-size:14px;line-height:1.65;">{{HtmlEncode(note)}}</p>
                         </td>
                       </tr>

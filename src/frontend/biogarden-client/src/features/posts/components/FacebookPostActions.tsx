@@ -4,8 +4,10 @@ type FacebookPostActionsProps = {
   compact?: boolean;
 };
 
+const SITE_URL = (import.meta.env.VITE_SITE_URL as string | undefined)?.replace(/\/$/, "");
+
 function createPostUrl(postPath: string) {
-  return new URL(postPath, window.location.origin).toString();
+  return new URL(postPath, SITE_URL ?? window.location.origin).toString();
 }
 
 function createShareUrl(postUrl: string) {

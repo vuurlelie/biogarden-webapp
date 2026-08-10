@@ -2,6 +2,7 @@
 
   <PropertyGroup>
     <UserSecretsId>biogarden-webapi-local-development</UserSecretsId>
+    <AspNetCoreHostingModel>OutOfProcess</AspNetCoreHostingModel>
   </PropertyGroup>
 
   <ItemGroup>
@@ -18,6 +19,11 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Biogarden.BusinessLogic\Biogarden.BusinessLogic.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Remove="artifacts\**;email-previews\**;logs\**" />
+    <None Remove="artifacts\**;email-previews\**;logs\**" />
   </ItemGroup>
 
 </Project>

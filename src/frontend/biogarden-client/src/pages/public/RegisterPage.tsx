@@ -231,11 +231,21 @@ export default function RegisterPage() {
             />
             <span>
               Elolvastam és elfogadom az{" "}
-              <Link to={ROUTES.terms} className="font-semibold text-site-green-dark hover:underline">
+              <Link
+                to={ROUTES.terms}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-semibold text-site-green-dark hover:underline"
+              >
                 Általános Szerződési Feltételeket
               </Link>{" "}
               és az{" "}
-              <Link to={ROUTES.privacyPolicy} className="font-semibold text-site-green-dark hover:underline">
+              <Link
+                to={ROUTES.privacyPolicy}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-semibold text-site-green-dark hover:underline"
+              >
                 Adatkezelési tájékoztatót
               </Link>.
             </span>

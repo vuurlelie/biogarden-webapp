@@ -14,7 +14,7 @@ import ConsentBanner from "../../features/analytics/components/ConsentBanner";
 
 const accountLinkClass = ({ isActive }: { isActive: boolean }) =>
   [
-    "whitespace-nowrap rounded-sm px-4 py-3 text-sm font-semibold transition-colors",
+    "min-w-0 rounded-sm px-4 py-3 text-left text-sm font-semibold transition-colors lg:whitespace-nowrap",
     isActive
       ? "bg-site-green-dark text-white"
       : "text-site-nav hover:bg-site-surface-soft hover:text-site-green-dark",
@@ -22,7 +22,7 @@ const accountLinkClass = ({ isActive }: { isActive: boolean }) =>
 
 const accountDeleteLinkClass = ({ isActive }: { isActive: boolean }) =>
   [
-    "whitespace-nowrap rounded-sm px-4 py-3 text-sm font-semibold transition-colors",
+    "min-w-0 rounded-sm px-4 py-3 text-left text-sm font-semibold transition-colors lg:whitespace-nowrap",
     isActive
       ? "bg-site-danger text-white"
       : "text-site-danger hover:bg-site-danger-soft",
@@ -50,7 +50,7 @@ export default function AccountLayout() {
 
       <main className="relative z-20 w-full flex-1 shadow-[0_12px_30px_rgba(48,55,43,0.14)]">
         <div className="mx-auto grid w-full max-w-7xl gap-6 px-4 py-6 sm:px-6 lg:grid-cols-[240px_minmax(0,1fr)] lg:px-8 lg:py-10">
-        <aside className="self-start rounded-sm border border-site-border bg-white p-3 shadow-md lg:sticky lg:top-20">
+        <aside className="min-w-0 self-start rounded-sm border border-site-border bg-white p-3 shadow-md lg:sticky lg:top-20">
           <div className="border-b border-site-border px-3 pb-4 pt-2">
             <p className="text-xs font-bold uppercase tracking-[0.15em] text-site-green-dark">
               Fiókom
@@ -60,7 +60,7 @@ export default function AccountLayout() {
             </p>
           </div>
 
-          <nav className="mt-3 flex gap-2 overflow-x-auto lg:flex-col" aria-label="Fiók navigáció">
+          <nav className="mt-3 flex min-w-0 flex-col gap-2" aria-label="Fiók navigáció">
             <NavLink to={ROUTES.account} end className={accountLinkClass}>
               Áttekintés
             </NavLink>

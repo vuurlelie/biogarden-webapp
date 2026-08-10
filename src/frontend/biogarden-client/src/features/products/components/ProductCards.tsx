@@ -52,7 +52,7 @@ export default function ProductCards({ products }: ProductCardsProps) {
               <img
                 src={getProductImageUrl(product.image)}
                 alt={product.name}
-                className="h-64 w-full rounded-sm object-cover transition duration-300 group-hover:scale-[1.02]"
+                className="aspect-square w-full rounded-sm object-cover transition duration-300 group-hover:scale-[1.02]"
                 width={600}
                 height={600}
                 loading="lazy"

@@ -14,10 +14,12 @@ type CheckoutOrderSummaryProps = {
   reviewButtonRef: RefObject<HTMLButtonElement | null>;
   step: CheckoutStep;
   submitting: boolean;
+  className?: string;
 };
 
 export function CheckoutOrderSummary({
   cart,
+  className = "",
   deliveryFee,
   grandTotal,
   method,
@@ -28,7 +30,7 @@ export function CheckoutOrderSummary({
   submitting,
 }: CheckoutOrderSummaryProps) {
   return (
-    <aside className="rounded-sm bg-site-surface-soft p-5 shadow-md lg:sticky lg:top-28">
+    <aside className={`rounded-sm bg-site-surface-soft p-5 shadow-md lg:sticky lg:top-28 ${className}`}>
       <h2 className="text-xl font-bold">Rendelés összesítése</h2>
       <ul className="mt-4 divide-y divide-site-border border-b border-site-border pb-4">
         {cart.items.map((item) => (

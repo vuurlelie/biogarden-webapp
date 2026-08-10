@@ -1,3 +1,4 @@
+using System.Net;
 using Biogarden.BusinessLogic.Options;
 using Biogarden.BusinessLogic.Services;
 using Biogarden.BusinessLogic.DTOs.Contact;
@@ -195,6 +196,9 @@ public sealed class EmailTemplateServiceTests
         Assert.Contains("<!doctype html>", message.HtmlBody);
         Assert.Contains("BK-TEST-0001", message.HtmlBody);
         Assert.Contains("<br>", message.HtmlBody);
+        Assert.Contains(">https://bakonykincse.hu</a>", message.HtmlBody);
+        Assert.DoesNotContain("Ha a gomb nem", message.HtmlBody);
+        Assert.DoesNotContain("word-break:break-all", message.HtmlBody);
     }
 
     [Fact]
@@ -217,6 +221,8 @@ public sealed class EmailTemplateServiceTests
             "- Cím: 8431 Bakonyszentlászló Jókai utca 22 (emelet: 1, ajtó: 3)",
             message.PlainTextBody);
         Assert.DoesNotContain("Átvételi adatok:", message.PlainTextBody);
+        Assert.Contains(WebUtility.HtmlEncode("Szállítási cím"), message.HtmlBody);
+        Assert.Contains("email-data-text", message.HtmlBody);
     }
 
     [Fact]
@@ -345,6 +351,9 @@ public sealed class EmailTemplateServiceTests
         Assert.Contains("Fizetés állapota", message.PlainTextBody);
         Assert.Contains("Átvétel módja", message.PlainTextBody);
         Assert.Contains("mailto:info@bakonykincse.hu", message.HtmlBody);
+        Assert.Contains(">https://bakonykincse.hu</a>", message.HtmlBody);
+        Assert.DoesNotContain("Ha a gomb nem", message.HtmlBody);
+        Assert.DoesNotContain("word-break:break-all", message.HtmlBody);
     }
 
     [Fact]

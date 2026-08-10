@@ -50,6 +50,19 @@ export default function Navbar({
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
+  useEffect(() => {
+    if (!mobileOpen) {
+      return;
+    }
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [mobileOpen]);
+
   const closeMobile = () => {
     setMobileOpen(false);
     setMobileAccountOpen(false);
@@ -287,7 +300,7 @@ className="inline-flex items-center text-[0.95rem] lg:text-base uppercase tracki
         <div
           id="mobile-menu"
           className={[
-            "border-t border-site-border lg:hidden",
+            "max-h-[calc(100dvh-5rem)] overflow-y-auto overscroll-contain border-t border-site-border lg:hidden",
             mobileOpen ? "block" : "hidden",
             isScrolled ? "bg-site-surface/95" : "bg-white",
           ].join(" ")}

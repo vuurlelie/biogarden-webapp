@@ -171,3 +171,12 @@ secrets.json
 secret.*
 config/local.json
 /scripts/PostImport
+
+# Visual Studio publish profiles can contain deployment credentials.
+**/Properties/PublishProfiles/
+
+# Local deployment/tooling files generated while publishing the WebApi project.
+src/backend/Biogarden.WebApi/.config/
+
+# Local frontend deployment packages.
+src/frontend/biogarden-client/*.zip

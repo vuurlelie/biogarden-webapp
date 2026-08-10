@@ -157,7 +157,12 @@ export function CheckoutReviewModal({
                 />
                 <span>
                   Elolvastam és elfogadom az{" "}
-                  <Link to={ROUTES.terms} className="font-semibold text-site-green-dark underline">
+                  <Link
+                    to={ROUTES.terms}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="font-semibold text-site-green-dark underline"
+                  >
                     Általános Szerződési Feltételeket
                   </Link>
                   . <span className="text-site-danger">*</span>
@@ -181,7 +186,12 @@ export function CheckoutReviewModal({
                 />
                 <span>
                   Elolvastam és elfogadom az{" "}
-                  <Link to={ROUTES.privacyPolicy} className="font-semibold text-site-green-dark underline">
+                  <Link
+                    to={ROUTES.privacyPolicy}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="font-semibold text-site-green-dark underline"
+                  >
                     Adatkezelési Tájékoztatót
                   </Link>
                   . <span className="text-site-danger">*</span>

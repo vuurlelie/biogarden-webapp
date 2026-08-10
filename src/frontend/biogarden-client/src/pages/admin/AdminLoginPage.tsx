@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Link, useLocation, useNavigate } from "react-router";
 import { login } from "../../features/auth/api/authApi";
 import { getAuthSession, saveAuthSession } from "../../features/auth/utils/authStorage";
@@ -7,6 +7,14 @@ import { ROUTES } from "../../shared/constants/routes";
 type AdminLoginLocationState = {
   from?: string;
 };
+
+type AdminLoginField = "email" | "password";
+type AdminLoginFieldErrors = Partial<Record<AdminLoginField, string>>;
+
+const inputClassName =
+  "mt-2 block w-full rounded-sm border border-site-border bg-white px-3 py-2.5 text-site-heading outline-none transition focus:border-site-green focus:ring-2 focus:ring-site-green/20";
+const invalidInputClassName =
+  "mt-2 block w-full rounded-sm border border-site-danger bg-site-danger-soft px-3 py-2.5 text-site-heading outline-none transition focus:border-site-danger focus:ring-2 focus:ring-site-danger/20";
 
 export default function AdminLoginPage() {
   const navigate = useNavigate();
@@ -17,7 +25,10 @@ export default function AdminLoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState(existingAuth && !existingIsAdmin ? "A jelenlegi fiókod nem rendelkezik admin jogosultsággal." : "");
+  const [fieldErrors, setFieldErrors] = useState<AdminLoginFieldErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const emailInputRef = useRef<HTMLInputElement | null>(null);
+  const passwordInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     if (existingIsAdmin) {
@@ -25,12 +36,49 @@ export default function AdminLoginPage() {
     }
   }, [existingIsAdmin, from, navigate]);
 
+  function clearFieldError(field: AdminLoginField) {
+    setFieldErrors((currentErrors) => {
+      if (!currentErrors[field]) return currentErrors;
+      const nextErrors = { ...currentErrors };
+      delete nextErrors[field];
+      return nextErrors;
+    });
+  }
+
+  function getErrorId(field: AdminLoginField) {
+    return `admin-login-${field}-error`;
+  }
+
+  function getInputClassName(field: AdminLoginField) {
+    return fieldErrors[field] ? invalidInputClassName : inputClassName;
+  }
+
+  function renderFieldError(field: AdminLoginField) {
+    const fieldError = fieldErrors[field];
+
+    if (!fieldError) return null;
+
+    return (
+      <p id={getErrorId(field)} className="mt-1.5 text-sm text-site-danger" role="alert">
+        {fieldError}
+      </p>
+    );
+  }
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
+    setFieldErrors({});
 
-    if (!email.trim() || !password) {
-      setError("Az email cím és a jelszó megadása kötelező.");
+    if (!email.trim()) {
+      setFieldErrors({ email: "Az email cím megadása kötelező." });
+      emailInputRef.current?.focus();
+      return;
+    }
+
+    if (!password) {
+      setFieldErrors({ password: "A jelszó megadása kötelező." });
+      passwordInputRef.current?.focus();
       return;
     }
 
@@ -82,14 +130,21 @@ export default function AdminLoginPage() {
               Email cím <span className="text-site-danger">*</span>
             </label>
             <input
+              ref={emailInputRef}
               id="admin-login-email"
               type="email"
               autoComplete="email"
               value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              className="mt-2 block w-full rounded-sm border border-site-border bg-white px-3 py-2.5 text-site-heading outline-none transition focus:border-site-green focus:ring-2 focus:ring-site-green/20"
+              onChange={(event) => {
+                setEmail(event.target.value);
+                clearFieldError("email");
+              }}
+              className={getInputClassName("email")}
+              aria-invalid={Boolean(fieldErrors.email)}
+              aria-describedby={fieldErrors.email ? getErrorId("email") : undefined}
               required
             />
+            {renderFieldError("email")}
           </div>
 
           <div>
@@ -97,14 +152,21 @@ export default function AdminLoginPage() {
               Jelszó <span className="text-site-danger">*</span>
             </label>
             <input
+              ref={passwordInputRef}
               id="admin-login-password"
               type="password"
               autoComplete="current-password"
               value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              className="mt-2 block w-full rounded-sm border border-site-border bg-white px-3 py-2.5 text-site-heading outline-none transition focus:border-site-green focus:ring-2 focus:ring-site-green/20"
+              onChange={(event) => {
+                setPassword(event.target.value);
+                clearFieldError("password");
+              }}
+              className={getInputClassName("password")}
+              aria-invalid={Boolean(fieldErrors.password)}
+              aria-describedby={fieldErrors.password ? getErrorId("password") : undefined}
               required
             />
+            {renderFieldError("password")}
           </div>
 
           <button

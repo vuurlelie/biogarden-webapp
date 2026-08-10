@@ -71,11 +71,39 @@ public sealed class ExceptionHandlingMiddleware
             TraceId = context.TraceIdentifier
         };
 
+        LogException(context, exception, statusCode);
+
         context.Response.ContentType = "application/json";
         context.Response.StatusCode = (int)statusCode;
 
         var json = JsonSerializer.Serialize(response);
         await context.Response.WriteAsync(json);
+    }
+
+    private void LogException(
+        HttpContext context,
+        Exception exception,
+        HttpStatusCode statusCode)
+    {
+        if (statusCode == HttpStatusCode.InternalServerError)
+        {
+            _logger.LogError(
+                exception,
+                "Unhandled API exception during {Method} {Path}. TraceId: {TraceId}",
+                context.Request.Method,
+                context.Request.Path,
+                context.TraceIdentifier);
+
+            return;
+        }
+
+        _logger.LogWarning(
+            exception,
+            "Handled API exception during {Method} {Path}. Response status: {StatusCode}. TraceId: {TraceId}",
+            context.Request.Method,
+            context.Request.Path,
+            (int)statusCode,
+            context.TraceIdentifier);
     }
 
     private async Task NotifyUnexpectedExceptionAsync(
