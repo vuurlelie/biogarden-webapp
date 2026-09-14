@@ -158,7 +158,7 @@ public sealed class OrderServiceTests
     }
 
     [Fact]
-    public async Task CreateOrderFromCartAsync_AsGuestWithConfirmedAccountEmail_LinksOrderToAccount()
+    public async Task CreateOrderFromCartAsync_AsGuestWithConfirmedAccountEmail_KeepsSessionOwnershipForRetryAndPayment()
     {
         const string sessionId = "guest-session";
         var userId = Guid.NewGuid();
@@ -177,7 +177,75 @@ public sealed class OrderServiceTests
                 RecordStatus = RecordStatus.Active
             });
 
-        var result = await _service.CreateOrderFromCartAsync(null, sessionId, new PlaceOrderDto
+        var request = new PlaceOrderDto
+        {
+            IdempotencyKey = IdempotencyKey,
+            CustomerName = "Teszt Elek",
+            CustomerEmail = "guest@example.com",
+            CustomerPhone = "+361234567",
+            AcceptedTermsVersion = LegalDocumentVersions.CurrentTermsVersion,
+            AcceptedPrivacyPolicyVersion = LegalDocumentVersions.CurrentPrivacyPolicyVersion,
+            FulfillmentMethod = FulfillmentMethod.PersonalPickup
+        };
+        var result = await _service.CreateOrderFromCartAsync(null, sessionId, request);
+
+        Assert.NotNull(savedOrder);
+        Assert.Null(result.UserId);
+        Assert.Null(savedOrder.UserId);
+        Assert.Equal("guest@example.com", result.CustomerEmail);
+
+        // Simulate reloading the persisted order with its original cart.
+        savedOrder.Cart = cart;
+        _orders.Setup(x => x.GetByIdempotencyKeyWithItemsAsync(IdempotencyKey, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(savedOrder);
+        var retriedOrder = await _service.CreateOrderFromCartAsync(null, sessionId, request);
+        Assert.Equal(result.Id, retriedOrder.Id);
+        _orders.Verify(x => x.AddAsync(It.IsAny<Order>(), It.IsAny<CancellationToken>()), Times.Once);
+
+        _orders.Setup(x => x.GetByIdWithItemsAndCartAsync(result.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(savedOrder);
+        await Assert.ThrowsAsync<KeyNotFoundException>(() =>
+            _service.CreateSumUpCheckoutAsync(null, "different-session", result.Id));
+        await Assert.ThrowsAsync<KeyNotFoundException>(() =>
+            _service.CreateSumUpCheckoutAsync(userId, null, result.Id));
+        _sumUpCheckoutService.VerifyNoOtherCalls();
+
+        _sumUpCheckoutService.Setup(x => x.CreateCheckoutAsync(
+                It.Is<OrderDto>(dto => dto.Id == result.Id && dto.UserId == null),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new SumUpCheckoutResult(
+                "checkout_123", "PENDING", "https://checkout.sumup.com/pay/checkout_123", "txn_123"));
+        _orders.Setup(x => x.Update(savedOrder));
+
+        var checkout = await _service.CreateSumUpCheckoutAsync(null, sessionId, result.Id);
+
+        Assert.Equal(result.Id, checkout.OrderId);
+        Assert.Equal("checkout_123", checkout.CheckoutId);
+        _userManager.Verify(x => x.FindByEmailAsync(It.IsAny<string>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task CreateOrderFromCartAsync_AsAuthenticatedCustomer_KeepsAuthenticatedOwnership()
+    {
+        var userId = Guid.NewGuid();
+        var product = new Product { Id = 4, Name = "Bazsalikom", Available = true, StockQuantity = 3, Price = 900 };
+        var cart = new Cart { Id = Guid.NewGuid(), UserId = userId };
+        cart.Items.Add(new CartItem { Id = Guid.NewGuid(), CartId = cart.Id, ProductId = product.Id, Product = product, Quantity = 1 });
+        Order? savedOrder = null;
+        SetupGuestOrderCreation("unused-session", cart, product, order => savedOrder = order);
+        _carts.Setup(x => x.GetActiveByUserIdAsync(userId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(cart);
+        _cartService.Setup(x => x.ValidateCartForCheckoutAsync(userId, null, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Biogarden.BusinessLogic.DTOs.Carts.CartValidationResultDto { IsValid = true });
+        _userManager.Setup(x => x.FindByIdAsync(userId.ToString()))
+            .ReturnsAsync(new ApplicationUser
+            {
+                Id = userId,
+                Email = "account@example.com",
+                CustomerType = CustomerType.Private
+            });
+
+        var result = await _service.CreateOrderFromCartAsync(userId, null, new PlaceOrderDto
         {
             IdempotencyKey = IdempotencyKey,
             CustomerName = "Teszt Elek",
@@ -192,6 +260,8 @@ public sealed class OrderServiceTests
         Assert.Equal(userId, result.UserId);
         Assert.Equal(userId, savedOrder.UserId);
         Assert.Equal("guest@example.com", result.CustomerEmail);
+        _userManager.Verify(x => x.FindByEmailAsync(It.IsAny<string>()), Times.Never);
+        _carts.Verify(x => x.GetActiveBySessionIdAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]
