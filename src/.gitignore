@@ -1,1 +1,5 @@
 /docs/manual-testing/
+
+# Local hosting publish settings and generated frontend deployment packages.
+**/Properties/PublishProfiles/
+/frontend/biogarden-client/*.zip

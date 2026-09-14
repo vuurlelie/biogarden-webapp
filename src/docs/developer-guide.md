@@ -27,6 +27,15 @@ The working directory for most commands is `src`.
 
 ## Backend Setup
 
+Restore the repository-local EF Core CLI from `src`:
+
+```bash
+dotnet tool restore
+dotnet ef --version
+```
+
+The manifest at `src/.config/dotnet-tools.json` pins `dotnet-ef` to 9.0.8, matching the EF Core packages in `backend/Directory.Packages.props`. Update the tool version alongside those packages when upgrading EF Core.
+
 Initialize local secrets once:
 
 ```bash
