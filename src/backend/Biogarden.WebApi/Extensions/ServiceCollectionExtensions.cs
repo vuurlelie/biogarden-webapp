@@ -30,7 +30,7 @@ public static class ServiceCollectionExtensions
         services.AddForwardedHeaders();
         services.AddValidatedOptions(configuration);
         services.AddAppRateLimiting(configuration);
-        services.AddFrontendCors();
+        services.AddFrontendCors(configuration);
         services.AddDataAccess(configuration);
         services.AddAppHealthChecks();
         services.AddAppIdentityAndAuthentication(configuration);
@@ -132,14 +132,18 @@ public static class ServiceCollectionExtensions
         return services;
     }
 
-    private static IServiceCollection AddFrontendCors(this IServiceCollection services)
+    private static IServiceCollection AddFrontendCors(
+        this IServiceCollection services,
+        IConfiguration configuration)
     {
+        var allowedOrigins = GetFrontendAllowedOrigins(configuration);
+
         services.AddCors(options =>
         {
             options.AddPolicy("FrontendDev", policy =>
             {
                 policy
-                    .WithOrigins("http://localhost:5173")
+                    .WithOrigins(allowedOrigins)
                     .AllowAnyHeader()
                     .AllowAnyMethod()
                     .AllowCredentials();
@@ -147,6 +151,35 @@ public static class ServiceCollectionExtensions
         });
 
         return services;
+    }
+
+    private static string[] GetFrontendAllowedOrigins(IConfiguration configuration)
+    {
+        var configuredOrigins = configuration
+            .GetSection("Frontend:AllowedOrigins")
+            .Get<string[]>();
+
+        if (configuredOrigins is { Length: > 0 })
+        {
+            return configuredOrigins
+                .Where(origin => !string.IsNullOrWhiteSpace(origin))
+                .Select(origin => origin.Trim().TrimEnd('/'))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+        }
+
+        var singleValue = configuration["Frontend:AllowedOrigins"];
+
+        if (!string.IsNullOrWhiteSpace(singleValue))
+        {
+            return singleValue
+                .Split([',', ';'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Select(origin => origin.TrimEnd('/'))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+        }
+
+        return ["http://localhost:5173"];
     }
 
     private static IServiceCollection AddDataAccess(

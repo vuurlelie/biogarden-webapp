@@ -317,7 +317,11 @@ export default function CheckoutPage() {
     const errors = validateCheckoutFields(draft, effectiveCustomerType, method);
     setFieldErrors(errors);
     if (Object.keys(errors).length) {
-      setError("Ellenőrizd a pirossal jelölt mezőket.");
+      requestAnimationFrame(() => {
+        const firstInvalidField = document.querySelector<HTMLElement>('[aria-invalid="true"]');
+        firstInvalidField?.scrollIntoView({ behavior: "smooth", block: "center" });
+        firstInvalidField?.focus({ preventScroll: true });
+      });
       return;
     }
 
@@ -456,7 +460,7 @@ export default function CheckoutPage() {
       )}
 
       <form onSubmit={submit} className="mt-7 grid items-start gap-7 lg:grid-cols-[minmax(0,1fr)_22rem]">
-        <div className={`space-y-6 ${step === "payment" ? "hidden" : ""}`}>
+        <div className={`order-1 space-y-6 ${step === "payment" ? "hidden" : ""}`}>
           {!authenticated && (
             <fieldset className="rounded-sm border border-site-border bg-white p-6 shadow-md">
               <legend className="px-2 text-xl font-bold">Alapértelmezett rendelési mód</legend>
@@ -708,7 +712,7 @@ export default function CheckoutPage() {
         </div>
 
         {step === "payment" && (
-          <section className="space-y-6">
+          <section className="order-3 space-y-6 lg:order-1">
             <button
               type="button"
               onClick={() => setStep("details")}
@@ -783,6 +787,7 @@ export default function CheckoutPage() {
           paymentFee={paymentFee}
           paymentMethod={paymentMethod}
           reviewButtonRef={reviewButtonRef}
+          className="order-2 lg:order-2"
           step={step}
           submitting={submitting}
         />

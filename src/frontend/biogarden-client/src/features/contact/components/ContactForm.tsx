@@ -12,6 +12,12 @@ const initialForm = {
 };
 
 type ContactField = keyof typeof initialForm;
+type ContactFieldErrors = Partial<Record<ContactField, string>>;
+
+const fieldClassName =
+  "mt-1.5 block w-full rounded-sm border border-site-border bg-white px-3 py-2 text-site-heading outline-none transition focus:border-site-green focus:ring-2 focus:ring-site-green/20";
+const invalidFieldClassName =
+  "mt-1.5 block w-full rounded-sm border border-site-danger bg-site-danger-soft px-3 py-2 text-site-heading outline-none transition focus:border-site-danger focus:ring-2 focus:ring-site-danger/20";
 
 type ContactFormProps = {
   className?: string;
@@ -27,7 +33,7 @@ export default function ContactForm({
   const [form, setForm] = useState(initialForm);
   const [success, setSuccess] = useState("");
   const [error, setError] = useState("");
-  const [invalidField, setInvalidField] = useState<ContactField | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<ContactFieldErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const nameInputRef = useRef<HTMLInputElement | null>(null);
   const emailInputRef = useRef<HTMLInputElement | null>(null);
@@ -36,12 +42,12 @@ export default function ContactForm({
 
   function updateField(field: keyof typeof form, value: string) {
     setForm((currentForm) => ({ ...currentForm, [field]: value }));
-    if (invalidField === field) setInvalidField(null);
+    clearFieldError(field);
   }
 
   function markInvalid(field: ContactField, message: string) {
-    setInvalidField(field);
-    setError(message);
+    setFieldErrors({ [field]: message });
+    setError("");
     const inputRefs: Partial<Record<ContactField, HTMLInputElement | HTMLTextAreaElement | null>> = {
       name: nameInputRef.current,
       email: emailInputRef.current,
@@ -50,11 +56,41 @@ export default function ContactForm({
     inputRefs[field]?.focus();
   }
 
+  function clearFieldError(field: ContactField) {
+    setFieldErrors((currentErrors) => {
+      if (!currentErrors[field]) return currentErrors;
+      const nextErrors = { ...currentErrors };
+      delete nextErrors[field];
+      return nextErrors;
+    });
+  }
+
+  function getErrorId(field: ContactField) {
+    return `contact-${field}-error`;
+  }
+
+  function getFieldClassName(field: ContactField, extraClassName = "") {
+    const baseClassName = fieldErrors[field] ? invalidFieldClassName : fieldClassName;
+    return extraClassName ? `${baseClassName} ${extraClassName}` : baseClassName;
+  }
+
+  function renderFieldError(field: ContactField) {
+    const fieldError = fieldErrors[field];
+
+    if (!fieldError) return null;
+
+    return (
+      <p id={getErrorId(field)} className="mt-1.5 text-sm text-site-danger" role="alert">
+        {fieldError}
+      </p>
+    );
+  }
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setSuccess("");
     setError("");
-    setInvalidField(null);
+    setFieldErrors({});
 
     if (!form.name.trim()) {
       markInvalid("name", "Add meg a nevedet.");
@@ -82,6 +118,7 @@ export default function ContactForm({
       });
       track("contact_form_submitted", { source: "footer" });
       setSuccess("Köszönjük, megkaptuk az üzenetedet. Hamarosan válaszolunk.");
+      setFieldErrors({});
       setForm(initialForm);
     } catch (submitError) {
       setError(getErrorMessage(submitError, "Az üzenet küldése nem sikerült. Kérjük, próbáld újra."));
@@ -112,11 +149,13 @@ export default function ContactForm({
             autoComplete="name"
             value={form.name}
             onChange={(event) => updateField("name", event.target.value)}
-            className="mt-1.5 block w-full rounded-sm border border-site-border bg-white px-3 py-2 text-site-heading outline-none transition focus:border-site-green focus:ring-2 focus:ring-site-green/20"
-            aria-invalid={invalidField === "name"}
+            className={getFieldClassName("name")}
+            aria-invalid={Boolean(fieldErrors.name)}
+            aria-describedby={fieldErrors.name ? getErrorId("name") : undefined}
             required
             maxLength={100}
           />
+          {renderFieldError("name")}
         </div>
 
         <div>
@@ -130,11 +169,13 @@ export default function ContactForm({
             autoComplete="email"
             value={form.email}
             onChange={(event) => updateField("email", event.target.value)}
-            className="mt-1.5 block w-full rounded-sm border border-site-border bg-white px-3 py-2 text-site-heading outline-none transition focus:border-site-green focus:ring-2 focus:ring-site-green/20"
-            aria-invalid={invalidField === "email"}
+            className={getFieldClassName("email")}
+            aria-invalid={Boolean(fieldErrors.email)}
+            aria-describedby={fieldErrors.email ? getErrorId("email") : undefined}
             required
             maxLength={256}
           />
+          {renderFieldError("email")}
         </div>
 
         <div>
@@ -147,7 +188,7 @@ export default function ContactForm({
             autoComplete="tel"
             value={form.phone}
             onChange={(event) => updateField("phone", event.target.value)}
-            className="mt-1.5 block w-full rounded-sm border border-site-border bg-white px-3 py-2 text-site-heading outline-none transition focus:border-site-green focus:ring-2 focus:ring-site-green/20"
+            className={getFieldClassName("phone")}
             maxLength={40}
           />
         </div>
@@ -161,7 +202,7 @@ export default function ContactForm({
             type="text"
             value={form.subject}
             onChange={(event) => updateField("subject", event.target.value)}
-            className="mt-1.5 block w-full rounded-sm border border-site-border bg-white px-3 py-2 text-site-heading outline-none transition focus:border-site-green focus:ring-2 focus:ring-site-green/20"
+            className={getFieldClassName("subject")}
             maxLength={150}
           />
         </div>
@@ -176,12 +217,14 @@ export default function ContactForm({
           id="contact-message"
           value={form.message}
           onChange={(event) => updateField("message", event.target.value)}
-          className="mt-1.5 block min-h-32 w-full resize-y rounded-sm border border-site-border bg-white px-3 py-2 text-site-heading outline-none transition focus:border-site-green focus:ring-2 focus:ring-site-green/20"
-          aria-invalid={invalidField === "message"}
+          className={getFieldClassName("message", "min-h-32 resize-y")}
+          aria-invalid={Boolean(fieldErrors.message)}
+          aria-describedby={fieldErrors.message ? getErrorId("message") : undefined}
           required
           minLength={10}
           maxLength={2000}
         />
+        {renderFieldError("message")}
       </div>
 
       {success && (

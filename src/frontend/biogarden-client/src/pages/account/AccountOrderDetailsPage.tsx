@@ -186,8 +186,30 @@ export default function AccountOrderDetailsPage() {
       </section>
 
       <h2 className="mt-8 text-xl font-bold text-site-heading">Termékek</h2>
-      <div className="mt-4 overflow-x-auto rounded-sm border border-site-border">
-        <table className="w-full min-w-[620px] border-collapse text-left text-sm">
+      <div className="mt-4 space-y-3 sm:hidden">
+        {order.items.map((item) => (
+          <article key={item.productId} className="rounded-sm border border-site-border bg-white p-4">
+            <div className="flex items-start justify-between gap-4">
+              <h3 className="min-w-0 text-sm font-bold text-site-heading">{item.productName}</h3>
+              <span className="shrink-0 text-sm font-semibold text-site-heading">
+                {formatOrderPrice(item.lineTotal)}
+              </span>
+            </div>
+            <dl className="mt-3 grid grid-cols-2 gap-3 text-sm">
+              <div>
+                <dt className="text-site-muted">Egységár</dt>
+                <dd className="mt-1 font-semibold text-site-heading">{formatOrderPrice(item.unitPrice)}</dd>
+              </div>
+              <div className="text-right">
+                <dt className="text-site-muted">Mennyiség</dt>
+                <dd className="mt-1 font-semibold text-site-heading">{item.quantity}</dd>
+              </div>
+            </dl>
+          </article>
+        ))}
+      </div>
+      <div className="mt-4 hidden overflow-hidden rounded-sm border border-site-border sm:block">
+        <table className="w-full border-collapse text-left text-sm">
           <thead className="bg-site-surface-soft text-site-heading">
             <tr>
               <th className="px-4 py-3 font-bold">Termék</th>

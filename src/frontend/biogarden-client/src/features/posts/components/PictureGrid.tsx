@@ -45,7 +45,7 @@ export default function PictureGrid({ posts }: PictureGridProps) {
         </div>
       </section>
 
-      <section className="rounded-sm bg-white p-4 shadow-lg">
+      <section className="hidden rounded-sm bg-white p-4 shadow-lg lg:block">
         <h3 className="mb-4 text-lg font-bold text-site-heading">
           További tartalmaink
         </h3>

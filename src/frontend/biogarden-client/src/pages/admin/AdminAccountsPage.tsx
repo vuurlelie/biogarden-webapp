@@ -159,12 +159,10 @@ function UserCard({ user, onUpdate, onErase, onMessage }: {
 
   return (
     <article className="min-w-0 rounded-sm border border-site-border bg-white p-5 shadow-sm">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div className="min-w-0">
-          <h2 className="break-words text-lg font-bold text-site-heading">{fullName(user)}</h2>
-          {!terminalDeletedUser && <p className="mt-1 break-words text-sm text-site-muted">{user.email}</p>}
-        </div>
-        <div className="flex flex-wrap gap-2">
+      <div className="min-w-0">
+        <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start">
+          <h2 className="min-w-0 break-words text-lg font-bold text-site-heading">{fullName(user)}</h2>
+          <div className="flex flex-wrap gap-2 sm:max-w-[22rem] sm:justify-end">
           {!terminalDeletedUser && isCurrentUser && <span className="rounded-full border border-site-green-dark bg-white px-2.5 py-1 text-xs font-bold text-site-green-dark">Saját fiók</span>}
           {terminalDeletedUser && <span className="rounded-full bg-site-surface-soft px-2.5 py-1 text-xs font-bold text-site-muted">Anonimizált</span>}
           {canManageLifecycle && user.isAdmin && <span className="rounded-full bg-site-green px-2.5 py-1 text-xs font-bold text-white">Admin</span>}
@@ -174,7 +172,9 @@ function UserCard({ user, onUpdate, onErase, onMessage }: {
             </span>
           )}
           {canManageLifecycle && user.isDeactivated && <span className="rounded-full bg-site-danger-soft px-2.5 py-1 text-xs font-bold text-site-danger">Inaktív</span>}
+          </div>
         </div>
+        {!terminalDeletedUser && <p className="mt-1 break-normal text-sm text-site-muted">{user.email}</p>}
       </div>
 
       <dl className={`mt-4 grid grid-cols-2 gap-3 text-sm ${terminalDeletedUser ? "" : "sm:grid-cols-3"}`}>

@@ -12,6 +12,14 @@ function createPostDescription(post: PostDetails) {
   return text ? text.slice(0, 155) : `${post.title} - Bakony Kincse Biokertészet tudástár.`;
 }
 
+function createPostImageUrl(post: PostDetails) {
+  if (/^https?:\/\//i.test(post.image)) {
+    return post.image;
+  }
+
+  return `${API_BASE_URL}/${post.image.replace(/^\/+/, "")}`;
+}
+
 export default function PostDetailsPage() {
   const { postId } = useParams<{ postId: string }>();
 
@@ -89,6 +97,7 @@ export default function PostDetailsPage() {
       <Seo
         title={post.title}
         description={createPostDescription(post)}
+        image={createPostImageUrl(post)}
         type="article"
       />
       <PostDetailsContent post={post} />
