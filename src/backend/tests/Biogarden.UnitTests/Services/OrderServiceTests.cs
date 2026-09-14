@@ -544,47 +544,6 @@ public sealed class OrderServiceTests
     }
 
     [Fact]
-    public async Task ConfirmOrderPaymentAsync_WhenAlreadyPaid_DoesNotSaveAgain()
-    {
-        var userId = Guid.NewGuid();
-        var order = CreateOrder(userId);
-        order.Status = OrderStatus.Confirmed;
-        order.PaymentStatus = PaymentStatus.Paid;
-        _orders
-            .Setup(x => x.GetByIdWithItemsAsync(order.Id, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(order);
-
-        var result = await _service.ConfirmOrderPaymentAsync(userId, order.Id);
-
-        Assert.Equal(PaymentStatus.Paid, result.PaymentStatus);
-        _unitOfWork.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
-    }
-
-    [Fact]
-    public async Task ConfirmOrderPaymentAsync_WhenSavedOrderCannotBeReloaded_ThrowsClearFailure()
-    {
-        var userId = Guid.NewGuid();
-        var order = CreateOrder(userId);
-        order.Status = OrderStatus.Pending;
-        order.PaymentStatus = PaymentStatus.Pending;
-        order.StockCommitted = true;
-        _orders
-            .SetupSequence(x => x.GetByIdWithItemsAsync(order.Id, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(order)
-            .ReturnsAsync((Order?)null);
-        _orders.Setup(x => x.Update(order));
-        _unitOfWork
-            .Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync(1);
-
-        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            _service.ConfirmOrderPaymentAsync(userId, order.Id));
-
-        Assert.Equal("Order reload failed after saving changes.", exception.Message);
-        _unitOfWork.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
-    }
-
-    [Fact]
     public async Task CreateSumUpCheckoutAsync_AsGuestWithMatchingCartSession_StoresCheckoutId()
     {
         const string sessionId = "guest-session";

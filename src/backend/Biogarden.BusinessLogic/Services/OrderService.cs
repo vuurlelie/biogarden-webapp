@@ -221,49 +221,6 @@ public class OrderService : IOrderService
         return createdOrderDto;
     }
 
-    public async Task<OrderDto> ConfirmOrderPaymentAsync(
-        Guid userId,
-        Guid orderId,
-        CancellationToken cancellationToken = default)
-    {
-        var order = await _unitOfWork.OrderRepository.GetByIdWithItemsAsync(
-            orderId,
-            cancellationToken);
-
-        if (order is null || order.UserId != userId)
-        {
-            throw new KeyNotFoundException("Order not found.");
-        }
-
-        if (order.Status == OrderStatus.Cancelled)
-        {
-            throw new InvalidOperationException("Cancelled order cannot be confirmed.");
-        }
-
-        if (order.PaymentStatus == PaymentStatus.Paid)
-        {
-            return order.ToDto();
-        }
-
-        if (!order.StockCommitted)
-        {
-            await CommitOrderStockAsync(order, cancellationToken);
-        }
-
-        order.PaymentStatus = PaymentStatus.Paid;
-        order.Status = OrderStatus.Confirmed;
-        order.ConfirmedAtUtc = GetUtcNow();
-
-        _unitOfWork.OrderRepository.Update(order);
-        await _unitOfWork.SaveChangesAsync(cancellationToken);
-
-        var confirmedOrder = await ReloadOrderWithItemsAsync(
-            order.Id,
-            cancellationToken);
-
-        return confirmedOrder.ToDto();
-    }
-
     public async Task<SumUpCheckoutDto> CreateSumUpCheckoutAsync(
         Guid? userId,
         string? sessionId,
