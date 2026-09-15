@@ -68,9 +68,11 @@ public sealed class ExceptionHandlingMiddleware
         {
             Title = title,
             Status = (int)statusCode,
-            Detail = exception is Microsoft.EntityFrameworkCore.DbUpdateConcurrencyException
-                ? "Az adatok időközben megváltoztak. Frissítsd az oldalt, és próbáld újra."
-                : exception.Message,
+            Detail = statusCode == HttpStatusCode.InternalServerError
+                ? "Váratlan hiba történt. Kérjük, próbáld újra később."
+                : exception is Microsoft.EntityFrameworkCore.DbUpdateConcurrencyException
+                    ? "Az adatok időközben megváltoztak. Frissítsd az oldalt, és próbáld újra."
+                    : exception.Message,
             TraceId = context.TraceIdentifier
         };
 
