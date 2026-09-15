@@ -60,12 +60,6 @@ public sealed class PublicOrderWithdrawalEndpointTests
             CancellationToken cancellationToken = default) =>
             throw new NotSupportedException();
 
-        public Task<OrderDto> ConfirmOrderPaymentAsync(
-            Guid userId,
-            Guid orderId,
-            CancellationToken cancellationToken = default) =>
-            throw new NotSupportedException();
-
         public Task<SumUpCheckoutDto> CreateSumUpCheckoutAsync(
             Guid? userId,
             string? sessionId,

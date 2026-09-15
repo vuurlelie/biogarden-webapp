@@ -11,11 +11,6 @@ public interface IOrderService
         PlaceOrderDto dto,
         CancellationToken cancellationToken = default);
 
-    Task<OrderDto> ConfirmOrderPaymentAsync(
-        Guid userId,
-        Guid orderId,
-        CancellationToken cancellationToken = default);
-
     Task<SumUpCheckoutDto> CreateSumUpCheckoutAsync(
         Guid? userId,
         string? sessionId,

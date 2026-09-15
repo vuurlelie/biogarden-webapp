@@ -12,6 +12,7 @@ public sealed class UnitOfWork : IUnitOfWork
     private IAddressRepository? _addressRepository;
     private ICartRepository? _cartRepository;
     private IOrderRepository? _orderRepository;
+    private IOrderEmailRepository? _orderEmailRepository;
     private IPaymentProviderEventRepository? _paymentProviderEventRepository;
 
 
@@ -31,6 +32,8 @@ public sealed class UnitOfWork : IUnitOfWork
         _cartRepository ??= new CartRepository(_databaseContext);
     public IOrderRepository OrderRepository =>
         _orderRepository ??= new OrderRepository(_databaseContext);
+    public IOrderEmailRepository OrderEmailRepository =>
+        _orderEmailRepository ??= new OrderEmailRepository(_databaseContext);
     public IPaymentProviderEventRepository PaymentProviderEventRepository =>
         _paymentProviderEventRepository ??= new PaymentProviderEventRepository(_databaseContext);
 

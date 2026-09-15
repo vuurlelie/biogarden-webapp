@@ -123,10 +123,6 @@ public class OrderService : IOrderService
         }
 
         var customerSnapshot = await BuildOrderCustomerSnapshotAsync(userId, dto, cancellationToken);
-        var orderUserId = userId ?? await ResolveGuestOrderUserIdAsync(
-            customerSnapshot.CustomerEmail,
-            cancellationToken);
-
         OrderDto createdOrderDto;
 
         try
@@ -139,7 +135,8 @@ public class OrderService : IOrderService
                     Id = Guid.NewGuid(),
                     OrderNumber = GenerateOrderNumber(),
                     IdempotencyKey = idempotencyKey,
-                    UserId = orderUserId,
+                    // Only an authenticated identity can establish account ownership.
+                    UserId = userId,
                     AddressId = customerSnapshot.AddressId,
                     CustomerName = customerSnapshot.CustomerName,
                     CustomerEmail = customerSnapshot.CustomerEmail,
@@ -190,7 +187,10 @@ public class OrderService : IOrderService
                     order.Id,
                     transactionToken);
 
-                return createdOrder.ToDto();
+                var result = createdOrder.ToDto();
+                QueueOrderCreatedEmails(result);
+                await _unitOfWork.SaveChangesAsync(transactionToken);
+                return result;
             }, cancellationToken);
         }
         catch (DbUpdateConcurrencyException exception)
@@ -216,52 +216,7 @@ public class OrderService : IOrderService
                 exception);
         }
 
-        await SendOrderCreatedEmailsAsync(createdOrderDto, cancellationToken);
-
         return createdOrderDto;
-    }
-
-    public async Task<OrderDto> ConfirmOrderPaymentAsync(
-        Guid userId,
-        Guid orderId,
-        CancellationToken cancellationToken = default)
-    {
-        var order = await _unitOfWork.OrderRepository.GetByIdWithItemsAsync(
-            orderId,
-            cancellationToken);
-
-        if (order is null || order.UserId != userId)
-        {
-            throw new KeyNotFoundException("Order not found.");
-        }
-
-        if (order.Status == OrderStatus.Cancelled)
-        {
-            throw new InvalidOperationException("Cancelled order cannot be confirmed.");
-        }
-
-        if (order.PaymentStatus == PaymentStatus.Paid)
-        {
-            return order.ToDto();
-        }
-
-        if (!order.StockCommitted)
-        {
-            await CommitOrderStockAsync(order, cancellationToken);
-        }
-
-        order.PaymentStatus = PaymentStatus.Paid;
-        order.Status = OrderStatus.Confirmed;
-        order.ConfirmedAtUtc = GetUtcNow();
-
-        _unitOfWork.OrderRepository.Update(order);
-        await _unitOfWork.SaveChangesAsync(cancellationToken);
-
-        var confirmedOrder = await ReloadOrderWithItemsAsync(
-            order.Id,
-            cancellationToken);
-
-        return confirmedOrder.ToDto();
     }
 
     public async Task<SumUpCheckoutDto> CreateSumUpCheckoutAsync(
@@ -808,23 +763,6 @@ public class OrderService : IOrderService
             DeliveryDoorbell: deliveryAddress?.Doorbell ?? NormalizeOptional(dto.DeliveryDoorbell));
     }
 
-    private async Task<Guid?> ResolveGuestOrderUserIdAsync(
-        string customerEmail,
-        CancellationToken cancellationToken)
-    {
-        cancellationToken.ThrowIfCancellationRequested();
-
-        var user = await _userManager.FindByEmailAsync(customerEmail);
-        if (user is null ||
-            !user.EmailConfirmed ||
-            user.RecordStatus != RecordStatus.Active)
-        {
-            return null;
-        }
-
-        return user.Id;
-    }
-
     private static OrderCustomerContact BuildCustomerContact(
         ApplicationUser? user,
         bool useManualContact,
@@ -992,19 +930,32 @@ public class OrderService : IOrderService
         await _unitOfWork.OrderRepository.GetByIdWithItemsAsync(orderId, cancellationToken)
             ?? throw new InvalidOperationException("Order reload failed after saving changes.");
 
-    private async Task SendOrderCreatedEmailsAsync(
-        OrderDto order,
-        CancellationToken cancellationToken)
+    private void QueueOrderCreatedEmails(OrderDto order)
     {
         var customerMessage = _emailTemplateService.BuildOrderConfirmationMessage(
             order.CustomerEmail,
             order);
-        await _emailService.SendAsync(customerMessage, cancellationToken);
+        QueueOrderEmail(order.Id, "customer", customerMessage);
 
         var businessMessage = _emailTemplateService.BuildOrderBusinessNotificationMessage(
             _emailBrandingOptions.ContactEmail,
             order);
-        await _emailService.SendAsync(businessMessage, cancellationToken);
+        QueueOrderEmail(order.Id, "business", businessMessage);
+    }
+
+    private void QueueOrderEmail(Guid orderId, string kind, Biogarden.BusinessLogic.Models.Email.EmailMessage message)
+    {
+        _unitOfWork.OrderEmailRepository.Add(new OrderEmail
+        {
+            Id = Guid.NewGuid(),
+            OrderId = orderId,
+            Kind = kind,
+            Recipient = message.To,
+            Subject = message.Subject,
+            HtmlBody = message.HtmlBody,
+            PlainTextBody = message.PlainTextBody,
+            NextAttemptAtUtc = GetUtcNow()
+        });
     }
 
     private sealed record OrderCustomerSnapshot(

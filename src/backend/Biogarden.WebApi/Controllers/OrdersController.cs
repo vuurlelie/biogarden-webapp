@@ -41,22 +41,6 @@ public class OrdersController : ControllerBase
         return Ok(order);
     }
 
-    [HttpPost("{orderId:guid}/confirm-payment")]
-    [ProducesResponseType(typeof(OrderDto), StatusCodes.Status200OK)]
-    public async Task<ActionResult<OrderDto>> ConfirmOrderPayment(
-        Guid orderId,
-        CancellationToken cancellationToken)
-    {
-        var userId = GetCurrentUserId();
-
-        var order = await _orderService.ConfirmOrderPaymentAsync(
-            userId,
-            orderId,
-            cancellationToken);
-
-        return Ok(order);
-    }
-
     [HttpPost("{orderId:guid}/sumup-checkout")]
     [AllowAnonymous]
     [EnableRateLimiting(RateLimitPolicyNames.Payment)]

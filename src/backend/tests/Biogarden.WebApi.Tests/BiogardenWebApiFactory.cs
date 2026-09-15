@@ -20,7 +20,8 @@ public sealed class BiogardenWebApiFactory : WebApplicationFactory<Program>
         {
             configurationBuilder.AddInMemoryCollection(new Dictionary<string, string?>
             {
-                ["Jwt:SecretKey"] = TestJwtSecretKey
+                ["Jwt:SecretKey"] = TestJwtSecretKey,
+                ["OrderEmailOutbox:Enabled"] = "false"
             });
         });
     }

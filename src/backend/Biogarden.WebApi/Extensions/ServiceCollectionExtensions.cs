@@ -378,6 +378,9 @@ public static class ServiceCollectionExtensions
     {
         services.AddScoped<IContactService, ContactService>();
         services.AddScoped<IEmailService, SmtpEmailService>();
+        services.AddScoped<IOrderEmailRepository, OrderEmailRepository>();
+        services.AddScoped<OrderEmailDispatcher>();
+        services.AddHostedService<Biogarden.WebApi.Services.OrderEmailWorker>();
         services.AddScoped<IEmailTemplateService, EmailTemplateService>();
         services.AddScoped<IErrorAlertService, ErrorAlertService>();
         services.AddSingleton<ErrorAlertThrottleStore>();

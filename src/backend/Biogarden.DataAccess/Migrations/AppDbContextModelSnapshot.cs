@@ -534,6 +534,61 @@ namespace Biogarden.DataAccess.Migrations
                     b.ToTable("Orders", (string)null);
                 });
 
+            modelBuilder.Entity("Biogarden.DataAccess.Entities.OrderEmail", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("Attempts")
+                        .HasColumnType("int");
+
+                    b.Property<string>("HtmlBody")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<Guid?>("LeaseId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("LeaseUntilUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("NextAttemptAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("OrderId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("PlainTextBody")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Recipient")
+                        .IsRequired()
+                        .HasMaxLength(320)
+                        .HasColumnType("nvarchar(320)");
+
+                    b.Property<DateTime?>("SentAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Subject")
+                        .IsRequired()
+                        .HasMaxLength(998)
+                        .HasColumnType("nvarchar(998)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OrderId", "Kind")
+                        .IsUnique();
+
+                    b.HasIndex("SentAtUtc", "NextAttemptAtUtc");
+
+                    b.ToTable("OrderEmails");
+                });
+
             modelBuilder.Entity("Biogarden.DataAccess.Entities.OrderItem", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1031,6 +1086,15 @@ namespace Biogarden.DataAccess.Migrations
                     b.Navigation("Cart");
 
                     b.Navigation("User");
+                });
+
+            modelBuilder.Entity("Biogarden.DataAccess.Entities.OrderEmail", b =>
+                {
+                    b.HasOne("Biogarden.DataAccess.Entities.Order", null)
+                        .WithMany()
+                        .HasForeignKey("OrderId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("Biogarden.DataAccess.Entities.OrderItem", b =>

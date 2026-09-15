@@ -33,6 +33,8 @@ Use the correlation ID to connect:
 
 ## Error Alerts
 
+For pending order confirmations, retries, and background-worker availability, see [order email delivery](order-email-delivery.md).
+
 Unexpected server errors are sent through the configured error-alert email path when `ErrorAlerts:Enabled` is true. Validation, authentication, not-found, and normal operation conflicts are intentionally not alert emails.
 
 Alert emails should contain enough context to identify the failing request without including sensitive user input:

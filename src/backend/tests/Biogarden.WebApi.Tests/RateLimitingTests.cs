@@ -400,14 +400,6 @@ public sealed class RateLimitingTests
             return Task.FromResult(CreateOrder());
         }
 
-        public Task<OrderDto> ConfirmOrderPaymentAsync(
-            Guid userId,
-            Guid orderId,
-            CancellationToken cancellationToken = default)
-        {
-            return Task.FromResult(CreateOrder());
-        }
-
         public Task<SumUpCheckoutDto> CreateSumUpCheckoutAsync(
             Guid? userId,
             string? sessionId,
