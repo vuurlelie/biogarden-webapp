@@ -172,6 +172,48 @@ public sealed class OrderWorkflowTests : IAsyncLifetime
         Assert.Equal(2, (await check.Products.SingleAsync(x => x.Id == id)).StockQuantity);
     }
 
+    [SqlServerFact]
+    public async Task StalePaymentConfirmation_CannotOverwriteCancellation_AndFreshRetryReconcilesPayment()
+    {
+        await PlaceOrderAsync();
+        Guid orderId;
+        await using (var database = _app.OpenDatabase())
+        {
+            var order = await database.Orders.SingleAsync();
+            orderId = order.Id;
+            order.SumUpCheckoutId = "concurrent-checkout";
+            await database.SaveChangesAsync();
+        }
+
+        using var paymentScope = _app.Factory.Services.CreateScope();
+        var paymentDatabase = paymentScope.ServiceProvider.GetRequiredService<Biogarden.DataAccess.AppDbContext>();
+        // Hold the snapshot a payment request read before cancellation commits.
+        await paymentDatabase.Orders.SingleAsync(x => x.Id == orderId);
+        using (var cancelScope = _app.Factory.Services.CreateScope())
+        {
+            var admin = cancelScope.ServiceProvider.GetRequiredService<Biogarden.BusinessLogic.Abstractions.IAdminOrderService>();
+            await admin.UpdateAsync(orderId, new Biogarden.BusinessLogic.DTOs.Admin.AdminOrderUpdateDto
+            {
+                Status = OrderStatus.Cancelled, PaymentStatus = PaymentStatus.Pending
+            });
+        }
+        var stalePayment = paymentScope.ServiceProvider.GetRequiredService<Biogarden.BusinessLogic.Abstractions.IOrderService>();
+        await Assert.ThrowsAsync<DbUpdateConcurrencyException>(() =>
+            stalePayment.ConfirmSumUpCheckoutAsync("concurrent-checkout", "transaction", 900m, "HUF"));
+
+        using (var retryScope = _app.Factory.Services.CreateScope())
+        {
+            var retry = retryScope.ServiceProvider.GetRequiredService<Biogarden.BusinessLogic.Abstractions.IOrderService>();
+            await retry.ConfirmSumUpCheckoutAsync("concurrent-checkout", "transaction", 900m, "HUF");
+        }
+        await using var check = _app.OpenDatabase();
+        var saved = await check.Orders.SingleAsync();
+        Assert.Equal(OrderStatus.Cancelled, saved.Status);
+        Assert.Equal(PaymentStatus.RefundPending, saved.PaymentStatus);
+        Assert.False(saved.StockCommitted);
+        Assert.Equal(3, (await check.Products.SingleAsync()).StockQuantity);
+    }
+
     private async Task<int> SeedProductAsync()
     {
         await using var database = _app.OpenDatabase();

@@ -6,6 +6,8 @@ public class Order
 {
     public Guid Id { get; set; }
 
+    public byte[] RowVersion { get; set; } = [];
+
     public required string OrderNumber { get; set; }
 
     public string? IdempotencyKey { get; set; }

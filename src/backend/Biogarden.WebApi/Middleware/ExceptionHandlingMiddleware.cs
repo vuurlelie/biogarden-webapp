@@ -54,6 +54,7 @@ public sealed class ExceptionHandlingMiddleware
             KeyNotFoundException => (HttpStatusCode.NotFound, "Resource not found."),
             ArgumentException => (HttpStatusCode.BadRequest, "Validation failed."),
             UnauthorizedAccessException => (HttpStatusCode.Unauthorized, "Authentication failed."),
+            Microsoft.EntityFrameworkCore.DbUpdateConcurrencyException => (HttpStatusCode.Conflict, "Order data changed."),
             InvalidOperationException => (HttpStatusCode.Conflict, "Operation conflict."),
             _ => (HttpStatusCode.InternalServerError, "Unexpected server error.")
         };
@@ -67,7 +68,9 @@ public sealed class ExceptionHandlingMiddleware
         {
             Title = title,
             Status = (int)statusCode,
-            Detail = exception.Message,
+            Detail = exception is Microsoft.EntityFrameworkCore.DbUpdateConcurrencyException
+                ? "Az adatok időközben megváltoztak. Frissítsd az oldalt, és próbáld újra."
+                : exception.Message,
             TraceId = context.TraceIdentifier
         };
 
