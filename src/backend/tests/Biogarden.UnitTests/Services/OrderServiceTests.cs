@@ -1152,6 +1152,8 @@ public sealed class OrderServiceTests
             Array.Empty<IPasswordValidator<ApplicationUser>>(),
             new UpperInvariantLookupNormalizer(),
             new IdentityErrorDescriber(),
-            new Mock<IServiceProvider>(MockBehavior.Strict).Object,
+            // Identity 10 resolves an optional metrics factory during construction.
+            Mock.Of<IServiceProvider>(provider =>
+                provider.GetService(typeof(System.Diagnostics.Metrics.IMeterFactory)) == null, MockBehavior.Strict),
             NullLogger<UserManager<ApplicationUser>>.Instance);
 }

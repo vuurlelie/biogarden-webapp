@@ -10,6 +10,12 @@ Use this together with:
 
 ## Release Inputs
 
+For the .NET 10 upgrade, confirm that the target SmarterASP.NET server has the ASP.NET Core 10 runtime and compatible IIS hosting support before uploading the API. Provider-wide support does not establish availability on the assigned server. Retain the previous API package and record its database compatibility for rollback.
+
+Validate the upgrade using the [engineering checks](../verification.md), including the SQL Server tests. Apply the existing migration history to a disposable database and check for pending model changes; changing the target framework alone is not a reason to create or apply a migration. If EF reports model changes, review them and any resulting SQL separately before deployment.
+
+After deployment, verify login and authorization, order creation, stock changes, payment verification, and queued email delivery after an API restart. Local test results do not establish that this hosting verification has happened.
+
 Before deploying, collect:
 
 - target branch and commit SHA,
