@@ -12,6 +12,8 @@ Use this endpoint for basic process liveness checks. It returns healthy when the
 
 Use this endpoint for readiness checks. It verifies that the API can connect to the configured database before traffic is considered safe to serve.
 
+This is a connectivity check; it does not verify migration state, queue processing, SMTP, or SumUp. Verify those through the release/UAT procedures.
+
 Recommended behavior:
 
 - Liveness failures should restart the API process.

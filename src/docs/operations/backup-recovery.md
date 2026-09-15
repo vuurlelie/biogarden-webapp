@@ -17,7 +17,7 @@ Set these targets before launch with the site owner and hosting provider:
 | RTO | Same business day for non-critical incidents; faster for checkout-blocking incidents. |
 | Retention | Daily backups for 14 days, weekly backups for 8 weeks, monthly backups for 12 months. |
 
-Update these values after the hosting provider and real business expectations are known.
+These are proposed targets, not verified hosting capabilities or client commitments. Record the agreed values and owner in the private UAT/release record after confirming the provider's capabilities.
 
 ## Backup Scope
 
@@ -27,6 +27,7 @@ Database backup must include:
 - products and inventory,
 - carts and orders,
 - payment provider event records,
+- queued order emails and their delivery state,
 - account lifecycle requests,
 - all EF Core migration history.
 
@@ -62,7 +63,7 @@ Before a planned deployment:
 5. Record the backup path in the release record.
 6. Restore it into a non-production database when rehearsing or when the migration is high risk.
 
-Provider-specific backup commands depend on the final hosting provider. Add them here before launch.
+Verify and record the backup/export controls available for the target SmarterASP.NET plan before launch.
 
 ## Uploaded Files Backup Checklist
 
@@ -84,7 +85,7 @@ Run this rehearsal before first production launch:
 2. Restore the latest database backup into that environment.
 3. Restore uploaded files into the matching non-production file storage.
 4. Point the API to the restored database and file storage.
-5. Start the API.
+5. Pause the order-email worker with `OrderEmailOutbox__Enabled=false` and disable real SMTP/payment delivery, then start the restored API. A restored queue can include messages already sent after the backup point. Use test recipients/preview mode for recovery testing and reconcile pending messages before enabling delivery.
 6. Check `/health/live` and `/health/ready`.
 7. Open the frontend against the restored API.
 8. Verify products, posts, account login, orders, and admin order details.
@@ -129,4 +130,3 @@ Once live, review monthly:
 - restore drill age,
 - backup retention usage/cost,
 - whether new data stores were added and need backup coverage.
-

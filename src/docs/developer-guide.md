@@ -1,6 +1,6 @@
 # Biogarden Developer Guide
 
-This guide gives a new developer or reviewer the shortest useful path through the project: what it is, how it is structured, how to run it, and how to verify production readiness.
+This guide owns local setup and architecture notes. See the [documentation index](README.md) for UAT, verification, and operational procedures.
 
 ## Project Overview
 
@@ -8,8 +8,8 @@ Biogarden is a full-stack webshop and content site for Bakony Kincse Biokertesze
 
 - Frontend: React, TypeScript, Vite, Tailwind-style utility classes, Playwright E2E tests.
 - Backend: ASP.NET Core WebApi on .NET 9, Entity Framework Core, ASP.NET Identity, SQL Server.
-- Payments: SumUp checkout integration, disabled until production credentials are configured.
-- Email: SMTP-based customer/admin notifications, disabled unless configured.
+- Payments: SumUp checkout integration; availability depends on the environment configuration.
+- Email: configurable SMTP/preview delivery, with a durable queue for order-creation confirmations.
 - Operations: monitoring, backup, deployment, abuse protection, and configuration docs live under `docs/operations`.
 
 ## Repository Layout
@@ -27,6 +27,8 @@ The working directory for most commands is `src`.
 
 ## Backend Setup
 
+Prerequisites: .NET 9 SDK and an accessible SQL Server instance. The frontend uses Node.js 24 in CI and npm.
+
 Restore the repository-local EF Core CLI from `src`:
 
 ```bash
@@ -39,15 +41,20 @@ The manifest at `src/.config/dotnet-tools.json` pins `dotnet-ef` to 9.0.8, match
 Initialize local secrets once:
 
 ```bash
-dotnet user-secrets init --project backend/Biogarden.WebApi/Biogarden.WebApi.csproj
 dotnet user-secrets set "Jwt:SecretKey" "<at-least-32-random-characters>" --project backend/Biogarden.WebApi/Biogarden.WebApi.csproj
-dotnet user-secrets set "ConnectionStrings:DefaultConnection" "Server=localhost\\SQLEXPRESS;Database=BiogardenDb;Trusted_Connection=True;Encrypt=False;TrustServerCertificate=True;" --project backend/Biogarden.WebApi/Biogarden.WebApi.csproj
+dotnet user-secrets set "ConnectionStrings:DefaultConnection" "Server=localhost\SQLEXPRESS;Database=BiogardenDb;Trusted_Connection=True;Encrypt=False;TrustServerCertificate=True;" --project backend/Biogarden.WebApi/Biogarden.WebApi.csproj
 ```
 
-Apply migrations from `src`:
+The WebApi project already declares its local user-secrets ID. Use a generated JWT secret, not the placeholder above. Runtime user secrets are loaded in Development.
+
+**Migration configuration differs from runtime configuration.** The current `DesignTimeAppDbContextFactory` reads `ConnectionStrings:DefaultConnection` from `backend/Biogarden.WebApi/appsettings.Development.json` when present, otherwise `appsettings.json`; it does not load user secrets or environment variables. Configure the intended local database in that ignored Development file and confirm its server/database before applying migrations. Do not put credentials in the tracked settings file.
+
+From `src`, enter `backend` for migration commands, then return:
 
 ```bash
-dotnet ef database update --project backend/Biogarden.DataAccess/Biogarden.DataAccess.csproj --startup-project backend/Biogarden.WebApi/Biogarden.WebApi.csproj
+cd backend
+dotnet ef database update --project Biogarden.DataAccess --startup-project Biogarden.WebApi
+cd ..
 ```
 
 Run the API:
@@ -63,49 +70,15 @@ Visual Studio can also run `Biogarden.WebApi` directly.
 Install dependencies and run the client from `src`:
 
 ```bash
-npm.cmd --prefix frontend/biogarden-client install
+npm.cmd --prefix frontend/biogarden-client ci
 npm.cmd --prefix frontend/biogarden-client run dev
 ```
 
 Set `VITE_API_BASE_URL` outside source control so the frontend points to the API. On Linux/macOS or CI, use `npm` instead of `npm.cmd`.
 
-## Verification Commands
+## Verification and configuration
 
-Run these before treating a branch as release-ready:
-
-```bash
-dotnet restore backend/Biogarden.sln --locked-mode
-dotnet build backend/Biogarden.sln --no-restore
-dotnet test backend/tests/Biogarden.UnitTests/Biogarden.UnitTests.csproj --no-build --no-restore
-dotnet test backend/tests/Biogarden.WebApi.Tests/Biogarden.WebApi.Tests.csproj --no-build --no-restore
-dotnet format backend/Biogarden.sln --verify-no-changes --no-restore
-dotnet list backend/Biogarden.sln package --vulnerable
-npm.cmd --prefix frontend/biogarden-client run typecheck
-npm.cmd --prefix frontend/biogarden-client run lint
-npm.cmd --prefix frontend/biogarden-client run build
-npm.cmd --prefix frontend/biogarden-client run test:e2e
-npm.cmd --prefix frontend/biogarden-client audit --audit-level=moderate
-git diff --check
-```
-
-Playwright starts its own frontend server through its config. If local ports are busy, stop the existing dev server and rerun.
-
-## Configuration And Secrets
-
-Never commit real credentials, local `.env` files, `appsettings.Development.json`, logs, or generated build output.
-
-Production needs these values from the site owner or host before real launch:
-
-- Production SQL Server connection string.
-- Strong JWT secret.
-- Public frontend and API domains with HTTPS.
-- SMTP host, username, password/app password, sender, and admin recipients.
-- SumUp API key and merchant code.
-- Public logo URL for email branding.
-- Backup destination and retention policy.
-- Production legal/accounting-approved wording.
-
-See `docs/operations/configuration.md` for the full release configuration checklist.
+Use [engineering verification](verification.md) for build, test, formatting, and dependency checks. See [configuration and secrets](operations/configuration.md) for environment settings and commit safety.
 
 ## Architecture Notes
 
@@ -142,12 +115,6 @@ test(checkout): cover private and company billing payloads
 docs(readiness): document code quality status
 ```
 
-## Production Readiness Boundary
+## Acceptance and release
 
-The codebase can be technically ready before the live business is ready. Final production approval still requires:
-
-- Production SumUp and SMTP settings.
-- Legal/accounting review of receipt, invoice, privacy, and withdrawal wording.
-- A real low-value payment test with the production SumUp account.
-- Production backup and monitoring configured on the hosting platform.
-- Final smoke test on the real public domains.
+Use the [UAT checklist](uat-checklist.md) for client acceptance and the [deployment runbook](operations/deployment-runbook.md) for production release. A successful local build is not a deployment or client sign-off.

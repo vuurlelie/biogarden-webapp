@@ -2,30 +2,9 @@
 
 React + TypeScript + Vite client for the Biogarden website, webshop, account area, checkout, and admin interface.
 
-## Local Commands
+## Setup and verification
 
-Run commands from the repository `src` directory:
-
-```bash
-npm.cmd --prefix frontend/biogarden-client install
-npm.cmd --prefix frontend/biogarden-client run dev
-npm.cmd --prefix frontend/biogarden-client run typecheck
-npm.cmd --prefix frontend/biogarden-client run lint
-npm.cmd --prefix frontend/biogarden-client run build
-npm.cmd --prefix frontend/biogarden-client run test:e2e
-```
-
-Use `npm` instead of `npm.cmd` on Linux/macOS or in GitHub Actions.
-
-## Environment
-
-The browser app reads the API base URL from:
-
-```text
-VITE_API_BASE_URL=https://your-api-domain.example
-```
-
-For local development this is usually the WebApi URL shown by Visual Studio or `dotnet run`. Do not commit `.env` files with real production values.
+Use the [developer guide](../../docs/developer-guide.md#frontend-setup) for installation and startup, [engineering verification](../../docs/verification.md#frontend) for checks, and [configuration](../../docs/operations/configuration.md#frontend-environment) for environment settings.
 
 ## Structure
 
@@ -36,16 +15,6 @@ For local development this is usually the WebApi URL shown by Visual Studio or `
 - `e2e`: Playwright browser tests for critical public/account flows.
 - `scripts`: SEO file generation and verification scripts.
 
-## Quality Checks
+## Build notes
 
-Before opening a frontend PR, run:
-
-```bash
-npm.cmd --prefix frontend/biogarden-client run typecheck
-npm.cmd --prefix frontend/biogarden-client run lint
-npm.cmd --prefix frontend/biogarden-client run build
-npm.cmd --prefix frontend/biogarden-client run test:e2e
-npm.cmd --prefix frontend/biogarden-client audit --audit-level=moderate
-```
-
-The build generates SEO files and must not leave generated artifacts staged unless the source change intentionally updates them.
+The build generates SEO files. Inspect generation warnings when article data is unavailable and keep generated output out of commits. Browser tests use mocked API responses; deployed behaviour is recorded separately through the [UAT checklist](../../docs/uat-checklist.md).

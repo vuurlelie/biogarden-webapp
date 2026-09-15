@@ -4,23 +4,13 @@ This project keeps secrets out of source control. Committed configuration may co
 
 Use this together with:
 
-- `docs/operations/deployment-runbook.md`
-- `docs/operations/backup-recovery.md`
-- `docs/operations/monitoring.md`
+- [Deployment](deployment-runbook.md)
+- [Backup and recovery](backup-recovery.md)
+- [Monitoring](monitoring.md)
 
 ## Local Development
 
-From `src`, initialize local API secrets once:
-
-```bash
-dotnet user-secrets init --project backend/Biogarden.WebApi/Biogarden.WebApi.csproj
-dotnet user-secrets set "Jwt:SecretKey" "<at-least-32-random-characters>" --project backend/Biogarden.WebApi/Biogarden.WebApi.csproj
-dotnet user-secrets set "ConnectionStrings:DefaultConnection" "Server=localhost\\SQLEXPRESS;Database=BiogardenDb;Trusted_Connection=True;Encrypt=False;TrustServerCertificate=True;" --project backend/Biogarden.WebApi/Biogarden.WebApi.csproj
-```
-
-Use a generated value for `Jwt:SecretKey`; do not reuse examples from documentation, screenshots, or old local files.
-
-Optional local email/SumUp settings can also be stored with `dotnet user-secrets set` when needed.
+The [developer guide](../developer-guide.md#backend-setup) owns runtime secret setup and the separate migration configuration instructions. Optional local SMTP and SumUp settings can also use user secrets.
 
 ## Production Secrets
 
@@ -46,6 +36,7 @@ Non-secret operational settings should still be reviewed before release:
 | `SumUp__RedirectUrl` | Public success page URL containing `{CHECKOUT_REFERENCE}`. |
 | `SumUp__ReturnUrl` | Public API callback/status URL. |
 | `AbuseProtection__*` | Limits tuned after real traffic appears. |
+| `OrderEmailOutbox__Enabled` | Defaults to true; false pauses queued order-confirmation delivery. See [order email delivery](order-email-delivery.md) for its interaction with SMTP preview mode. |
 
 ## SumUp Release Setup
 
@@ -103,4 +94,4 @@ Do not commit:
 - `.env` or `.env.*`
 - log files
 - `bin/`, `obj/`, `dist/`, `node_modules/`, or `artifacts/`
-- local-only audit notes or work-in-progress documents
+- completed private UAT records, client feedback, and local-only work notes; public documentation templates may be tracked
