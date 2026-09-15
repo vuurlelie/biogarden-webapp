@@ -70,6 +70,8 @@ Record the actual SmarterASP.NET/IIS package upload, stop/start, and traffic con
 
 ## Post-Deployment Smoke Checks
 
+For order-reliability releases, apply `AddOrderConcurrencyToken` and `AddOrderEmailEventIdentity` before starting the new API. Conflicting order writes return HTTP 409: reload the current state before retrying. A retried verified payment for a cancelled order must remain cancelled and enter refund reconciliation, without reserving stock again. Monitor failed payment events and reprocess them with fresh state; `RefundPending` records work required and does not perform a provider refund.
+
 For releases containing `AddOrderEmailOutbox`, apply that migration before starting the new API and verify the worker can deliver a queued test message. See [order email delivery](order-email-delivery.md) for configuration, retry behaviour, and IIS availability requirements.
 
 Run these checks immediately after deployment:

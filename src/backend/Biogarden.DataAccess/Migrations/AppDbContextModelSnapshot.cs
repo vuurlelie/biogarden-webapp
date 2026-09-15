@@ -17,7 +17,7 @@ namespace Biogarden.DataAccess.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "9.0.8")
+                .HasAnnotation("ProductVersion", "10.0.12")
                 .HasAnnotation("Relational:MaxIdentifierLength", 128);
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
@@ -477,6 +477,12 @@ namespace Biogarden.DataAccess.Migrations
                         .HasColumnType("bit")
                         .HasDefaultValue(false);
 
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
                     b.Property<byte>("Status")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("tinyint")
@@ -543,6 +549,9 @@ namespace Biogarden.DataAccess.Migrations
                     b.Property<int>("Attempts")
                         .HasColumnType("int");
 
+                    b.Property<Guid>("EventId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<string>("HtmlBody")
                         .HasColumnType("nvarchar(max)");
 
@@ -581,10 +590,10 @@ namespace Biogarden.DataAccess.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("OrderId", "Kind")
-                        .IsUnique();
-
                     b.HasIndex("SentAtUtc", "NextAttemptAtUtc");
+
+                    b.HasIndex("OrderId", "Kind", "EventId")
+                        .IsUnique();
 
                     b.ToTable("OrderEmails");
                 });

@@ -12,7 +12,7 @@ public sealed class OrderEmailConfiguration : IEntityTypeConfiguration<OrderEmai
         builder.Property(x => x.Kind).HasMaxLength(20);
         builder.Property(x => x.Recipient).HasMaxLength(320);
         builder.Property(x => x.Subject).HasMaxLength(998);
-        builder.HasIndex(x => new { x.OrderId, x.Kind }).IsUnique();
+        builder.HasIndex(x => new { x.OrderId, x.Kind, x.EventId }).IsUnique();
         builder.HasIndex(x => new { x.SentAtUtc, x.NextAttemptAtUtc });
         builder.HasOne<Order>().WithMany().HasForeignKey(x => x.OrderId).OnDelete(DeleteBehavior.Cascade);
     }

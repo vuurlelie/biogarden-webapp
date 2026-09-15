@@ -12,6 +12,7 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
         orderBuilder.ToTable("Orders");
 
         orderBuilder.HasKey(order => order.Id);
+        orderBuilder.Property(order => order.RowVersion).IsRowVersion();
 
         orderBuilder.Property(order => order.OrderNumber)
             .HasMaxLength(50)

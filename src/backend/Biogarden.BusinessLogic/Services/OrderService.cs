@@ -273,17 +273,18 @@ public class OrderService : IOrderService
             cancellationToken)
             ?? throw new KeyNotFoundException("Order not found.");
 
-        if (order.Status == OrderStatus.Cancelled)
-        {
-            throw new InvalidOperationException("Cancelled order cannot be confirmed.");
-        }
-
         EnsureSumUpCheckoutMatchesOrder(order, amount, currency);
 
-        if (order.PaymentStatus != PaymentStatus.Paid)
+        if (order.Status == OrderStatus.Cancelled)
+        {
+            // Money can arrive after cancellation; preserve fulfillment and released stock.
+            if (order.PaymentStatus != PaymentStatus.Refunded)
+                order.PaymentStatus = PaymentStatus.RefundPending;
+        }
+        else if (order.PaymentStatus is not PaymentStatus.RefundPending and not PaymentStatus.Refunded)
         {
             order.PaymentStatus = PaymentStatus.Paid;
-            order.Status = OrderStatus.Confirmed;
+            if (order.Status == OrderStatus.Pending) order.Status = OrderStatus.Confirmed;
             order.ConfirmedAtUtc ??= GetUtcNow();
         }
 
@@ -316,7 +317,7 @@ public class OrderService : IOrderService
             return null;
         }
 
-        if (order.PaymentStatus is not PaymentStatus.Paid and not PaymentStatus.Refunded)
+        if (order.PaymentStatus is not PaymentStatus.Paid and not PaymentStatus.Refunded and not PaymentStatus.RefundPending)
         {
             order.PaymentStatus = PaymentStatus.Failed;
         }
@@ -446,27 +447,24 @@ public class OrderService : IOrderService
             Status = OrderWithdrawalRequestStatus.Pending
         };
 
-        await _unitOfWork.OrderRepository.AddWithdrawalRequestAsync(request, cancellationToken);
-        await _unitOfWork.SaveChangesAsync(cancellationToken);
+        return await _unitOfWork.ExecuteInTransactionAsync(async token =>
+        {
+            await _unitOfWork.OrderRepository.AddWithdrawalRequestAsync(request, token);
+            await _unitOfWork.SaveChangesAsync(token);
 
-        order.WithdrawalRequests.Add(request);
-        var orderDto = order.ToDto();
-        var requestDto = orderDto.WithdrawalRequests.First(item => item.Id == request.Id);
-
-        await _emailService.SendAsync(
-            _emailTemplateService.BuildOrderWithdrawalBusinessNotificationMessage(
-                _emailBrandingOptions.ContactEmail,
-                orderDto,
-                requestDto),
-            cancellationToken);
-        await _emailService.SendAsync(
-            _emailTemplateService.BuildOrderWithdrawalCustomerConfirmationMessage(
-                order.CustomerEmail,
-                orderDto,
-                requestDto),
-            cancellationToken);
-
-        return requestDto;
+            if (!order.WithdrawalRequests.Contains(request)) order.WithdrawalRequests.Add(request);
+            var orderDto = order.ToDto();
+            var requestDto = orderDto.WithdrawalRequests.First(item => item.Id == request.Id);
+            var eventId = Guid.NewGuid();
+            QueueOrderEmail(order.Id, "withdrawal-business",
+                _emailTemplateService.BuildOrderWithdrawalBusinessNotificationMessage(
+                    _emailBrandingOptions.ContactEmail, orderDto, requestDto), eventId);
+            QueueOrderEmail(order.Id, "withdrawal-customer",
+                _emailTemplateService.BuildOrderWithdrawalCustomerConfirmationMessage(
+                    order.CustomerEmail, orderDto, requestDto), eventId);
+            await _unitOfWork.SaveChangesAsync(token);
+            return requestDto;
+        }, cancellationToken);
     }
 
     public async Task<List<OrderDto>> GetMyOrdersAsync(
@@ -943,12 +941,14 @@ public class OrderService : IOrderService
         QueueOrderEmail(order.Id, "business", businessMessage);
     }
 
-    private void QueueOrderEmail(Guid orderId, string kind, Biogarden.BusinessLogic.Models.Email.EmailMessage message)
+    private void QueueOrderEmail(Guid orderId, string kind, Biogarden.BusinessLogic.Models.Email.EmailMessage message,
+        Guid eventId = default)
     {
         _unitOfWork.OrderEmailRepository.Add(new OrderEmail
         {
             Id = Guid.NewGuid(),
             OrderId = orderId,
+            EventId = eventId,
             Kind = kind,
             Recipient = message.To,
             Subject = message.Subject,

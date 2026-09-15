@@ -22,7 +22,7 @@ public sealed class AdminOrderServiceTests
     private readonly Mock<IEmailTemplateService> _emailTemplateService = new(MockBehavior.Strict);
 
     [Fact]
-    public async Task UpdateAsync_WhenStatusChanges_SendsCustomerStatusEmail()
+    public async Task UpdateAsync_WhenStatusChanges_QueuesCustomerStatusEmail()
     {
         var order = new Order
         {
@@ -55,6 +55,9 @@ public sealed class AdminOrderServiceTests
         };
 
         _databaseContext.SetupGet(context => context.Orders).Returns(orders.Object);
+        var emails = new Mock<IOrderEmailRepository>(MockBehavior.Strict);
+        _unitOfWork.SetupGet(x => x.OrderEmailRepository).Returns(emails.Object);
+        emails.Setup(x => x.Add(It.IsAny<OrderEmail>()));
         _unitOfWork
             .Setup(unitOfWork => unitOfWork.SaveChangesAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(1);
@@ -84,7 +87,9 @@ public sealed class AdminOrderServiceTests
             });
 
         Assert.Equal(OrderStatus.Confirmed, result.Status);
-        _emailService.Verify(service => service.SendAsync(statusMessage, It.IsAny<CancellationToken>()), Times.Once);
+        _emailService.Verify(service => service.SendAsync(It.IsAny<EmailMessage>(), It.IsAny<CancellationToken>()), Times.Never);
+        emails.Verify(x => x.Add(It.Is<OrderEmail>(email => email.OrderId == order.Id &&
+            email.Kind == "status" && email.EventId != Guid.Empty && email.Recipient == statusMessage.To)), Times.Once);
     }
 
     private static Mock<DbSet<TEntity>> CreateMockDbSet<TEntity>(IEnumerable<TEntity> entities)
