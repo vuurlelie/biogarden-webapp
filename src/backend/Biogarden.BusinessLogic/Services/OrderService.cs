@@ -187,7 +187,10 @@ public class OrderService : IOrderService
                     order.Id,
                     transactionToken);
 
-                return createdOrder.ToDto();
+                var result = createdOrder.ToDto();
+                QueueOrderCreatedEmails(result);
+                await _unitOfWork.SaveChangesAsync(transactionToken);
+                return result;
             }, cancellationToken);
         }
         catch (DbUpdateConcurrencyException exception)
@@ -212,8 +215,6 @@ public class OrderService : IOrderService
                 "A rendelés mentése nem sikerült. Kérjük, próbáld újra.",
                 exception);
         }
-
-        await SendOrderCreatedEmailsAsync(createdOrderDto, cancellationToken);
 
         return createdOrderDto;
     }
@@ -929,19 +930,32 @@ public class OrderService : IOrderService
         await _unitOfWork.OrderRepository.GetByIdWithItemsAsync(orderId, cancellationToken)
             ?? throw new InvalidOperationException("Order reload failed after saving changes.");
 
-    private async Task SendOrderCreatedEmailsAsync(
-        OrderDto order,
-        CancellationToken cancellationToken)
+    private void QueueOrderCreatedEmails(OrderDto order)
     {
         var customerMessage = _emailTemplateService.BuildOrderConfirmationMessage(
             order.CustomerEmail,
             order);
-        await _emailService.SendAsync(customerMessage, cancellationToken);
+        QueueOrderEmail(order.Id, "customer", customerMessage);
 
         var businessMessage = _emailTemplateService.BuildOrderBusinessNotificationMessage(
             _emailBrandingOptions.ContactEmail,
             order);
-        await _emailService.SendAsync(businessMessage, cancellationToken);
+        QueueOrderEmail(order.Id, "business", businessMessage);
+    }
+
+    private void QueueOrderEmail(Guid orderId, string kind, Biogarden.BusinessLogic.Models.Email.EmailMessage message)
+    {
+        _unitOfWork.OrderEmailRepository.Add(new OrderEmail
+        {
+            Id = Guid.NewGuid(),
+            OrderId = orderId,
+            Kind = kind,
+            Recipient = message.To,
+            Subject = message.Subject,
+            HtmlBody = message.HtmlBody,
+            PlainTextBody = message.PlainTextBody,
+            NextAttemptAtUtc = GetUtcNow()
+        });
     }
 
     private sealed record OrderCustomerSnapshot(

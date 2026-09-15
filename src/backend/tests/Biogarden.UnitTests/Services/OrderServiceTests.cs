@@ -22,6 +22,7 @@ public sealed class OrderServiceTests
 
     private readonly Mock<IUnitOfWork> _unitOfWork = new(MockBehavior.Strict);
     private readonly Mock<IOrderRepository> _orders = new(MockBehavior.Strict);
+    private readonly Mock<IOrderEmailRepository> _orderEmails = new(MockBehavior.Strict);
     private readonly Mock<ICartRepository> _carts = new(MockBehavior.Strict);
     private readonly Mock<IProductRepository> _products = new(MockBehavior.Strict);
     private readonly Mock<ICartService> _cartService = new(MockBehavior.Strict);
@@ -35,6 +36,8 @@ public sealed class OrderServiceTests
     public OrderServiceTests()
     {
         _unitOfWork.SetupGet(x => x.OrderRepository).Returns(_orders.Object);
+        _unitOfWork.SetupGet(x => x.OrderEmailRepository).Returns(_orderEmails.Object);
+        _orderEmails.Setup(x => x.Add(It.IsAny<OrderEmail>()));
         _unitOfWork.SetupGet(x => x.ProductRepository).Returns(_products.Object);
         _unitOfWork
             .Setup(x => x.ExecuteInTransactionAsync(
@@ -70,6 +73,24 @@ public sealed class OrderServiceTests
     [Fact]
     public async Task CreateOrderFromCartAsync_AsGuest_UsesSessionCartAndSnapshotsManualData()
     {
+        var insideTransaction = false;
+        var queuedEmails = new List<OrderEmail>();
+        _orderEmails.Setup(x => x.Add(It.IsAny<OrderEmail>()))
+            .Callback<OrderEmail>(email =>
+            {
+                Assert.True(insideTransaction);
+                queuedEmails.Add(email);
+            });
+        _unitOfWork.Setup(x => x.ExecuteInTransactionAsync(
+                It.IsAny<Func<CancellationToken, Task<OrderDto>>>(), It.IsAny<CancellationToken>()))
+            .Returns<Func<CancellationToken, Task<OrderDto>>, CancellationToken>(async (operation, token) =>
+            {
+                insideTransaction = true;
+                var result = await operation(token);
+                Assert.Equal(2, queuedEmails.Count);
+                insideTransaction = false;
+                return result;
+            });
         const string sessionId = "guest-session";
         var product = new Product { Id = 4, Name = "Bazsalikom", Available = true, StockQuantity = 3, Price = 900 };
         var cart = new Cart { Id = Guid.NewGuid(), SessionId = sessionId };
@@ -106,7 +127,7 @@ public sealed class OrderServiceTests
             .Returns(businessMessage);
         _emailService
             .Setup(x => x.SendAsync(customerMessage, It.IsAny<CancellationToken>()))
-            .Returns(Task.CompletedTask);
+            .ThrowsAsync(new System.Net.Mail.SmtpException("SMTP unavailable"));
         _emailService
             .Setup(x => x.SendAsync(businessMessage, It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
@@ -148,13 +169,53 @@ public sealed class OrderServiceTests
                 "info@bakonykincse.hu",
                 It.Is<OrderDto>(order => order.OrderNumber == result.OrderNumber)),
             Times.Once);
-        _emailService.Verify(x => x.SendAsync(customerMessage, It.IsAny<CancellationToken>()), Times.Once);
-        _emailService.Verify(x => x.SendAsync(businessMessage, It.IsAny<CancellationToken>()), Times.Once);
+        _emailService.Verify(x => x.SendAsync(It.IsAny<EmailMessage>(), It.IsAny<CancellationToken>()), Times.Never);
+        _orderEmails.Verify(x => x.Add(It.Is<OrderEmail>(email =>
+            email.OrderId == result.Id && email.Kind == "customer" && email.Recipient == customerMessage.To)), Times.Once);
+        _orderEmails.Verify(x => x.Add(It.Is<OrderEmail>(email =>
+            email.OrderId == result.Id && email.Kind == "business" && email.Recipient == businessMessage.To)), Times.Once);
         _unitOfWork.Verify(
             x => x.ExecuteInTransactionAsync(
                 It.IsAny<Func<CancellationToken, Task<OrderDto>>>(),
                 It.IsAny<CancellationToken>()),
             Times.Once);
+    }
+
+    [Fact]
+    public async Task CreateOrderFromCartAsync_WhenEmailQueueCannotBeSaved_DoesNotCompleteTransaction()
+    {
+        const string sessionId = "guest-session";
+        var product = new Product { Id = 4, Name = "Bazsalikom", Available = true, StockQuantity = 3, Price = 900 };
+        var cart = new Cart { Id = Guid.NewGuid(), SessionId = sessionId };
+        cart.Items.Add(new CartItem { Id = Guid.NewGuid(), CartId = cart.Id, ProductId = product.Id, Product = product, Quantity = 1 });
+        SetupGuestOrderCreation(sessionId, cart, product, _ => { });
+        var transactionCompleted = false;
+        _unitOfWork.Setup(x => x.ExecuteInTransactionAsync(
+                It.IsAny<Func<CancellationToken, Task<OrderDto>>>(), It.IsAny<CancellationToken>()))
+            .Returns<Func<CancellationToken, Task<OrderDto>>, CancellationToken>(async (operation, token) =>
+            {
+                var result = await operation(token);
+                transactionCompleted = true;
+                return result;
+            });
+        _unitOfWork.SetupSequence(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(1)
+            .ThrowsAsync(new InvalidOperationException("Cannot persist email queue"));
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => _service.CreateOrderFromCartAsync(null, sessionId, new PlaceOrderDto
+        {
+            IdempotencyKey = IdempotencyKey,
+            CustomerName = "Teszt Elek",
+            CustomerEmail = "guest@example.com",
+            CustomerPhone = "+361234567",
+            AcceptedTermsVersion = LegalDocumentVersions.CurrentTermsVersion,
+            AcceptedPrivacyPolicyVersion = LegalDocumentVersions.CurrentPrivacyPolicyVersion,
+            FulfillmentMethod = FulfillmentMethod.PersonalPickup
+        }));
+
+        Assert.False(transactionCompleted);
+        _orderEmails.Verify(x => x.Add(It.IsAny<OrderEmail>()), Times.Exactly(2));
+        _emailService.Verify(x => x.SendAsync(It.IsAny<EmailMessage>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]
@@ -426,6 +487,7 @@ public sealed class OrderServiceTests
 
         Assert.Equal(order.Id, result.Id);
         Assert.Equal(IdempotencyKey, result.IdempotencyKey);
+        _orderEmails.Verify(x => x.Add(It.IsAny<OrderEmail>()), Times.Never);
         _carts.Verify(x => x.GetActiveBySessionIdAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
         _orders.Verify(x => x.AddAsync(It.IsAny<Order>(), It.IsAny<CancellationToken>()), Times.Never);
         _emailService.Verify(x => x.SendAsync(It.IsAny<EmailMessage>(), It.IsAny<CancellationToken>()), Times.Never);

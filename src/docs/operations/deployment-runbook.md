@@ -80,6 +80,8 @@ The exact package upload, app restart, and traffic-swap commands depend on the f
 
 ## Post-Deployment Smoke Checks
 
+For releases containing `AddOrderEmailOutbox`, apply that migration before starting the new API and verify the worker can deliver a queued test message. See [order email delivery](order-email-delivery.md) for configuration, retry behaviour, and IIS availability requirements.
+
 Run these checks immediately after deployment:
 
 ```bash
