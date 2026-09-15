@@ -59,34 +59,14 @@ src/
 
 ## Run locally
 
-Prerequisites: .NET 9 SDK, Node.js 24 (the CI version), npm, SQL Server, and the Entity Framework Core CLI for migrations.
-
-Start with the [developer guide](src/docs/developer-guide.md) for database configuration, local secrets, migrations, and frontend environment variables. Once configured, run these commands from the repository's `src` directory in separate terminals:
-
-```bash
-# API
-dotnet run --project backend/Biogarden.WebApi/Biogarden.WebApi.csproj
-```
-
-```bash
-# Frontend
-npm --prefix frontend/biogarden-client ci
-npm --prefix frontend/biogarden-client run dev
-```
-
-Set `VITE_API_BASE_URL` to your local API address. Keep credentials in local user secrets or environment configuration. On Windows, use `npm.cmd` if PowerShell blocks the npm script.
+Follow the [developer guide](src/docs/developer-guide.md) for prerequisites, configuration, migrations, and startup commands. Use [engineering verification](src/docs/verification.md) for the automated checks.
 
 ## UAT and launch
 
-UAT is the current delivery milestone. The next steps are to collect client feedback, resolve the client's outstanding business decisions, apply agreed changes, and complete final acceptance and launch verification.
-
-The [configuration guide](src/docs/operations/configuration.md) and [deployment runbook](src/docs/operations/deployment-runbook.md) document environment and operational requirements. Production payment, email, and business-policy settings must be confirmed for the launch environment.
+Use the [UAT checklist and decision log](src/docs/uat-checklist.md) to review the deployed application, record client feedback, and agree on acceptance. The template contains no completed client results. Production release follows the [deployment runbook](src/docs/operations/deployment-runbook.md) after acceptance and environment preparation.
 
 ## Further reading
 
-- [Developer guide and verification commands](src/docs/developer-guide.md)
-- [Frontend documentation](src/frontend/biogarden-client/README.md)
-- [Monitoring](src/docs/operations/monitoring.md)
-- [Backup and recovery](src/docs/operations/backup-recovery.md)
-- [Abuse protection](src/docs/operations/abuse-protection.md)
+- [Documentation index](src/docs/README.md)
+- [Frontend notes](src/frontend/biogarden-client/README.md)
 - [License](LICENSE)

@@ -11,9 +11,9 @@ Some endpoints have stricter limits:
 | Policy | Limit | Endpoints |
 | --- | ---: | --- |
 | Sensitive auth | 5 requests / minute | Register, login, email confirmation, resend confirmation, forgot password, reset password |
-| Public form | 3 requests / minute | Contact message submission, order creation |
+| Public form | 3 requests / minute | Contact message submission, order creation, public order-related requests |
 | Cart mutation | 30 requests / minute | Add item, update item quantity, remove item, clear cart, merge guest cart |
-| Payment | 20 requests / minute | SumUp checkout creation, SumUp checkout status callback |
+| Payment | 20 requests / minute | SumUp checkout creation, SumUp checkout status callback, public payment-status lookup |
 
 When a limit is exceeded, the API returns:
 

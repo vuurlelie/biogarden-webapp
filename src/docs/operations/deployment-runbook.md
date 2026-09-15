@@ -1,12 +1,12 @@
 # Deployment, Migration, And Rollback Runbook
 
-This runbook describes the production deployment path for the Biogarden API and frontend. It is intentionally host-neutral until the final hosting provider is selected.
+This runbook owns the release sequence for the Biogarden API and frontend. UAT is hosted on SmarterASP.NET; the steps remain provider-neutral where exact production controls have not been verified.
 
 Use this together with:
 
-- `docs/operations/configuration.md`
-- `docs/operations/monitoring.md`
-- `docs/operations/backup-recovery.md`
+- [Configuration](configuration.md)
+- [Monitoring](monitoring.md)
+- [Backup and recovery](backup-recovery.md)
 
 ## Release Inputs
 
@@ -26,48 +26,32 @@ Do not start a production deployment if the target commit is not already reviewe
 
 ## Pre-Deployment Checks
 
-Run from `src`:
+Run [engineering verification](../verification.md) on the selected commit and review its CI results. Resolve applicable UAT blockers before a production release.
 
-```bash
-git status --short --branch
-dotnet restore backend/Biogarden.sln
-dotnet build backend/Biogarden.sln --configuration Release --no-restore
-dotnet test backend/Biogarden.sln --configuration Release --no-build --no-restore
-npm.cmd --prefix frontend/biogarden-client ci
-npm.cmd --prefix frontend/biogarden-client run lint
-npm.cmd --prefix frontend/biogarden-client run build
-```
+Run the following migration commands from the repository's **src/backend** directory. Restore the local CLI with **dotnet tool restore** if needed. Confirm the design-time database configuration described in the [developer guide](../developer-guide.md#backend-setup).
 
 Review pending EF Core migrations:
 
 ```bash
-dotnet ef migrations list --project backend/Biogarden.DataAccess/Biogarden.DataAccess.csproj --startup-project backend/Biogarden.WebApi/Biogarden.WebApi.csproj
+dotnet ef migrations list --project Biogarden.DataAccess --startup-project Biogarden.WebApi
 ```
 
 Generate and review the SQL migration script before applying it:
 
 ```bash
-dotnet ef migrations script --idempotent --project backend/Biogarden.DataAccess/Biogarden.DataAccess.csproj --startup-project backend/Biogarden.WebApi/Biogarden.WebApi.csproj --output artifacts/migrations/production.sql
+dotnet ef migrations script --idempotent --project Biogarden.DataAccess --startup-project Biogarden.WebApi --output ../artifacts/migrations/production.sql
 ```
 
-Check `artifacts/migrations/production.sql` for destructive operations such as dropping columns, dropping tables, changing non-null constraints, or data rewrites. If a destructive change is present, plan a manual data migration and rollback path before continuing.
+Review the generated `src/artifacts/migrations/production.sql` from the exact release commit for destructive operations such as dropping columns/tables, changing non-null constraints, or rewriting data. Plan migration and recovery steps for any destructive change. Execute only against the verified target database after the backup gate.
 
 ## Backup Gate
 
-Before applying migrations or replacing the application:
-
-- create a database backup,
-- confirm the backup completed successfully,
-- confirm the backup is stored outside the production database server,
-- record the backup location and timestamp,
-- confirm uploaded files are already backed up or take a fresh copy.
-
-Do not continue until the backup can be found and restored into a non-production environment.
+Complete the [database backup checklist](backup-recovery.md#database-backup-checklist) and, where applicable, the [uploaded files checklist](backup-recovery.md#uploaded-files-backup-checklist). Record verified backups in the release record before proceeding. Confirm restore capability using the [restore drill](backup-recovery.md#restore-drill).
 
 ## Deployment Steps
 
 1. Put the application into maintenance mode if the host supports it.
-2. Stop background jobs or scheduled tasks if any exist.
+2. Stop the API and its background worker; prevent automatic restart during migration/deployment.
 3. Deploy the API package for the target commit.
 4. Deploy the frontend build for the same target commit.
 5. Apply the reviewed database migration script.
@@ -76,7 +60,7 @@ Do not continue until the backup can be found and restored into a non-production
 8. Start or swap frontend traffic.
 9. Remove maintenance mode.
 
-The exact package upload, app restart, and traffic-swap commands depend on the final hosting provider. Add the provider-specific commands here before the first real production deployment.
+Record the actual SmarterASP.NET/IIS package upload, stop/start, and traffic controls used for the target environment before its release. Do not assume that deploying a package also applies database migrations.
 
 ## Post-Deployment Smoke Checks
 
@@ -134,14 +118,6 @@ Rollback if any of these happen after deployment:
 
 Database rollback is the riskiest part. Prefer forward corrective migrations when data has already changed and customers may have created orders after the deployment.
 
-## Migration Safety Rules
-
-- Never apply a migration to production before reviewing the generated SQL.
-- Never run EF migration commands against production without confirming the connection string.
-- Never apply schema changes without a fresh database backup.
-- Avoid destructive schema changes during high-traffic periods.
-- Keep migration scripts generated from the exact commit being deployed.
-
 ## Release Record Template
 
 ```text
@@ -158,4 +134,3 @@ Smoke check result:
 Rollback package:
 Notes:
 ```
-
