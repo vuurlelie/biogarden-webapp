@@ -42,7 +42,7 @@ Initialize local secrets once:
 
 ```bash
 dotnet user-secrets set "Jwt:SecretKey" "<at-least-32-random-characters>" --project backend/Biogarden.WebApi/Biogarden.WebApi.csproj
-dotnet user-secrets set "ConnectionStrings:DefaultConnection" "Server=localhost\\SQLEXPRESS;Database=BiogardenDb;Trusted_Connection=True;Encrypt=False;TrustServerCertificate=True;" --project backend/Biogarden.WebApi/Biogarden.WebApi.csproj
+dotnet user-secrets set "ConnectionStrings:DefaultConnection" "Server=localhost\SQLEXPRESS;Database=BiogardenDb;Trusted_Connection=True;Encrypt=False;TrustServerCertificate=True;" --project backend/Biogarden.WebApi/Biogarden.WebApi.csproj
 ```
 
 The WebApi project already declares its local user-secrets ID. Use a generated JWT secret, not the placeholder above. Runtime user secrets are loaded in Development.
