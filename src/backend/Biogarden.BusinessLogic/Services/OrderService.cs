@@ -447,27 +447,24 @@ public class OrderService : IOrderService
             Status = OrderWithdrawalRequestStatus.Pending
         };
 
-        await _unitOfWork.OrderRepository.AddWithdrawalRequestAsync(request, cancellationToken);
-        await _unitOfWork.SaveChangesAsync(cancellationToken);
+        return await _unitOfWork.ExecuteInTransactionAsync(async token =>
+        {
+            await _unitOfWork.OrderRepository.AddWithdrawalRequestAsync(request, token);
+            await _unitOfWork.SaveChangesAsync(token);
 
-        order.WithdrawalRequests.Add(request);
-        var orderDto = order.ToDto();
-        var requestDto = orderDto.WithdrawalRequests.First(item => item.Id == request.Id);
-
-        await _emailService.SendAsync(
-            _emailTemplateService.BuildOrderWithdrawalBusinessNotificationMessage(
-                _emailBrandingOptions.ContactEmail,
-                orderDto,
-                requestDto),
-            cancellationToken);
-        await _emailService.SendAsync(
-            _emailTemplateService.BuildOrderWithdrawalCustomerConfirmationMessage(
-                order.CustomerEmail,
-                orderDto,
-                requestDto),
-            cancellationToken);
-
-        return requestDto;
+            if (!order.WithdrawalRequests.Contains(request)) order.WithdrawalRequests.Add(request);
+            var orderDto = order.ToDto();
+            var requestDto = orderDto.WithdrawalRequests.First(item => item.Id == request.Id);
+            var eventId = Guid.NewGuid();
+            QueueOrderEmail(order.Id, "withdrawal-business",
+                _emailTemplateService.BuildOrderWithdrawalBusinessNotificationMessage(
+                    _emailBrandingOptions.ContactEmail, orderDto, requestDto), eventId);
+            QueueOrderEmail(order.Id, "withdrawal-customer",
+                _emailTemplateService.BuildOrderWithdrawalCustomerConfirmationMessage(
+                    order.CustomerEmail, orderDto, requestDto), eventId);
+            await _unitOfWork.SaveChangesAsync(token);
+            return requestDto;
+        }, cancellationToken);
     }
 
     public async Task<List<OrderDto>> GetMyOrdersAsync(
@@ -944,12 +941,14 @@ public class OrderService : IOrderService
         QueueOrderEmail(order.Id, "business", businessMessage);
     }
 
-    private void QueueOrderEmail(Guid orderId, string kind, Biogarden.BusinessLogic.Models.Email.EmailMessage message)
+    private void QueueOrderEmail(Guid orderId, string kind, Biogarden.BusinessLogic.Models.Email.EmailMessage message,
+        Guid eventId = default)
     {
         _unitOfWork.OrderEmailRepository.Add(new OrderEmail
         {
             Id = Guid.NewGuid(),
             OrderId = orderId,
+            EventId = eventId,
             Kind = kind,
             Recipient = message.To,
             Subject = message.Subject,

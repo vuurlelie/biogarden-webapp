@@ -549,6 +549,9 @@ namespace Biogarden.DataAccess.Migrations
                     b.Property<int>("Attempts")
                         .HasColumnType("int");
 
+                    b.Property<Guid>("EventId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<string>("HtmlBody")
                         .HasColumnType("nvarchar(max)");
 
@@ -587,10 +590,10 @@ namespace Biogarden.DataAccess.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("OrderId", "Kind")
-                        .IsUnique();
-
                     b.HasIndex("SentAtUtc", "NextAttemptAtUtc");
+
+                    b.HasIndex("OrderId", "Kind", "EventId")
+                        .IsUnique();
 
                     b.ToTable("OrderEmails");
                 });

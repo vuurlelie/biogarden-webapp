@@ -194,7 +194,8 @@ public sealed class OrderWorkflowTests : IAsyncLifetime
             var admin = cancelScope.ServiceProvider.GetRequiredService<Biogarden.BusinessLogic.Abstractions.IAdminOrderService>();
             await admin.UpdateAsync(orderId, new Biogarden.BusinessLogic.DTOs.Admin.AdminOrderUpdateDto
             {
-                Status = OrderStatus.Cancelled, PaymentStatus = PaymentStatus.Pending
+                Status = OrderStatus.Cancelled,
+                PaymentStatus = PaymentStatus.Pending
             });
         }
         var stalePayment = paymentScope.ServiceProvider.GetRequiredService<Biogarden.BusinessLogic.Abstractions.IOrderService>();
@@ -221,6 +222,78 @@ public sealed class OrderWorkflowTests : IAsyncLifetime
         database.Products.Add(product);
         await database.SaveChangesAsync();
         return product.Id;
+    }
+
+    [SqlServerFact]
+    public async Task AdminStatusChanges_QueueDistinctEvents_AndRollbackWhenQueueSaveFails()
+    {
+        await PlaceOrderAsync();
+        await using var check = _app.OpenDatabase();
+        var orderId = (await check.Orders.AsNoTracking().SingleAsync()).Id;
+        _app.Sender.Fail = true;
+        _app.QueueFailure.Enabled = true;
+        await Assert.ThrowsAsync<InvalidOperationException>(() => ChangeStatusAsync(orderId, OrderStatus.Confirmed));
+        Assert.Equal(OrderStatus.Pending, (await check.Orders.AsNoTracking().SingleAsync()).Status);
+        Assert.Equal(2, await check.OrderEmails.CountAsync());
+
+        _app.QueueFailure.Enabled = false;
+        await ChangeStatusAsync(orderId, OrderStatus.Confirmed);
+        await ChangeStatusAsync(orderId, OrderStatus.Confirmed);
+        await ChangeStatusAsync(orderId, OrderStatus.Shipped);
+        var notifications = await check.OrderEmails.Where(x => x.Kind == "status").ToListAsync();
+        Assert.Equal(2, notifications.Count);
+        Assert.Equal(2, notifications.Select(x => x.EventId).Distinct().Count());
+        Assert.Empty(_app.Sender.Sent);
+        await _app.RestartApiAsync();
+        _app.Sender.Fail = false;
+        using var scope = _app.Factory.Services.CreateScope();
+        var dispatcher = scope.ServiceProvider.GetRequiredService<OrderEmailDispatcher>();
+        for (var i = 0; i < 4; i++) Assert.True(await dispatcher.DispatchNextAsync(default));
+        Assert.False(await dispatcher.DispatchNextAsync(default));
+        Assert.Equal(4, _app.Sender.Sent.Count);
+    }
+
+    [SqlServerFact]
+    public async Task WithdrawalRequest_QueuesBothRecipients_AndRollbackLeavesNoRequest()
+    {
+        await PlaceOrderAsync();
+        await using var check = _app.OpenDatabase();
+        var order = await check.Orders.AsNoTracking().SingleAsync();
+        async Task RequestWithdrawalAsync()
+        {
+            using var scope = _app.Factory.Services.CreateScope();
+            var service = scope.ServiceProvider.GetRequiredService<Biogarden.BusinessLogic.Abstractions.IOrderService>();
+            await service.RequestWithdrawalByOrderLookupAsync(new PublicOrderWithdrawalRequestDto
+            {
+                OrderNumber = order.OrderNumber,
+                CustomerEmail = order.CustomerEmail,
+                Reason = "Please cancel this test order."
+            });
+        }
+        _app.Sender.Fail = true;
+        _app.QueueFailure.Enabled = true;
+        await Assert.ThrowsAsync<InvalidOperationException>(RequestWithdrawalAsync);
+        Assert.Empty(await check.OrderWithdrawalRequests.ToListAsync());
+        Assert.Equal(2, await check.OrderEmails.CountAsync());
+        _app.QueueFailure.Enabled = false;
+        await RequestWithdrawalAsync();
+        Assert.Single(await check.OrderWithdrawalRequests.ToListAsync());
+        var notifications = await check.OrderEmails.Where(x => x.Kind.StartsWith("withdrawal-")).ToListAsync();
+        Assert.Equal(2, notifications.Count);
+        Assert.Single(notifications.Select(x => x.EventId).Distinct());
+        Assert.All(notifications, email => Assert.NotEqual(Guid.Empty, email.EventId));
+        Assert.Empty(_app.Sender.Sent);
+    }
+
+    private async Task ChangeStatusAsync(Guid orderId, OrderStatus status)
+    {
+        using var scope = _app.Factory.Services.CreateScope();
+        var service = scope.ServiceProvider.GetRequiredService<Biogarden.BusinessLogic.Abstractions.IAdminOrderService>();
+        await service.UpdateAsync(orderId, new Biogarden.BusinessLogic.DTOs.Admin.AdminOrderUpdateDto
+        {
+            Status = status,
+            PaymentStatus = PaymentStatus.Pending
+        });
     }
 
     private static async Task AddToCartAsync(HttpClient client, int productId)

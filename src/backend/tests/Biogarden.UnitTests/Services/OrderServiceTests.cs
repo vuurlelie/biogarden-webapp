@@ -37,6 +37,9 @@ public sealed class OrderServiceTests
     {
         _unitOfWork.SetupGet(x => x.OrderRepository).Returns(_orders.Object);
         _unitOfWork.SetupGet(x => x.OrderEmailRepository).Returns(_orderEmails.Object);
+        _unitOfWork.Setup(x => x.ExecuteInTransactionAsync(
+                It.IsAny<Func<CancellationToken, Task<OrderWithdrawalRequestDto>>>(), It.IsAny<CancellationToken>()))
+            .Returns((Func<CancellationToken, Task<OrderWithdrawalRequestDto>> action, CancellationToken token) => action(token));
         _orderEmails.Setup(x => x.Add(It.IsAny<OrderEmail>()));
         _unitOfWork.SetupGet(x => x.ProductRepository).Returns(_products.Object);
         _unitOfWork
@@ -941,7 +944,7 @@ public sealed class OrderServiceTests
     }
 
     [Fact]
-    public async Task RequestWithdrawalAsync_StoresRequestAndSendsNotifications()
+    public async Task RequestWithdrawalAsync_StoresRequestAndQueuesNotifications()
     {
         var userId = Guid.NewGuid();
         var order = CreateOrder(userId);
@@ -995,12 +998,12 @@ public sealed class OrderServiceTests
         Assert.Equal(_timeProvider.GetUtcNow().UtcDateTime, result.RequestedAtUtc);
         Assert.Equal(OrderWithdrawalRequestStatus.Pending, result.Status);
         Assert.Same(savedRequest, order.WithdrawalRequests.Single());
-        _emailService.Verify(x => x.SendAsync(businessMessage, It.IsAny<CancellationToken>()), Times.Once);
-        _emailService.Verify(x => x.SendAsync(customerMessage, It.IsAny<CancellationToken>()), Times.Once);
+        _orderEmails.Verify(x => x.Add(It.Is<OrderEmail>(email => email.Kind == "withdrawal-business" && email.EventId != Guid.Empty && email.Recipient == businessMessage.To)), Times.Once);
+        _orderEmails.Verify(x => x.Add(It.Is<OrderEmail>(email => email.Kind == "withdrawal-customer" && email.EventId != Guid.Empty && email.Recipient == customerMessage.To)), Times.Once);
     }
 
     [Fact]
-    public async Task RequestWithdrawalByOrderLookupAsync_ForGuestOrder_StoresRequestAndSendsNotifications()
+    public async Task RequestWithdrawalByOrderLookupAsync_ForGuestOrder_StoresRequestAndQueuesNotifications()
     {
         var order = CreateOrder(null);
         order.CustomerName = "Vendég Vásárló";
@@ -1059,8 +1062,8 @@ public sealed class OrderServiceTests
         Assert.Equal("Szeretnék elállási kérelmet rögzíteni.", result.Reason);
         Assert.Equal(_timeProvider.GetUtcNow().UtcDateTime, result.RequestedAtUtc);
         Assert.Equal(OrderWithdrawalRequestStatus.Pending, result.Status);
-        _emailService.Verify(x => x.SendAsync(businessMessage, It.IsAny<CancellationToken>()), Times.Once);
-        _emailService.Verify(x => x.SendAsync(customerMessage, It.IsAny<CancellationToken>()), Times.Once);
+        _orderEmails.Verify(x => x.Add(It.Is<OrderEmail>(email => email.Kind == "withdrawal-business" && email.EventId != Guid.Empty && email.Recipient == businessMessage.To)), Times.Once);
+        _orderEmails.Verify(x => x.Add(It.Is<OrderEmail>(email => email.Kind == "withdrawal-customer" && email.EventId != Guid.Empty && email.Recipient == customerMessage.To)), Times.Once);
     }
 
     [Fact]

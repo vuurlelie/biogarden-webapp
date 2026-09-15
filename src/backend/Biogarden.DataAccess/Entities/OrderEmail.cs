@@ -2,6 +2,7 @@ namespace Biogarden.DataAccess.Entities;
 
 public sealed class OrderEmail
 {
+    public Guid EventId { get; set; }
     public Guid Id { get; set; }
     public Guid OrderId { get; set; }
     public string Kind { get; set; } = string.Empty;

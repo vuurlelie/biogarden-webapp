@@ -110,7 +110,6 @@ public sealed class AdminOrderService : IAdminOrderService
             order.ConfirmedAtUtc = DateTime.UtcNow;
         order.Status = changes.Status;
         order.PaymentStatus = changes.PaymentStatus;
-        await _unitOfWork.SaveChangesAsync(cancellationToken);
         var updatedOrder = order.ToDto();
 
         if (originalStatus != updatedOrder.Status)
@@ -118,9 +117,22 @@ public sealed class AdminOrderService : IAdminOrderService
             var message = _emailTemplateService.BuildOrderStatusChangedMessage(
                 updatedOrder.CustomerEmail,
                 updatedOrder);
-            await _emailService.SendAsync(message, cancellationToken);
+            _unitOfWork.OrderEmailRepository.Add(new Biogarden.DataAccess.Entities.OrderEmail
+            {
+                Id = Guid.NewGuid(),
+                EventId = Guid.NewGuid(),
+                OrderId = order.Id,
+                Kind = "status",
+                Recipient = message.To,
+                Subject = message.Subject,
+                HtmlBody = message.HtmlBody,
+                PlainTextBody = message.PlainTextBody,
+                NextAttemptAtUtc = DateTime.UtcNow
+            });
         }
 
+        // The state change and its notification commit atomically in one SaveChanges.
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
         return updatedOrder;
     }
 

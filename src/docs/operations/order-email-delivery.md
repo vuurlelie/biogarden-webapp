@@ -36,4 +36,6 @@ Investigate an increasing backlog or repeated attempts: verify SMTP configuratio
 
 With test recipients, confirm that an order succeeds while SMTP is unavailable, both notification rows remain queued, and restoring SMTP allows both messages to be sent. Retry the original checkout request and verify that neither the order nor its email rows are duplicated. Restart the API with a pending message and verify recovery after any lease expires.
 
-This queue covers order-creation confirmations. Account verification, password reset, withdrawal requests, and order-status-change emails still use their existing delivery paths.
+The queue covers order-creation confirmations, admin order-status changes, and both withdrawal-request notifications. Status and withdrawal messages carry an event ID, allowing multiple legitimate events on one order. Creation messages retain the empty event ID for checkout deduplication. State/request changes and their queue rows commit atomically. Account verification and password reset retain their existing delivery paths.
+
+Apply `AddOrderEmailEventIdentity` before running this version of the worker. Existing creation messages retain their identities; this migration does not resend completed messages or backfill historical notifications. Verify status updates and withdrawal requests while SMTP is unavailable, then restore SMTP and confirm queued delivery.
