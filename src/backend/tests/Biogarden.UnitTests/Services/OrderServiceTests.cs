@@ -773,6 +773,37 @@ public sealed class OrderServiceTests
         _unitOfWork.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
     }
 
+    [Theory]
+    [InlineData(PaymentStatus.Pending, PaymentStatus.RefundPending)]
+    [InlineData(PaymentStatus.RefundPending, PaymentStatus.RefundPending)]
+    [InlineData(PaymentStatus.Refunded, PaymentStatus.Refunded)]
+    public async Task ConfirmSumUpCheckoutAsync_AfterCancellation_PreservesCancellationAndReconcilesPayment(
+        PaymentStatus initial, PaymentStatus expected)
+    {
+        var order = CreateOrder(null);
+        order.Status = OrderStatus.Cancelled;
+        order.StockCommitted = false;
+        order.CancelledAtUtc = _timeProvider.GetUtcNow().UtcDateTime;
+        order.PaymentStatus = initial;
+        order.TotalPrice = 3600;
+        _orders.Setup(x => x.GetBySumUpCheckoutIdAsync("checkout_123", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(order);
+        _orders.Setup(x => x.Update(order));
+        _unitOfWork.Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
+
+        for (var attempt = 0; attempt < 2; attempt++)
+        {
+            var result = await _service.ConfirmSumUpCheckoutAsync("checkout_123", "txn_123", 3600, "HUF");
+            Assert.Equal(OrderStatus.Cancelled, result.Status);
+            Assert.Equal(expected, result.PaymentStatus);
+            Assert.False(order.StockCommitted);
+            Assert.Equal("txn_123", order.SumUpTransactionId);
+            Assert.NotNull(order.CancelledAtUtc);
+        }
+        await _service.MarkSumUpPaymentFailedAsync("checkout_123", null);
+        Assert.Equal(expected, order.PaymentStatus);
+    }
+
     [Fact]
     public async Task ConfirmSumUpCheckoutAsync_WhenCurrencyDoesNotMatch_ThrowsAndDoesNotSave()
     {

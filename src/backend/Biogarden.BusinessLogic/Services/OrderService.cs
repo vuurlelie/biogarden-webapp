@@ -273,17 +273,18 @@ public class OrderService : IOrderService
             cancellationToken)
             ?? throw new KeyNotFoundException("Order not found.");
 
-        if (order.Status == OrderStatus.Cancelled)
-        {
-            throw new InvalidOperationException("Cancelled order cannot be confirmed.");
-        }
-
         EnsureSumUpCheckoutMatchesOrder(order, amount, currency);
 
-        if (order.PaymentStatus != PaymentStatus.Paid)
+        if (order.Status == OrderStatus.Cancelled)
+        {
+            // Money can arrive after cancellation; preserve fulfillment and released stock.
+            if (order.PaymentStatus != PaymentStatus.Refunded)
+                order.PaymentStatus = PaymentStatus.RefundPending;
+        }
+        else if (order.PaymentStatus is not PaymentStatus.RefundPending and not PaymentStatus.Refunded)
         {
             order.PaymentStatus = PaymentStatus.Paid;
-            order.Status = OrderStatus.Confirmed;
+            if (order.Status == OrderStatus.Pending) order.Status = OrderStatus.Confirmed;
             order.ConfirmedAtUtc ??= GetUtcNow();
         }
 
@@ -316,7 +317,7 @@ public class OrderService : IOrderService
             return null;
         }
 
-        if (order.PaymentStatus is not PaymentStatus.Paid and not PaymentStatus.Refunded)
+        if (order.PaymentStatus is not PaymentStatus.Paid and not PaymentStatus.Refunded and not PaymentStatus.RefundPending)
         {
             order.PaymentStatus = PaymentStatus.Failed;
         }
