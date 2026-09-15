@@ -38,6 +38,46 @@ jobs:
       - name: Run tests
         run: dotnet test ./src/backend/Biogarden.sln --no-build --configuration Release --verbosity normal
 
+  backend-integration:
+    runs-on: ubuntu-latest
+    services:
+      sqlserver:
+        image: mcr.microsoft.com/mssql/server:2022-latest
+        env:
+          ACCEPT_EULA: Y
+          MSSQL_SA_PASSWORD: IntegrationTestsOnly_2026!
+        ports:
+          - 1433:1433
+        options: >-
+          --health-cmd="/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P IntegrationTestsOnly_2026! -C -Q 'SELECT 1' -b"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=20
+          --health-start-period=20s
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 9.0.x
+
+      - name: Restore dependencies
+        run: dotnet restore ./src/backend/Biogarden.sln --locked-mode
+
+      - name: Run SQL Server integration tests
+        env:
+          BIOGARDEN_TEST_SQLSERVER: 'Server=localhost,1433;User Id=sa;Password=IntegrationTestsOnly_2026!;TrustServerCertificate=True'
+        run: dotnet test ./src/backend/tests/Biogarden.WebApi.Tests --configuration Release --no-restore --filter Category=SqlServer --logger "trx;LogFileName=sqlserver.trx"
+
+      - name: Upload integration test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sqlserver-test-results
+          path: src/backend/tests/Biogarden.WebApi.Tests/TestResults/*.trx
+
   frontend:
     runs-on: ubuntu-latest
 
