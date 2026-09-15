@@ -7,7 +7,7 @@ This guide owns local setup and architecture notes. See the [documentation index
 Biogarden is a full-stack webshop and content site for Bakony Kincse Biokerteszet.
 
 - Frontend: React, TypeScript, Vite, Tailwind-style utility classes, Playwright E2E tests.
-- Backend: ASP.NET Core WebApi on .NET 9, Entity Framework Core, ASP.NET Identity, SQL Server.
+- Backend: ASP.NET Core WebApi on .NET 10, Entity Framework Core, ASP.NET Identity, SQL Server.
 - Payments: SumUp checkout integration; availability depends on the environment configuration.
 - Email: configurable SMTP/preview delivery, with a durable queue for order-creation confirmations.
 - Operations: monitoring, backup, deployment, abuse protection, and configuration docs live under `docs/operations`.
@@ -27,7 +27,7 @@ The working directory for most commands is `src`.
 
 ## Backend Setup
 
-Prerequisites: .NET 9 SDK and an accessible SQL Server instance. The frontend uses Node.js 24 in CI and npm.
+Prerequisites: .NET 10 SDK and an accessible SQL Server instance. The frontend uses Node.js 24 in CI and npm.
 
 Restore the repository-local EF Core CLI from `src`:
 
@@ -36,7 +36,7 @@ dotnet tool restore
 dotnet ef --version
 ```
 
-The manifest at `src/.config/dotnet-tools.json` pins `dotnet-ef` to 9.0.8, matching the EF Core packages in `backend/Directory.Packages.props`. Update the tool version alongside those packages when upgrading EF Core.
+The manifest at `src/.config/dotnet-tools.json` pins `dotnet-ef` to 10.0.12, matching the EF Core packages in `backend/Directory.Packages.props`. Update the tool version alongside those packages when upgrading EF Core.
 
 Initialize local secrets once:
 

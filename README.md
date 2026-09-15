@@ -38,7 +38,7 @@ Payment and email availability depend on environment configuration. Integration 
 | Layer | Stack |
 | --- | --- |
 | Frontend | React 19, TypeScript, Vite, React Router, Tailwind CSS, Tiptap |
-| Backend | C#, ASP.NET Core Web API, .NET 9 |
+| Backend | C#, ASP.NET Core Web API, .NET 10 |
 | Data and authentication | SQL Server, Entity Framework Core, ASP.NET Core Identity, JWT |
 | Integrations | SumUp, SMTP email |
 | Verification and CI | Backend unit/API tests, Playwright, ESLint, TypeScript checks, GitHub Actions |
