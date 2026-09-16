@@ -35,7 +35,8 @@ public sealed class ExceptionHandlingTests
 
         Assert.Equal(expectedStatus, context.Response.StatusCode);
         body.Position = 0;
-        var response = await JsonSerializer.DeserializeAsync<ApiErrorResponse>(body);
+        var response = await JsonSerializer.DeserializeAsync<ApiErrorResponse>(body,
+            new JsonSerializerOptions(JsonSerializerDefaults.Web));
         Assert.NotNull(response);
         Assert.Equal("test-trace", response.TraceId);
         Assert.Equal(expectedStatus, response.Status);

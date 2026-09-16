@@ -73,15 +73,16 @@ public sealed class ExceptionHandlingMiddleware
                 : exception is Microsoft.EntityFrameworkCore.DbUpdateConcurrencyException
                     ? "Az adatok időközben megváltoztak. Frissítsd az oldalt, és próbáld újra."
                     : exception.Message,
-            TraceId = context.TraceIdentifier
+            TraceId = context.TraceIdentifier,
+            Instance = context.Request.Path
         };
 
         LogException(context, exception, statusCode);
 
-        context.Response.ContentType = "application/json";
+        context.Response.ContentType = "application/problem+json";
         context.Response.StatusCode = (int)statusCode;
 
-        var json = JsonSerializer.Serialize(response);
+        var json = JsonSerializer.Serialize(response, new JsonSerializerOptions(JsonSerializerDefaults.Web));
         await context.Response.WriteAsync(json);
     }
 

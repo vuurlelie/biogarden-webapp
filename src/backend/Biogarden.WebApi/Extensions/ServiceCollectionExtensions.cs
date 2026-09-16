@@ -42,7 +42,8 @@ public static class ServiceCollectionExtensions
 
     private static IServiceCollection AddWebApiCore(this IServiceCollection services)
     {
-        services.AddControllers();
+        services.AddControllers(options => options.Filters.Add<Biogarden.WebApi.Filters.ApiProblemResultFilter>())
+            .ConfigureApiBehaviorOptions(options => options.InvalidModelStateResponseFactory = ApiProblems.InvalidModel);
         services.AddEndpointsApiExplorer();
 
         return services;
