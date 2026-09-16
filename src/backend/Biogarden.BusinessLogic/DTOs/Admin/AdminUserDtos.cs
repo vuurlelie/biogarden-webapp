@@ -1,4 +1,3 @@
-using System.ComponentModel.DataAnnotations;
 using Biogarden.DataAccess.Enums;
 
 namespace Biogarden.BusinessLogic.DTOs.Admin;
@@ -55,7 +54,7 @@ public sealed class AdminAccountLifecycleRequestDto
 
 public sealed class AdminAccountLifecycleDecisionDto
 {
-    [MaxLength(1000)]
+
     public string? AdminNote { get; set; }
 }
 

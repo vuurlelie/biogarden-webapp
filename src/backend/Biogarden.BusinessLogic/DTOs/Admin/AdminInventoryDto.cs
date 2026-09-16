@@ -15,7 +15,7 @@ public sealed class AdminInventoryItemDto
 
 public sealed class UpdateAdminInventoryDto
 {
-    [System.ComponentModel.DataAnnotations.Range(0, int.MaxValue)]
+
     public int StockQuantity { get; set; }
     public bool Available { get; set; }
 }

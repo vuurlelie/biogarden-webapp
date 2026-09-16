@@ -1,4 +1,3 @@
-using System.ComponentModel.DataAnnotations;
 using Biogarden.DataAccess.Enums;
 
 namespace Biogarden.BusinessLogic.DTOs.Orders;
@@ -17,25 +16,16 @@ public sealed class OrderWithdrawalRequestDto
 
 public sealed class CreateOrderWithdrawalRequestDto
 {
-    [Required]
-    [MinLength(10)]
-    [MaxLength(1000)]
+
     public string Reason { get; init; } = string.Empty;
 }
 
 public sealed class PublicOrderWithdrawalRequestDto
 {
-    [Required]
-    [MaxLength(32)]
+
     public string OrderNumber { get; init; } = string.Empty;
 
-    [Required]
-    [EmailAddress]
-    [MaxLength(256)]
     public string CustomerEmail { get; init; } = string.Empty;
 
-    [Required]
-    [MinLength(10)]
-    [MaxLength(1000)]
     public string Reason { get; init; } = string.Empty;
 }

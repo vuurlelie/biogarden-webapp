@@ -9,6 +9,18 @@ public sealed class ValidationResponseTests : IClassFixture<BiogardenWebApiFacto
     private readonly HttpClient _client;
     public ValidationResponseTests(BiogardenWebApiFactory factory) => _client = factory.CreateClient();
 
+    [Theory]
+    [InlineData("/api/cart/items", "{\"productId\":0,\"quantity\":-1}", "quantity")]
+    [InlineData("/api/orders", "{\"fulfillmentMethod\":999}", "fulfillmentMethod")]
+    [InlineData("/api/auth/login", "{\"email\":null,\"password\":null}", "email")]
+    public async Task InvalidRequest_IsRejectedBeforeDatabaseAccess(string path, string json, string field)
+    {
+        using var response = await _client.PostAsync(path, new StringContent(json, System.Text.Encoding.UTF8, "application/json"));
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.NotEmpty(body.GetProperty("errors").GetProperty(field).EnumerateArray());
+    }
+
     [Fact]
     public async Task InvalidEmail_ReturnsFieldErrorsWithCorrelation()
     {

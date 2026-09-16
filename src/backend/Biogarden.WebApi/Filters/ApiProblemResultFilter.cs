@@ -34,6 +34,11 @@ public sealed class ApiProblemResultFilter : IAlwaysRunResultFilter
                 }
             }
             problem = ApiProblems.Create(context.HttpContext, status.Value, detail);
+            if (value is ProblemDetails existing)
+            {
+                problem.Title = existing.Title ?? problem.Title;
+                if (existing is ValidationProblemDetails validation) problem.Errors = validation.Errors;
+            }
         }
         problem.TraceId = context.HttpContext.TraceIdentifier;
         problem.Instance = context.HttpContext.Request.Path;

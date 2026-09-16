@@ -235,6 +235,8 @@ public sealed class RateLimitingTests
             $$"""
             {
               "idempotencyKey": "{{idempotencyKey}}",
+              "acceptedTermsVersion": "{{Biogarden.BusinessLogic.Constants.LegalDocumentVersions.CurrentTermsVersion}}",
+              "acceptedPrivacyPolicyVersion": "{{Biogarden.BusinessLogic.Constants.LegalDocumentVersions.CurrentPrivacyPolicyVersion}}",
               "fulfillmentMethod": 0,
               "customerName": "Test User",
               "customerEmail": "test@example.com",
