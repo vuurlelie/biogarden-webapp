@@ -77,7 +77,7 @@ public sealed class RateLimitingTests
                 "/api/contact",
                 CreateContactRequestContent());
 
-            Assert.Equal(HttpStatusCode.OK, allowedResponse.StatusCode);
+            Assert.Equal(HttpStatusCode.NoContent, allowedResponse.StatusCode);
         }
 
         using var rejectedResponse = await client.PostAsync(
@@ -133,7 +133,7 @@ public sealed class RateLimitingTests
                 "/api/orders",
                 CreateOrderRequestContent());
 
-            Assert.Equal(HttpStatusCode.OK, allowedResponse.StatusCode);
+            Assert.Equal(HttpStatusCode.Created, allowedResponse.StatusCode);
         }
 
         using var rejectedResponse = await client.PostAsync(
@@ -159,7 +159,7 @@ public sealed class RateLimitingTests
             "/api/orders",
             CreateOrderRequestContent("checkout-key-123"));
 
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
 
         var orderService = factory.Services.GetRequiredService<CapturingOrderService>();
 
@@ -393,13 +393,13 @@ public sealed class RateLimitingTests
 
     private class SuccessfulOrderService : IOrderService
     {
-        public virtual Task<OrderDto> CreateOrderFromCartAsync(
+        public virtual Task<OrderCreationResult> CreateOrderFromCartAsync(
             Guid? userId,
             string? sessionId,
             PlaceOrderDto dto,
             CancellationToken cancellationToken = default)
         {
-            return Task.FromResult(CreateOrder());
+            return Task.FromResult(new OrderCreationResult(CreateOrder(), Created: true));
         }
 
         public Task<SumUpCheckoutDto> CreateSumUpCheckoutAsync(
@@ -525,7 +525,7 @@ public sealed class RateLimitingTests
     {
         public PlaceOrderDto? LastPlaceOrderDto { get; private set; }
 
-        public override Task<OrderDto> CreateOrderFromCartAsync(
+        public override Task<OrderCreationResult> CreateOrderFromCartAsync(
             Guid? userId,
             string? sessionId,
             PlaceOrderDto dto,

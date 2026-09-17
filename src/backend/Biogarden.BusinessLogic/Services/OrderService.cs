@@ -47,7 +47,7 @@ public class OrderService : IOrderService
         _sumUpOptions = sumUpOptions.Value;
     }
 
-    public async Task<OrderDto> CreateOrderFromCartAsync(
+    public async Task<OrderCreationResult> CreateOrderFromCartAsync(
         Guid? userId,
         string? sessionId,
         PlaceOrderDto dto,
@@ -60,7 +60,7 @@ public class OrderService : IOrderService
         if (existingOrderByKey is not null)
         {
             EnsureCanAccessOrder(existingOrderByKey, userId, sessionId);
-            return existingOrderByKey.ToDto();
+            return new(existingOrderByKey.ToDto(), Created: false);
         }
 
         var cart = userId.HasValue
@@ -74,7 +74,7 @@ public class OrderService : IOrderService
             var existingOrder = await GetLatestCheckedOutOrderAsync(userId, sessionId, cancellationToken);
             if (existingOrder is not null)
             {
-                return existingOrder.ToDto();
+                return new(existingOrder.ToDto(), Created: false);
             }
 
             throw new InvalidOperationException("Cart not found.");
@@ -87,7 +87,7 @@ public class OrderService : IOrderService
                 cancellationToken);
             if (existingOrder is not null)
             {
-                return existingOrder.ToDto();
+                return new(existingOrder.ToDto(), Created: false);
             }
 
             throw new InvalidOperationException("Cart already checked out.");
@@ -208,7 +208,7 @@ public class OrderService : IOrderService
             if (existingOrder is not null)
             {
                 EnsureCanAccessOrder(existingOrder, userId, sessionId);
-                return existingOrder.ToDto();
+                return new(existingOrder.ToDto(), Created: false);
             }
 
             throw new InvalidOperationException(
@@ -216,7 +216,7 @@ public class OrderService : IOrderService
                 exception);
         }
 
-        return createdOrderDto;
+        return new(createdOrderDto, Created: true);
     }
 
     public async Task<SumUpCheckoutDto> CreateSumUpCheckoutAsync(

@@ -37,10 +37,11 @@ public sealed class AdminProductsController : ControllerBase
         => Ok(await _productService.GetPagedDetailsAsync(query, cancellationToken));
 
     [HttpPost]
+    [ProducesResponseType(typeof(int), StatusCodes.Status201Created)]
     public async Task<ActionResult<int>> Create(ProductCreateDto product, CancellationToken cancellationToken)
     {
         var productId = await _productService.CreateAsync(product, cancellationToken);
-        return StatusCode(StatusCodes.Status201Created, productId);
+        return CreatedAtAction(nameof(ProductsController.GetDetails), "Products", new { productId }, productId);
     }
 
     [HttpPut("{productId:int}")]
@@ -69,6 +70,7 @@ public sealed class AdminProductsController : ControllerBase
     }
 
     [HttpPost("image")]
+    [ProducesResponseType(StatusCodes.Status201Created)]
     [RequestSizeLimit(MaximumImageSize)]
     public async Task<ActionResult<object>> UploadImage(IFormFile image, CancellationToken cancellationToken)
     {
@@ -87,7 +89,8 @@ public sealed class AdminProductsController : ControllerBase
         await using var stream = System.IO.File.Create(filePath);
         await image.CopyToAsync(stream, cancellationToken);
 
-        return Ok(new { path = $"/uploads/products/{fileName}" });
+        var path = $"/uploads/products/{fileName}";
+        return Created(path, new { path });
     }
 
     [HttpDelete("image")]

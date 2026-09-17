@@ -41,10 +41,11 @@ public sealed class OrderWorkflowTests : IAsyncLifetime
         await AddToCartAsync(client, productId);
         var request = Request();
         using var first = await client.PostAsJsonAsync("/api/orders", request);
-        first.EnsureSuccessStatusCode();
+        Assert.Equal(HttpStatusCode.Created, first.StatusCode);
         var order = (await first.Content.ReadFromJsonAsync<OrderDto>())!;
+        Assert.EndsWith($"/api/Orders/{order.Id}", first.Headers.Location?.AbsolutePath, StringComparison.OrdinalIgnoreCase);
         using var retry = await client.PostAsJsonAsync("/api/orders", request);
-        retry.EnsureSuccessStatusCode();
+        Assert.Equal(HttpStatusCode.OK, retry.StatusCode);
         Assert.Equal(order.Id, (await retry.Content.ReadFromJsonAsync<OrderDto>())!.Id);
 
         await using var database = _app.OpenDatabase();
@@ -60,6 +61,19 @@ public sealed class OrderWorkflowTests : IAsyncLifetime
         using var stranger = _app.Factory.CreateClient();
         using var unauthorizedRetry = await stranger.PostAsJsonAsync("/api/orders", request);
         Assert.Equal(HttpStatusCode.NotFound, unauthorizedRetry.StatusCode);
+    }
+
+    [SqlServerFact]
+    public async Task CartMutation_DistinguishesInvalidInputMissingProductAndStockConflict()
+    {
+        var productId = await SeedProductAsync();
+        using var client = _app.Factory.CreateClient();
+        using var invalid = await client.PostAsJsonAsync("/api/cart/items", new AddCartItemDto { ProductId = productId, Quantity = 0 });
+        Assert.Equal(HttpStatusCode.BadRequest, invalid.StatusCode);
+        using var missing = await client.PostAsJsonAsync("/api/cart/items", new AddCartItemDto { ProductId = int.MaxValue, Quantity = 1 });
+        Assert.Equal(HttpStatusCode.NotFound, missing.StatusCode);
+        using var conflict = await client.PostAsJsonAsync("/api/cart/items", new AddCartItemDto { ProductId = productId, Quantity = 4 });
+        Assert.Equal(HttpStatusCode.Conflict, conflict.StatusCode);
     }
 
     [SqlServerFact]
@@ -276,7 +290,15 @@ public sealed class OrderWorkflowTests : IAsyncLifetime
         Assert.Empty(await check.OrderWithdrawalRequests.ToListAsync());
         Assert.Equal(2, await check.OrderEmails.CountAsync());
         _app.QueueFailure.Enabled = false;
-        await RequestWithdrawalAsync();
+        using var client = _app.Factory.CreateClient();
+        using var response = await client.PostAsJsonAsync("/api/orders/withdrawal-requests", new PublicOrderWithdrawalRequestDto
+        {
+            OrderNumber = order.OrderNumber,
+            CustomerEmail = order.CustomerEmail,
+            Reason = "Please cancel this test order."
+        });
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        Assert.NotNull(await response.Content.ReadFromJsonAsync<OrderWithdrawalRequestDto>());
         Assert.Single(await check.OrderWithdrawalRequests.ToListAsync());
         var notifications = await check.OrderEmails.Where(x => x.Kind.StartsWith("withdrawal-")).ToListAsync();
         Assert.Equal(2, notifications.Count);

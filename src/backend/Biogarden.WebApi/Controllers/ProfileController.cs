@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using Biogarden.BusinessLogic.Abstractions;
 using Biogarden.BusinessLogic.DTOs.Users;
+using Biogarden.DataAccess.Enums;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -73,16 +74,21 @@ public class ProfileController : ControllerBase
     }
 
     [HttpPost("account-lifecycle")]
+    [ProducesResponseType(typeof(AccountLifecycleResultDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(AccountLifecycleResultDto), StatusCodes.Status202Accepted)]
     public async Task<ActionResult<AccountLifecycleResultDto>> RequestAccountLifecycleAsync(
         [FromBody] AccountLifecycleRequestDto request,
         CancellationToken cancellationToken)
     {
         var userId = GetCurrentUserId();
 
-        return Ok(await _userService.RequestAccountLifecycleAsync(
+        var result = await _userService.RequestAccountLifecycleAsync(
             userId,
             request,
-            cancellationToken));
+            cancellationToken);
+        return result.Status == AccountLifecycleRequestStatus.Pending
+            ? Accepted(result)
+            : Ok(result);
     }
 
     private Guid GetCurrentUserId()

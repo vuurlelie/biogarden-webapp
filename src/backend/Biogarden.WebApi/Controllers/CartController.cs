@@ -43,6 +43,7 @@ public class CartController : ControllerBase
     [EnableRateLimiting(RateLimitPolicyNames.CartMutation)]
     [ProducesResponseType(typeof(CartDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<ActionResult<CartDto>> AddItem(
         [FromBody] AddCartItemDto addCartItemDto,
         CancellationToken cancellationToken)
@@ -68,7 +69,7 @@ public class CartController : ControllerBase
         }
         catch (InvalidOperationException exception)
         {
-            return BadRequest(new { message = exception.Message });
+            return Conflict(new { message = exception.Message });
         }
         catch (KeyNotFoundException exception)
         {
@@ -99,6 +100,7 @@ public class CartController : ControllerBase
     [EnableRateLimiting(RateLimitPolicyNames.CartMutation)]
     [ProducesResponseType(typeof(CartDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<CartDto>> UpdateItemQuantity(
         Guid cartItemId,
@@ -127,7 +129,7 @@ public class CartController : ControllerBase
         }
         catch (InvalidOperationException exception)
         {
-            return BadRequest(new { message = exception.Message });
+            return Conflict(new { message = exception.Message });
         }
         catch (KeyNotFoundException exception)
         {
@@ -213,6 +215,7 @@ public class CartController : ControllerBase
     [EnableRateLimiting(RateLimitPolicyNames.CartMutation)]
     [ProducesResponseType(typeof(CartDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<ActionResult<CartDto>> MergeGuestCartIntoUserCart(
         CancellationToken cancellationToken)
     {
@@ -222,7 +225,7 @@ public class CartController : ControllerBase
 
             if (!userId.HasValue)
             {
-                return BadRequest(new { message = "A felhasználó nincs bejelentkezve." });
+                return Unauthorized(new { message = "A felhasználó nincs bejelentkezve." });
             }
 
             var guestSessionId = GetSessionId();
@@ -252,7 +255,7 @@ public class CartController : ControllerBase
         }
         catch (InvalidOperationException exception)
         {
-            return BadRequest(new { message = exception.Message });
+            return Conflict(new { message = exception.Message });
         }
         catch (KeyNotFoundException exception)
         {
