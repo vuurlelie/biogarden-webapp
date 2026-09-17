@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import type { ProductCategory, ProductDetails, UnitOfMeasure } from "../../products/types/product.types";
 import { useModalFocus } from "../../../shared/hooks/useModalFocus";
-import { getErrorMessage } from "../../../shared/utils/errorHandling";
+import { getErrorMessage, getServerFieldErrors } from "../../../shared/utils/errorHandling";
 import {
   createAdminProduct,
   deleteUnusedAdminProductImage,
@@ -388,6 +388,7 @@ export default function AdminProductFormModal({ product, onClose, onSaved }: Pro
 
       onSaved(product ? "A termék módosítása sikerült." : "Az új termék létrehozása sikerült.");
     } catch (saveError) {
+      setFieldErrors(getServerFieldErrors(saveError, ["name", "price", "stockQuantity", "unitAmount", "image"] as const));
       if (uploadedImage) {
         try {
           await deleteUnusedAdminProductImage(uploadedImage);

@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate } from "react-router";
 import { login, resendEmailConfirmation } from "../../features/auth/api/authApi";
 import { saveAuthSession } from "../../features/auth/utils/authStorage";
 import { ROUTES } from "../../shared/constants/routes";
-import { getErrorMessage } from "../../shared/utils/errorHandling";
+import { getErrorMessage, getServerFieldErrors } from "../../shared/utils/errorHandling";
 
 type LoginLocationState = {
   registrationSuccess?: boolean;
@@ -101,6 +101,7 @@ export default function LoginPage() {
       const from = (location.state as LoginLocationState | null)?.from;
       navigate(from ?? ROUTES.account, { replace: true });
     } catch (submitError) {
+      setFieldErrors(getServerFieldErrors(submitError, ["email", "password"] as const));
       const message = getErrorMessage(submitError, "A bejelentkezés nem sikerült.");
 
       if (message.toLocaleLowerCase("hu-HU").includes("meger")) {

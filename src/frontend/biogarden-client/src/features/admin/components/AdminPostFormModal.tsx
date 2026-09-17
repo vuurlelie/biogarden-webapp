@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import type { Post, PostCategory } from "../../posts/types/post.types";
 import { useModalFocus } from "../../../shared/hooks/useModalFocus";
-import { getErrorMessage } from "../../../shared/utils/errorHandling";
+import { getErrorMessage, getServerFieldErrors } from "../../../shared/utils/errorHandling";
 import {
   createAdminPost,
   deleteUnusedAdminPostImage,
@@ -304,6 +304,7 @@ export default function AdminPostFormModal({ post, onClose, onSaved }: Props) {
 
       onSaved(post ? "A bejegyzés módosítása sikerült." : "Az új bejegyzés létrehozása sikerült.");
     } catch (saveError) {
+      setFieldErrors(getServerFieldErrors(saveError, ["title", "article", "publishedAt", "image"] as const));
       if (uploadedImage) {
         try {
           await deleteUnusedAdminPostImage(uploadedImage);
