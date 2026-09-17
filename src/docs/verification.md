@@ -31,7 +31,15 @@ try {
 }
 ```
 
-CI supplies an isolated SQL Server service and runs this category explicitly. Coverage includes guest checkout with an existing account email, idempotent retry and ownership, transactional rollback when queue persistence fails, durable email retry across API restart, competing queue claims and expired leases, and SQL Server rowversion conflicts. The inventory test uses two database contexts; it does not simulate two simultaneous HTTP checkouts. Worker scheduling and live SMTP delivery remain deployment checks.
+CI supplies an isolated SQL Server service and runs this category explicitly. Coverage includes guest checkout with an existing account email, idempotent retry and ownership, transactional rollback when queue persistence fails, durable email retry across API restart, competing queue claims and expired leases, and SQL Server rowversion conflicts. Worker scheduling and live SMTP delivery remain deployment checks.
+
+`ConcurrentCheckoutTests` sends overlapping HTTP requests against real services and SQL Server. A test-only EF save interceptor waits until both requests have read their data and are ready to save, then releases both; bounded waits prevent a missing participant from hanging the suite. It covers:
+
+- Two independent guest sessions competing for the last item: one reservation-and-checkout succeeds, the other receives 409, final stock is zero, and exactly one order and two confirmation emails are persisted. Reservation is part of this flow because adding a cart item reserves stock in this project.
+- Two simultaneous submissions of the same checkout key: exactly one creates an order. The other may return the existing order or 409 for a stale rowversion; a subsequent retry must return the original order with 200. Stock is deducted once and emails are queued once.
+- Concurrent quantity increases in separate carts: one succeeds and one receives 409, so total reservations cannot exceed available stock. Physical stock is unchanged until checkout.
+
+Reservation writes also check and advance the product's existing rowversion in the same save transaction as the cart change. They do not decrement physical stock. This optimistic guard can require a refresh/retry when reservations or inventory change concurrently, even if a later retry would have sufficient stock. The tests verify the intended conflict response and rollback; they are not a load/performance test.
 
 If the test process is forcibly terminated, its database may remain. Review the disposable instance's `BiogardenIntegration_*` databases before manually removing leftovers.
 

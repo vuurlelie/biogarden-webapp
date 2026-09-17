@@ -24,6 +24,7 @@ public sealed class SqlServerApp : IAsyncLifetime
     public TestApi Factory { get; private set; } = null!;
     public TestEmailSender Sender { get; } = new();
     public QueueSaveFailure QueueFailure { get; } = new();
+    public ConcurrentSaveGate SaveGate { get; } = new();
 
     public async Task InitializeAsync()
     {
@@ -44,7 +45,7 @@ public sealed class SqlServerApp : IAsyncLifetime
         try
         {
             await database.Database.MigrateAsync();
-            Factory = new TestApi(_connectionString, Sender, QueueFailure);
+            Factory = new TestApi(_connectionString, Sender, QueueFailure, SaveGate);
         }
         catch
         {
@@ -59,7 +60,7 @@ public sealed class SqlServerApp : IAsyncLifetime
     public async Task RestartApiAsync()
     {
         await Factory.DisposeAsync();
-        Factory = new TestApi(_connectionString, Sender, QueueFailure);
+        Factory = new TestApi(_connectionString, Sender, QueueFailure, SaveGate);
     }
 
     public async Task DisposeAsync()
@@ -75,7 +76,7 @@ public sealed class SqlServerApp : IAsyncLifetime
         _created = false;
     }
 
-    public sealed class TestApi(string connection, TestEmailSender sender, QueueSaveFailure failure)
+    public sealed class TestApi(string connection, TestEmailSender sender, QueueSaveFailure failure, ConcurrentSaveGate saveGate)
         : WebApplicationFactory<Program>
     {
         protected override void ConfigureWebHost(IWebHostBuilder builder)
@@ -102,7 +103,7 @@ public sealed class SqlServerApp : IAsyncLifetime
             {
                 services.RemoveAll<IEmailService>();
                 services.AddSingleton<IEmailService>(sender);
-                services.AddDbContext<AppDbContext>(options => options.AddInterceptors(failure));
+                services.AddDbContext<AppDbContext>(options => options.AddInterceptors(failure, saveGate));
             });
         }
     }
@@ -132,6 +133,32 @@ public sealed class SqlServerApp : IAsyncLifetime
                 .Any(entry => entry.State == EntityState.Added))
                 throw new InvalidOperationException("Simulated queue persistence failure");
             return base.SavingChangesAsync(eventData, result, cancellationToken);
+        }
+    }
+
+    // Force both requests past their reads before either writes. No sleeps or mocked persistence.
+    public sealed class ConcurrentSaveGate : SaveChangesInterceptor
+    {
+        private readonly TaskCompletionSource _bothArrived = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private readonly TaskCompletionSource _release = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private int _arrivals;
+        public Type? EntityType { get; set; }
+        public EntityState State { get; set; } = EntityState.Added;
+        public int Arrivals => Volatile.Read(ref _arrivals);
+        public Task WaitForBothAsync() => _bothArrived.Task.WaitAsync(TimeSpan.FromSeconds(20));
+        public void Release() => _release.TrySetResult();
+
+        public override async ValueTask<InterceptionResult<int>> SavingChangesAsync(
+            DbContextEventData eventData, InterceptionResult<int> result, CancellationToken cancellationToken = default)
+        {
+            if (EntityType is not null && eventData.Context!.ChangeTracker.Entries()
+                .Any(entry => entry.State == State && entry.Entity.GetType() == EntityType))
+            {
+                var arrival = Interlocked.Increment(ref _arrivals);
+                if (arrival == 2) _bothArrived.TrySetResult();
+                if (arrival <= 2) await _release.Task.WaitAsync(TimeSpan.FromSeconds(25), cancellationToken);
+            }
+            return result;
         }
     }
 }

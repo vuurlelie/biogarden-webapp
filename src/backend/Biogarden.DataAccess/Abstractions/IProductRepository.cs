@@ -26,5 +26,7 @@ public interface IProductRepository
 
     void Update(Product product);
 
+    void GuardStockReservation(Product product);
+
     Task<bool> DeleteByIdAsync(int productId, CancellationToken cancellationToken = default);
 }

@@ -103,6 +103,13 @@ public sealed class ProductRepository : IProductRepository
         _databaseContext.Products.Update(product);
     }
 
+    public void GuardStockReservation(Product product)
+    {
+        // An unchanged stock write checks and advances RowVersion in the same SaveChanges
+        // transaction as the cart reservation, preventing concurrent over-reservation.
+        _databaseContext.Products.Entry(product).Property(item => item.StockQuantity).IsModified = true;
+    }
+
     public async Task<bool> DeleteByIdAsync(int productId, CancellationToken cancellationToken = default)
     {
         var product = await _databaseContext.Products
