@@ -15,7 +15,6 @@ public sealed class AdminInventoryItemDto
 
 public sealed class UpdateAdminInventoryDto
 {
-
     public int StockQuantity { get; set; }
     public bool Available { get; set; }
 }

@@ -4,7 +4,6 @@ namespace Biogarden.BusinessLogic.DTOs.Users;
 
 public sealed class AccountLifecycleRequestDto
 {
-
     public AccountLifecycleRequestType Type { get; set; }
 
     public string? Reason { get; set; }

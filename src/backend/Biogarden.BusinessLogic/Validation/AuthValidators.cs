@@ -1,12 +1,4 @@
 using Biogarden.BusinessLogic.DTOs.Auth;
-using Biogarden.BusinessLogic.DTOs.Addresses;
-using Biogarden.BusinessLogic.DTOs.Users;
-using Biogarden.BusinessLogic.DTOs.Products;
-using Biogarden.BusinessLogic.DTOs.Posts;
-using Biogarden.BusinessLogic.DTOs.Carts;
-using Biogarden.BusinessLogic.DTOs.Contact;
-using Biogarden.BusinessLogic.DTOs.Orders;
-using Biogarden.BusinessLogic.DTOs.Admin;
 using Biogarden.DataAccess.Enums;
 using FluentValidation;
 
@@ -73,7 +65,7 @@ public sealed class RegisterRequestDtoValidator : AbstractValidator<RegisterRequ
         RuleFor(x => x.CustomerType).IsInEnum().WithMessage("Érvénytelen érték.");
         When(x => x.CustomerType == CustomerType.Company, () =>
         {
-            RuleFor(x => x.CompanyName).NotEmpty().MaximumLength(200).WithMessage("A cégnév kötelező, legfeljebb 200 karakterrel.");
+            RuleFor(x => x.CompanyName).NotEmpty().WithMessage("A cégnév megadása kötelező.").MaximumLength(200).WithMessage("A cégnév kötelező, legfeljebb 200 karakterrel.");
             RuleFor(x => x.TaxNumber).Must(ValidationRules.ValidTaxNumber).WithMessage("Hibás adószám. Példa: 12345678-1-12.");
             RuleFor(x => x.BillingAddress).NotNull().WithMessage("A számlázási cím megadása kötelező.");
             RuleFor(x => x.BillingAddress!).SetValidator(new AddressCreateDtoValidator()).When(x => x.BillingAddress is not null);

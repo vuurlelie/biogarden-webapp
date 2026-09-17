@@ -1,12 +1,5 @@
-using Biogarden.BusinessLogic.DTOs.Auth;
 using Biogarden.BusinessLogic.DTOs.Addresses;
 using Biogarden.BusinessLogic.DTOs.Users;
-using Biogarden.BusinessLogic.DTOs.Products;
-using Biogarden.BusinessLogic.DTOs.Posts;
-using Biogarden.BusinessLogic.DTOs.Carts;
-using Biogarden.BusinessLogic.DTOs.Contact;
-using Biogarden.BusinessLogic.DTOs.Orders;
-using Biogarden.BusinessLogic.DTOs.Admin;
 using Biogarden.DataAccess.Enums;
 using FluentValidation;
 
@@ -16,6 +9,14 @@ public sealed class AddressCreateDtoValidator : AbstractValidator<AddressCreateD
 {
     public AddressCreateDtoValidator()
     {
+        RuleFor(x => x.PostalCode).MaximumLength(4).WithMessage("Legfeljebb 4 karakter adható meg.");
+        RuleFor(x => x.City).MaximumLength(100).WithMessage("Legfeljebb 100 karakter adható meg.");
+        RuleFor(x => x.Street).MaximumLength(200).WithMessage("Legfeljebb 200 karakter adható meg.");
+        RuleFor(x => x.HouseNumber).MaximumLength(20).WithMessage("Legfeljebb 20 karakter adható meg.");
+        RuleFor(x => x.Building).MaximumLength(20).WithMessage("Legfeljebb 20 karakter adható meg.");
+        RuleFor(x => x.Floor).MaximumLength(20).WithMessage("Legfeljebb 20 karakter adható meg.");
+        RuleFor(x => x.Door).MaximumLength(20).WithMessage("Legfeljebb 20 karakter adható meg.");
+        RuleFor(x => x.Doorbell).MaximumLength(50).WithMessage("Legfeljebb 50 karakter adható meg.");
         RuleFor(x => x.PostalCode).NotEmpty().WithMessage("A mező megadása kötelező.");
         RuleFor(x => x.City).NotEmpty().WithMessage("A mező megadása kötelező.");
         RuleFor(x => x.Street).NotEmpty().WithMessage("A mező megadása kötelező.");
@@ -27,6 +28,14 @@ public sealed class AddressEditDtoValidator : AbstractValidator<AddressEditDto>
 {
     public AddressEditDtoValidator()
     {
+        RuleFor(x => x.PostalCode).MaximumLength(4).WithMessage("Legfeljebb 4 karakter adható meg.");
+        RuleFor(x => x.City).MaximumLength(100).WithMessage("Legfeljebb 100 karakter adható meg.");
+        RuleFor(x => x.Street).MaximumLength(200).WithMessage("Legfeljebb 200 karakter adható meg.");
+        RuleFor(x => x.HouseNumber).MaximumLength(20).WithMessage("Legfeljebb 20 karakter adható meg.");
+        RuleFor(x => x.Building).MaximumLength(20).WithMessage("Legfeljebb 20 karakter adható meg.");
+        RuleFor(x => x.Floor).MaximumLength(20).WithMessage("Legfeljebb 20 karakter adható meg.");
+        RuleFor(x => x.Door).MaximumLength(20).WithMessage("Legfeljebb 20 karakter adható meg.");
+        RuleFor(x => x.Doorbell).MaximumLength(50).WithMessage("Legfeljebb 50 karakter adható meg.");
         RuleFor(x => x.PostalCode).NotEmpty().WithMessage("A mező megadása kötelező.");
         RuleFor(x => x.City).NotEmpty().WithMessage("A mező megadása kötelező.");
         RuleFor(x => x.Street).NotEmpty().WithMessage("A mező megadása kötelező.");
@@ -50,11 +59,10 @@ public sealed class UpdateUserProfileDtoValidator : AbstractValidator<UpdateUser
         RuleFor(x => x.CustomerType).IsInEnum().WithMessage("Érvénytelen érték.");
         RuleFor(x => x.FirstName).MaximumLength(100).WithMessage("Legfeljebb 100 karakter adható meg.");
         RuleFor(x => x.LastName).MaximumLength(100).WithMessage("Legfeljebb 100 karakter adható meg.");
-        When(x => x.CustomerType == CustomerType.Company, () =>
-        {
-            RuleFor(x => x.CompanyName).NotEmpty().MaximumLength(200).WithMessage("A cégnév kötelező, legfeljebb 200 karakterrel.");
-            RuleFor(x => x.TaxNumber).Must(ValidationRules.ValidTaxNumber).WithMessage("Hibás adószám. Példa: 12345678-1-12.");
-        });
+        // Profile editing permits incomplete company details; registration and checkout have different requirements.
+        RuleFor(x => x.CompanyName).MaximumLength(200).WithMessage("A cégnév legfeljebb 200 karakter lehet.");
+        RuleFor(x => x.TaxNumber).Must(ValidationRules.ValidTaxNumber)
+            .When(x => !string.IsNullOrWhiteSpace(x.TaxNumber)).WithMessage("Hibás adószám. Példa: 12345678-1-12.");
     }
 }
 

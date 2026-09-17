@@ -16,13 +16,11 @@ public sealed class OrderWithdrawalRequestDto
 
 public sealed class CreateOrderWithdrawalRequestDto
 {
-
     public string Reason { get; init; } = string.Empty;
 }
 
 public sealed class PublicOrderWithdrawalRequestDto
 {
-
     public string OrderNumber { get; init; } = string.Empty;
 
     public string CustomerEmail { get; init; } = string.Empty;

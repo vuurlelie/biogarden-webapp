@@ -9,6 +9,7 @@ Biogarden is in **User Acceptance Testing (UAT)**. Client feedback and outstandi
 | Understand the business and delivered scope | [Project overview](../../README.md) | Portfolio introduction and UAT preview link |
 | Run the application locally | [Developer guide](developer-guide.md) | Prerequisites, setup, local migrations, architecture |
 | Verify a code change | [Engineering verification](verification.md) | Build, test, format, dependency, and SEO commands; test limitations |
+| Understand input validation | [Request validation](validation.md) | Validation responsibilities, conditional rules and error contract |
 | Review the application with the client | [UAT checklist and decision log](uat-checklist.md) | Scenarios, evidence template, decisions, acceptance criteria |
 | Configure an environment | [Configuration](operations/configuration.md) | Setting names, secrets, frontend origins, payment setup |
 | Deploy or roll back | [Deployment runbook](operations/deployment-runbook.md) | Release sequence, migration script, smoke checks, release record |

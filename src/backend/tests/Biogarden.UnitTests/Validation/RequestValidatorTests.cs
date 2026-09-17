@@ -86,6 +86,23 @@ public sealed class RequestValidatorTests
     }
 
     [Fact]
+    public async Task ProfileEditing_PreservesOptionalCompanyDetails()
+    {
+        var result = await new UpdateUserProfileDtoValidator().ValidateAsync(new Biogarden.BusinessLogic.DTOs.Users.UpdateUserProfileDto { CustomerType = CustomerType.Company });
+        Assert.True(result.IsValid);
+    }
+
+    [Fact]
+    public async Task NestedAddress_ReportsTheFieldBeforeSqlLengthFailure()
+    {
+        var result = await new UpdateUserAddressesDtoValidator().ValidateAsync(new Biogarden.BusinessLogic.DTOs.Users.UpdateUserAddressesDto
+        {
+            ShippingAddress = new Biogarden.BusinessLogic.DTOs.Addresses.AddressCreateDto { PostalCode = "12345", City = "Budapest", Street = "Utca", HouseNumber = "1" }
+        });
+        Assert.Contains(result.Errors, error => error.PropertyName == "ShippingAddress.PostalCode");
+    }
+
+    [Fact]
     public async Task CompanyRegistration_RequiresNestedBillingAddress()
     {
         var result = await new RegisterRequestDtoValidator().ValidateAsync(new RegisterRequestDto

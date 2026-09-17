@@ -54,7 +54,6 @@ public sealed class AdminAccountLifecycleRequestDto
 
 public sealed class AdminAccountLifecycleDecisionDto
 {
-
     public string? AdminNote { get; set; }
 }
 

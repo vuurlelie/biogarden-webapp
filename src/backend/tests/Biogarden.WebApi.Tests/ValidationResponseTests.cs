@@ -1,13 +1,38 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
+using FluentValidation;
+using Microsoft.AspNetCore.Mvc.Controllers;
+using Microsoft.AspNetCore.Mvc.Infrastructure;
+using Microsoft.AspNetCore.Mvc.ModelBinding;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Biogarden.WebApi.Tests;
 
 public sealed class ValidationResponseTests : IClassFixture<BiogardenWebApiFactory>
 {
     private readonly HttpClient _client;
-    public ValidationResponseTests(BiogardenWebApiFactory factory) => _client = factory.CreateClient();
+    private readonly BiogardenWebApiFactory _factory;
+    public ValidationResponseTests(BiogardenWebApiFactory factory)
+    {
+        _factory = factory;
+        _client = factory.CreateClient();
+    }
+
+    [Fact]
+    public void EveryBusinessRequestBody_HasARegisteredValidator()
+    {
+        using var scope = _factory.Services.CreateScope();
+        var actions = scope.ServiceProvider.GetRequiredService<IActionDescriptorCollectionProvider>();
+        var requestTypes = actions.ActionDescriptors.Items.OfType<ControllerActionDescriptor>()
+            .SelectMany(action => action.Parameters)
+            .Where(parameter => parameter.BindingInfo?.BindingSource == BindingSource.Body
+                && parameter.ParameterType.Namespace?.StartsWith("Biogarden.BusinessLogic.DTOs.", StringComparison.Ordinal) == true)
+            .Select(parameter => parameter.ParameterType).Distinct().ToArray();
+        Assert.NotEmpty(requestTypes);
+        foreach (var requestType in requestTypes)
+            Assert.NotNull(scope.ServiceProvider.GetService(typeof(IValidator<>).MakeGenericType(requestType)));
+    }
 
     [Theory]
     [InlineData("/api/cart/items", "{\"productId\":0,\"quantity\":-1}", "quantity")]
