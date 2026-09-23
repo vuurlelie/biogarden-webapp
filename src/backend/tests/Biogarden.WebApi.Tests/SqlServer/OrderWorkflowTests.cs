@@ -21,6 +21,33 @@ public sealed class OrderWorkflowTests : IAsyncLifetime
     public Task DisposeAsync() => _app.DisposeAsync();
 
     [SqlServerFact]
+    public async Task GuestCart_TwoDifferentProductsRemainInTheSameCartAcrossReads()
+    {
+        var firstProduct = await SeedProductAsync();
+        var secondProduct = await SeedProductAsync();
+        using var client = _app.Factory.CreateClient(new Microsoft.AspNetCore.Mvc.Testing.WebApplicationFactoryClientOptions
+        {
+            BaseAddress = new Uri("https://localhost")
+        });
+        var initial = (await client.GetFromJsonAsync<CartDto>("/api/cart"))!;
+        await AddToCartAsync(client, firstProduct);
+        await AddToCartAsync(client, secondProduct);
+        for (var read = 0; read < 2; read++)
+        {
+            var cart = (await client.GetFromJsonAsync<CartDto>("/api/cart"))!;
+            Assert.Equal(initial.Id, cart.Id);
+            Assert.Equal(2, cart.TotalItemCount);
+            Assert.Equal(new[] { firstProduct, secondProduct }, cart.Items.Select(item => item.ProductId).Order().ToArray());
+        }
+        await using var database = _app.OpenDatabase();
+        Assert.Equal(initial.Id, (await database.Carts.SingleAsync()).Id);
+        using var otherVisitor = _app.Factory.CreateClient();
+        var otherCart = (await otherVisitor.GetFromJsonAsync<CartDto>("/api/cart"))!;
+        Assert.NotEqual(initial.Id, otherCart.Id);
+        Assert.Empty(otherCart.Items);
+    }
+
+    [SqlServerFact]
     public async Task GuestCheckout_PersistsOneOrderAndTwoEmails_WhenEmailMatchesAccount()
     {
         using (var scope = _app.Factory.Services.CreateScope())

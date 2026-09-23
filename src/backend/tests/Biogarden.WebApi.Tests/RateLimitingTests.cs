@@ -19,6 +19,34 @@ namespace Biogarden.WebApi.Tests;
 
 public sealed class RateLimitingTests
 {
+    [Theory]
+    [InlineData("https://localhost", "None", true)]
+    [InlineData("http://localhost", "Lax", false)]
+    public async Task GuestCartCookie_UsesCrossSitePolicyOnlyOverHttps(string baseUrl, string sameSite, bool secure)
+    {
+        using var factory = CreateFactory(services =>
+        {
+            services.RemoveAll<ICartService>();
+            services.AddScoped<ICartService, SuccessfulCartService>();
+        });
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions { BaseAddress = new Uri(baseUrl) });
+        using var first = await client.GetAsync("/api/cart");
+        first.EnsureSuccessStatusCode();
+        var cookie = Assert.Single(Microsoft.Net.Http.Headers.SetCookieHeaderValue.ParseList(first.Headers.GetValues("Set-Cookie").ToList()),
+            item => item.Name == "biogarden_cart_id");
+        Assert.Equal(sameSite, cookie.SameSite.ToString());
+        Assert.Equal(secure, cookie.Secure);
+        Assert.True(cookie.HttpOnly);
+        Assert.Equal("/", cookie.Path.ToString());
+        Assert.True(Guid.TryParse(cookie.Value.ToString(), out _));
+
+        using var next = await client.PostAsync("/api/cart/items", CreateAddCartItemRequestContent());
+        next.EnsureSuccessStatusCode();
+        var renewed = Assert.Single(Microsoft.Net.Http.Headers.SetCookieHeaderValue.ParseList(next.Headers.GetValues("Set-Cookie").ToList()),
+            item => item.Name == "biogarden_cart_id");
+        Assert.Equal(cookie.Value, renewed.Value);
+    }
+
     [Fact]
     public async Task SensitiveAuthEndpoint_ReturnsTooManyRequests_WhenPolicyLimitIsExceeded()
     {

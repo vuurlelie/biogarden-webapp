@@ -317,11 +317,7 @@ public class CartController : ControllerBase
             return existingSessionId;
         }
 
-        var newSessionId = Guid.NewGuid().ToString();
-
-        EnsureCartCookie(newSessionId);
-
-        return newSessionId;
+        return Guid.NewGuid().ToString();
     }
 
     private void EnsureCartCookie(string sessionId)
@@ -333,7 +329,10 @@ public class CartController : ControllerBase
             {
                 HttpOnly = true,
                 Secure = Request.IsHttps,
-                SameSite = SameSiteMode.Lax,
+                // Hosted frontend and API can be on different sites. Cross-site cookies
+                // require HTTPS; retain Lax for plain-HTTP local development.
+                SameSite = Request.IsHttps ? SameSiteMode.None : SameSiteMode.Lax,
+                Path = "/",
                 Expires = DateTimeOffset.UtcNow.AddMinutes(CartCookieExpirationInMinutes),
                 IsEssential = true
             });
