@@ -48,7 +48,7 @@ import { ROUTES } from "../../shared/constants/routes";
 import AddressFields from "../../shared/components/forms/AddressFields";
 import { useModalFocus } from "../../shared/hooks/useModalFocus";
 import type { AddressFormData } from "../../shared/types/address.types";
-import { getErrorMessage, hasErrorStatus } from "../../shared/utils/errorHandling";
+import { getErrorMessage, getServerFieldErrors, hasErrorStatus } from "../../shared/utils/errorHandling";
 
 export default function CheckoutPage() {
   const navigate = useNavigate();
@@ -399,6 +399,13 @@ export default function CheckoutPage() {
       navigate(ROUTES.orderSuccess, { replace: true, state: { order } });
     } catch (submitError) {
       setShowReview(false);
+      const serverErrors = getServerFieldErrors<keyof CheckoutFieldErrors>(submitError,
+        [...Object.keys(draft) as (keyof CheckoutDraft)[], "terms", "privacy"],
+        { acceptedTermsVersion: "terms", acceptedPrivacyPolicyVersion: "privacy" });
+      setFieldErrors(serverErrors);
+      if (Object.keys(serverErrors).some((field) => field !== "terms" && field !== "privacy")) {
+        setStep("details");
+      }
       setError(getErrorMessage(submitError, "A rendelést nem sikerült elküldeni."));
     } finally {
       setSubmitting(false);

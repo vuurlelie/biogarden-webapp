@@ -39,6 +39,7 @@ public sealed class AdminPostsController : ControllerBase
         => Ok(await _postService.GetAdminPagedAsync(query, cancellationToken));
 
     [HttpPost]
+    [ProducesResponseType(typeof(int), StatusCodes.Status201Created)]
     public async Task<ActionResult<int>> Create(PostCreateDto post, CancellationToken cancellationToken)
     {
         var postId = await _postService.CreateAsync(post, cancellationToken);
@@ -78,6 +79,7 @@ public sealed class AdminPostsController : ControllerBase
     }
 
     [HttpPost("image")]
+    [ProducesResponseType(StatusCodes.Status201Created)]
     [RequestSizeLimit(MaximumImageSize)]
     public async Task<ActionResult<object>> UploadImage(IFormFile image, CancellationToken cancellationToken)
     {
@@ -101,7 +103,8 @@ public sealed class AdminPostsController : ControllerBase
         await using var stream = System.IO.File.Create(filePath);
         await image.CopyToAsync(stream, cancellationToken);
 
-        return Ok(new { path = $"/uploads/posts/{fileName}" });
+        var path = $"/uploads/posts/{fileName}";
+        return Created(path, new { path });
     }
 
     [HttpDelete("image")]

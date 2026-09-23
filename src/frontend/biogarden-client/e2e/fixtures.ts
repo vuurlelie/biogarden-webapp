@@ -310,7 +310,7 @@ export async function mockCheckoutApi(
       onCreateOrder(route.request().postDataJSON() as Record<string, unknown>);
     }
 
-    await route.fulfill({ json: successfulOrder });
+    await route.fulfill({ status: 201, json: successfulOrder });
   });
 
   await page.route(`${apiBaseUrl}/api/orders/${successfulOrder.id}/sumup-checkout`, async (route) => {

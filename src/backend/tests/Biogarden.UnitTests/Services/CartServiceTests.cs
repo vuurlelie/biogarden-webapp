@@ -16,6 +16,7 @@ public sealed class CartServiceTests
 
     public CartServiceTests()
     {
+        _products.Setup(repository => repository.GuardStockReservation(It.IsAny<Product>()));
         _unitOfWork.SetupGet(x => x.CartRepository).Returns(_carts.Object);
         _unitOfWork.SetupGet(x => x.ProductRepository).Returns(_products.Object);
         _service = new CartService(_unitOfWork.Object, _timeProvider);

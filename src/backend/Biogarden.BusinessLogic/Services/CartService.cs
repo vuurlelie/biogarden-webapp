@@ -568,6 +568,8 @@ public class CartService : ICartService
             throw new InvalidOperationException(
                 $"A kért mennyiség nem elérhető. Jelenleg legfeljebb {availableStock} db foglalható.");
         }
+
+        _unitOfWork.ProductRepository.GuardStockReservation(product);
     }
 
     private DateTime GetUtcNow() => _timeProvider.GetUtcNow().UtcDateTime;

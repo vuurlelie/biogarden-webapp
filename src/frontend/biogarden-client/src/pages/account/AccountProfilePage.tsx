@@ -1,3 +1,4 @@
+import { getServerFieldErrors } from "../../shared/utils/errorHandling";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import {
   getProfile,
@@ -160,6 +161,7 @@ export default function AccountProfilePage() {
       });
       setSuccess("A személyes adatok mentése sikerült.");
     } catch (saveError) {
+      setFieldErrors(getServerFieldErrors(saveError, ["companyName", "taxNumber"] as const));
       setFormError(handleAccountError(saveError, "A mentés nem sikerült.") ?? "");
     } finally {
       setIsSaving(false);

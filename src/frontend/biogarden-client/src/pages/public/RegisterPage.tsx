@@ -2,7 +2,7 @@ import { useRef, useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router";
 import { register } from "../../features/auth/api/authApi";
 import { ROUTES } from "../../shared/constants/routes";
-import { getErrorMessage } from "../../shared/utils/errorHandling";
+import { getErrorMessage, getServerFieldErrors } from "../../shared/utils/errorHandling";
 
 const PASSWORD_PATTERN = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/;
 
@@ -122,6 +122,12 @@ export default function RegisterPage() {
       });
     } catch (submitError) {
       const message = getErrorMessage(submitError, "A regisztráció nem sikerült.");
+      const structuredErrors = getServerFieldErrors(submitError, ["email", "password", "confirmPassword"] as const);
+      if (Object.keys(structuredErrors).length) {
+        setFieldErrors(structuredErrors);
+        setFormError(message);
+        return;
+      }
       const serverField = getServerField(message);
       if (serverField) {
         markInvalid(serverField, message);

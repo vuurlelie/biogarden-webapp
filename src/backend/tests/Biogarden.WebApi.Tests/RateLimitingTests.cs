@@ -19,6 +19,34 @@ namespace Biogarden.WebApi.Tests;
 
 public sealed class RateLimitingTests
 {
+    [Theory]
+    [InlineData("https://localhost", "None", true)]
+    [InlineData("http://localhost", "Lax", false)]
+    public async Task GuestCartCookie_UsesCrossSitePolicyOnlyOverHttps(string baseUrl, string sameSite, bool secure)
+    {
+        using var factory = CreateFactory(services =>
+        {
+            services.RemoveAll<ICartService>();
+            services.AddScoped<ICartService, SuccessfulCartService>();
+        });
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions { BaseAddress = new Uri(baseUrl) });
+        using var first = await client.GetAsync("/api/cart");
+        first.EnsureSuccessStatusCode();
+        var cookie = Assert.Single(Microsoft.Net.Http.Headers.SetCookieHeaderValue.ParseList(first.Headers.GetValues("Set-Cookie").ToList()),
+            item => item.Name == "biogarden_cart_id");
+        Assert.Equal(sameSite, cookie.SameSite.ToString());
+        Assert.Equal(secure, cookie.Secure);
+        Assert.True(cookie.HttpOnly);
+        Assert.Equal("/", cookie.Path.ToString());
+        Assert.True(Guid.TryParse(cookie.Value.ToString(), out _));
+
+        using var next = await client.PostAsync("/api/cart/items", CreateAddCartItemRequestContent());
+        next.EnsureSuccessStatusCode();
+        var renewed = Assert.Single(Microsoft.Net.Http.Headers.SetCookieHeaderValue.ParseList(next.Headers.GetValues("Set-Cookie").ToList()),
+            item => item.Name == "biogarden_cart_id");
+        Assert.Equal(cookie.Value, renewed.Value);
+    }
+
     [Fact]
     public async Task SensitiveAuthEndpoint_ReturnsTooManyRequests_WhenPolicyLimitIsExceeded()
     {
@@ -77,7 +105,7 @@ public sealed class RateLimitingTests
                 "/api/contact",
                 CreateContactRequestContent());
 
-            Assert.Equal(HttpStatusCode.OK, allowedResponse.StatusCode);
+            Assert.Equal(HttpStatusCode.NoContent, allowedResponse.StatusCode);
         }
 
         using var rejectedResponse = await client.PostAsync(
@@ -133,7 +161,7 @@ public sealed class RateLimitingTests
                 "/api/orders",
                 CreateOrderRequestContent());
 
-            Assert.Equal(HttpStatusCode.OK, allowedResponse.StatusCode);
+            Assert.Equal(HttpStatusCode.Created, allowedResponse.StatusCode);
         }
 
         using var rejectedResponse = await client.PostAsync(
@@ -159,7 +187,7 @@ public sealed class RateLimitingTests
             "/api/orders",
             CreateOrderRequestContent("checkout-key-123"));
 
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
 
         var orderService = factory.Services.GetRequiredService<CapturingOrderService>();
 
@@ -235,6 +263,8 @@ public sealed class RateLimitingTests
             $$"""
             {
               "idempotencyKey": "{{idempotencyKey}}",
+              "acceptedTermsVersion": "{{Biogarden.BusinessLogic.Constants.LegalDocumentVersions.CurrentTermsVersion}}",
+              "acceptedPrivacyPolicyVersion": "{{Biogarden.BusinessLogic.Constants.LegalDocumentVersions.CurrentPrivacyPolicyVersion}}",
               "fulfillmentMethod": 0,
               "customerName": "Test User",
               "customerEmail": "test@example.com",
@@ -391,13 +421,13 @@ public sealed class RateLimitingTests
 
     private class SuccessfulOrderService : IOrderService
     {
-        public virtual Task<OrderDto> CreateOrderFromCartAsync(
+        public virtual Task<OrderCreationResult> CreateOrderFromCartAsync(
             Guid? userId,
             string? sessionId,
             PlaceOrderDto dto,
             CancellationToken cancellationToken = default)
         {
-            return Task.FromResult(CreateOrder());
+            return Task.FromResult(new OrderCreationResult(CreateOrder(), Created: true));
         }
 
         public Task<SumUpCheckoutDto> CreateSumUpCheckoutAsync(
@@ -523,7 +553,7 @@ public sealed class RateLimitingTests
     {
         public PlaceOrderDto? LastPlaceOrderDto { get; private set; }
 
-        public override Task<OrderDto> CreateOrderFromCartAsync(
+        public override Task<OrderCreationResult> CreateOrderFromCartAsync(
             Guid? userId,
             string? sessionId,
             PlaceOrderDto dto,

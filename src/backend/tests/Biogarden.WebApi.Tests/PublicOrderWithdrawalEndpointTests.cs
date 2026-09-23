@@ -53,7 +53,7 @@ public sealed class PublicOrderWithdrawalEndpointTests
 
     private sealed class MissingPublicOrderService : IOrderService
     {
-        public Task<OrderDto> CreateOrderFromCartAsync(
+        public Task<OrderCreationResult> CreateOrderFromCartAsync(
             Guid? userId,
             string? sessionId,
             PlaceOrderDto dto,

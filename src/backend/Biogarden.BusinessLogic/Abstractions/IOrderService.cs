@@ -5,7 +5,7 @@ namespace Biogarden.BusinessLogic.Abstractions;
 
 public interface IOrderService
 {
-    Task<OrderDto> CreateOrderFromCartAsync(
+    Task<OrderCreationResult> CreateOrderFromCartAsync(
         Guid? userId,
         string? sessionId,
         PlaceOrderDto dto,

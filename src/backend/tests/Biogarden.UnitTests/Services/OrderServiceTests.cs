@@ -135,7 +135,7 @@ public sealed class OrderServiceTests
             .Setup(x => x.SendAsync(businessMessage, It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
-        var result = await _service.CreateOrderFromCartAsync(null, sessionId, new PlaceOrderDto
+        var resultOutcome = await _service.CreateOrderFromCartAsync(null, sessionId, new PlaceOrderDto
         {
             IdempotencyKey = IdempotencyKey,
             CustomerName = " Teszt Elek ",
@@ -149,6 +149,7 @@ public sealed class OrderServiceTests
             AcceptedPrivacyPolicyVersion = LegalDocumentVersions.CurrentPrivacyPolicyVersion,
             FulfillmentMethod = FulfillmentMethod.PersonalPickup
         });
+        var result = resultOutcome.Order;
 
         Assert.Null(result.UserId);
         Assert.Null(result.AddressId);
@@ -251,7 +252,8 @@ public sealed class OrderServiceTests
             AcceptedPrivacyPolicyVersion = LegalDocumentVersions.CurrentPrivacyPolicyVersion,
             FulfillmentMethod = FulfillmentMethod.PersonalPickup
         };
-        var result = await _service.CreateOrderFromCartAsync(null, sessionId, request);
+        var resultOutcome = await _service.CreateOrderFromCartAsync(null, sessionId, request);
+        var result = resultOutcome.Order;
 
         Assert.NotNull(savedOrder);
         Assert.Null(result.UserId);
@@ -262,7 +264,10 @@ public sealed class OrderServiceTests
         savedOrder.Cart = cart;
         _orders.Setup(x => x.GetByIdempotencyKeyWithItemsAsync(IdempotencyKey, It.IsAny<CancellationToken>()))
             .ReturnsAsync(savedOrder);
-        var retriedOrder = await _service.CreateOrderFromCartAsync(null, sessionId, request);
+        var retriedOrderOutcome = await _service.CreateOrderFromCartAsync(null, sessionId, request);
+        var retriedOrder = retriedOrderOutcome.Order;
+        Assert.True(resultOutcome.Created);
+        Assert.False(retriedOrderOutcome.Created);
         Assert.Equal(result.Id, retriedOrder.Id);
         _orders.Verify(x => x.AddAsync(It.IsAny<Order>(), It.IsAny<CancellationToken>()), Times.Once);
 
@@ -309,7 +314,7 @@ public sealed class OrderServiceTests
                 CustomerType = CustomerType.Private
             });
 
-        var result = await _service.CreateOrderFromCartAsync(userId, null, new PlaceOrderDto
+        var resultOutcome = await _service.CreateOrderFromCartAsync(userId, null, new PlaceOrderDto
         {
             IdempotencyKey = IdempotencyKey,
             CustomerName = "Teszt Elek",
@@ -319,6 +324,7 @@ public sealed class OrderServiceTests
             AcceptedPrivacyPolicyVersion = LegalDocumentVersions.CurrentPrivacyPolicyVersion,
             FulfillmentMethod = FulfillmentMethod.PersonalPickup
         });
+        var result = resultOutcome.Order;
 
         Assert.NotNull(savedOrder);
         Assert.Equal(userId, result.UserId);
@@ -338,7 +344,7 @@ public sealed class OrderServiceTests
         Order? savedOrder = null;
         SetupGuestOrderCreation(sessionId, cart, product, order => savedOrder = order);
 
-        var result = await _service.CreateOrderFromCartAsync(null, sessionId, new PlaceOrderDto
+        var resultOutcome = await _service.CreateOrderFromCartAsync(null, sessionId, new PlaceOrderDto
         {
             IdempotencyKey = IdempotencyKey,
             CustomerName = "Teszt Elek",
@@ -356,6 +362,7 @@ public sealed class OrderServiceTests
             AcceptedPrivacyPolicyVersion = LegalDocumentVersions.CurrentPrivacyPolicyVersion,
             FulfillmentMethod = FulfillmentMethod.PersonalPickup
         });
+        var result = resultOutcome.Order;
 
         Assert.NotNull(savedOrder);
         Assert.Equal(CustomerType.Company, result.CustomerType);
@@ -382,7 +389,7 @@ public sealed class OrderServiceTests
         Order? savedOrder = null;
         SetupGuestOrderCreation(sessionId, cart, product, order => savedOrder = order);
 
-        var result = await _service.CreateOrderFromCartAsync(null, sessionId, new PlaceOrderDto
+        var resultOutcome = await _service.CreateOrderFromCartAsync(null, sessionId, new PlaceOrderDto
         {
             IdempotencyKey = IdempotencyKey,
             CustomerName = "Teszt Elek",
@@ -396,6 +403,7 @@ public sealed class OrderServiceTests
             AcceptedPrivacyPolicyVersion = LegalDocumentVersions.CurrentPrivacyPolicyVersion,
             FulfillmentMethod = FulfillmentMethod.PersonalPickup
         });
+        var result = resultOutcome.Order;
 
         Assert.NotNull(savedOrder);
         Assert.Equal(CustomerType.Private, result.CustomerType);
@@ -441,7 +449,7 @@ public sealed class OrderServiceTests
             .Setup(x => x.GetByCartIdWithItemsAsync(cart.Id, It.IsAny<CancellationToken>()))
             .ReturnsAsync(order);
 
-        var result = await _service.CreateOrderFromCartAsync(null, sessionId, new PlaceOrderDto
+        var resultOutcome = await _service.CreateOrderFromCartAsync(null, sessionId, new PlaceOrderDto
         {
             IdempotencyKey = IdempotencyKey,
             CustomerName = "Teszt Elek",
@@ -451,6 +459,7 @@ public sealed class OrderServiceTests
             AcceptedPrivacyPolicyVersion = LegalDocumentVersions.CurrentPrivacyPolicyVersion,
             FulfillmentMethod = FulfillmentMethod.PersonalPickup
         });
+        var result = resultOutcome.Order;
 
         Assert.Equal(order.Id, result.Id);
         Assert.Equal("guest@example.com", result.CustomerEmail);
@@ -477,7 +486,7 @@ public sealed class OrderServiceTests
             .Setup(x => x.GetByIdempotencyKeyWithItemsAsync(IdempotencyKey, It.IsAny<CancellationToken>()))
             .ReturnsAsync(order);
 
-        var result = await _service.CreateOrderFromCartAsync(null, sessionId, new PlaceOrderDto
+        var resultOutcome = await _service.CreateOrderFromCartAsync(null, sessionId, new PlaceOrderDto
         {
             IdempotencyKey = IdempotencyKey,
             CustomerName = "Teszt Elek",
@@ -487,6 +496,7 @@ public sealed class OrderServiceTests
             AcceptedPrivacyPolicyVersion = LegalDocumentVersions.CurrentPrivacyPolicyVersion,
             FulfillmentMethod = FulfillmentMethod.PersonalPickup
         });
+        var result = resultOutcome.Order;
 
         Assert.Equal(order.Id, result.Id);
         Assert.Equal(IdempotencyKey, result.IdempotencyKey);

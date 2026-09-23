@@ -19,6 +19,7 @@ public class AuthController : ControllerBase
     }
 
     [HttpPost("register")]
+    [ProducesResponseType(StatusCodes.Status201Created)]
     [EnableRateLimiting(RateLimitPolicyNames.SensitiveAuth)]
     public async Task<IActionResult> RegisterAsync(
         [FromBody] RegisterRequestDto registerRequestDto)
@@ -36,7 +37,7 @@ public class AuthController : ControllerBase
             });
         }
 
-        return Ok();
+        return StatusCode(StatusCodes.Status201Created);
     }
 
     [HttpPost("login")]
@@ -61,6 +62,7 @@ public class AuthController : ControllerBase
     }
 
     [HttpPost("confirm-email")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
     [EnableRateLimiting(RateLimitPolicyNames.SensitiveAuth)]
     public async Task<IActionResult> ConfirmEmailAsync(
         [FromBody] ConfirmEmailRequestDto confirmEmailRequestDto)
@@ -78,30 +80,33 @@ public class AuthController : ControllerBase
             });
         }
 
-        return Ok();
+        return NoContent();
     }
 
     [HttpPost("resend-email-confirmation")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
     [EnableRateLimiting(RateLimitPolicyNames.SensitiveAuth)]
     public async Task<IActionResult> ResendEmailConfirmationAsync(
         [FromBody] ResendEmailConfirmationRequestDto resendEmailConfirmationRequestDto)
     {
         await _authService.ResendEmailConfirmationAsync(resendEmailConfirmationRequestDto);
 
-        return Ok();
+        return NoContent();
     }
 
     [HttpPost("forgot-password")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
     [EnableRateLimiting(RateLimitPolicyNames.SensitiveAuth)]
     public async Task<IActionResult> ForgotPasswordAsync(
         [FromBody] ForgotPasswordRequestDto forgotPasswordRequestDto)
     {
         await _authService.ForgotPasswordAsync(forgotPasswordRequestDto);
 
-        return Ok();
+        return NoContent();
     }
 
     [HttpPost("reset-password")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
     [EnableRateLimiting(RateLimitPolicyNames.SensitiveAuth)]
     public async Task<IActionResult> ResetPasswordAsync(
         [FromBody] ResetPasswordRequestDto resetPasswordRequestDto)
@@ -119,6 +124,6 @@ public class AuthController : ControllerBase
             });
         }
 
-        return Ok();
+        return NoContent();
     }
 }

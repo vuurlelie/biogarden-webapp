@@ -2,7 +2,7 @@ import { useRef, useState, type FormEvent } from "react";
 import { Link, useSearchParams } from "react-router";
 import { resetPassword } from "../../features/auth/api/authApi";
 import { ROUTES } from "../../shared/constants/routes";
-import { getErrorMessage } from "../../shared/utils/errorHandling";
+import { getErrorMessage, getServerFieldErrors } from "../../shared/utils/errorHandling";
 
 const PASSWORD_PATTERN = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/;
 type PasswordField = "password" | "confirmPassword";
@@ -102,6 +102,7 @@ export default function ResetPasswordPage() {
       setFieldErrors({});
       setMessage("Sikeresen beállítottad az új jelszavadat. Most már bejelentkezhetsz.");
     } catch (submitError) {
+      setFieldErrors(getServerFieldErrors(submitError, ["password", "confirmPassword"] as const));
       setError(getErrorMessage(submitError, "A jelszó visszaállítása nem sikerült."));
     } finally {
       setIsSubmitting(false);

@@ -65,6 +65,14 @@ Before enabling real customer payments:
 
 ## Frontend Environment
 
+### Guest cart cookies
+
+The guest cart uses the API's `biogarden_cart_id` HttpOnly cookie. HTTPS responses set `SameSite=None; Secure; Path=/` so a frontend on a different site can send it with credentialed API requests. Plain-HTTP local development uses `SameSite=Lax`. Ensure the API sees the original HTTPS scheme when hosted behind a trusted proxy.
+
+Browsers that block third-party cookies can still prevent guest-cart persistence across unrelated domains. Prefer hosting the frontend and API under the same HTTPS site (or using a same-origin API reverse proxy) for reliable support across browser privacy settings. `SameSite=None` alone cannot override third-party-cookie blocking.
+
+After deploying, check in a signed-out browser that adding two different products, opening the cart and reloading preserves both items. Inspect the API cookie's storage and any browser blocking reason if every operation creates a new cart. API tests verify cookie attributes and SQL-backed session continuity; they do not reproduce every browser's third-party-cookie policy.
+
 Set the frontend API base URL outside source control:
 
 ```bash

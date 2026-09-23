@@ -9,6 +9,12 @@ type ApiErrorBody = {
   detail?: string;
   Detail?: string;
   errors?: Record<string, string[]>;
+  traceId?: string;
+};
+
+export type ApiErrorDetails = {
+  fieldErrors: Record<string, string[]>;
+  traceId?: string;
 };
 
 export class ApiRequestError extends Error {
@@ -39,25 +45,33 @@ export async function getApiErrorMessage(
   response: Response,
   fallbackMessage: string,
 ): Promise<string> {
-  if (response.status === 429) {
-    return TOO_MANY_REQUESTS_MESSAGE;
-  }
+  return (await readApiError(response, fallbackMessage)).message;
+}
 
+async function readApiError(response: Response, fallbackMessage: string): Promise<ApiErrorDetails & { message: string }> {
+  let body: ApiErrorBody = {};
   try {
-    const body = (await response.json()) as ApiErrorBody;
-    const validationMessage = body.errors
-      ? Object.values(body.errors).flat().join(" ")
-      : undefined;
-
-    return body.message
-      ?? body.detail
-      ?? body.Detail
-      ?? validationMessage
-      ?? body.title
-      ?? fallbackMessage;
+    const parsed: unknown = await response.json();
+    if (parsed !== null && typeof parsed === "object") body = parsed as ApiErrorBody;
   } catch {
-    return fallbackMessage;
+    // Proxy errors and empty responses need a usable fallback too.
   }
+  const fieldErrors: Record<string, string[]> = {};
+  if (body.errors && typeof body.errors === "object" && !Array.isArray(body.errors)) {
+    for (const [key, value] of Object.entries(body.errors)) {
+      if (!Array.isArray(value)) continue;
+      const messages = value.filter((item): item is string => typeof item === "string" && item.length > 0);
+      if (messages.length) fieldErrors[key] = messages;
+    }
+  }
+  const validationMessage = Object.values(fieldErrors).flat().join(" ");
+  const message = [validationMessage, body.message, body.detail, body.Detail, body.title]
+    .find((value) => typeof value === "string" && value.length > 0) ?? fallbackMessage;
+  return {
+    message: response.status === 429 ? TOO_MANY_REQUESTS_MESSAGE : message,
+    fieldErrors,
+    traceId: typeof body.traceId === "string" ? body.traceId : undefined,
+  };
 }
 
 export async function apiRequest(
@@ -88,7 +102,9 @@ export async function apiRequest(
   if (response.status === 401) onUnauthorized?.();
 
   if (throwOnError && !response.ok) {
-    throw toError(await getApiErrorMessage(response, fallbackMessage), response.status);
+    const { message, ...details } = await readApiError(response, fallbackMessage);
+    // Preserve feature-specific error classes/status handling while retaining structured validation.
+    throw Object.assign(toError(message, response.status), details);
   }
 
   return response;

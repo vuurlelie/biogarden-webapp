@@ -24,6 +24,7 @@ public class OrdersController : ControllerBase
     [HttpPost]
     [AllowAnonymous]
     [EnableRateLimiting(RateLimitPolicyNames.PublicForm)]
+    [ProducesResponseType(typeof(OrderDto), StatusCodes.Status201Created)]
     [ProducesResponseType(typeof(OrderDto), StatusCodes.Status200OK)]
     public async Task<ActionResult<OrderDto>> CreateOrderFromCart(
         [FromBody] PlaceOrderDto placeOrderDto,
@@ -32,13 +33,15 @@ public class OrdersController : ControllerBase
         var userId = GetCurrentUserIdOrNull();
         var sessionId = GetCartSessionId();
 
-        var order = await _orderService.CreateOrderFromCartAsync(
+        var result = await _orderService.CreateOrderFromCartAsync(
             userId,
             sessionId,
             placeOrderDto,
             cancellationToken);
 
-        return Ok(order);
+        return result.Created
+            ? CreatedAtAction(nameof(GetOrderById), new { orderId = result.Order.Id }, result.Order)
+            : Ok(result.Order);
     }
 
     [HttpPost("{orderId:guid}/sumup-checkout")]
@@ -77,7 +80,7 @@ public class OrdersController : ControllerBase
     }
 
     [HttpPost("{orderId:guid}/withdrawal-requests")]
-    [ProducesResponseType(typeof(OrderWithdrawalRequestDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(OrderWithdrawalRequestDto), StatusCodes.Status201Created)]
     public async Task<ActionResult<OrderWithdrawalRequestDto>> RequestWithdrawal(
         Guid orderId,
         [FromBody] CreateOrderWithdrawalRequestDto requestDto,
@@ -91,13 +94,13 @@ public class OrdersController : ControllerBase
             requestDto,
             cancellationToken);
 
-        return Ok(request);
+        return StatusCode(StatusCodes.Status201Created, request);
     }
 
     [HttpPost("withdrawal-requests")]
     [AllowAnonymous]
     [EnableRateLimiting(RateLimitPolicyNames.PublicForm)]
-    [ProducesResponseType(typeof(OrderWithdrawalRequestDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(OrderWithdrawalRequestDto), StatusCodes.Status201Created)]
     public async Task<ActionResult<OrderWithdrawalRequestDto>> RequestWithdrawalByOrderLookup(
         [FromBody] PublicOrderWithdrawalRequestDto requestDto,
         CancellationToken cancellationToken)
@@ -108,7 +111,7 @@ public class OrdersController : ControllerBase
                 requestDto,
                 cancellationToken);
 
-            return Ok(request);
+            return StatusCode(StatusCodes.Status201Created, request);
         }
         catch (KeyNotFoundException exception)
         {

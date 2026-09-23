@@ -42,7 +42,20 @@ public static class ServiceCollectionExtensions
 
     private static IServiceCollection AddWebApiCore(this IServiceCollection services)
     {
-        services.AddControllers();
+        foreach (var validator in typeof(Biogarden.BusinessLogic.Validation.PlaceOrderValidator).Assembly.GetTypes()
+            .Where(type => !type.IsAbstract && !type.IsGenericTypeDefinition))
+        {
+            foreach (var contract in validator.GetInterfaces().Where(type => type.IsGenericType &&
+                type.GetGenericTypeDefinition() == typeof(FluentValidation.IValidator<>)))
+                services.AddScoped(contract, validator);
+        }
+        services.AddControllers(options =>
+            {
+                options.Filters.Add<Biogarden.WebApi.Filters.ApiProblemResultFilter>();
+                options.Filters.Add<Biogarden.WebApi.Filters.RequestValidationFilter>();
+                options.SuppressImplicitRequiredAttributeForNonNullableReferenceTypes = true;
+            })
+            .ConfigureApiBehaviorOptions(options => options.InvalidModelStateResponseFactory = ApiProblems.InvalidModel);
         services.AddEndpointsApiExplorer();
 
         return services;
