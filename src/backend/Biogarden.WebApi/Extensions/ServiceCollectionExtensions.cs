@@ -42,6 +42,7 @@ public static class ServiceCollectionExtensions
 
     private static IServiceCollection AddWebApiCore(this IServiceCollection services)
     {
+        services.AddScoped<Filters.AccountSecurityMutationFilter>();
         foreach (var validator in typeof(Biogarden.BusinessLogic.Validation.PlaceOrderValidator).Assembly.GetTypes()
             .Where(type => !type.IsAbstract && !type.IsGenericTypeDefinition))
         {

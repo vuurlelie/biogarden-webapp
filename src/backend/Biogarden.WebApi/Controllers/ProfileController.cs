@@ -74,6 +74,7 @@ public class ProfileController : ControllerBase
     }
 
     [HttpPost("account-lifecycle")]
+    [ServiceFilter(typeof(Filters.AccountSecurityMutationFilter))]
     [ProducesResponseType(typeof(AccountLifecycleResultDto), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(AccountLifecycleResultDto), StatusCodes.Status202Accepted)]
     public async Task<ActionResult<AccountLifecycleResultDto>> RequestAccountLifecycleAsync(

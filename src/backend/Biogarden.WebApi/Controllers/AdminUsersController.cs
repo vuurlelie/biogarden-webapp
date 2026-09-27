@@ -9,6 +9,7 @@ namespace Biogarden.WebApi.Controllers;
 
 [ApiController]
 [Authorize(Roles = "Admin")]
+[ServiceFilter(typeof(Filters.AccountSecurityMutationFilter))]
 [Route("api/admin/users")]
 public sealed class AdminUsersController : ControllerBase
 {
