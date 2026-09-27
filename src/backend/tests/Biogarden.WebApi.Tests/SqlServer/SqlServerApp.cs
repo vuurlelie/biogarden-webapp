@@ -83,6 +83,8 @@ public sealed class SqlServerApp : IAsyncLifetime
         {
             builder.UseEnvironment("Testing");
             builder.UseSetting("Jwt:SecretKey", "SqlServerIntegrationTestsOnlySecretKey123456789");
+            builder.UseSetting("Jwt:Issuer", "integration-tests");
+            builder.UseSetting("Jwt:Audience", "integration-tests");
             builder.UseSetting("ConnectionStrings:DefaultConnection", connection);
             builder.ConfigureAppConfiguration((_, configuration) => configuration.AddInMemoryCollection(
                 new Dictionary<string, string?>

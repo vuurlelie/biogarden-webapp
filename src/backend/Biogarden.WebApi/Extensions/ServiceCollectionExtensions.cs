@@ -313,6 +313,15 @@ public static class ServiceCollectionExtensions
         })
         .AddJwtBearer(options =>
         {
+            options.Events = new JwtBearerEvents
+            {
+                OnTokenValidated = async context =>
+                {
+                    if (context.Principal is null || !await Authentication.SessionAuthentication.IsCurrentAsync(
+                        context.Principal, context.HttpContext.RequestServices, context.HttpContext.RequestAborted))
+                        context.Fail("The session is no longer valid.");
+                }
+            };
             options.TokenValidationParameters = new TokenValidationParameters
             {
                 ValidateIssuer = true,

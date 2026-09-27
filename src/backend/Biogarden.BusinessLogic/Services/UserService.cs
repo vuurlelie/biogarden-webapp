@@ -549,7 +549,8 @@ public class UserService : IUserService
         UserManager<ApplicationUser> userManager,
         ApplicationUser user)
     {
-        await userManager.UpdateSecurityStampAsync(user);
+        // Persist account changes and revocation together; do not ignore a failed stamp update.
+        user.SecurityStamp = Guid.NewGuid().ToString();
         var result = await userManager.UpdateAsync(user);
         if (!result.Succeeded)
         {

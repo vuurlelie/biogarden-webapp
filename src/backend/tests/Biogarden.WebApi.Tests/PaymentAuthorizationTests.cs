@@ -38,7 +38,9 @@ public sealed class PaymentAuthorizationTests : IClassFixture<BiogardenWebApiFac
 
     [Theory]
     [InlineData(null, HttpStatusCode.Unauthorized)]
-    [InlineData("Customer", HttpStatusCode.Forbidden)]
+    // Legacy tokens without a session stamp are intentionally invalidated on deployment.
+    // A current, real customer token is covered by SessionRevocationTests against SQL Server.
+    [InlineData("Customer", HttpStatusCode.Unauthorized)]
     public async Task ManualPaymentUpdate_RejectsNonAdministrators(
         string? role, HttpStatusCode expectedStatus)
     {
