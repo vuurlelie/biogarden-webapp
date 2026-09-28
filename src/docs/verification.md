@@ -43,6 +43,8 @@ Reservation writes also check and advance the product's existing rowversion in t
 
 If the test process is forcibly terminated, its database may remain. Review the disposable instance's `BiogardenIntegration_*` databases before manually removing leftovers.
 
+`SessionRevocationTests` uses real Identity users, issued JWTs, and SQL Server to verify account-state checks, password-reset revocation, role changes, and concurrent administrator/self-deactivation requests. The concurrency tests synchronize requests after initial authentication and exercise the actual database lock and authorization recheck. The ordinary HTTP contract-test factory bypasses that SQL filter deliberately; it is not evidence for session security.
+
 ## Frontend
 
 From `src/frontend/biogarden-client`:

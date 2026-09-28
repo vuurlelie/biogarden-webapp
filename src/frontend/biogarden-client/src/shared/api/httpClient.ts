@@ -1,3 +1,5 @@
+import { clearAuthSession, getAuthSession } from "../../features/auth/utils/authStorage";
+
 export const TOO_MANY_REQUESTS_MESSAGE =
   "Túl sok kérés érkezett. Kérjük, várj egy percet, majd próbáld újra.";
 
@@ -99,7 +101,13 @@ export async function apiRequest(
     headers,
   });
 
-  if (response.status === 401) onUnauthorized?.();
+  // An old response must neither clear a newer login nor populate its screens.
+  if (authToken && getAuthSession()?.token !== authToken) {
+    throw new DOMException("The session changed while the request was running.", "AbortError");
+  }
+  if (response.status === 401 && authToken) {
+    (onUnauthorized ?? clearAuthSession)();
+  }
 
   if (throwOnError && !response.ok) {
     const { message, ...details } = await readApiError(response, fallbackMessage);
