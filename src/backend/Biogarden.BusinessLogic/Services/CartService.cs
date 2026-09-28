@@ -273,7 +273,8 @@ public class CartService : ICartService
                 productId: guestCartItem.ProductId,
                 requestedQuantity: mergedQuantity,
                 cartId: userCart.Id,
-                cancellationToken);
+                cancellationToken,
+                additionalExcludedCartId: guestCart.Id);
 
             if (existingUserCartItem is null)
             {
@@ -538,7 +539,8 @@ public class CartService : ICartService
         int productId,
         int requestedQuantity,
         Guid cartId,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        Guid? additionalExcludedCartId = null)
     {
         var product = await _unitOfWork.ProductRepository.GetByIdAsync(
             productId,
@@ -555,11 +557,12 @@ public class CartService : ICartService
             throw new InvalidOperationException("A termék jelenleg nem elérhető.");
         }
 
-        var reservedQuantity =
-            await _unitOfWork.CartRepository.GetActiveReservedQuantityForProductAsync(
-                productId,
-                cartId,
-                cancellationToken);
+        // A merge transfers existing reservations; neither participating cart is a competitor.
+        var reservedQuantity = additionalExcludedCartId.HasValue
+            ? await _unitOfWork.CartRepository.GetActiveReservedQuantityForProductAsync(
+                productId, cartId, additionalExcludedCartId.Value, cancellationToken)
+            : await _unitOfWork.CartRepository.GetActiveReservedQuantityForProductAsync(
+                productId, cartId, cancellationToken);
 
         var availableStock = Math.Max(0, product.StockQuantity - reservedQuantity);
 

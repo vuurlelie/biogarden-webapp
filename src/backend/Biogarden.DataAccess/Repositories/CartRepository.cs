@@ -109,6 +109,17 @@ public class CartRepository : ICartRepository
         return await query.SumAsync(cartItem => cartItem.Quantity, cancellationToken);
     }
 
+    public Task<int> GetActiveReservedQuantityForProductAsync(
+        int productId, Guid excludedCartId, Guid additionalExcludedCartId,
+        CancellationToken cancellationToken = default)
+    {
+        var now = DateTime.UtcNow;
+        return _context.CartItems.Where(item => item.ProductId == productId
+            && item.Cart != null && !item.Cart.IsCheckedOut && item.Cart.ExpiresAtUtc > now
+            && item.CartId != excludedCartId && item.CartId != additionalExcludedCartId)
+            .SumAsync(item => item.Quantity, cancellationToken);
+    }
+
     public async Task<List<Cart>> GetExpiredCartsAsync(CancellationToken cancellationToken = default)
     {
         return await _context.Carts

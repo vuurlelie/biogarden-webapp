@@ -22,4 +22,8 @@ public interface ICartRepository
         CancellationToken cancellationToken = default);
 
     Task<List<Cart>> GetExpiredCartsAsync(CancellationToken cancellationToken = default);
+
+    Task<int> GetActiveReservedQuantityForProductAsync(
+        int productId, Guid excludedCartId, Guid additionalExcludedCartId,
+        CancellationToken cancellationToken = default);
 }

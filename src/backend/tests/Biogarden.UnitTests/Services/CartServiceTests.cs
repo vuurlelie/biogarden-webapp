@@ -219,6 +219,8 @@ public sealed class CartServiceTests
             .Setup(x => x.GetByIdWithItemsAsync(userCart.Id, It.IsAny<CancellationToken>()))
             .ReturnsAsync(userCart);
 
+        _carts.Setup(x => x.GetActiveReservedQuantityForProductAsync(product.Id, userCart.Id, guestCart.Id, It.IsAny<CancellationToken>())).ReturnsAsync(0);
+
         var result = await _service.MergeGuestCartIntoUserCartAsync(userId, guestSessionId);
 
         var now = _timeProvider.GetUtcNow().UtcDateTime;
@@ -277,6 +279,8 @@ public sealed class CartServiceTests
                 userCart.Id,
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(0);
+
+        _carts.Setup(x => x.GetActiveReservedQuantityForProductAsync(product.Id, userCart.Id, guestCart.Id, It.IsAny<CancellationToken>())).ReturnsAsync(0);
 
         var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
             _service.MergeGuestCartIntoUserCartAsync(userId, guestSessionId));
