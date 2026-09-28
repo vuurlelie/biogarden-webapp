@@ -16,6 +16,8 @@ public sealed class CartServiceTests
 
     public CartServiceTests()
     {
+        _carts.Setup(repository => repository.AcquireOwnerLockAsync(It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new TestOwnerLock());
         _products.Setup(repository => repository.GuardStockReservation(It.IsAny<Product>()));
         _unitOfWork.SetupGet(x => x.CartRepository).Returns(_carts.Object);
         _unitOfWork.SetupGet(x => x.ProductRepository).Returns(_products.Object);
@@ -333,5 +335,10 @@ public sealed class CartServiceTests
     private sealed class FakeTimeProvider(DateTimeOffset utcNow) : TimeProvider
     {
         public override DateTimeOffset GetUtcNow() => utcNow;
+    }
+
+    private sealed class TestOwnerLock : IAsyncDisposable
+    {
+        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
     }
 }

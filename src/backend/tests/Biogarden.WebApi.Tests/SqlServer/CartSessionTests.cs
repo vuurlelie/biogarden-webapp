@@ -100,6 +100,104 @@ public sealed class CartSessionTests : IAsyncLifetime
         Assert.All(carts.SelectMany(cart => cart.Items), item => Assert.Equal(1, item.Quantity));
     }
 
+    [SqlServerFact]
+    public async Task FirstGuestRequests_KeepAllSuccessfulAdditionsInOneCart()
+    {
+        var (_, productId) = await SeedAsync(4);
+        await AssertConcurrentCreationAsync(null, "shared-guest", productId);
+    }
+
+    [SqlServerFact]
+    public async Task FirstAuthenticatedRequests_KeepAllSuccessfulAdditionsInOneCart()
+    {
+        var (userId, productId) = await SeedAsync(4);
+        await AssertConcurrentCreationAsync(userId, "browser-cookie", productId);
+    }
+
+    private async Task AssertConcurrentCreationAsync(Guid? userId, string sessionId, int productId)
+    {
+        var start = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var tasks = Enumerable.Range(0, 4).Select(async _ =>
+        {
+            using var scope = _app.Factory.Services.CreateScope();
+            var service = scope.ServiceProvider.GetRequiredService<ICartService>();
+            await start.Task;
+            return await service.AddItemAsync(userId, sessionId, new() { ProductId = productId, Quantity = 1 });
+        }).ToArray();
+        start.SetResult();
+        var results = await Task.WhenAll(tasks);
+
+        Assert.Single(results.Select(cart => cart.Id).Distinct());
+        Assert.Equal(new[] { 1, 2, 3, 4 }, results.Select(cart => cart.TotalItemCount).Order().ToArray());
+        await using var database = _app.OpenDatabase();
+        var cart = await database.Carts.Include(cart => cart.Items).SingleAsync();
+        Assert.Equal(4, Assert.Single(cart.Items).Quantity);
+        Assert.Equal(userId, cart.UserId);
+        Assert.Equal(userId.HasValue ? null : sessionId, cart.SessionId);
+    }
+
+    [SqlServerFact]
+    public async Task LoginWithoutMerge_DoesNotExposeGuestCartAsUserCart()
+    {
+        var (userId, productId) = await SeedAsync(3);
+        var guest = await WithCartAsync(service => service.AddItemAsync(null, "guest", new() { ProductId = productId, Quantity = 1 }));
+        var user = await WithCartAsync(service => service.GetCartAsync(userId, "guest"));
+        Assert.NotEqual(guest.Id, user.Id);
+        Assert.Empty(user.Items);
+        await WithCartAsync(service => service.AddItemAsync(userId, "guest", new() { ProductId = productId, Quantity = 1 }));
+        var afterLogout = await WithCartAsync(service => service.GetCartAsync(null, "guest"));
+        Assert.Equal(guest.Id, afterLogout.Id);
+        Assert.Equal(1, afterLogout.TotalItemCount);
+    }
+
+    [SqlServerFact]
+    public async Task ConcurrentMerges_TransferGuestQuantitiesOnlyOnce()
+    {
+        var (userId, productId) = await SeedAsync(2);
+        await WithCartAsync(service => service.AddItemAsync(userId, null, new() { ProductId = productId, Quantity = 1 }));
+        await WithCartAsync(service => service.AddItemAsync(null, "guest", new() { ProductId = productId, Quantity = 1 }));
+        var results = await Task.WhenAll(
+            WithCartAsync(service => service.MergeGuestCartIntoUserCartAsync(userId, "guest")),
+            WithCartAsync(service => service.MergeGuestCartIntoUserCartAsync(userId, "guest")));
+        Assert.All(results, cart => Assert.Equal(2, cart.TotalItemCount));
+        await using var database = _app.OpenDatabase();
+        Assert.Equal(2, await database.CartItems.Where(item => !item.Cart!.IsCheckedOut).SumAsync(item => item.Quantity));
+    }
+
+    [SqlServerFact]
+    public async Task ExpiredCart_ConcurrentRequestsCreateOneReplacement()
+    {
+        var (_, productId) = await SeedAsync(4);
+        var original = await WithCartAsync(service => service.GetCartAsync(null, "guest"));
+        await using (var database = _app.OpenDatabase())
+        {
+            (await database.Carts.SingleAsync()).ExpiresAtUtc = DateTime.UtcNow.AddMinutes(-1);
+            await database.SaveChangesAsync();
+        }
+        var results = await Task.WhenAll(
+            WithCartAsync(service => service.AddItemAsync(null, "guest", new() { ProductId = productId, Quantity = 1 })),
+            WithCartAsync(service => service.AddItemAsync(null, "guest", new() { ProductId = productId, Quantity = 1 })));
+        Assert.All(results, cart => Assert.NotEqual(original.Id, cart.Id));
+        Assert.Single(results.Select(cart => cart.Id).Distinct());
+        await using var verification = _app.OpenDatabase();
+        Assert.Equal(1, await verification.Carts.CountAsync(cart => !cart.IsCheckedOut && cart.ExpiresAtUtc > DateTime.UtcNow));
+    }
+
+    [SqlServerFact]
+    public async Task LegacyUserCartWithSessionId_IsNeverReturnedToGuest()
+    {
+        var (userId, productId) = await SeedAsync(3);
+        var user = await WithCartAsync(service => service.AddItemAsync(userId, null, new() { ProductId = productId, Quantity = 1 }));
+        await using (var database = _app.OpenDatabase())
+        {
+            (await database.Carts.SingleAsync()).SessionId = "legacy-cookie";
+            await database.SaveChangesAsync();
+        }
+        var guest = await WithCartAsync(service => service.GetCartAsync(null, "legacy-cookie"));
+        Assert.NotEqual(user.Id, guest.Id);
+        Assert.Empty(guest.Items);
+    }
+
     private async Task<(Guid UserId, int ProductId)> SeedAsync(int stock)
     {
         await using var database = _app.OpenDatabase();
