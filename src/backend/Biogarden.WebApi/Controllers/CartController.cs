@@ -300,9 +300,9 @@ public class CartController : ControllerBase
 
     private string? GetSessionId()
     {
-        if (Request.Cookies.TryGetValue(CartCookieName, out var sessionId))
+        if (Request.Cookies.TryGetValue(CartCookieName, out var sessionId) && Guid.TryParse(sessionId, out var parsed))
         {
-            return sessionId;
+            return parsed.ToString();
         }
 
         return null;

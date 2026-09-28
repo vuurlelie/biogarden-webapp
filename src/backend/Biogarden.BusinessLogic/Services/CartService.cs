@@ -19,7 +19,41 @@ public class CartService : ICartService
         _timeProvider = timeProvider;
     }
 
-    public async Task<CartDto> GetCartAsync(
+    public Task<CartDto> GetCartAsync(Guid? userId, string? sessionId, CancellationToken cancellationToken = default)
+        => WithOwnerLockAsync(userId, sessionId, () => GetCartCoreAsync(userId, sessionId, cancellationToken), cancellationToken);
+
+    public Task<CartDto> AddItemAsync(Guid? userId, string? sessionId, AddCartItemDto dto, CancellationToken cancellationToken = default)
+    {
+        if (dto.Quantity <= 0) throw new ArgumentException("A mennyiségnek pozitívnak kell lennie.");
+        return WithOwnerLockAsync(userId, sessionId, () => AddItemCoreAsync(userId, sessionId, dto, cancellationToken), cancellationToken);
+    }
+
+    public Task<CartDto> UpdateItemQuantityAsync(Guid? userId, string? sessionId, Guid cartItemId, UpdateCartItemQuantityDto dto, CancellationToken cancellationToken = default)
+        => WithOwnerLockAsync(userId, sessionId, () => UpdateItemQuantityCoreAsync(userId, sessionId, cartItemId, dto, cancellationToken), cancellationToken);
+
+    public Task<CartDto> RemoveItemAsync(Guid? userId, string? sessionId, Guid cartItemId, CancellationToken cancellationToken = default)
+        => WithOwnerLockAsync(userId, sessionId, () => RemoveItemCoreAsync(userId, sessionId, cartItemId, cancellationToken), cancellationToken);
+
+    public Task<CartDto> ClearCartAsync(Guid? userId, string? sessionId, CancellationToken cancellationToken = default)
+        => WithOwnerLockAsync(userId, sessionId, () => ClearCartCoreAsync(userId, sessionId, cancellationToken), cancellationToken);
+
+    public Task<CartDto> MergeGuestCartIntoUserCartAsync(Guid userId, string guestSessionId, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(guestSessionId)) throw new ArgumentException("A guest session azonosító nem lehet üres.");
+        // Every merge locks the destination user first, then its guest source. Other
+        // operations own only one lock, so competing merges cannot form a lock cycle.
+        return WithOwnerLockAsync(userId, null,
+            () => WithOwnerLockAsync(null, guestSessionId,
+                () => MergeGuestCartIntoUserCartCoreAsync(userId, guestSessionId, cancellationToken), cancellationToken), cancellationToken);
+    }
+
+    private async Task<CartDto> WithOwnerLockAsync(Guid? userId, string? sessionId, Func<Task<CartDto>> operation, CancellationToken cancellationToken)
+    {
+        await using var ownerLock = await _unitOfWork.CartRepository.AcquireOwnerLockAsync(userId, sessionId, cancellationToken);
+        return await operation();
+    }
+
+    private async Task<CartDto> GetCartCoreAsync(
         Guid? userId,
         string? sessionId,
         CancellationToken cancellationToken = default)
@@ -36,7 +70,7 @@ public class CartService : ICartService
         return await MapCartAsync(cart, cancellationToken);
     }
 
-    public async Task<CartDto> AddItemAsync(
+    private async Task<CartDto> AddItemCoreAsync(
         Guid? userId,
         string? sessionId,
         AddCartItemDto addCartItemDto,
@@ -126,7 +160,7 @@ public class CartService : ICartService
         return Math.Max(0, product.StockQuantity - reservedByOtherCarts - quantityAlreadyInCart);
     }
 
-    public async Task<CartDto> UpdateItemQuantityAsync(
+    private async Task<CartDto> UpdateItemQuantityCoreAsync(
         Guid? userId,
         string? sessionId,
         Guid cartItemId,
@@ -179,7 +213,7 @@ public class CartService : ICartService
         return await MapCartAsync(updatedCart, cancellationToken);
     }
 
-    public async Task<CartDto> RemoveItemAsync(
+    private async Task<CartDto> RemoveItemCoreAsync(
         Guid? userId,
         string? sessionId,
         Guid cartItemId,
@@ -211,7 +245,7 @@ public class CartService : ICartService
         return await MapCartAsync(updatedCart, cancellationToken);
     }
 
-    public async Task<CartDto> ClearCartAsync(
+    private async Task<CartDto> ClearCartCoreAsync(
         Guid? userId,
         string? sessionId,
         CancellationToken cancellationToken = default)
@@ -233,7 +267,7 @@ public class CartService : ICartService
         return await MapCartAsync(updatedCart, cancellationToken);
     }
 
-    public async Task<CartDto> MergeGuestCartIntoUserCartAsync(
+    private async Task<CartDto> MergeGuestCartIntoUserCartCoreAsync(
         Guid userId,
         string guestSessionId,
         CancellationToken cancellationToken = default)
@@ -273,7 +307,8 @@ public class CartService : ICartService
                 productId: guestCartItem.ProductId,
                 requestedQuantity: mergedQuantity,
                 cartId: userCart.Id,
-                cancellationToken);
+                cancellationToken,
+                additionalExcludedCartId: guestCart.Id);
 
             if (existingUserCartItem is null)
             {
@@ -453,7 +488,7 @@ public class CartService : ICartService
         {
             Id = Guid.NewGuid(),
             UserId = userId,
-            SessionId = NormalizeOptional(sessionId),
+            SessionId = userId.HasValue ? null : NormalizeOptional(sessionId),
             CreatedAtUtc = now,
             LastActivityAtUtc = now,
             ExpiresAtUtc = now.AddMinutes(CartExpirationInMinutes),
@@ -473,14 +508,9 @@ public class CartService : ICartService
     {
         if (userId.HasValue)
         {
-            var userCart = await _unitOfWork.CartRepository.GetActiveByUserIdAsync(
+            return await _unitOfWork.CartRepository.GetActiveByUserIdAsync(
                 userId.Value,
                 cancellationToken);
-
-            if (userCart is not null)
-            {
-                return userCart;
-            }
         }
 
         if (!string.IsNullOrWhiteSpace(sessionId))
@@ -538,7 +568,8 @@ public class CartService : ICartService
         int productId,
         int requestedQuantity,
         Guid cartId,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        Guid? additionalExcludedCartId = null)
     {
         var product = await _unitOfWork.ProductRepository.GetByIdAsync(
             productId,
@@ -555,11 +586,12 @@ public class CartService : ICartService
             throw new InvalidOperationException("A termék jelenleg nem elérhető.");
         }
 
-        var reservedQuantity =
-            await _unitOfWork.CartRepository.GetActiveReservedQuantityForProductAsync(
-                productId,
-                cartId,
-                cancellationToken);
+        // A merge transfers existing reservations; neither participating cart is a competitor.
+        var reservedQuantity = additionalExcludedCartId.HasValue
+            ? await _unitOfWork.CartRepository.GetActiveReservedQuantityForProductAsync(
+                productId, cartId, additionalExcludedCartId.Value, cancellationToken)
+            : await _unitOfWork.CartRepository.GetActiveReservedQuantityForProductAsync(
+                productId, cartId, cancellationToken);
 
         var availableStock = Math.Max(0, product.StockQuantity - reservedQuantity);
 

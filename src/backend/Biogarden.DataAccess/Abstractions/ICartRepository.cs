@@ -4,6 +4,7 @@ namespace Biogarden.DataAccess.Abstractions;
 
 public interface ICartRepository
 {
+    Task<IAsyncDisposable> AcquireOwnerLockAsync(Guid? userId, string? sessionId, CancellationToken cancellationToken = default);
     Task<Cart?> GetActiveByUserIdAsync(Guid userId, CancellationToken cancellationToken = default);
     Task<Cart?> GetActiveBySessionIdAsync(string sessionId, CancellationToken cancellationToken = default);
     Task<Cart?> GetLatestCheckedOutByUserIdAsync(Guid userId, CancellationToken cancellationToken = default);
@@ -22,4 +23,8 @@ public interface ICartRepository
         CancellationToken cancellationToken = default);
 
     Task<List<Cart>> GetExpiredCartsAsync(CancellationToken cancellationToken = default);
+
+    Task<int> GetActiveReservedQuantityForProductAsync(
+        int productId, Guid excludedCartId, Guid additionalExcludedCartId,
+        CancellationToken cancellationToken = default);
 }

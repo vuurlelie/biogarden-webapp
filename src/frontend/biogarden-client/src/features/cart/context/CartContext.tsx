@@ -18,50 +18,75 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const sessionGeneration = useRef(0);
+  const pending = useRef<Promise<void>>(Promise.resolve());
+  const sessionReady = useRef(false);
+  const initializeSession = useRef<() => Promise<Cart>>(getCart);
+  const started = useRef(false);
+  const mounted = useRef(true);
 
-  const run = useCallback(async (operation: () => Promise<Cart>) => {
+  const run = useCallback((operation: (() => Promise<Cart>) | null) => {
     const generation = sessionGeneration.current;
     const token = getAuthSession()?.token;
-    const isCurrent = () => generation === sessionGeneration.current && token === getAuthSession()?.token;
-    setError(null);
-    try {
-      const result = await operation();
-      if (isCurrent()) setCart(result);
-    } catch (caughtError) {
-      if (isCurrent()) setError(getErrorMessage(caughtError, "A kosár művelet nem sikerült."));
-      throw caughtError;
-    }
+    const isCurrent = () => mounted.current && generation === sessionGeneration.current && token === getAuthSession()?.token;
+    const assertCurrent = () => {
+      if (!isCurrent()) throw new DOMException("A kosár munkamenete megváltozott.", "AbortError");
+    };
+    const task = pending.current.then(async () => {
+      assertCurrent();
+      setError(null);
+      const showLoading = operation === null || !sessionReady.current;
+      if (showLoading) setIsLoading(true);
+      try {
+        let result: Cart | undefined;
+        // Establish the guest cookie (or finish login merging) before any mutation.
+        // Failed initialization stays retryable and must not allow the write through.
+        if (!sessionReady.current) {
+          result = await initializeSession.current();
+          assertCurrent();
+          sessionReady.current = true;
+        }
+        if (operation !== null || result === undefined) {
+          result = await (operation ?? getCart)();
+        }
+        assertCurrent();
+        setCart(result);
+      } catch (caughtError) {
+        if (isCurrent()) setError(getErrorMessage(caughtError, "A kosár művelet nem sikerült."));
+        throw caughtError;
+      } finally {
+        if (showLoading && isCurrent()) setIsLoading(false);
+      }
+    });
+    // A rejected operation must not poison subsequent work. Keep in-flight guest
+    // writes ahead of login merging, but reject obsolete queued writes before sending.
+    pending.current = task.catch(() => undefined);
+    return task;
   }, []);
 
-  const refresh = useCallback(async () => {
-    const generation = sessionGeneration.current;
-    setIsLoading(true);
-    try {
-      await run(getCart);
-    } finally {
-      if (generation === sessionGeneration.current) setIsLoading(false);
-    }
-  }, [run]);
+  const refresh = useCallback(() => run(null), [run]);
 
   useEffect(() => {
-    void refresh().catch(() => undefined);
-  }, [refresh]);
-
-  useEffect(() => {
+    mounted.current = true;
     const handleAuthChange = () => {
-      const generation = ++sessionGeneration.current;
+      ++sessionGeneration.current;
+      sessionReady.current = false;
+      initializeSession.current = getAuthSession() ? mergeGuestCart : getCart;
       setCart(null);
       setError(null);
       setIsLoading(true);
-      const operation = getAuthSession() ? mergeGuestCart : getCart;
-      void run(operation).catch(() => undefined).finally(() => {
-        if (generation === sessionGeneration.current) setIsLoading(false);
-      });
+      void refresh().catch(() => undefined);
     };
 
     window.addEventListener(AUTH_CHANGED_EVENT, handleAuthChange);
-    return () => window.removeEventListener(AUTH_CHANGED_EVENT, handleAuthChange);
-  }, [run]);
+    if (!started.current) {
+      started.current = true;
+      void refresh().catch(() => undefined);
+    }
+    return () => {
+      mounted.current = false;
+      window.removeEventListener(AUTH_CHANGED_EVENT, handleAuthChange);
+    };
+  }, [refresh]);
 
   const value = useMemo<CartContextValue>(() => ({
     cart,

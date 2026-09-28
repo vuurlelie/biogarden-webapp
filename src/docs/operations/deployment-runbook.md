@@ -32,6 +32,30 @@ Do not start a production deployment if the target commit is not already reviewe
 
 ## Pre-Deployment Checks
 
+### Cart session changes
+
+The cart consistency update requires no schema migration. Cart creation and mutations use a SQL Server application lock per owner, held on a dedicated connection through the operation. A merge locks its user destination and guest source. The database login must be able to execute `sys.sp_getapplock`; verify guest additions, signed-in additions, and login merging on the hosted database after deployment. Lock waits are bounded to five seconds and return a retryable 409 on timeout. This adds a database connection during cart operations; monitor connection usage under the expected UAT traffic.
+
+Before deploying over an older version, check for existing duplicate active carts:
+
+```sql
+SELECT UserId, COUNT(*) AS ActiveCartCount
+FROM Carts
+WHERE UserId IS NOT NULL AND IsCheckedOut = 0 AND ExpiresAtUtc > SYSUTCDATETIME()
+GROUP BY UserId HAVING COUNT(*) > 1;
+
+SELECT SessionId, COUNT(*) AS ActiveCartCount
+FROM Carts
+WHERE UserId IS NULL AND IsCheckedOut = 0 AND ExpiresAtUtc > SYSUTCDATETIME()
+GROUP BY SessionId HAVING COUNT(*) > 1;
+```
+
+If either query returns rows, pause cart traffic and let reservations expire, or review and reconcile the affected carts before resuming. Do not automatically sum or delete them: combined quantities may exceed stock. The application rejects duplicate active owners instead of silently choosing one cart. Its locks coordinate application instances; they do not constrain direct SQL edits or older API instances, so replace all API instances before reopening cart traffic.
+
+User carts are resolved only by authenticated user ID. Guest lookup excludes user-owned carts, including legacy records with a session ID. After deployment, test adding the last available item as a guest, signing in to merge it once, and signing out without exposing the user's cart. Use a fresh browser context to verify that the first guest request establishes its cookie before additions; browser cookie policies remain a hosted verification requirement.
+
+### Migration checks
+
 Run [engineering verification](../verification.md) on the selected commit and review its CI results. Resolve applicable UAT blockers before a production release.
 
 Run the following migration commands from the repository's **src/backend** directory. Restore the local CLI with **dotnet tool restore** if needed. Confirm the design-time database configuration described in the [developer guide](../developer-guide.md#backend-setup).
