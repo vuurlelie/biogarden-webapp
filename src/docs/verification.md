@@ -64,6 +64,8 @@ npm run test:e2e
 
 On Windows, use `npm.cmd` and `npx.cmd` if PowerShell blocks their script wrappers. Playwright starts its own frontend server on port 4173; an existing process on that port must be stopped first. Install Chromium once per environment and again when the Playwright version requires it.
 
+`cart-session.spec.ts` delays API responses to verify initialization before guest additions, ordered mutations and refreshes, recovery after initialization/mutation/merge failures, and cancellation of queued actions after login changes. It includes the real product page and a test-only cart consumer for deliberately overlapping actions. The consumer uses the production provider and HTTP client, is served only by the test's Vite entry replacement, and is not part of the production bundle. API responses are mocked; these tests do not establish hosted cookie delivery or cross-tab request ordering.
+
 Check the build's SEO output: a successful build with no fetched posts does not prove that production article previews were generated.
 
 Finish with `git diff --check` and review `git status --short` from `src` for unintended tracked changes.
