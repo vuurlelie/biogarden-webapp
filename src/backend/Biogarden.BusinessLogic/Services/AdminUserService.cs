@@ -83,8 +83,15 @@ public sealed class AdminUserService : IAdminUserService
         }
 
         var user = await FindUserAsync(userId, cancellationToken);
+        if (isAdmin && (user.RecordStatus != RecordStatus.Active || user.DeactivatedAtUtc is not null ||
+            user.AnonymizedAtUtc is not null || !user.EmailConfirmed ||
+            (user.LockoutEnabled && user.LockoutEnd > DateTimeOffset.UtcNow)))
+            throw new InvalidOperationException("Csak aktív, megerősített fiók kaphat admin jogosultságot.");
         var hasRole = await _userManager.IsInRoleAsync(user, "Admin");
         IdentityResult result = IdentityResult.Success;
+
+        // Identity persists the user and role membership together in its SaveChanges call.
+        if (hasRole != isAdmin) user.SecurityStamp = Guid.NewGuid().ToString();
 
         if (isAdmin && !hasRole)
         {

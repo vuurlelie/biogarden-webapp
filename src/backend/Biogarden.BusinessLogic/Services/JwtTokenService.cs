@@ -2,6 +2,7 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
 using Biogarden.BusinessLogic.Abstractions;
+using Biogarden.BusinessLogic.Constants;
 using Biogarden.BusinessLogic.Options;
 using Biogarden.DataAccess.Entities;
 using Microsoft.AspNetCore.Identity;
@@ -25,12 +26,16 @@ public class JwtTokenService : ITokenService
 
     public async Task<string> CreateTokenAsync(ApplicationUser user)
     {
+        var securityStamp = await _userManager.GetSecurityStampAsync(user);
+        if (string.IsNullOrWhiteSpace(securityStamp))
+            throw new InvalidOperationException("Cannot issue a session without a security stamp.");
         var userRoles = await _userManager.GetRolesAsync(user);
 
         var claims = new List<Claim>
         {
             new(ClaimTypes.NameIdentifier, user.Id.ToString()),
-            new(ClaimTypes.Email, user.Email ?? string.Empty)
+            new(ClaimTypes.Email, user.Email ?? string.Empty),
+            new(AuthClaimTypes.SecurityStamp, securityStamp)
         };
 
         claims.AddRange(

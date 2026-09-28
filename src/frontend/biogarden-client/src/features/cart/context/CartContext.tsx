@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { AUTH_CHANGED_EVENT, getAuthSession } from "../../auth/utils/authStorage";
 import {
@@ -17,23 +17,29 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const [cart, setCart] = useState<Cart | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const sessionGeneration = useRef(0);
 
   const run = useCallback(async (operation: () => Promise<Cart>) => {
+    const generation = sessionGeneration.current;
+    const token = getAuthSession()?.token;
+    const isCurrent = () => generation === sessionGeneration.current && token === getAuthSession()?.token;
     setError(null);
     try {
-      setCart(await operation());
+      const result = await operation();
+      if (isCurrent()) setCart(result);
     } catch (caughtError) {
-      setError(getErrorMessage(caughtError, "A kosár művelet nem sikerült."));
+      if (isCurrent()) setError(getErrorMessage(caughtError, "A kosár művelet nem sikerült."));
       throw caughtError;
     }
   }, []);
 
   const refresh = useCallback(async () => {
+    const generation = sessionGeneration.current;
     setIsLoading(true);
     try {
       await run(getCart);
     } finally {
-      setIsLoading(false);
+      if (generation === sessionGeneration.current) setIsLoading(false);
     }
   }, [run]);
 
@@ -43,8 +49,14 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const handleAuthChange = () => {
+      const generation = ++sessionGeneration.current;
+      setCart(null);
+      setError(null);
+      setIsLoading(true);
       const operation = getAuthSession() ? mergeGuestCart : getCart;
-      void run(operation).catch(() => undefined);
+      void run(operation).catch(() => undefined).finally(() => {
+        if (generation === sessionGeneration.current) setIsLoading(false);
+      });
     };
 
     window.addEventListener(AUTH_CHANGED_EVENT, handleAuthChange);

@@ -134,7 +134,8 @@ public class AuthService : IAuthService
 
         if (user.RecordStatus == RecordStatus.Deleted
             || user.DeactivatedAtUtc is not null
-            || user.AnonymizedAtUtc is not null)
+            || user.AnonymizedAtUtc is not null
+            || (user.LockoutEnabled && user.LockoutEnd > DateTimeOffset.UtcNow))
         {
             return LoginResultDto.Failure("Ez a fiók jelenleg nem aktív.");
         }

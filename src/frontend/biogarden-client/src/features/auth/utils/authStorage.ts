@@ -9,14 +9,15 @@ export function saveAuthSession(auth: AuthResponse): void {
 }
 
 export function clearAuthSession(): void {
+  if (localStorage.getItem(AUTH_STORAGE_KEY) === null) return;
   localStorage.removeItem(AUTH_STORAGE_KEY);
   window.dispatchEvent(new Event(AUTH_CHANGED_EVENT));
 }
 
-function isTokenExpired(token: string): boolean {
+function tokenExpiresAt(token: string): number {
   try {
     const payloadPart = token.split(".")[1];
-    if (!payloadPart) return true;
+    if (!payloadPart) return 0;
 
     const normalizedPayload = payloadPart
       .replace(/-/g, "+")
@@ -24,14 +25,13 @@ function isTokenExpired(token: string): boolean {
       .padEnd(Math.ceil(payloadPart.length / 4) * 4, "=");
     const payload = JSON.parse(atob(normalizedPayload)) as { exp?: number };
 
-    return typeof payload.exp !== "number" || payload.exp * 1000 <= Date.now();
+    return typeof payload.exp === "number" && Number.isFinite(payload.exp) ? payload.exp * 1000 : 0;
   } catch {
-    return true;
+    return 0;
   }
 }
 
-export function getAuthSession(): AuthResponse | null {
-  const storedAuth = localStorage.getItem(AUTH_STORAGE_KEY);
+export function parseAuthSession(storedAuth: string | null): AuthResponse | null {
   if (!storedAuth) return null;
 
   try {
@@ -42,17 +42,59 @@ export function getAuthSession(): AuthResponse | null {
       typeof auth.email !== "string" ||
       typeof auth.token !== "string" ||
       !Array.isArray(auth.roles) ||
-      isTokenExpired(auth.token)
+      !auth.roles.every((role) => typeof role === "string") ||
+      tokenExpiresAt(auth.token) <= Date.now()
     ) {
-      clearAuthSession();
       return null;
     }
 
     return auth as AuthResponse;
   } catch {
-    clearAuthSession();
     return null;
   }
+}
+
+export function getAuthSession(): AuthResponse | null {
+  const stored = localStorage.getItem(AUTH_STORAGE_KEY);
+  const auth = parseAuthSession(stored);
+  if (stored && !auth) clearAuthSession();
+  return auth;
+}
+
+// Start once at the application boundary, rather than installing one timer per component.
+export function startAuthSessionSync(): () => void {
+  let previous = localStorage.getItem(AUTH_STORAGE_KEY);
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const synchronize = () => {
+    const stored = localStorage.getItem(AUTH_STORAGE_KEY);
+    if (previous && stored !== previous) {
+      sessionStorage.removeItem("biogarden_checkout_draft");
+      sessionStorage.removeItem("biogarden_checkout_idempotency_key");
+    }
+    previous = stored;
+    clearTimeout(timer);
+    const auth = parseAuthSession(stored);
+    if (stored && !auth) {
+      clearAuthSession();
+    } else if (auth) {
+      timer = setTimeout(synchronize, Math.min(tokenExpiresAt(auth.token) - Date.now(), 2_147_483_647));
+    }
+  };
+  const onStorage = (event: StorageEvent) => {
+    if (event.storageArea === localStorage && (event.key === AUTH_STORAGE_KEY || event.key === null)) {
+      window.dispatchEvent(new Event(AUTH_CHANGED_EVENT));
+    }
+  };
+  window.addEventListener("storage", onStorage);
+  window.addEventListener("focus", synchronize);
+  window.addEventListener(AUTH_CHANGED_EVENT, synchronize);
+  synchronize();
+  return () => {
+    clearTimeout(timer);
+    window.removeEventListener("storage", onStorage);
+    window.removeEventListener("focus", synchronize);
+    window.removeEventListener(AUTH_CHANGED_EVENT, synchronize);
+  };
 }
 
 export function isAuthenticated(): boolean {
