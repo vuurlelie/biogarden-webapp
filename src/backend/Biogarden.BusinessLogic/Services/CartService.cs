@@ -336,6 +336,8 @@ public class CartService : ICartService
 
         guestCart.IsCheckedOut = true;
         guestCart.CheckedOutAtUtc = now;
+        // Login merges items, never another session's personal checkout details.
+        guestCart.ClearCheckoutDraft();
 
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 

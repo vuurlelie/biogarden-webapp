@@ -18,5 +18,18 @@ public class Cart
 
     public byte[] RowVersion { get; set; } = [];
 
+    public string? CheckoutDraftJson { get; set; }
+    public string? CheckoutDraftSession { get; set; }
+    public Guid? CheckoutDraftVersion { get; set; }
+    public DateTime? CheckoutDraftExpiresAtUtc { get; set; }
+
+    public void ClearCheckoutDraft()
+    {
+        CheckoutDraftJson = null;
+        CheckoutDraftSession = null;
+        CheckoutDraftVersion = null;
+        CheckoutDraftExpiresAtUtc = null;
+    }
+
     public ICollection<CartItem> Items { get; set; } = new List<CartItem>();
 }

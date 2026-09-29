@@ -179,6 +179,7 @@ public class OrderService : IOrderService
 
                 cart.IsCheckedOut = true;
                 cart.CheckedOutAtUtc = now;
+                cart.ClearCheckoutDraft();
 
                 await _unitOfWork.OrderRepository.AddAsync(order, transactionToken);
                 await _unitOfWork.SaveChangesAsync(transactionToken);

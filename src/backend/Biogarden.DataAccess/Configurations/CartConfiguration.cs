@@ -40,6 +40,9 @@ public class CartConfiguration : IEntityTypeConfiguration<Cart>
         cartBuilder.HasIndex(cart => cart.UserId);
         cartBuilder.HasIndex(cart => cart.SessionId);
         cartBuilder.HasIndex(cart => cart.ExpiresAtUtc);
+        cartBuilder.Property(cart => cart.CheckoutDraftJson).HasMaxLength(16000);
+        cartBuilder.Property(cart => cart.CheckoutDraftSession).HasMaxLength(64);
+        cartBuilder.HasIndex(cart => cart.CheckoutDraftExpiresAtUtc);
 
         cartBuilder.HasMany(cart => cart.Items)
             .WithOne(cartItem => cartItem.Cart)

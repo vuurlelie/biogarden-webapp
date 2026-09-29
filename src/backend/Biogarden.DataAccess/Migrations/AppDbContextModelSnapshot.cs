@@ -249,6 +249,20 @@ namespace Biogarden.DataAccess.Migrations
                     b.Property<DateTime?>("CheckedOutAtUtc")
                         .HasColumnType("datetime2");
 
+                    b.Property<DateTime?>("CheckoutDraftExpiresAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CheckoutDraftJson")
+                        .HasMaxLength(16000)
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("CheckoutDraftSession")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<Guid?>("CheckoutDraftVersion")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasColumnType("datetime2");
 
@@ -275,6 +289,8 @@ namespace Biogarden.DataAccess.Migrations
                         .HasColumnType("uniqueidentifier");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("CheckoutDraftExpiresAtUtc");
 
                     b.HasIndex("ExpiresAtUtc");
 
