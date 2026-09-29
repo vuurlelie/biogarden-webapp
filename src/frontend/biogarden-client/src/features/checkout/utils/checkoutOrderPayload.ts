@@ -1,15 +1,15 @@
 import type { CreateOrderRequest } from "../../account/api/ordersApi";
 import { LEGAL_DOCUMENT_VERSIONS } from "../../../shared/constants/legalDocuments";
 import type { CheckoutDraft, FulfillmentMethod } from "../types/checkout.types";
-import { getOrCreateCheckoutIdempotencyKey } from "./checkoutDraft";
 
 export function buildCheckoutOrderRequest(
   draft: CheckoutDraft,
   effectiveCustomerType: 0 | 1,
   method: FulfillmentMethod,
+  cartId: string,
 ): CreateOrderRequest {
   return {
-    idempotencyKey: getOrCreateCheckoutIdempotencyKey(),
+    idempotencyKey: cartId.replaceAll("-", ""),
     fulfillmentMethod: method,
     customerName: draft.customerName,
     customerEmail: draft.customerEmail,
