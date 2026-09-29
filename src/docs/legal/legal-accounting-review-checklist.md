@@ -12,6 +12,7 @@ This checklist is a handoff aid for legal and accounting review. It is not legal
 - Complaint handling: required response deadline wording, authority details, conciliation board references, and any mandatory platform or contact data.
 - Warranty and product complaint wording: required distinction between kellékszavatosság, termékszavatosság, jótállás if applicable, quality complaints, and perishable or hygiene-sensitive products.
 - Privacy policy: final controller details, processors, retention periods, payment provider handling, email sending provider, hosting provider, delivery partners, accounting tools, and deletion/anonymization process.
+- Temporary checkout drafts: personal fields are sent before order submission; review the customer notice, purpose/basis, expiry versus physical deletion, and backup retention using the [implemented draft lifecycle](../operations/checkout-drafts.md).
 - Email templates: order confirmation, admin notification, contact confirmation, password management, account verification, and withdrawal/request confirmations.
 
 ## Technical Evidence In The App

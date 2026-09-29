@@ -72,6 +72,8 @@ Finish with `git diff --check` and review `git status --short` from `src` for un
 
 ## What these checks establish
 
+Checkout-draft SQL and browser coverage, along with hosted verification requirements, is described in [checkout drafts](operations/checkout-drafts.md#deployment-and-verification).
+
 Backend unit tests cover business behaviour with mocked dependencies. Regular API tests exercise HTTP handling, middleware, and authorization, with services replaced where needed. The SQL Server category adds real API-to-database order workflows as described above. Playwright tests use mocked API responses and verify browser behaviour. These checks do not collectively prove a complete browser-to-API-to-SQL Server transaction or successful live SMTP/SumUp delivery.
 
 Use the [UAT checklist](uat-checklist.md) to record deployed workflows, and the [deployment runbook](operations/deployment-runbook.md) for release smoke checks. Hosting behaviour and real integration delivery require environment-level verification in addition to these automated suites.

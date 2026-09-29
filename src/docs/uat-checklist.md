@@ -41,6 +41,7 @@ For each row record **Not run**, **Pass**, **Fail**, **Blocked**, or **Not appli
 | UAT-13 | As admin, review an order and use agreed status/manual-payment operations. | Updates are persisted, invalid transitions are rejected, and customer-facing status matches. |
 | UAT-14 | Submit a contact message and an order-related request as guest and signed-in customer. | Confirmation is clear; the business can find the request and the configured notifications are correct. |
 | UAT-15 | Navigate forms by keyboard, submit incomplete fields, and revisit consent choices. | Focus and validation are usable; consent choices can be changed; checkout remains usable on mobile. |
+| UAT-16 | Fill checkout details, wait for autosave, refresh, discard, and sign out/in. Edit the same draft in two tabs. | Drafts restore only for their current cart/session; discard removes them; conflicts preserve local input with recovery choices. Verify expiry and cleanup using the [draft guide](operations/checkout-drafts.md). |
 
 ## Developer-assisted checks
 

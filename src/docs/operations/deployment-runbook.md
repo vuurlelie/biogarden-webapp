@@ -32,6 +32,8 @@ Do not start a production deployment if the target commit is not already reviewe
 
 ## Pre-Deployment Checks
 
+For the checkout-draft release, apply `20260929112302_AddCheckoutDrafts` before starting the new API and deploy the matching frontend. Follow the [draft-specific release checks](checkout-drafts.md#deployment-and-verification), including cleanup availability and guest session behaviour.
+
 ### Cart session changes
 
 The cart consistency update requires no schema migration. Cart creation and mutations use a SQL Server application lock per owner, held on a dedicated connection through the operation. A merge locks its user destination and guest source. The database login must be able to execute `sys.sp_getapplock`; verify guest additions, signed-in additions, and login merging on the hosted database after deployment. Lock waits are bounded to five seconds and return a retryable 409 on timeout. This adds a database connection during cart operations; monitor connection usage under the expected UAT traffic.
