@@ -9,6 +9,10 @@ public sealed class PlaceOrderValidator : AbstractValidator<PlaceOrderDto>
 {
     public PlaceOrderValidator()
     {
+        // Required for a new order in the service; optional on an idempotent retry.
+        RuleFor(x => x.PaymentMethod).IsInEnum().When(x => x.PaymentMethod.HasValue);
+        RuleFor(x => x.QuoteVersion).Matches("^[A-F0-9]{64}$").When(x => x.QuoteVersion is not null)
+            .WithMessage("Az árajánlat azonosítója érvénytelen. Tekintsd át újra a rendelést.");
         RuleFor(x => x.IdempotencyKey).Must(value => value is not null &&
             System.Text.RegularExpressions.Regex.IsMatch(value.Trim(), @"^[A-Za-z0-9_-]{8,100}$"))
             .WithMessage("A rendelés azonosító kulcsa érvénytelen. Frissítsd az oldalt.");

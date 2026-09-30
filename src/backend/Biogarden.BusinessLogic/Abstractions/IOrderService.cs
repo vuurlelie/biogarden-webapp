@@ -5,6 +5,8 @@ namespace Biogarden.BusinessLogic.Abstractions;
 
 public interface IOrderService
 {
+    Task<CheckoutQuoteDto> GetCheckoutQuoteAsync(Guid? userId, string? sessionId,
+        CheckoutQuoteRequest request, CancellationToken cancellationToken = default);
     Task<OrderCreationResult> CreateOrderFromCartAsync(
         Guid? userId,
         string? sessionId,

@@ -24,6 +24,7 @@ public class OrderService : IOrderService
     private readonly TimeProvider _timeProvider;
     private readonly EmailBrandingOptions _emailBrandingOptions;
     private readonly SumUpOptions _sumUpOptions;
+    private readonly CheckoutPricingService _pricing;
 
     public OrderService(
         IUnitOfWork unitOfWork,
@@ -34,7 +35,8 @@ public class OrderService : IOrderService
         ISumUpCheckoutService sumUpCheckoutService,
         TimeProvider timeProvider,
         IOptions<EmailBrandingOptions> emailBrandingOptions,
-        IOptions<SumUpOptions> sumUpOptions)
+        IOptions<SumUpOptions> sumUpOptions,
+        CheckoutPricingService pricing)
     {
         _unitOfWork = unitOfWork;
         _cartService = cartService;
@@ -45,6 +47,37 @@ public class OrderService : IOrderService
         _timeProvider = timeProvider;
         _emailBrandingOptions = emailBrandingOptions.Value;
         _sumUpOptions = sumUpOptions.Value;
+        _pricing = pricing;
+    }
+
+    public async Task<CheckoutQuoteDto> GetCheckoutQuoteAsync(Guid? userId, string? sessionId,
+        CheckoutQuoteRequest request, CancellationToken cancellationToken = default)
+    {
+        var cart = userId.HasValue
+            ? await _unitOfWork.CartRepository.GetActiveByUserIdAsync(userId.Value, cancellationToken)
+            : string.IsNullOrWhiteSpace(sessionId) ? null
+                : await _unitOfWork.CartRepository.GetActiveBySessionIdAsync(sessionId, cancellationToken);
+        if (cart is null || cart.IsCheckedOut || cart.ExpiresAtUtc <= GetUtcNow())
+            throw new KeyNotFoundException("Aktív kosár nem található.");
+        var validation = await _cartService.ValidateCartForCheckoutAsync(userId, sessionId, cancellationToken);
+        if (!validation.IsValid) throw new InvalidOperationException("A kosár ellenőrzése nem sikerült.");
+        var items = new List<OrderItemDto>();
+        foreach (var item in cart.Items)
+        {
+            var product = await _unitOfWork.ProductRepository.GetByIdAsync(item.ProductId, cancellationToken);
+            if (product is null || !product.Available || product.StockQuantity < item.Quantity ||
+                (request.FulfillmentMethod != FulfillmentMethod.PersonalPickup && !product.DeliveryAvailable))
+                throw new InvalidOperationException("A termék nem elérhető a választott átvételi móddal.");
+            items.Add(new()
+            {
+                ProductId = product.Id,
+                ProductName = product.Name,
+                UnitPrice = product.Price,
+                Unit = product.Unit,
+                Quantity = item.Quantity
+            });
+        }
+        return _pricing.Calculate(cart.Id, request.FulfillmentMethod, request.PaymentMethod, items);
     }
 
     public async Task<OrderCreationResult> CreateOrderFromCartAsync(
@@ -123,6 +156,9 @@ public class OrderService : IOrderService
         }
 
         var customerSnapshot = await BuildOrderCustomerSnapshotAsync(userId, dto, cancellationToken);
+        if (dto.PaymentMethod is null || !Enum.IsDefined(dto.PaymentMethod.Value) ||
+            string.IsNullOrWhiteSpace(dto.QuoteVersion) || dto.QuoteVersion.Length != 64)
+            throw new ArgumentException("Válassz fizetési módot, és kérj új árajánlatot a rendelés áttekintéséhez.");
         OrderDto createdOrderDto;
 
         try
@@ -170,11 +206,28 @@ public class OrderService : IOrderService
                     FulfillmentMethod = dto.FulfillmentMethod
                 };
 
-                order.TotalPrice = await AddOrderItemsAndCommitStockAsync(
+                await AddOrderItemsAndCommitStockAsync(
                     order,
                     cart.Items,
                     dto.FulfillmentMethod,
                     transactionToken);
+                var quote = _pricing.Calculate(cart.Id, dto.FulfillmentMethod, dto.PaymentMethod.Value,
+                    order.Items.Select(item => new OrderItemDto
+                    {
+                        ProductId = item.ProductId,
+                        ProductName = item.ProductName,
+                        UnitPrice = item.UnitPrice,
+                        Unit = item.Unit,
+                        Quantity = item.Quantity
+                    }));
+                if (!string.Equals(dto.QuoteVersion, quote.Version, StringComparison.Ordinal))
+                    throw new InvalidOperationException("A kosár vagy az árak megváltoztak. Kérjük, tekintsd át újra a rendelést.");
+                order.Subtotal = quote.Subtotal;
+                order.DeliveryFee = quote.DeliveryFee;
+                order.PaymentFee = quote.PaymentFee;
+                order.TotalPrice = quote.TotalPrice;
+                order.Currency = quote.Currency;
+                order.PaymentMethod = quote.PaymentMethod;
                 order.StockCommitted = true;
 
                 cart.IsCheckedOut = true;
@@ -592,7 +645,7 @@ public class OrderService : IOrderService
                 throw new InvalidOperationException("A kosárban lévő készlet időközben megváltozott. Kérjük, ellenőrizd újra a kosarat.");
             }
 
-            var lineTotal = product.Price * cartItem.Quantity;
+            var lineTotal = CheckoutPricingService.CalculateLineTotal(product.Price, cartItem.Quantity);
             order.Items.Add(new OrderItem
             {
                 Id = Guid.NewGuid(),

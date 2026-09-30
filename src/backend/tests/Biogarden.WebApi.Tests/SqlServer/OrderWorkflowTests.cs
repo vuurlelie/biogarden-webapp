@@ -66,7 +66,7 @@ public sealed class OrderWorkflowTests : IAsyncLifetime
         var productId = await SeedProductAsync();
         using var client = _app.Factory.CreateClient();
         await AddToCartAsync(client, productId);
-        var request = Request();
+        var request = await Request().WithQuoteAsync(client);
         using var first = await client.PostAsJsonAsync("/api/orders", request);
         Assert.Equal(HttpStatusCode.Created, first.StatusCode);
         var order = (await first.Content.ReadFromJsonAsync<OrderDto>())!;
@@ -110,7 +110,7 @@ public sealed class OrderWorkflowTests : IAsyncLifetime
         using var client = _app.Factory.CreateClient();
         await AddToCartAsync(client, productId);
         _app.QueueFailure.Enabled = true;
-        using var failed = await client.PostAsJsonAsync("/api/orders", Request());
+        using var failed = await client.PostAsJsonAsync("/api/orders", await Request().WithQuoteAsync(client));
         Assert.Equal(HttpStatusCode.Conflict, failed.StatusCode);
 
         await using var database = _app.OpenDatabase();
@@ -356,7 +356,7 @@ public sealed class OrderWorkflowTests : IAsyncLifetime
         var productId = await SeedProductAsync();
         using var client = _app.Factory.CreateClient();
         await AddToCartAsync(client, productId);
-        using var response = await client.PostAsJsonAsync("/api/orders", Request());
+        using var response = await client.PostAsJsonAsync("/api/orders", await Request().WithQuoteAsync(client));
         response.EnsureSuccessStatusCode();
     }
 

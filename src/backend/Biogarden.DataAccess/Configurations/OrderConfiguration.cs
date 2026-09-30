@@ -12,6 +12,10 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
         orderBuilder.ToTable("Orders");
 
         orderBuilder.HasKey(order => order.Id);
+        orderBuilder.Property(order => order.Subtotal).HasPrecision(18, 2);
+        orderBuilder.Property(order => order.DeliveryFee).HasPrecision(18, 2);
+        orderBuilder.Property(order => order.PaymentFee).HasPrecision(18, 2);
+        orderBuilder.Property(order => order.Currency).HasMaxLength(3);
         orderBuilder.Property(order => order.RowVersion).IsRowVersion();
 
         orderBuilder.Property(order => order.OrderNumber)

@@ -167,6 +167,7 @@ public sealed class CheckoutDraftTests : IAsyncLifetime
             AcceptedTermsVersion = LegalDocumentVersions.CurrentTermsVersion,
             AcceptedPrivacyPolicyVersion = LegalDocumentVersions.CurrentPrivacyPolicyVersion
         };
+        await request.WithQuoteAsync(client);
         _app.QueueFailure.Enabled = true;
         Assert.Equal(HttpStatusCode.Conflict, (await client.PostAsJsonAsync("/api/orders", request)).StatusCode);
         Assert.NotNull((await client.GetFromJsonAsync<CheckoutDraftDto>(Path(cart.Id)))!.Fields);

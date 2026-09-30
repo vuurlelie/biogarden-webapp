@@ -53,6 +53,12 @@ public class Order
     public DateTime? CancelledAtUtc { get; set; }
     public DateTime? DeletedAtUtc { get; set; }
 
+    // Null on legacy orders: no historical fee or payment-method assumptions.
+    public decimal? Subtotal { get; set; }
+    public decimal? DeliveryFee { get; set; }
+    public decimal? PaymentFee { get; set; }
+    public string? Currency { get; set; }
+    public OrderPaymentMethod? PaymentMethod { get; set; }
     public decimal TotalPrice { get; set; }
 
     public bool StockCommitted { get; set; }

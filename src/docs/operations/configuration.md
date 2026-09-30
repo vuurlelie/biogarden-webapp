@@ -38,6 +38,18 @@ Non-secret operational settings should still be reviewed before release:
 | `AbuseProtection__*` | Limits tuned after real traffic appears. |
 | `OrderEmailOutbox__Enabled` | Defaults to true; false pauses queued order-confirmation delivery. See [order email delivery](order-email-delivery.md) for its interaction with SMTP preview mode. |
 
+## Checkout pricing (backend contract)
+
+`CheckoutPricing` in the API configuration owns delivery fees and enabled payment methods. These are provisional UAT values, not a GLS contract or live carrier quote. Product prices remain in the database. `DeliveryFees` uses named fulfillment keys; only configured methods with an allowed payment combination are offered. The initial backend configuration enables personal pickup (0 HUF) and home delivery (2740 HUF). Locker and CsomagPont activation follows GLS location validation in a later commit.
+
+`EnabledPaymentMethods` uses `OnlineCard`, `PayAtPickup`, and `CashOnDelivery`. Pickup permits online card or payment at pickup; deliveries permit online card or COD. Actual online payment also needs the separate SumUp configuration. `CodLowerFee`, `CodUpperFee`, `CodLowerLimit`, and `CodMaximum` configure provisional COD tiers (600/1190 HUF, 30000/499999 HUF). The tier basis is the final collected amount, including products, delivery and COD fee: choose the lower fee if it fits the lower limit, otherwise the upper fee, and reject amounts above the maximum. The branch supports HUF only and rounds each product line to whole forints, midpoint away from zero, before summing; fees must be nonnegative whole forints. Invalid configuration fails startup.
+
+`GET /api/orders/checkout-methods` returns configured method combinations. `POST /api/orders/quote` accepts numeric `fulfillmentMethod` and `paymentMethod` identifiers and derives the cart from the authenticated user or existing guest session. Its response includes line items, currency, subtotal, delivery fee, payment fee, total and a comparison `version`. New order requests must send the selected `paymentMethod` and `quoteVersion`. The server recalculates; a changed quote returns 409 without persisting stock, order, or email effects. Repeated submissions of an existing order retain the original snapshot. The version is an optimistic comparison token, not a signed payment authorization or a guaranteed price reservation.
+
+API identifiers: fulfillment `PersonalPickup=0`, `HomeDelivery=1`, `ParcelLocker=2`, `ParcelShop=3`; payment `OnlineCard=0`, `PayAtPickup=1`, `CashOnDelivery=2`. Use named constants in clients. Historical order snapshot fields are nullable: never infer a historical payment method or fee from today's configuration.
+
+This is the first backend commit of the pricing branch. **Do not deploy it with the existing checkout frontend**: quote consumption, GLS selection and display integration are subsequent steps. Apply `20260930063759_AddOrderPricingSnapshots` before the completed branch's API deployment. The additive migration preserves existing totals and leaves legacy fee/currency/payment fields null. Its downgrade removes the new snapshot fields and loses their data; retain the additive schema when rolling back application binaries where possible. No application/UAT database is migrated as part of generating or testing this migration.
+
 ## SumUp Release Setup
 
 Do not commit real SumUp values. When the production account details are available, enter them only through the production host's secret/environment setting UI:

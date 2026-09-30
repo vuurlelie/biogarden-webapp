@@ -392,6 +392,10 @@ namespace Biogarden.DataAccess.Migrations
                         .HasColumnType("datetime2")
                         .HasDefaultValueSql("SYSUTCDATETIME()");
 
+                    b.Property<string>("Currency")
+                        .HasMaxLength(3)
+                        .HasColumnType("nvarchar(3)");
+
                     b.Property<string>("CustomerEmail")
                         .IsRequired()
                         .HasMaxLength(256)
@@ -430,6 +434,10 @@ namespace Biogarden.DataAccess.Migrations
                     b.Property<string>("DeliveryDoorbell")
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
+
+                    b.Property<decimal?>("DeliveryFee")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
 
                     b.Property<string>("DeliveryFloor")
                         .HasMaxLength(50)
@@ -478,6 +486,13 @@ namespace Biogarden.DataAccess.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
 
+                    b.Property<decimal?>("PaymentFee")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int?>("PaymentMethod")
+                        .HasColumnType("int");
+
                     b.Property<byte>("PaymentStatus")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("tinyint")
@@ -511,6 +526,10 @@ namespace Biogarden.DataAccess.Migrations
                         .IsRequired()
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
+
+                    b.Property<decimal?>("Subtotal")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
 
                     b.Property<string>("SumUpCheckoutId")
                         .HasMaxLength(200)

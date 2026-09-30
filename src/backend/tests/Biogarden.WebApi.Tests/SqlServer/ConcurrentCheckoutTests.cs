@@ -53,7 +53,7 @@ public sealed class ConcurrentCheckoutTests : IAsyncLifetime
         using var client = _app.Factory.CreateClient();
         using var added = await client.PostAsJsonAsync("/api/cart/items", new AddCartItemDto { ProductId = productId, Quantity = 1 });
         added.EnsureSuccessStatusCode();
-        var request = Request();
+        var request = await Request().WithQuoteAsync(client);
         _app.SaveGate.EntityType = typeof(Order);
 
         var first = client.PostAsJsonAsync("/api/orders", request);
@@ -139,7 +139,7 @@ public sealed class ConcurrentCheckoutTests : IAsyncLifetime
         var response = await client.PostAsJsonAsync("/api/cart/items", new AddCartItemDto { ProductId = productId, Quantity = 1 });
         if (!response.IsSuccessStatusCode) return response;
         response.Dispose();
-        return await client.PostAsJsonAsync("/api/orders", Request());
+        return await client.PostAsJsonAsync("/api/orders", await Request().WithQuoteAsync(client));
     }
 
     private static async Task InitializeCartAsync(HttpClient client)

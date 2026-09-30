@@ -252,6 +252,8 @@ public static class ServiceCollectionExtensions
             configuration,
             SumUpOptions.SectionName,
             options => options.ValidateForStartup());
+        services.AddValidatedOptions<CheckoutPricingOptions>(configuration,
+            CheckoutPricingOptions.SectionName, options => options.ValidateForStartup());
 
         return services;
     }
@@ -426,6 +428,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<CheckoutDraftService>();
         services.AddHostedService<Biogarden.WebApi.Services.CheckoutDraftCleanupWorker>();
         services.AddScoped<IOrderService, OrderService>();
+        services.AddScoped<CheckoutPricingService>();
 
         return services;
     }
