@@ -10,6 +10,9 @@ import { getAuthSession } from "../../features/auth/utils/authStorage";
 import { validateCart } from "../../features/cart/api/cartApi";
 import { useCart } from "../../features/cart/context/useCart";
 import { useCheckoutDraft } from "../../features/checkout/hooks/useCheckoutDraft";
+import { useGlsDeliveryPoint } from "../../features/checkout/hooks/useGlsDeliveryPoint";
+import { GlsPointPicker } from "../../features/checkout/components/GlsPointPicker";
+import { FULFILLMENT, FULFILLMENT_LABELS, isGlsMethod } from "../../features/checkout/constants/fulfillment";
 import { CheckoutOrderSummary } from "../../features/checkout/components/CheckoutOrderSummary";
 import { CheckoutReviewModal } from "../../features/checkout/components/CheckoutReviewModal";
 import {
@@ -60,7 +63,8 @@ export default function CheckoutPage() {
   const [deliveryManual, setDeliveryManual] = useState(!authenticated);
   const draftStorage = useCheckoutDraft(cart?.items.length ? cart.id : undefined);
   const { draft, setDraft, ready: draftReady } = draftStorage;
-  const [method, setMethod] = useState<FulfillmentMethod>(0);
+  const method = draft.fulfillmentMethod;
+  const gls = useGlsDeliveryPoint(draft.glsDeliveryPointId, method);
   const [loading, setLoading] = useState(authenticated);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
@@ -171,12 +175,23 @@ export default function CheckoutPage() {
   }, [authenticated, hasDraft, navigate, profile, draftReady, setDraft]);
 
   useEffect(() => {
-    if (!deliveryAllowed && method !== 0) setMethod(0);
-  }, [deliveryAllowed, method]);
+    if (!cartLoading && draftReady && !deliveryAllowed && method !== FULFILLMENT.PersonalPickup) {
+      setDraft(current => ({ ...current, fulfillmentMethod: FULFILLMENT.PersonalPickup, glsDeliveryPointId: null }));
+    }
+  }, [cartLoading, draftReady, deliveryAllowed, method, setDraft]);
 
   useEffect(() => {
     setPaymentMethod(null);
-  }, [method]);
+    setShowReview(false);
+    setTermsAccepted(false);
+    setPrivacyAccepted(false);
+  }, [method, draft.glsDeliveryPointId]);
+
+  function setMethod(next: FulfillmentMethod) {
+    setDraft(current => ({ ...current, fulfillmentMethod: next, glsDeliveryPointId: null,
+      ...(isGlsMethod(next) ? emptyDeliveryDraft() : {}) }));
+    setFieldErrors({});
+  }
 
   useEffect(() => {
     if (!cart?.items.length || checkoutStartedTrackedRef.current) return;
@@ -316,6 +331,9 @@ export default function CheckoutPage() {
     }
 
     const errors = validateCheckoutFields(draft, effectiveCustomerType, method);
+    if (isGlsMethod(method) && !gls.point) {
+      errors.glsDeliveryPointId = gls.loading ? "Várd meg az átvételi pont ellenőrzését." : gls.error ?? "Válassz egy GLS átvételi pontot a térképen.";
+    }
     setFieldErrors(errors);
     if (Object.keys(errors).length) {
       requestAnimationFrame(() => {
@@ -535,35 +553,11 @@ export default function CheckoutPage() {
           <fieldset className="rounded-sm border border-site-border bg-white p-6 shadow-md">
             <legend className="px-2 text-xl font-bold">Átvételi mód</legend>
             <div className="grid gap-3 sm:grid-cols-2">
-              <label className="rounded-sm border p-4">
-                <input
-                  type="radio"
-                  checked={method === 0}
-                  onChange={() => setMethod(0)}
-                  className="mr-3"
-                />
-                Személyes átvétel
-              </label>
-              <label className={`rounded-sm border p-4 ${!deliveryAllowed ? "opacity-50" : ""}`}>
-                <input
-                  type="radio"
-                  checked={method === 1}
-                  onChange={() => setMethod(1)}
-                  disabled={!deliveryAllowed}
-                  className="mr-3"
-                />
-                Házhoz szállítás
-              </label>
-              <label className={`rounded-sm border p-4 ${!deliveryAllowed ? "opacity-50" : ""}`}>
-                <input
-                  type="radio"
-                  checked={method === 2}
-                  onChange={() => setMethod(2)}
-                  disabled={!deliveryAllowed}
-                  className="mr-3"
-                />
-                Csomagautomatába szállítás
-              </label>
+              {Object.values(FULFILLMENT).map(choice => <label key={choice} className={`rounded-sm border p-4 ${choice !== FULFILLMENT.PersonalPickup && !deliveryAllowed ? "opacity-50" : ""}`}>
+                <input type="radio" name="fulfillmentMethod" checked={method === choice}
+                  onChange={() => setMethod(choice)} disabled={choice !== FULFILLMENT.PersonalPickup && !deliveryAllowed} className="mr-3" />
+                {FULFILLMENT_LABELS[choice]}
+              </label>)}
             </div>
           </fieldset>
 
@@ -696,10 +690,17 @@ export default function CheckoutPage() {
           </fieldset>
           )}
 
-          {method !== 0 && (
+          {isGlsMethod(method) && <GlsPointPicker key={method} method={method} point={gls.point} loading={gls.loading}
+            error={gls.point ? undefined : gls.error ?? fieldErrors.glsDeliveryPointId} onRetry={gls.retry}
+            onSelect={point => {
+              setDraft(current => ({ ...current, glsDeliveryPointId: point.id, ...emptyDeliveryDraft() }));
+              clearFieldErrors(["glsDeliveryPointId"]);
+            }} />}
+
+          {method === FULFILLMENT.HomeDelivery && (
             <fieldset className="rounded-sm border border-site-border bg-white p-6 shadow-md">
               <legend className="px-2 text-xl font-bold">
-                {method === 2 ? "Csomagautomata címe" : "Szállítási cím"}
+                Szállítási cím
               </legend>
               {authenticated && (
                 <label className="mb-4 flex items-center gap-3 text-sm font-semibold">
@@ -833,6 +834,7 @@ export default function CheckoutPage() {
           grandTotal={grandTotal}
           method={method}
           onClose={() => { if (!submitting) setShowReview(false); }}
+          deliveryPoint={gls.point}
           onFieldErrorsChange={setFieldErrors}
           onPlaceOrder={() => void placeOrder()}
           onPrivacyAcceptedChange={setPrivacyAccepted}

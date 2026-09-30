@@ -60,6 +60,14 @@ The validated `Gls` options default to `CountryCode=HU`, `CacheMinutes=15`, `Tim
 
 Drafts store the selected method and point ID and discard manual delivery fields for locker/shop delivery. Restoring a draft resolves the point again; a removed point or provider outage returns `deliveryPointError` alongside the retained customer fields. Quote and order submission still validate the selection. This integration validates destinations only; it does not book shipments or create labels.
 
+### GLS map picker
+
+The checkout presents GLS lockers and CsomagPont shops separately. Opening the picker loads the [official GLS widget](https://map.gls-hungary.com/widget/example/) from `https://map.gls-hungary.com/widget/gls-dpm.js`. It is configured for Hungary, Hungarian language, delivery capability, and the selected point type. Only the selected ID is sent to the API; the UI displays the address returned by server validation. Switching delivery modes clears the selection. Restored draft IDs are checked again before continuing. Script-load errors, invalid points and directory outages support retry or choosing another delivery method.
+
+The widget runs inside a native modal dialog, including Escape dismissal and return of focus to the opening button. The browser CSP permits scripts, styles and fonts from `https://map.gls-hungary.com`; existing HTTPS connection and image permissions cover map data and tiles. Mirror these allowances if the host also sends a CSP response header. The provider script and its dependencies are loaded from GLS at runtime, so include the real widget in hosted smoke checks after release or provider updates. No customer contact or billing details are passed to the widget. GLS and its map providers receive normal browser network requests when it opens; users can choose another fulfillment method without opening it.
+
+Before deployment, check the actual widget on desktop and mobile: open each point type, search for a town/postal code, select a result, verify its name/address against the confirmed summary, change it, reload a saved draft, and switch back to home delivery/pickup. Use keyboard search, Tab/Shift+Tab and Escape; verify focus returns and the dialog does not overflow horizontally. Block the widget script or directory request to check retry and alternative-method recovery. Browser regression tests mock the official custom-element boundary and the API; they do not prove live carrier availability. Full order acceptance waits for the server-quote integration in the next pricing-branch commit.
+
 ## SumUp Release Setup
 
 Do not commit real SumUp values. When the production account details are available, enter them only through the production host's secret/environment setting UI:

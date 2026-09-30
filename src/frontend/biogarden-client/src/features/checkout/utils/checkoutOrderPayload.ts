@@ -1,6 +1,7 @@
 import type { CreateOrderRequest } from "../../account/api/ordersApi";
 import { LEGAL_DOCUMENT_VERSIONS } from "../../../shared/constants/legalDocuments";
 import type { CheckoutDraft, FulfillmentMethod } from "../types/checkout.types";
+import { FULFILLMENT, isGlsMethod } from "../constants/fulfillment";
 
 export function buildCheckoutOrderRequest(
   draft: CheckoutDraft,
@@ -11,6 +12,7 @@ export function buildCheckoutOrderRequest(
   return {
     idempotencyKey: cartId.replaceAll("-", ""),
     fulfillmentMethod: method,
+    glsDeliveryPointId: isGlsMethod(method) ? draft.glsDeliveryPointId : null,
     customerName: draft.customerName,
     customerEmail: draft.customerEmail,
     customerPhone: draft.customerPhone,
@@ -30,7 +32,7 @@ export function buildCheckoutOrderRequest(
     acceptedTermsVersion: LEGAL_DOCUMENT_VERSIONS.terms,
     acceptedPrivacyPolicyVersion: LEGAL_DOCUMENT_VERSIONS.privacyPolicy,
     deliveryAddressId: null,
-    ...(method !== 0
+    ...(method === FULFILLMENT.HomeDelivery
       ? {
           deliveryPostalCode: draft.deliveryPostalCode,
           deliveryCity: draft.deliveryCity,

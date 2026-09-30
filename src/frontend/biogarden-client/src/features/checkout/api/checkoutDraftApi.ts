@@ -2,6 +2,7 @@ import { getAuthSession } from "../../auth/utils/authStorage";
 import { apiRequest } from "../../../shared/api/httpClient";
 import type { CheckoutDraft } from "../types/checkout.types";
 import { EMPTY_DRAFT } from "../utils/checkoutDraft";
+import { FULFILLMENT } from "../constants/fulfillment";
 
 export type SavedCheckoutDraft = { version: string | null; expiresAtUtc: string | null; fields: CheckoutDraft | null };
 
@@ -13,8 +14,15 @@ function parseDraft(input: unknown): SavedCheckoutDraft {
   if (!value.fields || typeof value.fields !== "object" || typeof value.version !== "string"
     || typeof value.expiresAtUtc !== "string" || !Number.isFinite(Date.parse(value.expiresAtUtc))) throw invalid();
   for (const [key, empty] of Object.entries(EMPTY_DRAFT)) {
+    if (key === "fulfillmentMethod" || key === "glsDeliveryPointId") continue;
     if (typeof value.fields[key as keyof CheckoutDraft] !== typeof empty) throw invalid();
   }
+  // Older drafts have no shipping selection. Restore them as personal pickup.
+  value.fields.fulfillmentMethod ??= EMPTY_DRAFT.fulfillmentMethod;
+  value.fields.glsDeliveryPointId ??= null;
+  if (!Object.values(FULFILLMENT).includes(value.fields.fulfillmentMethod)
+    || (value.fields.glsDeliveryPointId !== null && (typeof value.fields.glsDeliveryPointId !== "string"
+      || value.fields.glsDeliveryPointId.length > 100))) throw invalid();
   if (![0, 1].includes(value.fields.customerType)) throw new Error("Érvénytelen vásárlói típus.");
   return { ...value, fields: Object.fromEntries(Object.keys(EMPTY_DRAFT)
     .map(key => [key, value.fields![key as keyof CheckoutDraft]])) as CheckoutDraft };

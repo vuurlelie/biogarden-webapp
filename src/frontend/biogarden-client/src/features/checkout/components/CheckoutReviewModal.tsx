@@ -5,6 +5,8 @@ import { ROUTES } from "../../../shared/constants/routes";
 import type { CheckoutDraft, CheckoutFieldErrors, FulfillmentMethod, PaymentMethod } from "../types/checkout.types";
 import { paymentLabel, PRICE } from "../utils/checkoutFormatting";
 import { SummaryCartItem } from "./SummaryCartItem";
+import { FULFILLMENT, FULFILLMENT_LABELS } from "../constants/fulfillment";
+import type { GlsDeliveryPoint } from "../api/glsApi";
 
 type CheckoutReviewModalProps = {
   cart: Cart;
@@ -13,6 +15,7 @@ type CheckoutReviewModalProps = {
   fieldErrors: CheckoutFieldErrors;
   grandTotal: number;
   method: FulfillmentMethod;
+  deliveryPoint: GlsDeliveryPoint | null;
   onClose: () => void;
   onFieldErrorsChange: (updater: (current: CheckoutFieldErrors) => CheckoutFieldErrors) => void;
   onPlaceOrder: () => void;
@@ -32,6 +35,7 @@ export function CheckoutReviewModal({
   fieldErrors,
   grandTotal,
   method,
+  deliveryPoint,
   onClose,
   onFieldErrorsChange,
   onPlaceOrder,
@@ -83,11 +87,7 @@ export function CheckoutReviewModal({
               <div className="rounded-sm bg-site-surface-soft p-3">
                 <strong className="block">Rendelési mód</strong>
                 <p>
-                  {method === 0
-                    ? "Személyes átvétel"
-                    : method === 1
-                      ? "Házhoz szállítás"
-                      : "Csomagautomatába szállítás"}
+                  {FULFILLMENT_LABELS[method]}
                 </p>
               </div>
               <div className="rounded-sm bg-site-surface-soft p-3">
@@ -122,7 +122,8 @@ export function CheckoutReviewModal({
                 aria-hidden={method === 0}
               >
                 <strong className="block">Szállítási cím</strong>
-                {method !== 0 && (
+                {deliveryPoint && <><p>{deliveryPoint.name}</p><p>{deliveryPoint.postalCode} {deliveryPoint.city}, {deliveryPoint.address}</p></>}
+                {method === FULFILLMENT.HomeDelivery && (
                   <p>
                     {`${draft.deliveryPostalCode} ${draft.deliveryCity}, ${draft.deliveryStreet} ${draft.deliveryHouseNumber}`}
                   </p>

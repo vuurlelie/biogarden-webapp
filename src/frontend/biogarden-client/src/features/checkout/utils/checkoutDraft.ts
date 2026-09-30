@@ -1,8 +1,11 @@
 import type { UserAddresses } from "../../account/types/address.types";
 import type { UserProfile } from "../../account/types/profile.types";
 import type { CheckoutDraft } from "../types/checkout.types";
+import { FULFILLMENT } from "../constants/fulfillment";
 
 export const EMPTY_DRAFT: CheckoutDraft = {
+  fulfillmentMethod: FULFILLMENT.PersonalPickup,
+  glsDeliveryPointId: null,
   customerName: "",
   customerEmail: "",
   customerPhone: "",

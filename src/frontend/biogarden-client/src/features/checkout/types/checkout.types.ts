@@ -1,8 +1,11 @@
-export type FulfillmentMethod = 0 | 1 | 2;
+import type { FulfillmentMethod } from "../constants/fulfillment";
+export type { FulfillmentMethod } from "../constants/fulfillment";
 export type PaymentMethod = "online-card" | "pay-at-pickup" | "cash-on-delivery";
 export type CheckoutStep = "details" | "payment";
 
 export type CheckoutDraft = {
+  fulfillmentMethod: FulfillmentMethod;
+  glsDeliveryPointId: string | null;
   customerName: string;
   customerEmail: string;
   customerPhone: string;

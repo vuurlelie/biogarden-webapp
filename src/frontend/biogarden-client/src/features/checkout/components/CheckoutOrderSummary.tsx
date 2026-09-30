@@ -3,6 +3,7 @@ import type { Cart } from "../../cart/types/cart.types";
 import type { CheckoutStep, FulfillmentMethod, PaymentMethod } from "../types/checkout.types";
 import { PRICE } from "../utils/checkoutFormatting";
 import { SummaryCartItem } from "./SummaryCartItem";
+import { FULFILLMENT_LABELS } from "../constants/fulfillment";
 
 type CheckoutOrderSummaryProps = {
   cart: Cart;
@@ -40,7 +41,7 @@ export function CheckoutOrderSummary({
 
       {deliveryFee > 0 && (
         <div className="mt-3 flex justify-between text-sm">
-          <span>{method === 1 ? "Házhoz szállítás" : "Csomagautomata"}</span>
+          <span>{FULFILLMENT_LABELS[method]}</span>
           <strong>{PRICE.format(deliveryFee)}</strong>
         </div>
       )}

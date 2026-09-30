@@ -3,6 +3,7 @@ import {
   getAuthSession,
 } from "../../auth/utils/authStorage";
 import type { Order } from "../types/order.types";
+import type { FulfillmentMethod } from "../../checkout/constants/fulfillment";
 import { apiRequest, type ApiRequestOptions } from "../../../shared/api/httpClient";
 
 export class OrdersApiError extends Error {
@@ -29,7 +30,8 @@ export type CreateOrderRequest = {
   idempotencyKey: string;
   addressId?: number | null;
   deliveryAddressId?: number | null;
-  fulfillmentMethod: 0 | 1 | 2;
+  fulfillmentMethod: FulfillmentMethod;
+  glsDeliveryPointId?: string | null;
   customerName?: string;
   customerEmail?: string;
   customerPhone?: string;

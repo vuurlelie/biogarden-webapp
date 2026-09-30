@@ -5,6 +5,7 @@ import type {
   FulfillmentMethod,
 } from "../types/checkout.types";
 import { isPostalCodeCityPairValid } from "../../../shared/utils/postalCodeLookup";
+import { FULFILLMENT, isGlsMethod } from "../constants/fulfillment";
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const POSTAL_CODE_PATTERN = /^\d{4}$/;
@@ -70,7 +71,10 @@ export function validateCheckoutFields(
     }
   }
 
-  if (method !== 0) {
+  if (isGlsMethod(method) && !draft.glsDeliveryPointId) {
+    errors.glsDeliveryPointId = "Válassz egy GLS átvételi pontot a térképen.";
+  }
+  if (method === FULFILLMENT.HomeDelivery) {
     if (!POSTAL_CODE_PATTERN.test(draft.deliveryPostalCode.trim())) {
       errors.deliveryPostalCode = "Az irányítószám 4 számjegyből álljon.";
     }
