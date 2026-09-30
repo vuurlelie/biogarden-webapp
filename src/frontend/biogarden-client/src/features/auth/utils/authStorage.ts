@@ -63,13 +63,28 @@ export function getAuthSession(): AuthResponse | null {
 
 // Start once at the application boundary, rather than installing one timer per component.
 export function startAuthSessionSync(): () => void {
+  // One-time removal of personal drafts saved by older frontend versions.
+  try {
+    sessionStorage.removeItem("biogarden_checkout_draft");
+    sessionStorage.removeItem("biogarden_checkout_idempotency_key");
+  } catch { /* Checkout no longer depends on browser storage availability. */ }
   let previous = localStorage.getItem(AUTH_STORAGE_KEY);
   let timer: ReturnType<typeof setTimeout> | undefined;
   const synchronize = () => {
     const stored = localStorage.getItem(AUTH_STORAGE_KEY);
     if (previous && stored !== previous) {
-      sessionStorage.removeItem("biogarden_checkout_draft");
-      sessionStorage.removeItem("biogarden_checkout_idempotency_key");
+      const formerSession = parseAuthSession(previous);
+      if (formerSession) {
+        // Best effort on logout/account switch; server expiry remains the fallback.
+        void fetch(`${import.meta.env.VITE_API_BASE_URL}/api/checkout-drafts/session`, {
+          method: "DELETE", keepalive: true, credentials: "include",
+          headers: { Authorization: `Bearer ${formerSession.token}`, "X-Checkout-Request": "1" },
+        }).catch(() => undefined);
+      }
+      try {
+        sessionStorage.removeItem("biogarden_checkout_draft");
+        sessionStorage.removeItem("biogarden_checkout_idempotency_key");
+      } catch { /* Legacy cleanup is not required for authentication. */ }
     }
     previous = stored;
     clearTimeout(timer);

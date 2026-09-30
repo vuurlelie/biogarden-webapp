@@ -9,6 +9,7 @@ import { getCartValueBucket } from "../../features/analytics/utils/eventValidati
 import { getAuthSession } from "../../features/auth/utils/authStorage";
 import { validateCart } from "../../features/cart/api/cartApi";
 import { useCart } from "../../features/cart/context/useCart";
+import { useCheckoutDraft } from "../../features/checkout/hooks/useCheckoutDraft";
 import { CheckoutOrderSummary } from "../../features/checkout/components/CheckoutOrderSummary";
 import { CheckoutReviewModal } from "../../features/checkout/components/CheckoutReviewModal";
 import {
@@ -30,13 +31,10 @@ import type {
 import {
   billingAddressDraft,
   buildCustomerName,
-  CHECKOUT_DRAFT_KEY,
-  CHECKOUT_IDEMPOTENCY_KEY,
   deliveryAddressDraft,
   emptyBillingDraft,
   emptyCustomerDraft,
   emptyDeliveryDraft,
-  loadDraft,
 } from "../../features/checkout/utils/checkoutDraft";
 import { PRICE } from "../../features/checkout/utils/checkoutFormatting";
 import { buildCheckoutOrderRequest } from "../../features/checkout/utils/checkoutOrderPayload";
@@ -52,7 +50,7 @@ import { getErrorMessage, getServerFieldErrors, hasErrorStatus } from "../../sha
 
 export default function CheckoutPage() {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { cart, isLoading: cartLoading, refresh } = useCart();
   const authenticated = Boolean(getAuthSession());
   const [addresses, setAddresses] = useState<UserAddresses | null>(null);
@@ -60,7 +58,8 @@ export default function CheckoutPage() {
   const [contactManual, setContactManual] = useState(!authenticated);
   const [billingManual, setBillingManual] = useState(!authenticated);
   const [deliveryManual, setDeliveryManual] = useState(!authenticated);
-  const [draft, setDraft] = useState<CheckoutDraft>(loadDraft);
+  const draftStorage = useCheckoutDraft(cart?.items.length ? cart.id : undefined);
+  const { draft, setDraft, ready: draftReady } = draftStorage;
   const [method, setMethod] = useState<FulfillmentMethod>(0);
   const [loading, setLoading] = useState(authenticated);
   const [submitting, setSubmitting] = useState(false);
@@ -109,20 +108,17 @@ export default function CheckoutPage() {
     : null;
 
   useModalFocus(reviewModalRef, {
-    isOpen: showReview,
-    onClose: () => setShowReview(false),
+    isOpen: showReview && !cancelledSumUpOrderId && !loading && !cartLoading && draftReady && Boolean(cart?.items.length),
+    onClose: () => { if (!submitting) setShowReview(false); },
     returnFocusRef: reviewButtonRef,
   });
 
   useEffect(() => {
-    sessionStorage.setItem(CHECKOUT_DRAFT_KEY, JSON.stringify(draft));
-  }, [draft]);
-
-  useEffect(() => {
-    if (!authenticated) {
+    if (!authenticated || profile) {
       setLoading(false);
       return;
     }
+    if (!draftReady) return;
 
     let ignore = false;
 
@@ -149,6 +145,11 @@ export default function CheckoutPage() {
             ...(loadedAddresses.billingAddress ? billingAddressDraft(loadedAddresses.billingAddress) : {}),
             ...(loadedAddresses.shippingAddress ? deliveryAddressDraft(loadedAddresses.shippingAddress) : {}),
           }));
+        } else {
+          // Restored values are a checkout snapshot, not a live selection of profile data.
+          setContactManual(true);
+          setBillingManual(true);
+          setDeliveryManual(true);
         }
       })
       .catch((loadError) => {
@@ -167,7 +168,7 @@ export default function CheckoutPage() {
     return () => {
       ignore = true;
     };
-  }, [authenticated, hasDraft, navigate]);
+  }, [authenticated, hasDraft, navigate, profile, draftReady, setDraft]);
 
   useEffect(() => {
     if (!deliveryAllowed && method !== 0) setMethod(0);
@@ -355,7 +356,19 @@ export default function CheckoutPage() {
     }
   }
 
+  async function discardDraft() {
+    if (!await draftStorage.discard()) return;
+    setContactManual(true);
+    setBillingManual(true);
+    setDeliveryManual(true);
+    setTermsAccepted(false);
+    setPrivacyAccepted(false);
+    setFieldErrors({});
+    setStep("details");
+  }
+
   async function placeOrder() {
+    if (submitting) return;
     if (!cart?.items.length) {
       setError("A kosár üres.");
       setShowReview(false);
@@ -371,13 +384,19 @@ export default function CheckoutPage() {
     }
 
     setFieldErrors((current) => ({ ...current, ...consentErrors }));
-    if (Object.keys(consentErrors).length) return;
+    if (Object.keys(consentErrors).length) {
+      requestAnimationFrame(() => reviewModalRef.current?.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus());
+      return;
+    }
 
     setSubmitting(true);
     setError("");
 
+    let orderCreated = false;
     try {
-      const order = await createOrder(buildCheckoutOrderRequest(draft, effectiveCustomerType, method));
+      await draftStorage.pause();
+      const order = await createOrder(buildCheckoutOrderRequest(draft, effectiveCustomerType, method, cart.id));
+      orderCreated = true;
 
       track("order_submitted", {
         paymentMethod,
@@ -386,18 +405,19 @@ export default function CheckoutPage() {
         cartValueBucket: getCartValueBucket(cart.totalPrice),
       });
 
-      sessionStorage.removeItem(CHECKOUT_DRAFT_KEY);
-      sessionStorage.removeItem(CHECKOUT_IDEMPOTENCY_KEY);
-
       if (paymentMethod === "online-card") {
+        // Retain only the order identifier in the URL, before contacting the provider.
+        // The backend still checks ownership; a failed payment start must not resubmit the cart.
+        setSearchParams({ sumup: "cancelled", orderId: order.id }, { replace: true });
         const checkout = await createSumUpCheckout(order.id);
         window.location.assign(checkout.url);
         return;
       }
 
-      await refresh();
       navigate(ROUTES.orderSuccess, { replace: true, state: { order } });
+      void refresh().catch(() => undefined);
     } catch (submitError) {
+      if (!orderCreated) draftStorage.resume();
       setShowReview(false);
       const serverErrors = getServerFieldErrors<keyof CheckoutFieldErrors>(submitError,
         [...Object.keys(draft) as (keyof CheckoutDraft)[], "terms", "privacy"],
@@ -426,11 +446,7 @@ export default function CheckoutPage() {
     }
   }
 
-  if (loading || cartLoading) {
-    return <CheckoutLoadingView />;
-  }
-
-  if (!cart?.items.length && cancelledSumUpOrderId) {
+  if (cancelledSumUpOrderId) {
     return (
       <CheckoutInterruptedView
         error={error}
@@ -440,6 +456,17 @@ export default function CheckoutPage() {
     );
   }
 
+  if (cart?.items.length && !draftReady && draftStorage.error) {
+    return <main className="mx-auto max-w-2xl p-8">
+      <p role="alert">{draftStorage.error}</p>
+      <button type="button" onClick={draftStorage.load}>Piszkozat betöltése újra</button>
+    </main>;
+  }
+
+  if (loading || cartLoading || (cart?.items.length && !draftReady)) {
+    return <CheckoutLoadingView />;
+  }
+
   if (!cart?.items.length) {
     return <CheckoutEmptyCartView />;
   }
@@ -447,19 +474,16 @@ export default function CheckoutPage() {
   return (
     <main className="mx-auto w-full max-w-6xl px-4 py-8">
       <h1 className="text-3xl font-bold text-site-heading">Pénztár</h1>
-      {cancelledSumUpOrderId && (
-        <div role="status" className="mt-5 rounded-sm border border-site-green/30 bg-site-surface-soft p-4 text-site-green-dark">
-          Az online fizetés megszakadt. A rendelésedet rögzítettük; innen újraindíthatod a fizetést.
-          <button
-            type="button"
-            onClick={() => void retrySumUpPayment(cancelledSumUpOrderId)}
-            disabled={submitting}
-            className="mt-3 block rounded-sm bg-site-green px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
-          >
-            {submitting ? "Átirányítás..." : "Fizetés újrapróbálása"}
-          </button>
-        </div>
-      )}
+      <div className="my-4 text-sm text-site-muted">
+        <p>A piszkozat legfeljebb 30 percig, a kosár lejártáig állítható vissza. A mentés nem hosszabbítja meg a készletfoglalást.</p>
+        <p role="status">{draftStorage.saving ? "Piszkozat mentése..." : "Az adatok automatikus mentése bekapcsolva."}</p>
+        <button type="button" disabled={submitting} onClick={() => void discardDraft()} className="mt-2 underline">Piszkozat törlése</button>
+        {draftStorage.error && <div role="alert" className="mt-2 text-site-danger">
+          <p>{draftStorage.error} A módosításaid az oldalon megmaradtak.</p>
+          <button type="button" onClick={draftStorage.retry} className="mr-4 underline">Mentés újrapróbálása</button>
+          <button type="button" onClick={draftStorage.load} className="underline">Mentett változat betöltése (helyi módosítások elvetése)</button>
+        </div>}
+      </div>
       {error && (
         <div role="alert" className="mt-5 rounded-sm bg-site-danger-soft p-4 text-site-danger">
           {error}
@@ -808,7 +832,7 @@ export default function CheckoutPage() {
           fieldErrors={fieldErrors}
           grandTotal={grandTotal}
           method={method}
-          onClose={() => setShowReview(false)}
+          onClose={() => { if (!submitting) setShowReview(false); }}
           onFieldErrorsChange={setFieldErrors}
           onPlaceOrder={() => void placeOrder()}
           onPrivacyAcceptedChange={setPrivacyAccepted}

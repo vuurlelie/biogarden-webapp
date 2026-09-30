@@ -89,6 +89,8 @@ If the frontend host supports response headers, also configure:
 
 ## Authentication Sessions
 
+Checkout draft cleanup is enabled by default through `CheckoutDrafts:CleanupEnabled`. Keep it enabled on hosted environments and verify worker availability; see [checkout draft retention](checkout-drafts.md#retention-and-cleanup) for limits and operational checks.
+
 JWTs include the Identity security stamp. Every authenticated token is checked against the current account state, security stamp, and roles in SQL Server. Deleted, deactivated, anonymized, unconfirmed, or locked-out accounts cannot use an existing token. Password reset and account-security changes invalidate earlier sessions; reactivation requires a new login. A valid customer session accessing an admin endpoint receives 403; an invalid session accessing a protected endpoint receives 401.
 
 Deploying the session-revocation change requires **no database migration**, but tokens issued before this change have no stamp and are invalidated. Tell UAT users to sign in again. Deploy the API and frontend from the same release. This design adds account/role reads per authenticated request and requires database availability; it does not cache revoked authorization.

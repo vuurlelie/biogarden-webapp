@@ -292,6 +292,7 @@ export async function mockCheckoutApi(
   onlinePayment = false,
   onCreateOrder?: (payload: Record<string, unknown>) => void,
 ) {
+  await mockCheckoutDraftApi(page);
   await page.route(`${apiBaseUrl}/api/cart`, async (route) => {
     if (route.request().method() === "GET") {
       await route.fulfill({ json: createCart([cartItem]) });
@@ -339,6 +340,7 @@ export async function mockEmptyCartApi(page: Page) {
 }
 
 export async function mockCheckoutValidationIssueApi(page: Page, issueMessage: string) {
+  await mockCheckoutDraftApi(page);
   await page.route(`${apiBaseUrl}/api/cart`, async (route) => {
     if (route.request().method() === "GET") {
       await route.fulfill({ json: createCart([cartItem]) });
@@ -505,6 +507,26 @@ export async function signInAsAdmin(page: Page) {
       roles: ["Admin"],
       token: `test.${tokenPayload}.token`,
     }));
+  });
+}
+
+export async function mockCheckoutDraftApi(page: Page) {
+  let stored: { version: string | null; expiresAtUtc: string | null; fields: unknown } = { version: null, expiresAtUtc: null, fields: null };
+  let revision = 0;
+  await page.route(`${apiBaseUrl}/api/checkout-drafts/**`, async route => {
+    if (route.request().method() === "PUT") {
+      const request = route.request().postDataJSON();
+      if (request.version !== stored.version) {
+        await route.fulfill({ status: 409, json: { detail: "A piszkozat megváltozott vagy lejárt." } });
+        return;
+      }
+      stored = { version: `revision-${++revision}`, expiresAtUtc: new Date(Date.now() + 1_800_000).toISOString(), fields: request.fields };
+    } else if (route.request().method() === "DELETE") {
+      stored = { version: null, expiresAtUtc: null, fields: null };
+      await route.fulfill({ status: 204 });
+      return;
+    }
+    await route.fulfill({ json: stored });
   });
 }
 

@@ -423,6 +423,8 @@ public static class ServiceCollectionExtensions
     private static IServiceCollection AddCheckoutServices(this IServiceCollection services)
     {
         services.AddScoped<ICartService, CartService>();
+        services.AddScoped<CheckoutDraftService>();
+        services.AddHostedService<Biogarden.WebApi.Services.CheckoutDraftCleanupWorker>();
         services.AddScoped<IOrderService, OrderService>();
 
         return services;

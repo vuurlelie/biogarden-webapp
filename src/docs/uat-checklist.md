@@ -41,6 +41,7 @@ For each row record **Not run**, **Pass**, **Fail**, **Blocked**, or **Not appli
 | UAT-13 | As admin, review an order and use agreed status/manual-payment operations. | Updates are persisted, invalid transitions are rejected, and customer-facing status matches. |
 | UAT-14 | Submit a contact message and an order-related request as guest and signed-in customer. | Confirmation is clear; the business can find the request and the configured notifications are correct. |
 | UAT-15 | Navigate forms by keyboard, submit incomplete fields, and revisit consent choices. | Focus and validation are usable; consent choices can be changed; checkout remains usable on mobile. |
+| UAT-16 | Fill checkout details, wait for autosave, refresh, discard, and sign out/in. Edit the same draft in two tabs. | Drafts restore only for their current cart/session; discard removes them; conflicts preserve local input with recovery choices. Verify expiry and cleanup using the [draft guide](operations/checkout-drafts.md). |
 
 ## Developer-assisted checks
 
@@ -53,6 +54,7 @@ Run these in an isolated test environment using test accounts/data. They support
 | TECH-03 | Make SMTP unavailable, place an order, restore SMTP, and restart the API with a queued email. | Order creation succeeds; both messages remain durable and recover as described in [order email delivery](operations/order-email-delivery.md#uat-verification). Record any duplicate delivery. |
 | TECH-04 | Check configured request limits and recovery after the retry interval. | Expected 429 responses and usable retry behaviour; follow [abuse protection](operations/abuse-protection.md#manual-testing). |
 | TECH-05 | Rehearse restore into a separate environment. | Record the [restore drill](operations/backup-recovery.md#restore-drill), restored data checks, and actual recovery time. |
+| TECH-06 | Open checkout review using the keyboard. Test Tab/Shift+Tab, both close buttons, Escape, missing consents, and a delayed/failed order request. Repeat with a screen reader and record its browser/version. | Focus enters the labelled dialog, stays inside while open, and returns to the review button on dismissal. Background content is inert. Consent errors are associated with their checkboxes and the first invalid consent receives focus. During submission, progress is announced and dismissal is disabled; a failed request restores interaction. Confirm the dialog title, errors, and progress are understandable with the screen reader; automated browser checks alone do not establish this. |
 
 ## Results and issue log template
 

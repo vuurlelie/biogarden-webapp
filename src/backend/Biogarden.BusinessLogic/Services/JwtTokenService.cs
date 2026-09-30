@@ -33,6 +33,7 @@ public class JwtTokenService : ITokenService
 
         var claims = new List<Claim>
         {
+            new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString("N")),
             new(ClaimTypes.NameIdentifier, user.Id.ToString()),
             new(ClaimTypes.Email, user.Email ?? string.Empty),
             new(AuthClaimTypes.SecurityStamp, securityStamp)

@@ -35,10 +35,25 @@ export function useModalFocus<T extends HTMLElement>(
       : null;
     const returnFocusElement = returnFocusRef?.current;
     const modal = modalRef.current;
+    if (!modal) return;
 
+    const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
+    // Disable background interaction without hiding the dialog's ancestors.
+    const background: { element: HTMLElement; inert: boolean }[] = [];
+    let branch: HTMLElement = modal.closest<HTMLElement>('[role="dialog"]') ?? modal;
+    while (branch.parentElement) {
+      for (const sibling of branch.parentElement.children) {
+        if (sibling instanceof HTMLElement && sibling !== branch) {
+          background.push({ element: sibling, inert: sibling.inert });
+          sibling.setAttribute("inert", "");
+        }
+      }
+      branch = branch.parentElement;
+      if (branch === document.body) break;
+    }
 
-    window.setTimeout(() => {
+    const focusTimer = window.setTimeout(() => {
       const firstFocusable = getFocusableElements(modal)[0];
       (firstFocusable ?? modal)?.focus();
     }, 0);
@@ -64,12 +79,12 @@ export function useModalFocus<T extends HTMLElement>(
       const firstElement = focusableElements[0];
       const lastElement = focusableElements[focusableElements.length - 1];
 
-      if (event.shiftKey && document.activeElement === firstElement) {
+      if (event.shiftKey && (document.activeElement === firstElement || !focusableElements.includes(document.activeElement as HTMLElement))) {
         event.preventDefault();
         lastElement.focus();
       }
 
-      if (!event.shiftKey && document.activeElement === lastElement) {
+      if (!event.shiftKey && (document.activeElement === lastElement || !focusableElements.includes(document.activeElement as HTMLElement))) {
         event.preventDefault();
         firstElement.focus();
       }
@@ -78,8 +93,10 @@ export function useModalFocus<T extends HTMLElement>(
     document.addEventListener("keydown", handleKeyDown);
 
     return () => {
+      window.clearTimeout(focusTimer);
       document.removeEventListener("keydown", handleKeyDown);
-      document.body.style.overflow = "";
+      for (const { element, inert } of background) element.toggleAttribute("inert", inert);
+      document.body.style.overflow = previousOverflow;
       (returnFocusElement ?? previouslyFocused)?.focus();
     };
   }, [isOpen, modalRef, returnFocusRef]);
@@ -91,5 +108,7 @@ function getFocusableElements(container: HTMLElement | null) {
   }
 
   return Array.from(container.querySelectorAll<HTMLElement>(focusableSelector))
-    .filter((element) => !element.hasAttribute("disabled") && element.offsetParent !== null);
+    .filter((element) => !element.matches(":disabled") && element.tabIndex >= 0
+      && !element.closest("[inert]") && element.getClientRects().length > 0
+      && getComputedStyle(element).visibility !== "hidden");
 }

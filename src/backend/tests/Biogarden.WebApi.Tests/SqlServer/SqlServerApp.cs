@@ -98,6 +98,7 @@ public sealed class SqlServerApp : IAsyncLifetime
                     ["SumUp:Enabled"] = "false",
                     ["ErrorAlerts:Enabled"] = "false",
                     ["OrderEmailOutbox:Enabled"] = "false",
+                    ["CheckoutDrafts:CleanupEnabled"] = "false",
                     ["EmailBranding:ContactEmail"] = "business@example.com",
                     ["AbuseProtection:PublicForm:PermitLimit"] = "100"
                 }));

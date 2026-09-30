@@ -24,6 +24,7 @@ Service guards remain in place. Request validation does not replace authorizatio
 - Checkout validates the idempotency key, current legal versions, fulfillment method and manual contact/address inputs. Authenticated customers can use saved details; services validate the resolved account data. Partial manual contact details must form a complete contact set.
 - Guest company checkout preserves the existing company-name/tax-number pairing rule: both may be absent, but supplying one requires the other. This refactor does not introduce a new business requirement.
 - Cart quantities, contact messages, withdrawal requests and admin actions have explicit request validators.
+- Checkout drafts accept incomplete fields but enforce types, lengths, customer type and an explicit field list. Draft validation does not replace order validation; see [checkout drafts](operations/checkout-drafts.md).
 
 File upload checks remain in controllers, and list/query normalization remains in the existing implementation. This change requires no database migration.
 
