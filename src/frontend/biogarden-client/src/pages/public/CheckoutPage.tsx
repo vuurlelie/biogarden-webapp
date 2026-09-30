@@ -108,8 +108,8 @@ export default function CheckoutPage() {
     : null;
 
   useModalFocus(reviewModalRef, {
-    isOpen: showReview,
-    onClose: () => setShowReview(false),
+    isOpen: showReview && !cancelledSumUpOrderId && !loading && !cartLoading && draftReady && Boolean(cart?.items.length),
+    onClose: () => { if (!submitting) setShowReview(false); },
     returnFocusRef: reviewButtonRef,
   });
 
@@ -368,6 +368,7 @@ export default function CheckoutPage() {
   }
 
   async function placeOrder() {
+    if (submitting) return;
     if (!cart?.items.length) {
       setError("A kosár üres.");
       setShowReview(false);
@@ -383,7 +384,10 @@ export default function CheckoutPage() {
     }
 
     setFieldErrors((current) => ({ ...current, ...consentErrors }));
-    if (Object.keys(consentErrors).length) return;
+    if (Object.keys(consentErrors).length) {
+      requestAnimationFrame(() => reviewModalRef.current?.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus());
+      return;
+    }
 
     setSubmitting(true);
     setError("");
@@ -828,7 +832,7 @@ export default function CheckoutPage() {
           fieldErrors={fieldErrors}
           grandTotal={grandTotal}
           method={method}
-          onClose={() => setShowReview(false)}
+          onClose={() => { if (!submitting) setShowReview(false); }}
           onFieldErrorsChange={setFieldErrors}
           onPlaceOrder={() => void placeOrder()}
           onPrivacyAcceptedChange={setPrivacyAccepted}

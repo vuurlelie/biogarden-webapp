@@ -62,6 +62,7 @@ export function CheckoutReviewModal({
           <button
             type="button"
             onClick={onClose}
+            disabled={submitting}
             aria-label="Bezárás"
             className="text-2xl"
           >
@@ -148,6 +149,10 @@ export function CheckoutReviewModal({
               <label className="flex items-start gap-3">
                 <input
                   type="checkbox"
+                  disabled={submitting}
+                  aria-required="true"
+                  aria-invalid={Boolean(fieldErrors.terms)}
+                  aria-describedby={fieldErrors.terms ? "review-terms-error" : undefined}
                   checked={termsAccepted}
                   onChange={(event) => {
                     onTermsAcceptedChange(event.target.checked);
@@ -169,7 +174,7 @@ export function CheckoutReviewModal({
                 </span>
               </label>
               {fieldErrors.terms && (
-                <p className="mt-1 text-xs text-site-danger">{fieldErrors.terms}</p>
+                <p id="review-terms-error" role="alert" className="mt-1 text-xs text-site-danger">{fieldErrors.terms}</p>
               )}
             </div>
 
@@ -177,6 +182,10 @@ export function CheckoutReviewModal({
               <label className="flex items-start gap-3">
                 <input
                   type="checkbox"
+                  disabled={submitting}
+                  aria-required="true"
+                  aria-invalid={Boolean(fieldErrors.privacy)}
+                  aria-describedby={fieldErrors.privacy ? "review-privacy-error" : undefined}
                   checked={privacyAccepted}
                   onChange={(event) => {
                     onPrivacyAcceptedChange(event.target.checked);
@@ -198,16 +207,20 @@ export function CheckoutReviewModal({
                 </span>
               </label>
               {fieldErrors.privacy && (
-                <p className="mt-1 text-xs text-site-danger">{fieldErrors.privacy}</p>
+                <p id="review-privacy-error" role="alert" className="mt-1 text-xs text-site-danger">{fieldErrors.privacy}</p>
               )}
             </div>
           </div>
         </div>
 
+        <p role="status" className="mt-3 text-sm">
+          {submitting ? "A rendelés feldolgozása folyamatban. Kérjük, várj." : ""}
+        </p>
         <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
           <button
             type="button"
             onClick={onClose}
+            disabled={submitting}
             className="rounded-sm border border-site-border px-5 py-3"
           >
             Vissza a szerkesztéshez
