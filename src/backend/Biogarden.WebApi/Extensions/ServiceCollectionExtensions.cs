@@ -254,6 +254,8 @@ public static class ServiceCollectionExtensions
             options => options.ValidateForStartup());
         services.AddValidatedOptions<CheckoutPricingOptions>(configuration,
             CheckoutPricingOptions.SectionName, options => options.ValidateForStartup());
+        services.AddValidatedOptions<GlsOptions>(configuration,
+            GlsOptions.SectionName, options => options.ValidateForStartup());
 
         return services;
     }
@@ -416,6 +418,11 @@ public static class ServiceCollectionExtensions
     private static IServiceCollection AddPaymentServices(this IServiceCollection services)
     {
         services.AddHttpClient<ISumUpCheckoutClient, SumUpCheckoutClient>();
+        services.AddHttpClient(GlsOptions.HttpClientName).ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false });
+        services.AddSingleton<IGlsDeliveryPointDirectory>(provider => new GlsDeliveryPointDirectory(
+            () => provider.GetRequiredService<IHttpClientFactory>().CreateClient(GlsOptions.HttpClientName),
+            provider.GetRequiredService<Microsoft.Extensions.Options.IOptions<GlsOptions>>(),
+            provider.GetRequiredService<TimeProvider>()));
         services.AddScoped<ISumUpCheckoutService, SumUpCheckoutService>();
         services.AddScoped<ISumUpCheckoutStatusService, SumUpCheckoutStatusService>();
 

@@ -3,15 +3,24 @@ using Biogarden.BusinessLogic.DTOs.Checkout;
 using Biogarden.DataAccess.Abstractions;
 using Biogarden.DataAccess.Entities;
 using Microsoft.EntityFrameworkCore;
+using Biogarden.BusinessLogic.Abstractions;
+using Biogarden.DataAccess.Enums;
 
 namespace Biogarden.BusinessLogic.Services;
 
-public sealed class CheckoutDraftService(IAppDbContext database, IUnitOfWork unitOfWork, TimeProvider clock)
+public sealed class CheckoutDraftService(IAppDbContext database, IUnitOfWork unitOfWork, TimeProvider clock, IGlsDeliveryPointDirectory gls)
 {
     public async Task<CheckoutDraftDto> ReadAsync(Guid cartId, Guid? userId, string? guestId, string session, CancellationToken ct)
     {
         var cart = await FindOwnedCartAsync(cartId, userId, guestId, ct);
-        return ToDto(cart, session);
+        var result = ToDto(cart, session);
+        if (result.Fields?.GlsDeliveryPointId is not { } id || result.Fields.FulfillmentMethod is not { } method) return result;
+        try { return result with { DeliveryPoint = await gls.ResolveAsync(id, method, ct) }; }
+        catch (Exception ex) when (ex is InvalidOperationException or GlsDirectoryUnavailableException or ArgumentException)
+        {
+            // Retain personal edits; an unavailable destination needs reselection/retry, not draft loss.
+            return result with { DeliveryPointError = ex.Message };
+        }
     }
 
     public async Task<CheckoutDraftDto> SaveAsync(Guid cartId, Guid? userId, string? guestId, string session, SaveCheckoutDraftDto request, CancellationToken ct)
@@ -21,6 +30,14 @@ public sealed class CheckoutDraftService(IAppDbContext database, IUnitOfWork uni
         var current = ToDto(cart, session);
         if (current.Version != request.Version)
             throw new InvalidOperationException("A piszkozat megváltozott vagy lejárt. Töltsd be újra a folytatáshoz.");
+        if (request.Fields.FulfillmentMethod is FulfillmentMethod.ParcelLocker or FulfillmentMethod.ParcelShop)
+        {
+            if (request.Fields.GlsDeliveryPointId is not null)
+                await gls.ResolveAsync(request.Fields.GlsDeliveryPointId, request.Fields.FulfillmentMethod.Value, ct);
+            request.Fields.DeliveryPostalCode = request.Fields.DeliveryCity = request.Fields.DeliveryStreet = request.Fields.DeliveryHouseNumber = "";
+            request.Fields.DeliveryBuilding = request.Fields.DeliveryFloor = request.Fields.DeliveryDoor = request.Fields.DeliveryDoorbell = "";
+        }
+        else request.Fields.GlsDeliveryPointId = null;
         // Do not retain billing details for a private customer.
         if (request.Fields.CustomerType == 0)
         {

@@ -70,7 +70,7 @@ public sealed class OrderServiceTests
             Options.Create(new SumUpOptions
             {
                 Currency = "HUF"
-            }), Pricing());
+            }), Pricing(), Mock.Of<IGlsDeliveryPointDirectory>(MockBehavior.Strict));
     }
 
     [Fact]

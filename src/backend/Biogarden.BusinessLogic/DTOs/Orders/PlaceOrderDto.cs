@@ -6,6 +6,7 @@ public class PlaceOrderDto
 {
     public OrderPaymentMethod? PaymentMethod { get; set; }
     public string? QuoteVersion { get; set; }
+    public string? GlsDeliveryPointId { get; set; }
     public string? IdempotencyKey { get; set; }
 
     public int? AddressId { get; set; }

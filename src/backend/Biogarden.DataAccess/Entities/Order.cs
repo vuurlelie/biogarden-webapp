@@ -36,6 +36,10 @@ public class Order
     public string AcceptedTermsVersion { get; set; } = string.Empty;
     public string AcceptedPrivacyPolicyVersion { get; set; } = string.Empty;
 
+    public string? GlsDeliveryPointId { get; set; }
+    public string? GlsDeliveryPointName { get; set; }
+    public string? GlsDeliveryPointCountryCode { get; set; }
+    public string? GlsDeliveryPointAddress { get; set; }
     public string? DeliveryPostalCode { get; set; }
     public string? DeliveryCity { get; set; }
     public string? DeliveryStreet { get; set; }

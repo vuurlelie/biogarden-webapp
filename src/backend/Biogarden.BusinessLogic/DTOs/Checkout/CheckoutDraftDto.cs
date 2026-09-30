@@ -6,6 +6,8 @@ namespace Biogarden.BusinessLogic.DTOs.Checkout;
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 public sealed class CheckoutDraftFields
 {
+    public Biogarden.DataAccess.Enums.FulfillmentMethod? FulfillmentMethod { get; set; }
+    public string? GlsDeliveryPointId { get; set; }
     public string CustomerName { get; set; } = "";
     public string CustomerEmail { get; set; } = "";
     public string CustomerPhone { get; set; } = "";
@@ -33,4 +35,5 @@ public sealed class CheckoutDraftFields
 
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 public sealed record SaveCheckoutDraftDto(Guid? Version, CheckoutDraftFields Fields);
-public sealed record CheckoutDraftDto(Guid? Version, DateTime? ExpiresAtUtc, CheckoutDraftFields? Fields);
+public sealed record CheckoutDraftDto(Guid? Version, DateTime? ExpiresAtUtc, CheckoutDraftFields? Fields,
+    Biogarden.BusinessLogic.DTOs.Orders.GlsDeliveryPointDto? DeliveryPoint = null, string? DeliveryPointError = null);

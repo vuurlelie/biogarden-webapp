@@ -25,6 +25,7 @@ public class OrderService : IOrderService
     private readonly EmailBrandingOptions _emailBrandingOptions;
     private readonly SumUpOptions _sumUpOptions;
     private readonly CheckoutPricingService _pricing;
+    private readonly IGlsDeliveryPointDirectory _gls;
 
     public OrderService(
         IUnitOfWork unitOfWork,
@@ -36,7 +37,8 @@ public class OrderService : IOrderService
         TimeProvider timeProvider,
         IOptions<EmailBrandingOptions> emailBrandingOptions,
         IOptions<SumUpOptions> sumUpOptions,
-        CheckoutPricingService pricing)
+        CheckoutPricingService pricing,
+        IGlsDeliveryPointDirectory gls)
     {
         _unitOfWork = unitOfWork;
         _cartService = cartService;
@@ -48,6 +50,7 @@ public class OrderService : IOrderService
         _emailBrandingOptions = emailBrandingOptions.Value;
         _sumUpOptions = sumUpOptions.Value;
         _pricing = pricing;
+        _gls = gls;
     }
 
     public async Task<CheckoutQuoteDto> GetCheckoutQuoteAsync(Guid? userId, string? sessionId,
@@ -77,7 +80,22 @@ public class OrderService : IOrderService
                 Quantity = item.Quantity
             });
         }
-        return _pricing.Calculate(cart.Id, request.FulfillmentMethod, request.PaymentMethod, items);
+        var point = await ResolveDeliveryPointAsync(request.FulfillmentMethod, request.GlsDeliveryPointId, request.PaymentMethod, cancellationToken);
+        return _pricing.Calculate(cart.Id, request.FulfillmentMethod, request.PaymentMethod, items, point);
+    }
+
+    private async Task<GlsDeliveryPointDto?> ResolveDeliveryPointAsync(FulfillmentMethod method, string? id,
+        OrderPaymentMethod? payment, CancellationToken ct)
+    {
+        if (method is not (FulfillmentMethod.ParcelLocker or FulfillmentMethod.ParcelShop))
+        {
+            if (id is not null) throw new ArgumentException("Ehhez az átvételi módhoz nem választható GLS pont.");
+            return null;
+        }
+        var point = await _gls.ResolveAsync(id ?? "", method, ct);
+        if (payment == OrderPaymentMethod.CashOnDelivery && !point.AcceptsCash && !point.AcceptsCard)
+            throw new InvalidOperationException("A kiválasztott átvételi ponton nem érhető el utánvétes fizetés.");
+        return point;
     }
 
     public async Task<OrderCreationResult> CreateOrderFromCartAsync(
@@ -155,6 +173,7 @@ public class OrderService : IOrderService
             throw new InvalidOperationException("Cart validation failed.");
         }
 
+        var point = await ResolveDeliveryPointAsync(dto.FulfillmentMethod, dto.GlsDeliveryPointId, dto.PaymentMethod, cancellationToken);
         var customerSnapshot = await BuildOrderCustomerSnapshotAsync(userId, dto, cancellationToken);
         if (dto.PaymentMethod is null || !Enum.IsDefined(dto.PaymentMethod.Value) ||
             string.IsNullOrWhiteSpace(dto.QuoteVersion) || dto.QuoteVersion.Length != 64)
@@ -205,6 +224,18 @@ public class OrderService : IOrderService
                     PaymentStatus = PaymentStatus.Pending,
                     FulfillmentMethod = dto.FulfillmentMethod
                 };
+                if (point is not null)
+                {
+                    order.GlsDeliveryPointId = point.Id;
+                    order.GlsDeliveryPointName = point.Name;
+                    order.GlsDeliveryPointCountryCode = point.CountryCode;
+                    order.GlsDeliveryPointAddress = point.Address;
+                    order.DeliveryPostalCode = point.PostalCode;
+                    order.DeliveryCity = point.City;
+                    order.DeliveryStreet = point.Address;
+                    order.DeliveryHouseNumber = null;
+                    order.DeliveryBuilding = order.DeliveryFloor = order.DeliveryDoor = order.DeliveryDoorbell = null;
+                }
 
                 await AddOrderItemsAndCommitStockAsync(
                     order,
@@ -219,7 +250,7 @@ public class OrderService : IOrderService
                         UnitPrice = item.UnitPrice,
                         Unit = item.Unit,
                         Quantity = item.Quantity
-                    }));
+                    }), point);
                 if (!string.Equals(dto.QuoteVersion, quote.Version, StringComparison.Ordinal))
                     throw new InvalidOperationException("A kosár vagy az árak megváltoztak. Kérjük, tekintsd át újra a rendelést.");
                 order.Subtotal = quote.Subtotal;
@@ -765,7 +796,7 @@ public class OrderService : IOrderService
         }
 
         Address? deliveryAddress = null;
-        if (dto.FulfillmentMethod != FulfillmentMethod.PersonalPickup)
+        if (dto.FulfillmentMethod == FulfillmentMethod.HomeDelivery)
         {
             if (dto.DeliveryAddressId.HasValue)
             {

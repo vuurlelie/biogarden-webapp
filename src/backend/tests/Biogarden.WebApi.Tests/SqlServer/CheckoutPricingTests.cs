@@ -100,7 +100,7 @@ public sealed class CheckoutPricingTests : IAsyncLifetime
     }
 
     [SqlServerFact]
-    public async Task QuoteIsSessionBoundAndRejectsDisabledOrIncompatibleMethods()
+    public async Task QuoteIsSessionBoundAndRejectsInvalidOrIncompatibleMethods()
     {
         using var owner = _app.Factory.CreateClient();
         using var stranger = _app.Factory.CreateClient();
@@ -110,7 +110,6 @@ public sealed class CheckoutPricingTests : IAsyncLifetime
         Assert.Equal(HttpStatusCode.NotFound, missing.StatusCode);
         foreach (var choice in new[] {
             new CheckoutQuoteRequest(FulfillmentMethod.HomeDelivery, OrderPaymentMethod.PayAtPickup),
-            new CheckoutQuoteRequest(FulfillmentMethod.ParcelShop, OrderPaymentMethod.OnlineCard),
             new CheckoutQuoteRequest((FulfillmentMethod)99, OrderPaymentMethod.OnlineCard) })
         {
             using var response = await owner.PostAsJsonAsync("/api/orders/quote", choice);
@@ -146,6 +145,10 @@ public sealed class CheckoutPricingTests : IAsyncLifetime
         Assert.Null(legacy.PaymentFee);
         Assert.Null(legacy.PaymentMethod);
         Assert.Null(legacy.Currency);
+        Assert.Null(legacy.GlsDeliveryPointId);
+        Assert.Null(legacy.GlsDeliveryPointName);
+        Assert.Null(legacy.GlsDeliveryPointAddress);
+        Assert.Null(legacy.GlsDeliveryPointCountryCode);
         Assert.Equal(5000, (await database.OrderItems.SingleAsync()).LineTotal);
     }
 }

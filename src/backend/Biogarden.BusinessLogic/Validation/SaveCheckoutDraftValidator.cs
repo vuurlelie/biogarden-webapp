@@ -10,6 +10,8 @@ public sealed class SaveCheckoutDraftValidator : AbstractValidator<SaveCheckoutD
         RuleFor(x => x.Fields).NotNull();
         When(x => x.Fields is not null, () =>
         {
+            RuleFor(x => x.Fields.FulfillmentMethod).IsInEnum().When(x => x.Fields.FulfillmentMethod.HasValue);
+            RuleFor(x => x.Fields.GlsDeliveryPointId).MaximumLength(100);
             RuleFor(x => x.Fields.CustomerName).NotNull().MaximumLength(200);
             RuleFor(x => x.Fields.CustomerEmail).NotNull().MaximumLength(256);
             RuleFor(x => x.Fields.CustomerPhone).NotNull().MaximumLength(50);

@@ -18,7 +18,7 @@ public sealed class CheckoutPricingService(IOptions<CheckoutPricingOptions> opti
         .Where(x => x.PaymentMethods.Length > 0).ToArray();
 
     public CheckoutQuoteDto Calculate(Guid cartId, FulfillmentMethod method, OrderPaymentMethod payment,
-        IEnumerable<OrderItemDto> source)
+        IEnumerable<OrderItemDto> source, GlsDeliveryPointDto? deliveryPoint = null)
     {
         if (!_options.DeliveryFees.TryGetValue(method, out var deliveryFee) ||
             !_options.EnabledPaymentMethods.Contains(payment) || !Allowed(method, payment))
@@ -43,8 +43,8 @@ public sealed class CheckoutPricingService(IOptions<CheckoutPricingOptions> opti
         var total = subtotal + deliveryFee + paymentFee;
         // An optimistic comparison token, not a price supplied or trusted by the client.
         var version = Convert.ToHexString(SHA256.HashData(JsonSerializer.SerializeToUtf8Bytes(
-            new { cartId, method, payment, _options.Currency, subtotal, deliveryFee, paymentFee, items })));
-        return new(cartId, method, payment, _options.Currency, subtotal, deliveryFee, paymentFee, total, version, items);
+            new { cartId, method, payment, _options.Currency, subtotal, deliveryFee, paymentFee, items, deliveryPoint })));
+        return new(cartId, method, payment, _options.Currency, subtotal, deliveryFee, paymentFee, total, version, items, deliveryPoint);
     }
 
     public static decimal CalculateLineTotal(decimal unitPrice, int quantity)

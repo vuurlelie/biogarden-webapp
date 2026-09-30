@@ -10,7 +10,7 @@ internal static class CheckoutQuoteHelper
     {
         request.PaymentMethod ??= OrderPaymentMethod.OnlineCard;
         using var response = await client.PostAsJsonAsync("/api/orders/quote",
-            new CheckoutQuoteRequest(request.FulfillmentMethod, request.PaymentMethod.Value));
+            new CheckoutQuoteRequest(request.FulfillmentMethod, request.PaymentMethod.Value, request.GlsDeliveryPointId));
         response.EnsureSuccessStatusCode();
         request.QuoteVersion = (await response.Content.ReadFromJsonAsync<CheckoutQuoteDto>())!.Version;
         return request;
