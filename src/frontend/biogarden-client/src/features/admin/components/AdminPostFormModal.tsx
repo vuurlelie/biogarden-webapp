@@ -4,7 +4,6 @@ import { useModalFocus } from "../../../shared/hooks/useModalFocus";
 import { getErrorMessage, getServerFieldErrors } from "../../../shared/utils/errorHandling";
 import {
   createAdminPost,
-  deleteUnusedAdminPostImage,
   updateAdminPost,
   uploadAdminPostImage,
   type AdminPostInput,
@@ -305,13 +304,6 @@ export default function AdminPostFormModal({ post, onClose, onSaved }: Props) {
       onSaved(post ? "A bejegyzés módosítása sikerült." : "Az új bejegyzés létrehozása sikerült.");
     } catch (saveError) {
       setFieldErrors(getServerFieldErrors(saveError, ["title", "article", "publishedAt", "image"] as const));
-      if (uploadedImage) {
-        try {
-          await deleteUnusedAdminPostImage(uploadedImage);
-        } catch {
-          // The original save error is more useful to the administrator.
-        }
-      }
       setFormError(getErrorMessage(saveError, "A mentés nem sikerült."));
     } finally {
       setSaving(false);

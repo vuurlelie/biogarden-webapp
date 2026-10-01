@@ -32,6 +32,8 @@ Do not start a production deployment if the target commit is not already reviewe
 
 ## Pre-Deployment Checks
 
+For article and image validation changes, follow the [content deployment checks](content-validation.md#deployment-and-verification), including native image decoder verification and preservation of uploaded files. No schema migration is needed for this change.
+
 For the payment recovery release, apply `20261001130531_AddPaymentAttempts` and follow the [payment deployment and verification notes](payment-recovery.md#deployment-and-verification). Deploy the matching API/frontend and preserve attempt history when considering rollback.
 
 For admin concurrency and payment corrections, follow the [admin update deployment notes](admin-order-updates.md#deployment-and-verification). Apply its additive audit migration and deploy a matching frontend/API pair; older admin forms do not supply the required version.

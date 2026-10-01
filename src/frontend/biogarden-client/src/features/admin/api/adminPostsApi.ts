@@ -78,10 +78,3 @@ export async function uploadAdminPostImage(image: File): Promise<string> {
   const result = await response.json() as { path: string };
   return result.path;
 }
-
-export async function deleteUnusedAdminPostImage(path: string): Promise<void> {
-  await adminRequest("/posts/image", {
-    method: "DELETE",
-    jsonBody: { path },
-  });
-}

@@ -392,6 +392,7 @@ public static class ServiceCollectionExtensions
     private static IServiceCollection AddCoreApplicationServices(this IServiceCollection services)
     {
         services.AddScoped<IPostService, PostService>();
+        services.AddSingleton<Biogarden.WebApi.Services.ManagedImageStorage>();
         services.AddScoped<IProductService, ProductService>();
         services.AddScoped<IAddressService, AddressService>();
         services.AddScoped<IAuthService, AuthService>();

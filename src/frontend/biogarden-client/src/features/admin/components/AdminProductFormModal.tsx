@@ -5,7 +5,6 @@ import { getErrorMessage, getServerFieldErrors, hasErrorStatus } from "../../../
 import { getProductById } from "../../products/api/productsApi";
 import {
   createAdminProduct,
-  deleteUnusedAdminProductImage,
   updateAdminProduct,
   uploadAdminProductImage,
   type AdminProductInput,
@@ -407,13 +406,6 @@ export default function AdminProductFormModal({ product, onClose, onSaved }: Pro
     } catch (saveError) {
       if (hasErrorStatus(saveError, 409)) setConflict(true);
       setFieldErrors(getServerFieldErrors(saveError, ["name", "price", "stockQuantity", "unitAmount", "image"] as const));
-      if (uploadedImage) {
-        try {
-          await deleteUnusedAdminProductImage(uploadedImage);
-        } catch {
-          // The original save error is more useful to the administrator.
-        }
-      }
       setFormError(getErrorMessage(saveError, "A mentés nem sikerült. Kérjük, ellenőrizd a megadott adatokat."));
     } finally {
       setSaving(false);

@@ -85,6 +85,11 @@
           "Microsoft.Identity.Client.Extensions.Msal": "4.78.0"
         }
       },
+      "Magick.NET.Core": {
+        "type": "Transitive",
+        "resolved": "14.17.2",
+        "contentHash": "KKvR6eBUcfgkZpfHfN/UKRcK/FjHW6NXXoRRf5HJdhFk5bYLEEFuKu6op0zfNo6Msah51Yw42p599pz3A0CDQQ=="
+      },
       "Microsoft.AspNetCore.Cryptography.Internal": {
         "type": "Transitive",
         "resolved": "10.0.12",
@@ -792,6 +797,7 @@
         "type": "Project",
         "dependencies": {
           "Biogarden.BusinessLogic": "[1.0.0, )",
+          "Magick.NET-Q8-AnyCPU": "[14.17.2, )",
           "Microsoft.AspNetCore.Authentication.JwtBearer": "[10.0.12, )",
           "Microsoft.AspNetCore.OpenApi": "[10.0.12, )",
           "Serilog.AspNetCore": "[10.0.0, )",
@@ -812,6 +818,15 @@
         "dependencies": {
           "AngleSharp": "1.7.2",
           "AngleSharp.Css": "1.0.2"
+        }
+      },
+      "Magick.NET-Q8-AnyCPU": {
+        "type": "CentralTransitive",
+        "requested": "[14.17.2, )",
+        "resolved": "14.17.2",
+        "contentHash": "AIvpBH4fvP3/NUwvWsVj9SxAA6hrU4p5/RNfColyrDn4jipl7loR6y4ZgYLXfBQgjmSEc7m2D2DbkWMnZt+brg==",
+        "dependencies": {
+          "Magick.NET.Core": "14.17.2"
         }
       },
       "Microsoft.AspNetCore.Authentication.JwtBearer": {
