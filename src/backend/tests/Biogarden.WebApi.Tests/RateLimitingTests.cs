@@ -421,6 +421,7 @@ public sealed class RateLimitingTests
 
     private class SuccessfulOrderService : IOrderService
     {
+        public Task<OrderDto> GetCheckoutOrderAsync(Guid? userId, string? sessionId, Guid orderId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<CheckoutQuoteDto> GetCheckoutQuoteAsync(Guid? userId, string? sessionId, CheckoutQuoteRequest request, CancellationToken cancellationToken = default) => throw new NotSupportedException();
 
         public virtual Task<OrderCreationResult> CreateOrderFromCartAsync(

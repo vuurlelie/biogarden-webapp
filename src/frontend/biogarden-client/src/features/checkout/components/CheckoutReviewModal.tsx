@@ -3,17 +3,19 @@ import { Link } from "react-router";
 import type { Cart } from "../../cart/types/cart.types";
 import { ROUTES } from "../../../shared/constants/routes";
 import type { CheckoutDraft, CheckoutFieldErrors, FulfillmentMethod, PaymentMethod } from "../types/checkout.types";
-import { paymentLabel, PRICE } from "../utils/checkoutFormatting";
+import { paymentLabel } from "../utils/checkoutFormatting";
 import { SummaryCartItem } from "./SummaryCartItem";
 import { FULFILLMENT, FULFILLMENT_LABELS } from "../constants/fulfillment";
 import type { GlsDeliveryPoint } from "../api/glsApi";
+import type { CheckoutQuote } from "../api/checkoutPricingApi";
+import { PriceBreakdown } from "./PriceBreakdown";
 
 type CheckoutReviewModalProps = {
   cart: Cart;
   draft: CheckoutDraft;
   effectiveCustomerType: 0 | 1;
   fieldErrors: CheckoutFieldErrors;
-  grandTotal: number;
+  quote: CheckoutQuote;
   method: FulfillmentMethod;
   deliveryPoint: GlsDeliveryPoint | null;
   onClose: () => void;
@@ -33,7 +35,7 @@ export function CheckoutReviewModal({
   draft,
   effectiveCustomerType,
   fieldErrors,
-  grandTotal,
+  quote,
   method,
   deliveryPoint,
   onClose,
@@ -134,16 +136,13 @@ export function CheckoutReviewModal({
 
           <div className="border-y border-site-border py-3">
             <ul className="divide-y divide-site-border">
-              {cart.items.map((item) => (
-                <SummaryCartItem key={item.id} item={item} compact />
+              {quote.items.map((item) => (
+                <SummaryCartItem key={item.productId} item={{ ...cart.items.find(line => line.productId === item.productId), ...item }} compact />
               ))}
             </ul>
           </div>
 
-          <p className="flex justify-between text-lg font-bold">
-            <span>Összesen</span>
-            <span>{PRICE.format(grandTotal)}</span>
-          </p>
+          <PriceBreakdown price={quote} />
 
           <div className="space-y-3">
             <div>

@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from "react";
+import { OrderPurchaseSummary } from "../../features/account/components/OrderPurchaseSummary";
+import { FULFILLMENT_LABELS } from "../../features/checkout/constants/fulfillment";
 import { Link, useNavigate, useParams } from "react-router";
 import {
   cancelOrder,
@@ -160,11 +162,12 @@ export default function AccountOrderDetailsPage() {
         <div>
           <dt className="text-sm font-bold text-site-heading">Átvételi mód</dt>
           <dd className="mt-1 text-sm text-site-text">
-            {order.fulfillmentMethod === 1 ? "Házhoz szállítás" : "Személyes átvétel"}
+            {FULFILLMENT_LABELS[order.fulfillmentMethod]}
           </dd>
         </div>
       </dl>
 
+      <OrderPurchaseSummary order={order} />
       <section className="mt-6 rounded-sm border border-site-border p-5">
         <h2 className="text-xl font-bold text-site-heading">Bizonylat</h2>
         {order.customerType === 1 ? (

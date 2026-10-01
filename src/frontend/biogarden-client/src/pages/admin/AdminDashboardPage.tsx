@@ -21,6 +21,7 @@ const fulfillmentLabels: Record<number, string> = {
   0: "Személyes átvétel",
   1: "Házhoz szállítás",
   2: "Csomagautomata",
+  3: "GLS CsomagPont",
 };
 
 type SummaryCardProps = {

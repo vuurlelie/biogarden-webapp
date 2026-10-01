@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useLocation, useSearchParams } from "react-router";
-import { getPublicOrderPaymentStatus } from "../../features/account/api/ordersApi";
+import { getCheckoutOrder, getPublicOrderPaymentStatus } from "../../features/account/api/ordersApi";
+import { OrderPurchaseSummary } from "../../features/account/components/OrderPurchaseSummary";
 import type { Order } from "../../features/account/types/order.types";
 import { useAnalytics } from "../../features/analytics/context/AnalyticsContextCore";
 import { ROUTES } from "../../shared/constants/routes";
@@ -14,7 +15,17 @@ export default function OrderSuccessPage() {
   const orderId = searchParams.get("orderId");
   const [sumUpReturnState, setSumUpReturnState] = useState<SumUpReturnState>("idle");
   const [returnedOrderNumber, setReturnedOrderNumber] = useState<string | null>(null);
+  const [receipt, setReceipt] = useState<Order | null>(null);
   const { track } = useAnalytics();
+
+  useEffect(() => {
+    if (!orderId || order) return;
+    const controller = new AbortController();
+    void getCheckoutOrder(orderId, controller.signal).then(value => {
+      if (!controller.signal.aborted) setReceipt(value);
+    }).catch(() => { /* Limited payment status remains available when the owning session is unavailable. */ });
+    return () => controller.abort();
+  }, [orderId, order]);
 
   useEffect(() => {
     if (order) {
@@ -135,6 +146,8 @@ export default function OrderSuccessPage() {
       ) : (
         <p className="mt-4 text-site-text">A rendelést sikeresen rögzítettük.</p>
       )}
+
+      {(order || (receipt?.id.replaceAll("-", "") === orderId?.replaceAll("-", "") && receipt)) && <OrderPurchaseSummary order={order ?? receipt!} />}
 
       <Link
         to={ROUTES.products}

@@ -5,11 +5,11 @@ import { PRICE } from "../utils/checkoutFormatting";
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 type SummaryCartItemProps = {
-  item: CartItem;
+  item: Pick<CartItem, "productName" | "unitPrice" | "quantity" | "unit" | "lineTotal"> & Partial<Pick<CartItem, "image" | "productDescription">>;
   compact?: boolean;
 };
 
-function getCartImageUrl(image: string | null): string | null {
+function getCartImageUrl(image: string | null | undefined): string | null {
   return image ? `${API_BASE_URL}/${image.replace(/^\/+/, "")}` : null;
 }
 

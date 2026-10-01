@@ -17,6 +17,12 @@ public sealed class SumUpCheckoutServiceTests
     public async Task CreateCheckoutAsync_WhenEnabled_BuildsHostedSumUpCheckout()
     {
         var order = CreateOrder();
+        order.PaymentMethod = OrderPaymentMethod.OnlineCard;
+        order.Currency = "HUF";
+        order.TotalPrice = 6940;
+        order.Subtotal = 3600;
+        order.DeliveryFee = 2740;
+        order.PaymentFee = 600;
         SumUpCreateCheckoutRequest? capturedRequest = null;
 
         _checkoutClient
@@ -48,7 +54,7 @@ public sealed class SumUpCheckoutServiceTests
 
         Assert.NotNull(capturedRequest);
         Assert.Equal(order.Id.ToString("N"), capturedRequest.CheckoutReference);
-        Assert.Equal(3600, capturedRequest.Amount);
+        Assert.Equal(6940, capturedRequest.Amount);
         Assert.Equal("HUF", capturedRequest.Currency);
         Assert.Equal("MC_TEST", capturedRequest.MerchantCode);
         Assert.Equal("Bakony Kincse rendelés BK-TEST-0001", capturedRequest.Description);
@@ -91,6 +97,37 @@ public sealed class SumUpCheckoutServiceTests
             options.ValidateForStartup);
 
         Assert.Equal("SumUp is enabled, but SumUp:ApiKey is not configured.", exception.Message);
+    }
+
+    [Theory]
+    [InlineData(OrderPaymentMethod.PayAtPickup)]
+    [InlineData(OrderPaymentMethod.CashOnDelivery)]
+    public async Task OfflineMethodCannotStartOnlinePayment(OrderPaymentMethod method)
+    {
+        var order = CreateOrder();
+        order.PaymentMethod = method;
+        await Assert.ThrowsAsync<InvalidOperationException>(() => CreateService(new SumUpOptions { Enabled = true }).CreateCheckoutAsync(order));
+        _checkoutClient.VerifyNoOtherCalls();
+    }
+
+    [Fact]
+    public async Task CurrencyConfigurationChangeDoesNotSilentlyChangeSavedCurrency()
+    {
+        var order = CreateOrder();
+        order.Currency = "HUF";
+        await Assert.ThrowsAsync<InvalidOperationException>(() => CreateService(new SumUpOptions { Enabled = true, Currency = "EUR" }).CreateCheckoutAsync(order));
+        _checkoutClient.VerifyNoOtherCalls();
+    }
+
+    [Fact]
+    public async Task LegacyOrderKeepsExistingOnlinePaymentPath()
+    {
+        var order = CreateOrder();
+        _checkoutClient.Setup(client => client.CreateAsync(It.Is<SumUpCreateCheckoutRequest>(request => request.Amount == order.TotalPrice && request.Currency == "HUF"),
+            It.IsAny<string>(), It.IsAny<Uri>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new SumUpCheckoutResult("legacy", "PENDING", "https://example.com/pay"));
+        await CreateService(new SumUpOptions { Enabled = true }).CreateCheckoutAsync(order);
+        _checkoutClient.VerifyAll();
     }
 
     private SumUpCheckoutService CreateService(SumUpOptions options)

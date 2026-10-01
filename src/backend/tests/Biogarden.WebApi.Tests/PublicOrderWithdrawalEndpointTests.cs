@@ -53,6 +53,7 @@ public sealed class PublicOrderWithdrawalEndpointTests
 
     private sealed class MissingPublicOrderService : IOrderService
     {
+        public Task<OrderDto> GetCheckoutOrderAsync(Guid? userId, string? sessionId, Guid orderId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<CheckoutQuoteDto> GetCheckoutQuoteAsync(Guid? userId, string? sessionId, CheckoutQuoteRequest request, CancellationToken cancellationToken = default) => throw new NotSupportedException();
 
         public Task<OrderCreationResult> CreateOrderFromCartAsync(

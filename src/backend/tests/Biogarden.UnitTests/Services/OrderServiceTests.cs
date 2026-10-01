@@ -707,6 +707,31 @@ public sealed class OrderServiceTests
     }
 
     [Fact]
+    public async Task ReceiptOfRegisteredCustomerCannotBeReadWithAnotherUserOrGuestSession()
+    {
+        var userId = Guid.NewGuid();
+        var order = CreateOrder(userId);
+        _orders.Setup(x => x.GetByIdWithItemsAndCartAsync(order.Id, It.IsAny<CancellationToken>())).ReturnsAsync(order);
+        Assert.Equal(order.Id, (await _service.GetCheckoutOrderAsync(userId, null, order.Id)).Id);
+        await Assert.ThrowsAsync<KeyNotFoundException>(() => _service.GetCheckoutOrderAsync(Guid.NewGuid(), null, order.Id));
+        await Assert.ThrowsAsync<KeyNotFoundException>(() => _service.GetCheckoutOrderAsync(null, "guest", order.Id));
+    }
+
+    [Theory]
+    [InlineData(OrderPaymentMethod.PayAtPickup)]
+    [InlineData(OrderPaymentMethod.CashOnDelivery)]
+    public async Task OfflineOrderIsRejectedBeforeCallingPaymentProvider(OrderPaymentMethod method)
+    {
+        var userId = Guid.NewGuid();
+        var order = CreateOrder(userId);
+        order.PaymentMethod = method;
+        _orders.Setup(x => x.GetByIdWithItemsAndCartAsync(order.Id, It.IsAny<CancellationToken>())).ReturnsAsync(order);
+        await Assert.ThrowsAsync<InvalidOperationException>(() => _service.CreateSumUpCheckoutAsync(userId, null, order.Id));
+        _sumUpCheckoutService.VerifyNoOtherCalls();
+        _unitOfWork.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
     public async Task CreateSumUpCheckoutAsync_AsGuestWithMatchingCartSession_StoresCheckoutId()
     {
         const string sessionId = "guest-session";

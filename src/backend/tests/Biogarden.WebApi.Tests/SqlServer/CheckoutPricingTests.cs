@@ -127,6 +127,27 @@ public sealed class CheckoutPricingTests : IAsyncLifetime
     }
 
     [SqlServerFact]
+    public async Task ReceiptRequiresOwningSessionAndOfflineOrdersCannotStartOnlinePayment()
+    {
+        using var owner = _app.Factory.CreateClient();
+        using var stranger = _app.Factory.CreateClient();
+        await AddProductAsync(owner);
+        using var created = await owner.PostAsJsonAsync("/api/orders", await Request().WithQuoteAsync(owner));
+        created.EnsureSuccessStatusCode();
+        var order = (await created.Content.ReadFromJsonAsync<OrderDto>())!;
+        using var receipt = await owner.GetAsync($"/api/orders/{order.Id}/receipt");
+        receipt.EnsureSuccessStatusCode();
+        Assert.True(receipt.Headers.CacheControl!.NoStore);
+        Assert.Equal(8340, (await receipt.Content.ReadFromJsonAsync<OrderDto>())!.TotalPrice);
+        Assert.Equal(HttpStatusCode.NotFound, (await stranger.GetAsync($"/api/orders/{order.Id}/receipt")).StatusCode);
+        using var blocked = await owner.PostAsync($"/api/orders/{order.Id}/sumup-checkout", null);
+        Assert.Equal(HttpStatusCode.Conflict, blocked.StatusCode);
+        Assert.Contains("nem online", await blocked.Content.ReadAsStringAsync());
+        await using var db = _app.OpenDatabase();
+        Assert.Null((await db.Orders.SingleAsync()).SumUpCheckoutId);
+    }
+
+    [SqlServerFact]
     public async Task MigrationPreservesLegacyTotalsWithoutInventingFeeDetails()
     {
         using var client = _app.Factory.CreateClient();

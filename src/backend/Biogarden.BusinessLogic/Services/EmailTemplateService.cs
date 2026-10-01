@@ -544,6 +544,27 @@ public sealed class EmailTemplateService : IEmailTemplateService
             """;
     }
 
+    private static IEnumerable<(string, string)> PurchaseRows(OrderDto order)
+    {
+        yield return ("Fizetési mód", order.PaymentMethod switch
+        {
+            OrderPaymentMethod.OnlineCard => "Online bankkártyás fizetés",
+            OrderPaymentMethod.PayAtPickup => "Fizetés átvételkor",
+            OrderPaymentMethod.CashOnDelivery => "Utánvét",
+            _ => "Korábbi rendelés – nincs rögzítve"
+        });
+        if (order.Currency is not null) yield return ("Pénznem", order.Currency);
+        if (order.Subtotal.HasValue) yield return ("Termékek összege", FormatPrice(order.Subtotal.Value));
+        if (order.DeliveryFee.HasValue) yield return ("Szállítási díj", FormatPrice(order.DeliveryFee.Value));
+        if (order.PaymentFee.HasValue) yield return ("Fizetési díj", FormatPrice(order.PaymentFee.Value));
+        if (order.Subtotal is null || order.DeliveryFee is null || order.PaymentFee is null)
+            yield return ("Díjbontás", "A korábbi rendelés díjbontása nem áll rendelkezésre.");
+        if (order.GlsDeliveryPointId is not null)
+            yield return ("GLS átvételi pont", $"{order.GlsDeliveryPointName} ({order.GlsDeliveryPointId}) – {order.GlsDeliveryPointCountryCode} {order.DeliveryPostalCode} {order.DeliveryCity}, {order.GlsDeliveryPointAddress}");
+    }
+
+    private static string FormatPurchaseDetails(OrderDto order) => string.Join(Environment.NewLine, PurchaseRows(order).Select(row => $"{row.Item1}: {row.Item2}"));
+
     private static string BuildOrderConfirmationHtmlSummary(OrderDto order)
     {
         var orderSummaryRows = new[]
@@ -607,7 +628,7 @@ public sealed class EmailTemplateService : IEmailTemplateService
             Environment.NewLine,
             new[]
             {
-                BuildHtmlSection("Rendelés összefoglaló", BuildHtmlDetailsTable(orderSummaryRows)),
+                BuildHtmlSection("Rendelés összefoglaló", BuildHtmlDetailsTable(orderSummaryRows.Concat(PurchaseRows(order)).ToArray())),
                 BuildHtmlSection("Megadott adataid", BuildHtmlDetailsTable(customerRows)),
                 BuildHtmlSection(order.CustomerType == CustomerType.Private ? "Bizonylat" : "Számlázási adatok", BuildHtmlDetailsTable(documentRows)),
                 BuildHtmlSection(order.FulfillmentMethod == FulfillmentMethod.PersonalPickup ? "Átvételi adatok" : "Szállítási adatok", BuildHtmlDetailsTable(fulfillmentRows)),
@@ -661,9 +682,10 @@ public sealed class EmailTemplateService : IEmailTemplateService
             Environment.NewLine,
             new[]
             {
-                BuildHtmlSection("Rendelés összefoglaló", BuildHtmlDetailsTable(orderSummaryRows)),
+                BuildHtmlSection("Rendelés összefoglaló", BuildHtmlDetailsTable(orderSummaryRows.Concat(PurchaseRows(order)).ToArray())),
                 BuildHtmlSection("Vevő adatai", BuildHtmlDetailsTable(customerRows)),
                 BuildHtmlSection("Kiállítandó bizonylat", BuildHtmlDetailsTable(documentRows)),
+                BuildHtmlSection("Átvételi adatok", BuildHtmlDetailsTable(new[] { ("Átvétel", FormatDeliveryDetails(order)) })),
                 BuildHtmlSection("Termékek", BuildHtmlOrderItemsTable(order))
             });
     }
@@ -677,7 +699,8 @@ public sealed class EmailTemplateService : IEmailTemplateService
                 ("Rendelés állapota", FormatOrderStatus(order.Status)),
                 ("Fizetés állapota", FormatPaymentStatus(order.PaymentStatus)),
                 ("Átvétel módja", FormatFulfillmentMethod(order.FulfillmentMethod)),
-                ("Végösszeg", FormatPrice(order.TotalPrice))
+                ("Végösszeg", FormatPrice(order.TotalPrice)),
+                .. PurchaseRows(order)
             ]));
 
     private static string BuildContactBusinessHtmlSummary(ContactMessageRequestDto request) =>
@@ -1005,6 +1028,7 @@ public sealed class EmailTemplateService : IEmailTemplateService
         FormatCustomerDetails(order),
         FormatCustomerBillingDocumentDetails(order),
         FormatDeliveryDetails(order),
+        FormatPurchaseDetails(order),
         $"Végösszeg: {FormatPrice(order.TotalPrice)}",
         FormatOrderItemsList(order)
     ];
@@ -1016,7 +1040,9 @@ public sealed class EmailTemplateService : IEmailTemplateService
         $"Rendelésszám: {order.OrderNumber}",
         FormatCustomerDetails(order),
         FormatAdminBillingDocumentDetails(order),
+        FormatDeliveryDetails(order),
         $"Átvétel módja: {FormatFulfillmentMethod(order.FulfillmentMethod)}",
+        FormatPurchaseDetails(order),
         $"Végösszeg: {FormatPrice(order.TotalPrice)}",
         FormatOrderItemsList(order)
     ];
@@ -1027,6 +1053,7 @@ public sealed class EmailTemplateService : IEmailTemplateService
         $"Rendelésszám: {order.OrderNumber}",
         $"Fizetés állapota: {FormatPaymentStatus(order.PaymentStatus)}",
         $"Átvétel módja: {FormatFulfillmentMethod(order.FulfillmentMethod)}",
+        FormatPurchaseDetails(order),
         $"Végösszeg: {FormatPrice(order.TotalPrice)}"
     ];
 
@@ -1295,6 +1322,7 @@ public sealed class EmailTemplateService : IEmailTemplateService
         FulfillmentMethod.PersonalPickup => "Személyes átvétel",
         FulfillmentMethod.HomeDelivery => "Házhozszállítás",
         FulfillmentMethod.ParcelLocker => "Csomagautomata",
+        FulfillmentMethod.ParcelShop => "GLS CsomagPont",
         _ => fulfillmentMethod.ToString()
     };
 

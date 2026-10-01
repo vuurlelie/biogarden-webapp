@@ -304,6 +304,14 @@ public class OrderService : IOrderService
         return new(createdOrderDto, Created: true);
     }
 
+    public async Task<OrderDto> GetCheckoutOrderAsync(Guid? userId, string? sessionId, Guid orderId, CancellationToken cancellationToken = default)
+    {
+        var order = await _unitOfWork.OrderRepository.GetByIdWithItemsAndCartAsync(orderId, cancellationToken)
+            ?? throw new KeyNotFoundException("Order not found.");
+        EnsureCanAccessOrder(order, userId, sessionId);
+        return order.ToDto();
+    }
+
     public async Task<SumUpCheckoutDto> CreateSumUpCheckoutAsync(
         Guid? userId,
         string? sessionId,
@@ -317,12 +325,16 @@ public class OrderService : IOrderService
 
         EnsureCanAccessOrder(order, userId, sessionId);
 
+        // Null means a legacy order with no recorded choice; preserve its existing payment path.
+        if (order.PaymentMethod is not null and not OrderPaymentMethod.OnlineCard)
+            throw new InvalidOperationException("Ehhez a rendeléshez nem online bankkártyás fizetést választottál.");
+
         if (order.Status == OrderStatus.Cancelled)
         {
             throw new InvalidOperationException("Cancelled order cannot be paid.");
         }
 
-        if (order.PaymentStatus == PaymentStatus.Paid)
+        if (order.PaymentStatus is PaymentStatus.Paid or PaymentStatus.RefundPending or PaymentStatus.Refunded)
         {
             throw new InvalidOperationException("Order is already paid.");
         }
@@ -976,7 +988,7 @@ public class OrderService : IOrderService
             throw new InvalidOperationException("SumUp checkout currency is missing.");
         }
 
-        if (!string.Equals(currency.Trim(), _sumUpOptions.Currency, StringComparison.OrdinalIgnoreCase))
+        if (!string.Equals(currency.Trim(), order.Currency ?? _sumUpOptions.Currency, StringComparison.OrdinalIgnoreCase))
         {
             throw new InvalidOperationException("SumUp checkout currency does not match the configured currency.");
         }

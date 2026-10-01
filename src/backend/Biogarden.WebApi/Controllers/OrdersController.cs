@@ -44,6 +44,12 @@ public class OrdersController : ControllerBase
             : Ok(result.Order);
     }
 
+    [HttpGet("{orderId:guid}/receipt")]
+    [AllowAnonymous]
+    [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
+    public async Task<ActionResult<OrderDto>> GetCheckoutOrder(Guid orderId, CancellationToken cancellationToken)
+        => Ok(await _orderService.GetCheckoutOrderAsync(GetCurrentUserIdOrNull(), GetCartSessionId(), orderId, cancellationToken));
+
     [HttpGet("checkout-methods")]
     [AllowAnonymous]
     [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
