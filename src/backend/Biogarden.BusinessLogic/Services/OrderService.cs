@@ -353,6 +353,11 @@ public class OrderService : IOrderService
         if (!_sumUpOptions.Enabled)
             throw new InvalidOperationException("Online payment is currently unavailable.");
 
+        // Reject local preconditions before recording an intent that would need provider reconciliation.
+        if (order.Items.Count == 0 || order.TotalPrice <= 0 ||
+            (order.Currency is not null && !string.Equals(order.Currency, _sumUpOptions.Currency, StringComparison.OrdinalIgnoreCase)))
+            throw new InvalidOperationException("The order is not eligible for online payment.");
+
         var attempts = _unitOfWork.PaymentAttemptRepository;
         var attempt = await attempts.GetLatestAsync(order.Id, cancellationToken);
         // Retain the known legacy ID before starting any new provider operation.
@@ -414,7 +419,7 @@ public class OrderService : IOrderService
 
         order.SumUpCheckoutId = checkout.CheckoutId;
         order.SumUpTransactionId = checkout.TransactionCode;
-        order.PaymentStatus = PaymentStatus.Pending;
+        order.PaymentStatus = attempt.Status == "FAILED" ? PaymentStatus.Failed : PaymentStatus.Pending;
 
         _unitOfWork.OrderRepository.Update(order);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
@@ -437,6 +442,9 @@ public class OrderService : IOrderService
     private void ValidateAttemptCheckout(Order order, PaymentAttempt attempt, SumUpCheckoutResult checkout)
     {
         EnsureSumUpCheckoutMatchesOrder(order, checkout.Amount, checkout.Currency);
+        if (checkout.Status is not ("PENDING" or "FAILED" or "PAID" or "EXPIRED") ||
+            (checkout.Status == "PAID" && string.IsNullOrWhiteSpace(checkout.TransactionCode)))
+            throw new PaymentRecoveryException();
         if (string.IsNullOrWhiteSpace(checkout.CheckoutId) || checkout.CheckoutId.Length > 100 ||
             (attempt.CheckoutId is not null && attempt.CheckoutId != checkout.CheckoutId) ||
             checkout.CheckoutReference != attempt.Reference || checkout.MerchantCode != _sumUpOptions.MerchantCode)
@@ -504,8 +512,9 @@ public class OrderService : IOrderService
         EnsureSumUpCheckoutMatchesOrder(order, amount, currency);
 
         if (order.PaymentStatus is PaymentStatus.Paid or PaymentStatus.RefundPending or PaymentStatus.Refunded or PaymentStatus.PartiallyRefunded &&
-            !string.IsNullOrWhiteSpace(order.SumUpTransactionId) && !string.IsNullOrWhiteSpace(sumUpTransactionId) &&
-            order.SumUpTransactionId != sumUpTransactionId)
+            ((!string.IsNullOrWhiteSpace(order.SumUpCheckoutId) && order.SumUpCheckoutId != sumUpCheckoutId) ||
+             (!string.IsNullOrWhiteSpace(order.SumUpTransactionId) && !string.IsNullOrWhiteSpace(sumUpTransactionId) &&
+              order.SumUpTransactionId != sumUpTransactionId)))
             throw new PaymentRecoveryException(); // Possible second payment: retain the original transaction for reconciliation.
 
         if (order.Status == OrderStatus.Cancelled)

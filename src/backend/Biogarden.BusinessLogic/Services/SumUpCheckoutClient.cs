@@ -153,10 +153,22 @@ public sealed class SumUpCheckoutClient : ISumUpCheckoutClient
 
         public SumUpCheckoutResult ToResult()
         {
-            var transactionCode = Transactions
-                .Where(transaction => transaction.Status == "SUCCESSFUL")
-                .Select(transaction => transaction.TransactionCode)
-                .FirstOrDefault(code => !string.IsNullOrWhiteSpace(code));
+            if (Status is not ("PENDING" or "FAILED" or "PAID" or "EXPIRED") || Transactions is null)
+                throw new PaymentRecoveryException();
+            var successful = Transactions.Where(transaction => transaction.Status == "SUCCESSFUL").ToArray();
+            // A checkout label alone is not proof of one payment for the expected amount.
+            // Pending/refunded or contradictory transaction histories require reconciliation, never another charge.
+            if (Transactions.Any(transaction => transaction.Status is not ("SUCCESSFUL" or "FAILED" or "CANCELLED")) ||
+                (Status == "PAID" ? successful.Length != 1 : successful.Length != 0))
+                throw new PaymentRecoveryException();
+            var transaction = successful.SingleOrDefault();
+            if (transaction is not null && (string.IsNullOrWhiteSpace(transaction.TransactionCode) ||
+                transaction.TransactionCode.Length > 200 || !Amount.HasValue || Amount <= 0 ||
+                transaction.Amount != Amount || string.IsNullOrWhiteSpace(Currency) ||
+                !string.Equals(transaction.Currency, Currency, StringComparison.OrdinalIgnoreCase) ||
+                string.IsNullOrWhiteSpace(MerchantCode) || transaction.MerchantCode != MerchantCode))
+                throw new PaymentRecoveryException();
+            var transactionCode = transaction?.TransactionCode;
 
             return new SumUpCheckoutResult(
                 Id,
@@ -172,6 +184,12 @@ public sealed class SumUpCheckoutClient : ISumUpCheckoutClient
 
     private sealed class SumUpTransactionApiResponse
     {
+        [JsonPropertyName("amount")]
+        public decimal? Amount { get; init; }
+        [JsonPropertyName("currency")]
+        public string? Currency { get; init; }
+        [JsonPropertyName("merchant_code")]
+        public string? MerchantCode { get; init; }
         [JsonPropertyName("status")]
         public string? Status { get; init; }
         [JsonPropertyName("transaction_code")]

@@ -6,6 +6,10 @@ Creating an order and starting a payment are separate operations. An order has o
 
 A repeated start request fetches the existing checkout. `PENDING` and `FAILED` checkouts reuse their hosted URL; a failed processing attempt is not proof that the checkout can never succeed. Only a verified `EXPIRED` checkout permits a replacement attempt. `PAID` confirms the order and prevents another payment start. Historical checkout IDs remain associated with the order.
 
+The provider adapter rejects unknown or contradictory transaction histories. A `PAID` response must contain exactly one successful transaction with a non-empty code and matching amount, currency and merchant. Pending or refunded transactions require reconciliation rather than enabling another payment. The same paid-code requirement applies when a customer retries and when a notification is handled. Reopening a failed checkout keeps the verified failure state until new provider evidence arrives; duplicate notification suppression must not leave the order incorrectly pending.
+
+Empty orders, non-positive totals and incompatible configured currency are rejected before saving a new provider intent. This avoids creating an unresolved attempt for a request that cannot be sent legitimately.
+
 If SumUp accepts creation but its response or the local save fails, the next request looks up the saved reference. Exactly one matching checkout is required, with the expected merchant, amount, currency, reference and checkout ID. Zero or multiple results require reconciliation; the API does **not** issue another create request. This also means an attempt saved just before a crash, where no provider request actually reached SumUp, can need operator assistance. Do not delete that row simply because the provider temporarily returns no results.
 
 SumUp documents [reference-based checkout lookup](https://developer.sumup.com/api/checkouts/list). This implementation does not assume that repeating checkout creation is idempotent. The provider reference identifies an attempt; the browser redirect reference continues to identify the order for compatibility with payment-status polling.
@@ -31,7 +35,7 @@ Use the order number and request trace ID to locate the order, then inspect its 
 ```sql
 SELECT a.Id, a.OrderId, a.Reference, a.CheckoutId, a.Status, a.CreatedAtUtc
 FROM PaymentAttempts a
-WHERE a.CheckoutId IS NULL
+WHERE a.CheckoutId IS NULL OR a.Status IN ('CREATING', 'PENDING', 'FAILED')
 ORDER BY a.CreatedAtUtc;
 
 SELECT CheckoutId, Status, LastProcessingAttemptAtUtc, ProcessingFailedAtUtc, ProcessingError
@@ -41,6 +45,8 @@ ORDER BY ReceivedAtUtc;
 ```
 
 Compare the saved reference, merchant, amount, currency and successful transaction with SumUp. Once an unambiguous checkout is available, customer retry or a repeated notification can recover it. If the result remains uncertain, resolve it through the provider and the responsible operator before allowing another payment. Check for a second charge and arrange any necessary refund through the agreed business process. Refund-state labels do not execute provider refunds.
+
+Include older pending attempts in this review even when they already have a checkout ID: provider lookup or transaction validation can fail before a status-specific event is recorded. A refunded provider transaction is not enough to infer whether the local refund should be full or partial; retain the existing state and reconcile it through the documented refund process.
 
 There is no scheduled payment reconciliation worker or administrative attempt-reset endpoint in this release. Failed events remain inspectable and replayable, but automatic provider redelivery is not a substitute for monitoring unresolved payments. Never mark an order paid based on the browser return URL or a customer's screenshot.
 

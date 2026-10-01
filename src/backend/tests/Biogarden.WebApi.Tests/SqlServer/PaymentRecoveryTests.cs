@@ -303,19 +303,26 @@ public sealed class PaymentRecoveryTests : IAsyncLifetime
         Assert.Equal(0, _provider.Gets);
     }
 
-    [SqlServerFact]
-    public async Task SecondPaidAttemptIsFlaggedWithoutReplacingOriginalTransaction()
+    [SqlServerTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task SecondPaidAttemptIsFlaggedWithoutReplacingOriginalTransaction(bool legacyMissingTransaction)
     {
         await StartAsync();
         _provider.Checkouts[0] = _provider.Checkouts[0] with { Status = "EXPIRED" };
         await StartAsync();
         _provider.Checkouts[1] = _provider.Checkouts[1] with { Status = "PAID", TransactionCode = "paid-2" };
         await NotifyAsync("checkout-2");
+        if (legacyMissingTransaction)
+        {
+            await using var legacy = _app.OpenDatabase();
+            await legacy.Orders.ExecuteUpdateAsync(set => set.SetProperty(x => x.SumUpTransactionId, (string?)null));
+        }
         _provider.Checkouts[0] = _provider.Checkouts[0] with { Status = "PAID", TransactionCode = "paid-1" };
         await Assert.ThrowsAsync<PaymentRecoveryException>(() => NotifyAsync());
         await using var db = _app.OpenDatabase();
         var order = await db.Orders.SingleAsync();
-        Assert.Equal("paid-2", order.SumUpTransactionId);
+        Assert.Equal(legacyMissingTransaction ? null : "paid-2", order.SumUpTransactionId);
         Assert.Equal("checkout-2", order.SumUpCheckoutId);
         Assert.NotNull((await db.PaymentProviderEvents.SingleAsync(x => x.CheckoutId == "checkout-1")).ProcessingFailedAtUtc);
     }
@@ -333,6 +340,81 @@ public sealed class PaymentRecoveryTests : IAsyncLifetime
         Assert.Equal(OrderStatus.Cancelled, order.Status);
         Assert.Equal(PaymentStatus.RefundPending, order.PaymentStatus);
         Assert.Equal(2, (await verified.Products.SingleAsync()).StockQuantity);
+    }
+
+    [SqlServerFact]
+    public async Task PaidLabelWithoutSuccessfulTransactionCannotBeConfirmedByRetryOrWebhook()
+    {
+        await StartAsync();
+        _provider.Checkouts[0] = _provider.Checkouts[0] with { Status = "PAID", TransactionCode = null };
+        await Assert.ThrowsAsync<PaymentRecoveryException>(() => StartAsync());
+        await Assert.ThrowsAsync<PaymentRecoveryException>(() => NotifyAsync());
+        await using var db = _app.OpenDatabase();
+        Assert.Equal(PaymentStatus.Pending, (await db.Orders.SingleAsync()).PaymentStatus);
+        Assert.Null((await db.PaymentProviderEvents.SingleAsync()).ProcessedAtUtc);
+        Assert.Equal(1, _provider.Creates);
+    }
+
+    [SqlServerFact]
+    public async Task RetryingFailedCheckoutDoesNotEraseVerifiedFailureWhenNotificationIsDeduplicated()
+    {
+        await StartAsync();
+        _provider.Checkouts[0] = _provider.Checkouts[0] with { Status = "FAILED" };
+        await NotifyAsync();
+        await StartAsync();
+        await NotifyAsync();
+        await using var db = _app.OpenDatabase();
+        Assert.Equal(PaymentStatus.Failed, (await db.Orders.SingleAsync()).PaymentStatus);
+        Assert.Single(await db.PaymentProviderEvents.ToListAsync());
+        Assert.Equal(1, _provider.Creates);
+    }
+
+    [SqlServerFact]
+    public async Task CancellationWhileProviderCreatesCheckoutCannotBeOverwrittenAndLaterPaymentRequiresRefund()
+    {
+        _provider.BlockCreate = true;
+        var start = StartAsync();
+        await _provider.Entered.Task.WaitAsync(TimeSpan.FromSeconds(15));
+        try
+        {
+            await using var db = _app.OpenDatabase();
+            await db.Orders.ExecuteUpdateAsync(set => set.SetProperty(x => x.Status, OrderStatus.Cancelled));
+        }
+        finally { _provider.Release.TrySetResult(); }
+        await Assert.ThrowsAsync<DbUpdateConcurrencyException>(() => start);
+        _provider.Checkouts[0] = _provider.Checkouts[0] with { Status = "PAID", TransactionCode = "paid-1" };
+        await NotifyAsync();
+        await using var verified = _app.OpenDatabase();
+        var order = await verified.Orders.SingleAsync();
+        Assert.Equal(OrderStatus.Cancelled, order.Status);
+        Assert.Equal(PaymentStatus.RefundPending, order.PaymentStatus);
+        Assert.Equal(2, (await verified.Products.SingleAsync()).StockQuantity);
+        await Assert.ThrowsAsync<InvalidOperationException>(() => StartAsync());
+        Assert.Equal(1, _provider.Creates);
+    }
+
+    [SqlServerFact]
+    public async Task PaidCallbackAndCustomerRetryConvergeWithoutAnotherCheckout()
+    {
+        await StartAsync();
+        _provider.Checkouts[0] = _provider.Checkouts[0] with { Status = "PAID", TransactionCode = "paid-1" };
+        await Task.WhenAll(NotifyAsync(), Assert.ThrowsAsync<InvalidOperationException>(() => StartAsync()));
+        await using var db = _app.OpenDatabase();
+        Assert.Equal(PaymentStatus.Paid, (await db.Orders.SingleAsync()).PaymentStatus);
+        Assert.Equal(1, _provider.Creates);
+    }
+
+    [SqlServerTheory]
+    [InlineData(0, "HUF")]
+    [InlineData(900, "EUR")]
+    public async Task InvalidLocalPaymentDataDoesNotCreateAnUncertainProviderIntent(int total, string currency)
+    {
+        await using (var db = _app.OpenDatabase())
+            await db.Orders.ExecuteUpdateAsync(set => set.SetProperty(x => x.TotalPrice, total).SetProperty(x => x.Currency, currency));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => StartAsync());
+        await using var verified = _app.OpenDatabase();
+        Assert.Empty(await verified.PaymentAttempts.ToListAsync());
+        Assert.Equal(0, _provider.Creates);
     }
 
     private sealed class Provider : ISumUpCheckoutClient

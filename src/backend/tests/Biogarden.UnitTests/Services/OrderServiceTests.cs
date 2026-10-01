@@ -744,6 +744,7 @@ public sealed class OrderServiceTests
     {
         const string sessionId = "guest-session";
         var order = CreateOrder(null);
+        order.TotalPrice = 3600;
         order.Cart = new Cart
         {
             Id = order.CartId,
