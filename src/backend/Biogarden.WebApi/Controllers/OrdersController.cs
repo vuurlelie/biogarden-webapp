@@ -50,6 +50,15 @@ public class OrdersController : ControllerBase
     public async Task<ActionResult<OrderDto>> GetCheckoutOrder(Guid orderId, CancellationToken cancellationToken)
         => Ok(await _orderService.GetCheckoutOrderAsync(GetCurrentUserIdOrNull(), GetCartSessionId(), orderId, cancellationToken));
 
+    [HttpGet("checkout-recovery/{idempotencyKey}")]
+    [AllowAnonymous]
+    [EnableRateLimiting(RateLimitPolicyNames.Payment)]
+    [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
+    [ProducesResponseType(typeof(OrderDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<OrderDto>> RecoverCheckoutOrder(string idempotencyKey, CancellationToken cancellationToken)
+        => Ok(await _orderService.RecoverCheckoutOrderAsync(GetCurrentUserIdOrNull(), GetCartSessionId(), idempotencyKey, cancellationToken));
+
     [HttpGet("checkout-methods")]
     [AllowAnonymous]
     [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]

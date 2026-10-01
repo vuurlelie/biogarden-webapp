@@ -313,6 +313,15 @@ public class OrderService : IOrderService
         return order.ToDto();
     }
 
+    public async Task<OrderDto> RecoverCheckoutOrderAsync(Guid? userId, string? sessionId, string idempotencyKey, CancellationToken cancellationToken = default)
+    {
+        var key = NormalizeIdempotencyKey(idempotencyKey);
+        var order = await _unitOfWork.OrderRepository.GetByIdempotencyKeyWithItemsAsync(key, cancellationToken)
+            ?? throw new KeyNotFoundException("Order not found.");
+        EnsureCanAccessOrder(order, userId, sessionId);
+        return order.ToDto();
+    }
+
     public async Task<SumUpCheckoutDto> CreateSumUpCheckoutAsync(
         Guid? userId,
         string? sessionId,

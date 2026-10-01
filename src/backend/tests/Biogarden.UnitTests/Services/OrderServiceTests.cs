@@ -1191,6 +1191,19 @@ public sealed class OrderServiceTests
         public ValueTask DisposeAsync() => ValueTask.CompletedTask;
     }
 
+    [Fact]
+    public async Task RecoverCheckoutOrderAsync_AccountOwnershipCannotBeBypassedWithOldGuestSession()
+    {
+        var userId = Guid.NewGuid();
+        var order = CreateOrder(userId);
+        order.Cart = new Cart { SessionId = "old-guest" };
+        _orders.Setup(x => x.GetByIdempotencyKeyWithItemsAsync(IdempotencyKey, It.IsAny<CancellationToken>())).ReturnsAsync(order);
+        Assert.Equal(order.Id, (await _service.RecoverCheckoutOrderAsync(userId, null, IdempotencyKey)).Id);
+        await Assert.ThrowsAsync<KeyNotFoundException>(() => _service.RecoverCheckoutOrderAsync(null, "old-guest", IdempotencyKey));
+        await Assert.ThrowsAsync<KeyNotFoundException>(() => _service.RecoverCheckoutOrderAsync(Guid.NewGuid(), "old-guest", IdempotencyKey));
+        _unitOfWork.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
+    }
+
     private static Order CreateOrder(Guid? userId) => new()
     {
         Id = Guid.NewGuid(),

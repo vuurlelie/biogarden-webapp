@@ -18,7 +18,7 @@ Review the dependency report as well as the exit status. If a running local API 
 
 ### SQL Server integration tests
 
-The `SqlServer` category runs the API and real business/data-access services against a fresh database, applying the complete EF migration history. Only email transport is replaced; no SMTP or payment requests are needed. Each test deletes its own randomly named `BiogardenIntegration_*` database afterwards.
+The `SqlServer` category runs the API and real business/data-access services against a fresh database, applying the complete EF migration history. External email, GLS and payment provider calls are replaced where needed; no SMTP or payment requests are sent. Each test deletes its own randomly named `BiogardenIntegration_*` database afterwards.
 
 These tests are skipped unless `BIOGARDEN_TEST_SQLSERVER` is set. Use a dedicated local/test SQL Server instance with permission to create and drop databases. The fixture replaces the connection's database name and does not read application connection settings. For Windows LocalDB, from `src`:
 
@@ -71,6 +71,8 @@ Check the build's SEO output: a successful build with no fetched posts does not 
 Finish with `git diff --check` and review `git status --short` from `src` for unintended tracked changes.
 
 ## What these checks establish
+
+Payment-attempt SQL tests and browser recovery scenarios are described in [payment recovery](operations/payment-recovery.md#deployment-and-verification), including the remaining live-provider checks.
 
 Checkout-draft SQL and browser coverage, along with hosted verification requirements, is described in [checkout drafts](operations/checkout-drafts.md#deployment-and-verification).
 

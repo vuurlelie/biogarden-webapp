@@ -63,6 +63,13 @@ export type CreateOrderRequest = {
 };
 
 const ORDERS_FALLBACK_MESSAGE = "A művelet nem sikerült. Kérjük, próbáld újra.";
+export async function recoverCheckoutOrder(checkoutKey: string, signal?: AbortSignal): Promise<Order> {
+  const response = await apiRequest(`/api/orders/checkout-recovery/${encodeURIComponent(checkoutKey)}`, {
+    signal, authToken: getAuthSession()?.token, credentials: "include", cache: "no-store",
+    fallbackMessage: "A rendelés eredményét most nem tudjuk ellenőrizni.",
+  });
+  return response.json() as Promise<Order>;
+}
 export async function getCheckoutOrder(orderId: string, signal?: AbortSignal): Promise<Order> {
   const response = await apiRequest(`/api/orders/${encodeURIComponent(orderId)}/receipt`, {
     signal, authToken: getAuthSession()?.token, credentials: "include", cache: "no-store",

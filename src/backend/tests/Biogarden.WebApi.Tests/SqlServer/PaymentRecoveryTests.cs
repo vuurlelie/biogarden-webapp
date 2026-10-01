@@ -141,6 +141,32 @@ public sealed class PaymentRecoveryTests : IAsyncLifetime
         Assert.Empty(await db.PaymentAttempts.ToListAsync());
     }
 
+    [SqlServerFact]
+    public async Task RecoveryBySubmissionKeyRequiresOwningSessionAndHasNoCheckoutSideEffects()
+    {
+        var key = Guid.NewGuid().ToString("N");
+        await using (var db = _app.OpenDatabase())
+            await db.Orders.ExecuteUpdateAsync(set => set.SetProperty(x => x.IdempotencyKey, key));
+        using var owner = _api.CreateClient();
+        owner.DefaultRequestHeaders.Add("Cookie", "biogarden_cart_id=guest");
+        using var response = await owner.GetAsync($"/api/orders/checkout-recovery/{key}");
+        response.EnsureSuccessStatusCode();
+        Assert.Contains("PAYMENT-TEST", await response.Content.ReadAsStringAsync());
+        Assert.True(response.Headers.CacheControl?.NoStore);
+        using var stranger = _api.CreateClient();
+        using var denied = await stranger.GetAsync($"/api/orders/checkout-recovery/{key}");
+        Assert.Equal(System.Net.HttpStatusCode.NotFound, denied.StatusCode);
+        Assert.DoesNotContain("PAYMENT-TEST", await denied.Content.ReadAsStringAsync());
+        using var unknown = await owner.GetAsync($"/api/orders/checkout-recovery/{Guid.NewGuid():N}");
+        Assert.Equal(System.Net.HttpStatusCode.NotFound, unknown.StatusCode);
+        using var malformed = await owner.GetAsync("/api/orders/checkout-recovery/short");
+        Assert.Equal(System.Net.HttpStatusCode.BadRequest, malformed.StatusCode);
+        await using var verified = _app.OpenDatabase();
+        Assert.Single(await verified.Orders.ToListAsync());
+        Assert.Empty(await verified.PaymentAttempts.ToListAsync());
+        Assert.Equal(0, _provider.Creates);
+    }
+
     private sealed class BindingFailure : SaveChangesInterceptor
     {
         public bool Enabled { get; set; }

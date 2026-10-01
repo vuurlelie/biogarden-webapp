@@ -128,7 +128,7 @@ test("payment startup failure and refresh retry the existing order", async ({ pa
   });
   await page.goto("/penztar");
   await submitOrder(page, true);
-  await expect(page.getByRole("heading", { name: "A fizetés megszakadt" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Rendelés és fizetés ellenőrzése" })).toBeVisible();
   await expect(page).toHaveURL(new RegExp(`orderId=${successfulOrder.id}`));
   expect(orders).toBe(1);
   await page.reload();
@@ -146,4 +146,69 @@ test("cart refresh failure cannot turn a created pickup order into a checkout er
   await submitOrder(page);
   await expect(page).toHaveURL(/\/rendeles-sikeres$/);
   await expect(page.getByText(successfulOrder.orderNumber)).toBeVisible();
+});
+
+test("lost order response survives refresh and recovers without posting another order", async ({ page }) => {
+  await mockCheckoutApi(page, true);
+  let orders = 0;
+  let key = "";
+  await page.route(`${apiBaseUrl}/api/orders`, async route => {
+    orders++;
+    key = route.request().postDataJSON().idempotencyKey;
+    await route.abort("failed"); // Server accepted the order; its response was lost.
+  });
+  let lookupAvailable = false;
+  await page.route(`${apiBaseUrl}/api/orders/checkout-recovery/*`, route => lookupAvailable
+    ? route.fulfill({ json: { ...successfulOrder, paymentMethod: 0 } })
+    : route.fulfill({ status: 503, json: { detail: "Átmeneti hiba" } }));
+  await page.goto("/penztar");
+  await submitOrder(page, true);
+  await expect(page).toHaveURL(/checkoutKey=/);
+  await expect(page.getByRole("alert")).toContainText("Átmeneti hiba");
+  await expect(page.getByRole("heading", { name: "Rendelés és fizetés ellenőrzése" })).toBeFocused();
+  expect(key).toBe("33333333333333333333333333333333");
+  lookupAvailable = true;
+  await page.reload();
+  await expect(page.getByText(successfulOrder.orderNumber, { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Fizetés újrapróbálása" }).click();
+  await expect(page.getByRole("alert")).toContainText("SumUp checkout is not enabled");
+  expect(orders).toBe(1);
+  expect(page.url()).not.toContain("draft@example.com");
+});
+
+test("already paid order returns to its receipt without starting another payment", async ({ page }) => {
+  await mockCheckoutApi(page, true);
+  let payments = 0;
+  await page.route(`${apiBaseUrl}/api/orders/${successfulOrder.id}/receipt`, route => route.fulfill({
+    json: { ...successfulOrder, paymentMethod: 0, paymentStatus: 2, status: 1 },
+  }));
+  await page.route(`${apiBaseUrl}/api/orders/${successfulOrder.id}/sumup-checkout`, route => {
+    payments++;
+    return route.fulfill({ status: 500 });
+  });
+  await page.goto(`/penztar?sumup=cancelled&orderId=${successfulOrder.id}`);
+  await expect(page).toHaveURL(/rendeles-sikeres\?orderId=/);
+  await expect(page.getByText(successfulOrder.orderNumber)).toBeVisible();
+  expect(payments).toBe(0);
+});
+
+for (const [name, status, paymentStatus] of [["cancelled", 4, 0], ["refund pending", 1, 4]] as const) {
+  test(`${name} order cannot be paid again from recovery`, async ({ page }) => {
+    await mockCheckoutApi(page, true);
+    await page.route(`${apiBaseUrl}/api/orders/${successfulOrder.id}/receipt`, route => route.fulfill({
+      json: { ...successfulOrder, paymentMethod: 0, status, paymentStatus },
+    }));
+    await page.goto(`/penztar?sumup=cancelled&orderId=${successfulOrder.id}`);
+    await expect(page.getByText(successfulOrder.orderNumber, { exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Fizetés újrapróbálása" })).toHaveCount(0);
+  });
+}
+
+test("unavailable owning session offers status checking without payment or resubmission", async ({ page }) => {
+  await mockCheckoutApi(page, true);
+  await page.route(`${apiBaseUrl}/api/orders/${successfulOrder.id}/receipt`, route => route.fulfill({ status: 404 }));
+  await page.goto(`/penztar?sumup=cancelled&orderId=${successfulOrder.id}`);
+  await expect(page.getByRole("alert")).toContainText("ebben a munkamenetben");
+  await expect(page.getByRole("button", { name: "Fizetés újrapróbálása" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Állapot ellenőrzése" })).toBeVisible();
 });
