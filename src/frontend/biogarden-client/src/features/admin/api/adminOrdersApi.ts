@@ -28,10 +28,11 @@ export async function updateAdminOrder(
   paymentStatus: PaymentStatus,
   cancellationReason: string | null,
   version: string,
+  paymentCorrectionReason: string | null,
 ): Promise<Order> {
   const response = await adminRequest(`/orders/${id}`, {
     method: "PUT",
-    jsonBody: { status, paymentStatus, cancellationReason, version },
+    jsonBody: { status, paymentStatus, cancellationReason, version, paymentCorrectionReason },
   });
   return response.json() as Promise<Order>;
 }

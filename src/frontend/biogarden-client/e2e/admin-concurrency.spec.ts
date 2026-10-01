@@ -70,3 +70,27 @@ test("inventory conflict reloads sold stock and retains the previous input for c
   await expect(page.getByText(/Korábbi bevitel: 9 db/)).toBeVisible();
   expect(submitted?.version).toBe("old");
 });
+
+test("completed order permits audited refund recording but cannot become unpaid", async ({ page }) => {
+  let submitted: Record<string, unknown> | undefined;
+  await page.route(`${apiBaseUrl}/api/admin/orders`, route => route.fulfill({ json: [{ ...successfulOrder, status: 3, paymentStatus: 4 }] }));
+  await page.route(`${apiBaseUrl}/api/admin/orders/${successfulOrder.id}`, async route => {
+    submitted = route.request().postDataJSON();
+    await route.fulfill({ json: { ...successfulOrder, status: 3, paymentStatus: 5, version: "refunded" } });
+  });
+  await page.goto("/admin/rendelesek");
+  await page.getByRole("button", { name: "Részletek", exact: true }).click();
+  await page.getByRole("button", { name: "Állapot módosítása" }).click();
+  await expect(page.getByLabel("Rendelés állapota")).toBeDisabled();
+  await expect(page.getByLabel("Fizetés állapota").locator('option[value="0"]')).toHaveCount(0);
+  await page.getByLabel("Fizetés állapota").selectOption("5");
+  await page.getByRole("button", { name: "Mentés", exact: true }).click();
+  await expect(page.getByRole("alert")).toContainText("indoklása kötelező");
+  expect(submitted).toBeUndefined();
+  await page.getByLabel("Fizetési módosítás indoklása").fill("Visszatérítés ellenőrizve: REF-123");
+  await page.getByRole("button", { name: "Mentés", exact: true }).click();
+  await expect.poll(() => submitted?.paymentStatus).toBe(5);
+  expect(submitted?.paymentCorrectionReason).toBe("Visszatérítés ellenőrizve: REF-123");
+  await page.getByRole("button", { name: "Állapot módosítása" }).click();
+  await expect(page.getByLabel("Fizetés állapota")).toHaveValue("5");
+});

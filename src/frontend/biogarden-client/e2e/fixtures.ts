@@ -459,7 +459,7 @@ export async function mockAdminOrdersApi(page: Page) {
       json: {
         ...adminOrder,
         status: 1,
-        paymentStatus: 1,
+        paymentStatus: 2,
       },
     });
   });

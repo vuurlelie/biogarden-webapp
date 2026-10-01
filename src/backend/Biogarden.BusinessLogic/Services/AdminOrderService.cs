@@ -59,7 +59,7 @@ public sealed class AdminOrderService : IAdminOrderService
             .ToListAsync(cancellationToken);
     }
 
-    public async Task<OrderDto> UpdateAsync(Guid orderId, AdminOrderUpdateDto changes, CancellationToken cancellationToken = default)
+    public async Task<OrderDto> UpdateAsync(Guid orderId, AdminOrderUpdateDto changes, CancellationToken cancellationToken = default, Guid? actorId = null)
     {
         var order = await _databaseContext.Orders
             .Include(item => item.Items)
@@ -68,6 +68,28 @@ public sealed class AdminOrderService : IAdminOrderService
             ?? throw new KeyNotFoundException("Order not found.");
         AdminEditVersion.RequireCurrent(changes.Version, order.RowVersion);
         var originalStatus = order.Status;
+        var nextPayment = changes.Status == OrderStatus.Cancelled && order.Status != OrderStatus.Cancelled && order.PaymentStatus is PaymentStatus.Paid or PaymentStatus.PartiallyRefunded
+            ? PaymentStatus.RefundPending : changes.PaymentStatus;
+        AdminPaymentTransition.Validate(order, nextPayment);
+        if (changes.Status == OrderStatus.Cancelled && nextPayment == PaymentStatus.Paid)
+            throw new InvalidOperationException("Lemondáskor nem rögzíthető új fizetés.");
+        if (nextPayment != order.PaymentStatus)
+        {
+            if (actorId is null || actorId == Guid.Empty) throw new UnauthorizedAccessException("A módosító adminisztrátor azonosítója szükséges.");
+            var reason = changes.PaymentCorrectionReason?.Trim();
+            if (string.IsNullOrWhiteSpace(reason) || reason.Length > 500)
+                throw new ArgumentException("A fizetési módosítás 1–500 karakteres indoklása kötelező.");
+            _databaseContext.OrderPaymentCorrections.Add(new()
+            {
+                Id = Guid.NewGuid(),
+                OrderId = order.Id,
+                ActorId = actorId.Value,
+                CreatedAtUtc = DateTime.UtcNow,
+                PreviousStatus = order.PaymentStatus,
+                NewStatus = nextPayment,
+                Reason = reason
+            });
+        }
 
         if (order.Status == OrderStatus.Cancelled && changes.Status != OrderStatus.Cancelled)
             throw new InvalidOperationException("A lemondott rendelés állapota nem módosítható.");
@@ -92,7 +114,6 @@ public sealed class AdminOrderService : IAdminOrderService
             order.CancelledAtUtc = DateTime.UtcNow;
             order.DeletedAtUtc = order.CancelledAtUtc;
             order.CancellationReason = string.IsNullOrWhiteSpace(changes.CancellationReason) ? null : changes.CancellationReason.Trim();
-            if (order.PaymentStatus == PaymentStatus.Paid) changes.PaymentStatus = PaymentStatus.RefundPending;
         }
 
         if (changes.Status >= OrderStatus.Confirmed && changes.Status != OrderStatus.Cancelled && !order.StockCommitted)
@@ -101,6 +122,7 @@ public sealed class AdminOrderService : IAdminOrderService
             {
                 var product = await _unitOfWork.ProductRepository.GetByIdAsync(item.ProductId, cancellationToken)
                     ?? throw new InvalidOperationException("A rendelés egyik terméke már nem található.");
+                await StockUpdatePolicy.ValidateAsync(_unitOfWork, product, product.StockQuantity - item.Quantity, cancellationToken);
                 product.StockQuantity -= item.Quantity;
                 if (product.StockQuantity < 0) throw new InvalidOperationException($"Nincs elegendő készlet: {item.ProductName}.");
             }
@@ -110,7 +132,7 @@ public sealed class AdminOrderService : IAdminOrderService
         if (order.Status == OrderStatus.Pending && changes.Status >= OrderStatus.Confirmed && changes.Status != OrderStatus.Cancelled)
             order.ConfirmedAtUtc = DateTime.UtcNow;
         order.Status = changes.Status;
-        order.PaymentStatus = changes.PaymentStatus;
+        order.PaymentStatus = nextPayment;
         var updatedOrder = order.ToDto();
 
         if (originalStatus != updatedOrder.Status)

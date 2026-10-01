@@ -255,7 +255,8 @@ test("admin can review an order and update its status", async ({ page }) => {
 
   await page.getByRole("button", { name: /Allapot modositasa|Állapot módosítása/ }).click();
   await page.getByLabel(/Rendeles allapota|Rendelés állapota/).selectOption("1");
-  await page.getByLabel(/Fizetes allapota|Fizetés állapota/).selectOption("1");
+  await page.getByLabel(/Fizetes allapota|Fizetés állapota/).selectOption("2");
+  await page.getByLabel("Fizetési módosítás indoklása").fill("Átvételkor készpénzzel rendezve.");
   await page.getByRole("button", { name: /Mentes|Mentés/ }).click();
 
   await expect(page.getByRole("status")).toContainText(/BG-2026-0001.*frissult|BG-2026-0001.*frissült/);

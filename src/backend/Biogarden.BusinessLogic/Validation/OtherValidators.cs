@@ -72,6 +72,7 @@ public sealed class AdminOrderUpdateDtoValidator : AbstractValidator<AdminOrderU
 {
     public AdminOrderUpdateDtoValidator()
     {
+        RuleFor(x => x.PaymentCorrectionReason).MaximumLength(500).WithMessage("Legfeljebb 500 karakter adható meg.");
         RuleFor(x => x.Status).IsInEnum().WithMessage("Érvénytelen érték.");
         RuleFor(x => x.PaymentStatus).IsInEnum().WithMessage("Érvénytelen érték.");
         RuleFor(x => x.CancellationReason).MaximumLength(1000).WithMessage("Legfeljebb 1000 karakter adható meg.");
