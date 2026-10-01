@@ -55,9 +55,11 @@ public sealed class AdminStockTests : IAsyncLifetime
     {
         using var scope = provider is null ? _app.Factory.Services.CreateScope() : null;
         provider ??= scope!.ServiceProvider;
+        var product = await provider.GetRequiredService<Biogarden.DataAccess.Abstractions.IUnitOfWork>().ProductRepository.GetByIdAsync(id);
+        var version = Convert.ToBase64String(product!.RowVersion);
         if (inventory)
-            await provider.GetRequiredService<IAdminInventoryService>().UpdateAsync(id, new UpdateAdminInventoryDto { StockQuantity = quantity, Available = true });
+            await provider.GetRequiredService<IAdminInventoryService>().UpdateAsync(id, new UpdateAdminInventoryDto { Version = version, StockQuantity = quantity, Available = true });
         else
-            await provider.GetRequiredService<IProductService>().UpdateAsync(id, new ProductEditDto { Name = "Reserved tea", Price = 1000, StockQuantity = quantity, Available = true });
+            await provider.GetRequiredService<IProductService>().UpdateAsync(id, new ProductEditDto { Version = version, Name = "Reserved tea", Price = 1000, StockQuantity = quantity, Available = true });
     }
 }

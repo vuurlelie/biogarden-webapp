@@ -66,6 +66,7 @@ public sealed class AdminOrderService : IAdminOrderService
             .Include(item => item.WithdrawalRequests)
             .SingleOrDefaultAsync(item => item.Id == orderId, cancellationToken)
             ?? throw new KeyNotFoundException("Order not found.");
+        AdminEditVersion.RequireCurrent(changes.Version, order.RowVersion);
         var originalStatus = order.Status;
 
         if (order.Status == OrderStatus.Cancelled && changes.Status != OrderStatus.Cancelled)
@@ -133,7 +134,7 @@ public sealed class AdminOrderService : IAdminOrderService
 
         // The state change and its notification commit atomically in one SaveChanges.
         await _unitOfWork.SaveChangesAsync(cancellationToken);
-        return updatedOrder;
+        return order.ToDto();
     }
 
     public async Task<AdminOrderWithdrawalRequestDto> MarkWithdrawalRequestHandledAsync(

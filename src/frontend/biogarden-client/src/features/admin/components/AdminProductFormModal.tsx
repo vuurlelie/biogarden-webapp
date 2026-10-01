@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import type { ProductCategory, ProductDetails, UnitOfMeasure } from "../../products/types/product.types";
 import { useModalFocus } from "../../../shared/hooks/useModalFocus";
-import { getErrorMessage, getServerFieldErrors } from "../../../shared/utils/errorHandling";
+import { getErrorMessage, getServerFieldErrors, hasErrorStatus } from "../../../shared/utils/errorHandling";
+import { getProductById } from "../../products/api/productsApi";
 import {
   createAdminProduct,
   deleteUnusedAdminProductImage,
@@ -182,6 +183,20 @@ async function normalizeProductImageFile(file: File): Promise<File> {
 
 export default function AdminProductFormModal({ product, onClose, onSaved }: Props) {
   const [form, setForm] = useState(() => initialState(product));
+  const [version, setVersion] = useState(product?.version);
+  const [conflict, setConflict] = useState(false);
+  const [previousForm, setPreviousForm] = useState<FormState | null>(null);
+  async function reloadCurrent() {
+    if (!product) return;
+    setSaving(true);
+    try {
+      const current = await getProductById(product.id);
+      if (!current) throw new Error("A termék már nem érhető el.");
+      setPreviousForm(form); setForm(initialState(current)); setVersion(current.version);
+      setImageFile(null); setConflict(false); setFormError(null); setFieldErrors({});
+    } catch (error) { setFormError(getErrorMessage(error, "A frissítés nem sikerült.")); }
+    finally { setSaving(false); }
+  }
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [selectedImagePreviewUrl, setSelectedImagePreviewUrl] = useState("");
   const [formError, setFormError] = useState<string | null>(null);
@@ -322,6 +337,7 @@ export default function AdminProductFormModal({ product, onClose, onSaved }: Pro
 
   async function submit(event: FormEvent) {
     event.preventDefault();
+    if (saving || conflict) return;
     setFormError(null);
     setFieldErrors({});
 
@@ -367,6 +383,7 @@ export default function AdminProductFormModal({ product, onClose, onSaved }: Pro
 
       const image = uploadedImage ?? (product ? form.image.trim() : form.image.trim() || null);
       const payload: AdminProductInput = {
+        version,
         name: form.name.trim(),
         description: form.description.trim() || null,
         price,
@@ -388,6 +405,7 @@ export default function AdminProductFormModal({ product, onClose, onSaved }: Pro
 
       onSaved(product ? "A termék módosítása sikerült." : "Az új termék létrehozása sikerült.");
     } catch (saveError) {
+      if (hasErrorStatus(saveError, 409)) setConflict(true);
       setFieldErrors(getServerFieldErrors(saveError, ["name", "price", "stockQuantity", "unitAmount", "image"] as const));
       if (uploadedImage) {
         try {
@@ -433,6 +451,14 @@ export default function AdminProductFormModal({ product, onClose, onSaved }: Pro
         </div>
 
         <form onSubmit={submit} className="space-y-6 p-5 sm:p-6">
+          {conflict && <button type="button" disabled={saving} onClick={() => void reloadCurrent()}>Aktuális adatok betöltése</button>}
+          {previousForm && <details className="rounded-sm border p-3"><summary>Korábbi bevitel – ellenőrizd, majd alkalmazd újra a szükséges módosításokat</summary>
+            <p>{previousForm.name} — {previousForm.price} Ft — {previousForm.stockQuantity} db</p>
+            <p>{previousForm.description}</p>
+            <p>Kategória: {categories.find(([id]) => id === previousForm.category)?.[1]}; egység: {salesUnits.find(([id]) => id === previousForm.unit)?.[1]}; kiszerelés: {previousForm.unitAmount} {packageMeasures.find(([id]) => id === previousForm.unitAmountMeasure)?.[1]}</p>
+            <p>Rendelhető: {previousForm.available ? "igen" : "nem"}; szállítható: {previousForm.deliveryAvailable ? "igen" : "nem"}</p>
+            <p>Kép: {previousForm.image || "alapértelmezett"}. A kiválasztott új képfájlt szükség esetén válaszd ki újra.</p>
+          </details>}
           {formError && (
             <div role="alert" className="rounded-sm bg-site-danger-soft p-4 text-site-danger">
               {formError}
@@ -717,7 +743,7 @@ export default function AdminProductFormModal({ product, onClose, onSaved }: Pro
             </button>
             <button
               type="submit"
-              disabled={saving}
+              disabled={saving || conflict}
               className="rounded-sm bg-site-green px-5 py-3 font-semibold text-white hover:bg-site-green-hover disabled:opacity-60"
             >
               {saving ? "Mentés..." : "Mentés"}

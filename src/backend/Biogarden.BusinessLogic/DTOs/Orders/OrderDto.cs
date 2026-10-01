@@ -4,6 +4,7 @@ namespace Biogarden.BusinessLogic.DTOs.Orders;
 
 public class OrderDto
 {
+    public string Version { get; init; } = string.Empty;
     public Guid Id { get; set; }
 
     public string OrderNumber { get; set; } = string.Empty;

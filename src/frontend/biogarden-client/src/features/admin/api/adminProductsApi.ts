@@ -3,6 +3,7 @@ import type { ProductCategory, ProductDetails, UnitOfMeasure } from "../../produ
 import { adminRequest } from "./adminApiClient";
 
 export type AdminProductInput = {
+  version?: string;
   name: string;
   description: string | null;
   price: number;

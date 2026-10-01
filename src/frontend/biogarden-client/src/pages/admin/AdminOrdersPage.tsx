@@ -22,7 +22,7 @@ import AdminListEmptyState from "../../shared/components/admin/AdminListEmptySta
 import AdminListSkeletonGrid from "../../shared/components/admin/AdminListSkeletonGrid";
 import AdminPageHeader from "../../shared/components/admin/AdminPageHeader";
 import AdminPagination from "../../shared/components/admin/AdminPagination";
-import { getErrorMessage, isAbortError } from "../../shared/utils/errorHandling";
+import { getErrorMessage, isAbortError, hasErrorStatus } from "../../shared/utils/errorHandling";
 
 const PAGE_SIZE = 12;
 
@@ -69,6 +69,19 @@ function OrderCard({
   const [reason, setReason] = useState(order.cancellationReason ?? "");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [conflict, setConflict] = useState(false);
+  const [previousInput, setPreviousInput] = useState("");
+  async function reloadCurrent() {
+    setSaving(true);
+    try {
+      const current = (await getAdminOrders()).find(value => value.id === order.id);
+      if (!current) throw new Error("A rendelés már nem érhető el.");
+      setPreviousInput(`Korábbi bevitel: ${getOrderStatusLabel(status)}, ${getPaymentStatusLabel(payment)}; ${reason}. Ellenőrizd az aktuális adatokat, majd alkalmazd újra a szükséges módosítást.`);
+      onUpdated(current); setStatus(current.status); setPayment(current.paymentStatus);
+      setReason(current.cancellationReason ?? ""); setConflict(false); setError(null);
+    } catch (error) { setError(getErrorMessage(error, "A frissítés nem sikerült.")); }
+    finally { setSaving(false); }
+  }
   const terminal = order.status === 3 || order.status === 4;
   const detailsId = `admin-order-details-${order.id}`;
   const statusSelectId = `admin-order-status-${order.id}`;
@@ -76,6 +89,7 @@ function OrderCard({
   const cancellationReasonId = `admin-order-cancellation-reason-${order.id}`;
 
   async function save() {
+    if (saving || conflict) return;
     setSaving(true);
     setError(null);
 
@@ -85,10 +99,12 @@ function OrderCard({
         status,
         payment,
         status === 4 ? reason.trim() || null : null,
+        order.version,
       );
       onUpdated(updated);
       setEditing(false);
     } catch (saveError) {
+      if (hasErrorStatus(saveError, 409)) setConflict(true);
       setError(getErrorMessage(saveError, "A módosítás nem sikerült."));
     } finally {
       setSaving(false);
@@ -143,6 +159,8 @@ function OrderCard({
         </div>
       </dl>
 
+      {previousInput && <p role="status">{previousInput}</p>}
+      {conflict && <button type="button" disabled={saving} onClick={() => void reloadCurrent()}>Aktuális adatok betöltése</button>}
       {error && (
         <p role="alert" className="mt-4 rounded-sm bg-site-danger-soft p-3 text-sm text-site-danger">
           {error}
@@ -293,7 +311,7 @@ function OrderCard({
                 <button
                   type="button"
                   onClick={() => void save()}
-                  disabled={saving}
+                  disabled={saving || conflict}
                   className="rounded-sm bg-site-green px-4 py-2.5 font-semibold text-white disabled:opacity-60"
                 >
                   {saving ? "Mentés..." : "Mentés"}

@@ -17,6 +17,7 @@ public static class ProductMapper
         => new ProductDetailsDto
         {
             Id = product.Id,
+            Version = Convert.ToBase64String(product.RowVersion),
             Name = product.Name,
             Description = product.Description,
             Price = product.Price,

@@ -4,6 +4,7 @@ namespace Biogarden.BusinessLogic.DTOs.Products;
 
 public sealed class ProductDetailsDto
 {
+    public string Version { get; init; } = string.Empty;
     public int Id { get; set; }
 
     public string Name { get; set; } = string.Empty;

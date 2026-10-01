@@ -2,6 +2,7 @@ import type { UnitOfMeasure } from "../../products/types/product.types";
 import { adminRequest } from "./adminApiClient";
 
 export type AdminInventoryItem = {
+  version: string;
   productId: number;
   name: string;
   image: string;
@@ -24,10 +25,11 @@ export async function updateAdminInventory(
   productId: number,
   stockQuantity: number,
   available: boolean,
+  version: string,
 ): Promise<AdminInventoryItem> {
   const response = await adminRequest(`/inventory/${productId}`, {
     method: "PUT",
-    jsonBody: { stockQuantity, available },
+    jsonBody: { stockQuantity, available, version },
   });
   return response.json() as Promise<AdminInventoryItem>;
 }
