@@ -130,6 +130,37 @@ public sealed class GlsDeliveryPointTests : IAsyncLifetime
     }
 
     [SqlServerFact]
+    public async Task ReplacingValidPointRequiresFreshReviewAndOutageRecoveryCanCompleteOnce()
+    {
+        using var client = _app.Factory.CreateClient();
+        await SeedAsync(client);
+        var original = Point();
+        var replacement = original with { Id = "HU-SECOND", Name = "Second locker", Address = "Other street 3." };
+        _app.Gls.Points[replacement.Id] = replacement;
+        var request = await Request(original).WithQuoteAsync(client);
+        request.GlsDeliveryPointId = replacement.Id;
+        using var tampered = await client.PostAsJsonAsync("/api/orders", request);
+        Assert.Equal(HttpStatusCode.Conflict, tampered.StatusCode);
+        _app.Gls.Unavailable = true;
+        using var outage = await client.PostAsJsonAsync("/api/orders", request);
+        Assert.Equal(HttpStatusCode.ServiceUnavailable, outage.StatusCode);
+        await using var db = _app.OpenDatabase();
+        Assert.Empty(await db.Orders.ToListAsync());
+        Assert.Empty(await db.OrderEmails.ToListAsync());
+        Assert.Equal(3, (await db.Products.AsNoTracking().SingleAsync()).StockQuantity);
+        _app.Gls.Unavailable = false;
+        await request.WithQuoteAsync(client);
+        using var recovered = await client.PostAsJsonAsync("/api/orders", request);
+        Assert.Equal(HttpStatusCode.Created, recovered.StatusCode);
+        var order = (await recovered.Content.ReadFromJsonAsync<OrderDto>())!;
+        Assert.Equal(replacement.Id, order.GlsDeliveryPointId);
+        Assert.Equal(replacement.Address, order.GlsDeliveryPointAddress);
+        Assert.Single(await db.Orders.ToListAsync());
+        Assert.Equal(2, await db.OrderEmails.CountAsync());
+        Assert.Equal(2, (await db.Products.AsNoTracking().SingleAsync()).StockQuantity);
+    }
+
+    [SqlServerFact]
     public async Task DraftRestoresSelectionAndKeepsPersonalFieldsWhenPointBecomesUnavailable()
     {
         using var client = _app.Factory.CreateClient();

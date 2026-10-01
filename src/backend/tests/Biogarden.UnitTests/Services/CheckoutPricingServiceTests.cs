@@ -123,4 +123,35 @@ public sealed class CheckoutPricingServiceTests
             EnabledPaymentMethods = [OrderPaymentMethod.PayAtPickup]
         }.ValidateForStartup());
     }
+
+    [Theory]
+    [InlineData(FulfillmentMethod.HomeDelivery, 2740)]
+    [InlineData(FulfillmentMethod.ParcelLocker, 2090)]
+    [InlineData(FulfillmentMethod.ParcelShop, 2590)]
+    public void CodBoundariesUseRoundedCollectedAmountForEveryDeliveryMethod(FulfillmentMethod method, decimal delivery)
+    {
+        var lastLowerSubtotal = 30000 - delivery - 600;
+        var belowMidpoint = Quote(lastLowerSubtotal + 0.49m, method, OrderPaymentMethod.CashOnDelivery);
+        Assert.Equal(600, belowMidpoint.PaymentFee);
+        Assert.Equal(30000, belowMidpoint.TotalPrice);
+        var atMidpoint = Quote(lastLowerSubtotal + 0.50m, method, OrderPaymentMethod.CashOnDelivery);
+        Assert.Equal(1190, atMidpoint.PaymentFee);
+        Assert.Equal(30591, atMidpoint.TotalPrice);
+        var lastUpperSubtotal = 499999 - delivery - 1190;
+        Assert.Equal(499999, Quote(lastUpperSubtotal + 0.49m, method, OrderPaymentMethod.CashOnDelivery).TotalPrice);
+        Assert.Throws<InvalidOperationException>(() => Quote(lastUpperSubtotal + 0.50m, method, OrderPaymentMethod.CashOnDelivery));
+    }
+
+    [Fact]
+    public void MultipleLinesRoundIndividuallyAndInputOrderDoesNotChangeVersion()
+    {
+        var service = new CheckoutPricingService(Options.Create(Configuration()));
+        OrderItemDto[] items = [new() { ProductId = 2, UnitPrice = 10.25m, Quantity = 2 },
+            new() { ProductId = 1, UnitPrice = 10.49m, Quantity = 1 }];
+        var first = service.Calculate(Guid.Empty, FulfillmentMethod.PersonalPickup, OrderPaymentMethod.OnlineCard, items);
+        var reordered = service.Calculate(Guid.Empty, FulfillmentMethod.PersonalPickup, OrderPaymentMethod.OnlineCard, items.Reverse());
+        Assert.Equal(31, first.Subtotal);
+        Assert.Equal(new decimal[] { 10, 21 }, first.Items.Select(x => x.LineTotal));
+        Assert.Equal(first.Version, reordered.Version);
+    }
 }
