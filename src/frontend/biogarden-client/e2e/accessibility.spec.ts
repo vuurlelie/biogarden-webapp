@@ -66,13 +66,13 @@ test("checkout review modal traps focus and restores it on close", async ({ page
   await expect(reviewButton).toBeFocused();
 });
 
-test("checkout prevents dismissal during submission and restores interaction after failure", async ({ page }) => {
+test("checkout prevents dismissal during submission and restores interaction after validation rejection", async ({ page }) => {
   await mockCheckoutApi(page);
   let releaseOrder!: () => void;
   const pendingOrder = new Promise<void>((resolve) => { releaseOrder = resolve; });
   await page.route(`${apiBaseUrl}/api/orders`, async (route) => {
     await pendingOrder;
-    await route.fulfill({ status: 503, json: { message: "Próbáld újra később." } });
+    await route.fulfill({ status: 400, json: { detail: "Ellenőrizd a rendelés adatait." } });
   });
   await page.goto("/penztar");
   await page.getByLabel(/Név/).fill("Teszt Elek");

@@ -303,6 +303,13 @@ export async function mockCheckoutApi(
   onlinePayment = false,
   onCreateOrder?: (payload: Record<string, unknown>) => void,
 ) {
+  let createdPaymentMethod: number | null = null;
+  await page.route(`${apiBaseUrl}/api/orders/checkout-recovery/*`, route => createdPaymentMethod === null
+    ? route.fulfill({ status: 404 })
+    : route.fulfill({ json: { ...successfulOrder, paymentMethod: createdPaymentMethod } }));
+  await page.route(`${apiBaseUrl}/api/orders/${successfulOrder.id}/receipt`, route => route.fulfill({
+    json: { ...successfulOrder, paymentMethod: onlinePayment ? 0 : 1 },
+  }));
   await mockCheckoutDraftApi(page);
   await page.route(`${apiBaseUrl}/api/cart`, async (route) => {
     if (route.request().method() === "GET") {
@@ -318,6 +325,7 @@ export async function mockCheckoutApi(
   });
 
   await page.route(`${apiBaseUrl}/api/orders`, async (route) => {
+    createdPaymentMethod = route.request().postDataJSON().paymentMethod;
     if (route.request().method() === "POST" && onCreateOrder) {
       onCreateOrder(route.request().postDataJSON() as Record<string, unknown>);
     }
@@ -378,6 +386,9 @@ export async function mockCheckoutValidationIssueApi(page: Page, issueMessage: s
 }
 
 export async function mockCancelledPaymentRetryApi(page: Page) {
+  await page.route(`${apiBaseUrl}/api/orders/${successfulOrder.id}/receipt`, route => route.fulfill({
+    json: { ...successfulOrder, paymentMethod: 0 },
+  }));
   await page.route(`${apiBaseUrl}/api/cart`, async (route) => {
     if (route.request().method() === "GET") {
       await route.fulfill({ json: createCart([]) });

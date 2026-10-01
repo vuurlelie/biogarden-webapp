@@ -193,7 +193,7 @@ test("cancelled online payment shows retry state", async ({ page }) => {
   await mockCancelledPaymentRetryApi(page);
 
   await page.goto(`/penztar?sumup=cancelled&orderId=${successfulOrder.id}`);
-  await expect(page.getByRole("heading", { name: /A fizetes megszakadt|A fizetés megszakadt/ })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /Rendelés és fizetés ellenőrzése/ })).toBeVisible();
   await expect(page.getByRole("button", { name: /Fizetes ujraprobalasa|Fizetés újrapróbálása/ })).toBeVisible();
 });
 

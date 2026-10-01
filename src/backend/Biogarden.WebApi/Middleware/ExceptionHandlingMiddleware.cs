@@ -51,7 +51,10 @@ public sealed class ExceptionHandlingMiddleware
     {
         var (statusCode, title) = exception switch
         {
+            BadHttpRequestException { StatusCode: StatusCodes.Status413PayloadTooLarge }
+                => (HttpStatusCode.RequestEntityTooLarge, "Request body too large."),
             GlsDirectoryUnavailableException => (HttpStatusCode.ServiceUnavailable, "Delivery point directory unavailable."),
+            Biogarden.BusinessLogic.Services.PaymentRecoveryException => (HttpStatusCode.ServiceUnavailable, "Payment reconciliation required."),
             KeyNotFoundException => (HttpStatusCode.NotFound, "Resource not found."),
             ArgumentException => (HttpStatusCode.BadRequest, "Validation failed."),
             UnauthorizedAccessException => (HttpStatusCode.Unauthorized, "Authentication failed."),

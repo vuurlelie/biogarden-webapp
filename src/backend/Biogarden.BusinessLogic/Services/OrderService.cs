@@ -10,6 +10,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Biogarden.BusinessLogic.Options;
+using Biogarden.BusinessLogic.Models.Payments;
 
 namespace Biogarden.BusinessLogic.Services;
 
@@ -312,12 +313,22 @@ public class OrderService : IOrderService
         return order.ToDto();
     }
 
+    public async Task<OrderDto> RecoverCheckoutOrderAsync(Guid? userId, string? sessionId, string idempotencyKey, CancellationToken cancellationToken = default)
+    {
+        var key = NormalizeIdempotencyKey(idempotencyKey);
+        var order = await _unitOfWork.OrderRepository.GetByIdempotencyKeyWithItemsAsync(key, cancellationToken)
+            ?? throw new KeyNotFoundException("Order not found.");
+        EnsureCanAccessOrder(order, userId, sessionId);
+        return order.ToDto();
+    }
+
     public async Task<SumUpCheckoutDto> CreateSumUpCheckoutAsync(
         Guid? userId,
         string? sessionId,
         Guid orderId,
         CancellationToken cancellationToken = default)
     {
+        await using var paymentLock = await _unitOfWork.PaymentAttemptRepository.AcquireLockAsync(orderId, cancellationToken);
         var order = await _unitOfWork.OrderRepository.GetByIdWithItemsAndCartAsync(
             orderId,
             cancellationToken)
@@ -339,13 +350,76 @@ public class OrderService : IOrderService
             throw new InvalidOperationException("Order is already paid.");
         }
 
-        var checkout = await _sumUpCheckoutService.CreateCheckoutAsync(
-            order.ToDto(),
-            cancellationToken);
+        if (!_sumUpOptions.Enabled)
+            throw new InvalidOperationException("Online payment is currently unavailable.");
+
+        // Reject local preconditions before recording an intent that would need provider reconciliation.
+        if (order.Items.Count == 0 || order.TotalPrice <= 0 ||
+            (order.Currency is not null && !string.Equals(order.Currency, _sumUpOptions.Currency, StringComparison.OrdinalIgnoreCase)))
+            throw new InvalidOperationException("The order is not eligible for online payment.");
+
+        var attempts = _unitOfWork.PaymentAttemptRepository;
+        var attempt = await attempts.GetLatestAsync(order.Id, cancellationToken);
+        // Retain the known legacy ID before starting any new provider operation.
+        if (attempt is null && !string.IsNullOrWhiteSpace(order.SumUpCheckoutId))
+        {
+            attempt = new PaymentAttempt
+            {
+                Id = Guid.NewGuid(),
+                OrderId = order.Id,
+                Reference = order.Id.ToString("N"),
+                CheckoutId = order.SumUpCheckoutId,
+                CreateRequested = true,
+                CreatedAtUtc = GetUtcNow()
+            };
+            attempts.Add(attempt);
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+        }
+        SumUpCheckoutResult? checkout = null;
+        if (attempt is not null)
+        {
+            checkout = attempt.CheckoutId is not null
+                ? await _sumUpCheckoutService.GetCheckoutAsync(attempt.CheckoutId, cancellationToken)
+                : await RecoverCheckoutAsync(attempt, cancellationToken);
+            ValidateAttemptCheckout(order, attempt, checkout);
+            attempt.CheckoutId = checkout.CheckoutId;
+            attempt.Status = checkout.Status.ToUpperInvariant();
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+            if (attempt.Status == "PAID")
+            {
+                await ConfirmSumUpCheckoutAsync(checkout.CheckoutId, checkout.TransactionCode, checkout.Amount, checkout.Currency, cancellationToken);
+                throw new InvalidOperationException("A rendelés már ki van fizetve. Ellenőrizd a rendelés állapotát.");
+            }
+            if (attempt.Status == "EXPIRED") { attempt = null; checkout = null; }
+        }
+        if (attempt is null)
+        {
+            attempt = new PaymentAttempt { Id = Guid.NewGuid(), OrderId = order.Id, CreatedAtUtc = GetUtcNow(), CreateRequested = true };
+            attempt.Reference = attempt.Id.ToString("N");
+            attempts.Add(attempt);
+            // Commit intent BEFORE contacting the provider. A lost response is never retried with another POST.
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+            try
+            {
+                checkout = await _sumUpCheckoutService.CreateCheckoutAsync(order.ToDto(), cancellationToken, attempt.Reference);
+            }
+            catch (Exception exception) when (exception is HttpRequestException or System.Text.Json.JsonException or InvalidOperationException ||
+                                             exception is OperationCanceledException && !cancellationToken.IsCancellationRequested)
+            {
+                // The provider may have accepted the request. Keep the durable intent for lookup.
+                throw new PaymentRecoveryException();
+            }
+            ValidateAttemptCheckout(order, attempt, checkout);
+            attempt.CheckoutId = checkout.CheckoutId;
+            attempt.Status = checkout.Status.ToUpperInvariant();
+        }
+        if (checkout is null || attempt.Status is not ("PENDING" or "FAILED") ||
+            !Uri.TryCreate(checkout.HostedCheckoutUrl, UriKind.Absolute, out var hostedUrl) || hostedUrl.Scheme != "https")
+            throw new PaymentRecoveryException();
 
         order.SumUpCheckoutId = checkout.CheckoutId;
         order.SumUpTransactionId = checkout.TransactionCode;
-        order.PaymentStatus = PaymentStatus.Pending;
+        order.PaymentStatus = attempt.Status == "FAILED" ? PaymentStatus.Failed : PaymentStatus.Pending;
 
         _unitOfWork.OrderRepository.Update(order);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
@@ -354,8 +428,73 @@ public class OrderService : IOrderService
         {
             OrderId = order.Id,
             CheckoutId = checkout.CheckoutId,
-            Url = checkout.HostedCheckoutUrl!
+            Url = hostedUrl.AbsoluteUri
         };
+    }
+
+    private async Task<SumUpCheckoutResult> RecoverCheckoutAsync(PaymentAttempt attempt, CancellationToken token)
+    {
+        var candidates = await _sumUpCheckoutService.FindCheckoutsAsync(attempt.Reference, token);
+        if (candidates.Count != 1) throw new PaymentRecoveryException();
+        return candidates[0];
+    }
+
+    private void ValidateAttemptCheckout(Order order, PaymentAttempt attempt, SumUpCheckoutResult checkout)
+    {
+        EnsureSumUpCheckoutMatchesOrder(order, checkout.Amount, checkout.Currency);
+        if (checkout.Status is not ("PENDING" or "FAILED" or "PAID" or "EXPIRED") ||
+            (checkout.Status == "PAID" && string.IsNullOrWhiteSpace(checkout.TransactionCode)))
+            throw new PaymentRecoveryException();
+        if (string.IsNullOrWhiteSpace(checkout.CheckoutId) || checkout.CheckoutId.Length > 100 ||
+            (attempt.CheckoutId is not null && attempt.CheckoutId != checkout.CheckoutId) ||
+            checkout.CheckoutReference != attempt.Reference || checkout.MerchantCode != _sumUpOptions.MerchantCode)
+            throw new PaymentRecoveryException();
+    }
+
+    // Only call with a checkout fetched using the server's SumUp credentials, never webhook fields.
+    public async Task ReconcileSumUpCheckoutAsync(SumUpCheckoutResult checkout, CancellationToken cancellationToken = default)
+    {
+        var attempts = _unitOfWork.PaymentAttemptRepository;
+        var orderId = await attempts.FindOrderIdAsync(checkout.CheckoutId, checkout.CheckoutReference, cancellationToken)
+            ?? throw new KeyNotFoundException("Payment attempt not found.");
+        await using var paymentLock = await attempts.AcquireLockAsync(orderId, cancellationToken);
+        var order = await _unitOfWork.OrderRepository.GetByIdWithItemsAndCartAsync(orderId, cancellationToken)
+            ?? throw new KeyNotFoundException("Order not found.");
+        var attempt = await attempts.GetByCheckoutAsync(checkout.CheckoutId, cancellationToken);
+        if (attempt is null && checkout.CheckoutReference is not null)
+            attempt = await attempts.GetByReferenceAsync(checkout.CheckoutReference, cancellationToken);
+        if (attempt is null)
+        {
+            // Existing orders predate attempt tracking, but still have a server-owned checkout ID.
+            if (order.SumUpCheckoutId != checkout.CheckoutId) throw new PaymentRecoveryException();
+            attempt = new PaymentAttempt
+            {
+                Id = Guid.NewGuid(),
+                OrderId = orderId,
+                Reference = orderId.ToString("N"),
+                CheckoutId = checkout.CheckoutId,
+                CreatedAtUtc = GetUtcNow(),
+                CreateRequested = true
+            };
+            attempts.Add(attempt);
+        }
+        if (attempt.OrderId != order.Id) throw new PaymentRecoveryException();
+        ValidateAttemptCheckout(order, attempt, checkout);
+        attempt.CheckoutId = checkout.CheckoutId;
+        attempt.Status = checkout.Status.Trim().ToUpperInvariant();
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        if (attempt.Status == "PAID")
+        {
+            if (string.IsNullOrWhiteSpace(checkout.TransactionCode)) throw new PaymentRecoveryException();
+            await ConfirmSumUpCheckoutAsync(checkout.CheckoutId, checkout.TransactionCode, checkout.Amount, checkout.Currency, cancellationToken);
+        }
+        else if (attempt.Status is "FAILED" or "EXPIRED")
+        {
+            // A delayed failure for a superseded checkout must not fail the current attempt.
+            if (order.SumUpCheckoutId is null || order.SumUpCheckoutId == checkout.CheckoutId)
+                await MarkSumUpPaymentFailedAsync(checkout.CheckoutId, checkout.TransactionCode, cancellationToken);
+        }
     }
 
     public async Task<OrderDto> ConfirmSumUpCheckoutAsync(
@@ -372,6 +511,12 @@ public class OrderService : IOrderService
 
         EnsureSumUpCheckoutMatchesOrder(order, amount, currency);
 
+        if (order.PaymentStatus is PaymentStatus.Paid or PaymentStatus.RefundPending or PaymentStatus.Refunded or PaymentStatus.PartiallyRefunded &&
+            ((!string.IsNullOrWhiteSpace(order.SumUpCheckoutId) && order.SumUpCheckoutId != sumUpCheckoutId) ||
+             (!string.IsNullOrWhiteSpace(order.SumUpTransactionId) && !string.IsNullOrWhiteSpace(sumUpTransactionId) &&
+              order.SumUpTransactionId != sumUpTransactionId)))
+            throw new PaymentRecoveryException(); // Possible second payment: retain the original transaction for reconciliation.
+
         if (order.Status == OrderStatus.Cancelled)
         {
             // Money can arrive after cancellation; preserve fulfillment and released stock.
@@ -385,6 +530,7 @@ public class OrderService : IOrderService
             order.ConfirmedAtUtc ??= GetUtcNow();
         }
 
+        order.SumUpCheckoutId = sumUpCheckoutId;
         order.SumUpTransactionId = NormalizeOptional(sumUpTransactionId) ?? order.SumUpTransactionId;
 
         _unitOfWork.OrderRepository.Update(order);
@@ -419,7 +565,8 @@ public class OrderService : IOrderService
             order.PaymentStatus = PaymentStatus.Failed;
         }
 
-        order.SumUpTransactionId = NormalizeOptional(sumUpTransactionId) ?? order.SumUpTransactionId;
+        if (order.PaymentStatus == PaymentStatus.Failed)
+            order.SumUpTransactionId = NormalizeOptional(sumUpTransactionId) ?? order.SumUpTransactionId;
 
         _unitOfWork.OrderRepository.Update(order);
         await _unitOfWork.SaveChangesAsync(cancellationToken);

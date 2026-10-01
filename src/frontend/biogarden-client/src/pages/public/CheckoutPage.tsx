@@ -19,9 +19,9 @@ import { CheckoutOrderSummary } from "../../features/checkout/components/Checkou
 import { CheckoutReviewModal } from "../../features/checkout/components/CheckoutReviewModal";
 import {
   CheckoutEmptyCartView,
-  CheckoutInterruptedView,
   CheckoutLoadingView,
 } from "../../features/checkout/components/CheckoutStatusViews";
+import { CheckoutRecoveryView } from "../../features/checkout/components/CheckoutRecoveryView";
 import {
   CONTACT_FIELDS,
 } from "../../features/checkout/constants/checkoutFields";
@@ -69,6 +69,7 @@ export default function CheckoutPage() {
   const gls = useGlsDeliveryPoint(draft.glsDeliveryPointId, method);
   const [loading, setLoading] = useState(authenticated);
   const [submitting, setSubmitting] = useState(false);
+  const [rejectedCheckoutKey, setRejectedCheckoutKey] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [fieldErrors, setFieldErrors] = useState<CheckoutFieldErrors>({});
   const [showReview, setShowReview] = useState(false);
@@ -113,9 +114,10 @@ export default function CheckoutPage() {
   const cancelledSumUpOrderId = searchParams.get("sumup") === "cancelled"
     ? searchParams.get("orderId")
     : null;
+  const checkoutKey = searchParams.get("checkoutKey") === rejectedCheckoutKey ? null : searchParams.get("checkoutKey");
 
   useModalFocus(reviewModalRef, {
-    isOpen: showReview && Boolean(quote) && !cancelledSumUpOrderId && !loading && !cartLoading && draftReady && Boolean(cart?.items.length),
+    isOpen: showReview && Boolean(quote) && (submitting || (!cancelledSumUpOrderId && !checkoutKey)) && !loading && !cartLoading && draftReady && Boolean(cart?.items.length),
     onClose: () => { if (!submitting) setShowReview(false); },
     returnFocusRef: reviewButtonRef,
   });
@@ -426,9 +428,17 @@ export default function CheckoutPage() {
     setError("");
 
     let orderCreated = false;
+    let requestStarted = false;
+    let submissionKey: string | null = null;
     try {
       await draftStorage.pause();
-      const order = await createOrder(buildCheckoutOrderRequest(draft, effectiveCustomerType, method, cart.id, quote));
+      const request = buildCheckoutOrderRequest(draft, effectiveCustomerType, method, cart.id, quote);
+      submissionKey = request.idempotencyKey;
+      setRejectedCheckoutKey(null);
+      // Save only the server-owned cart key in the URL before submitting; no personal data.
+      setSearchParams({ checkoutKey: request.idempotencyKey }, { replace: true });
+      requestStarted = true;
+      const order = await createOrder(request);
       orderCreated = true;
 
       track("order_submitted", {
@@ -447,10 +457,16 @@ export default function CheckoutPage() {
         return;
       }
 
-      navigate(ROUTES.orderSuccess, { replace: true, state: { order } });
+        navigate(ROUTES.orderSuccess, { replace: true, state: { order } });
       void refresh().catch(() => undefined);
     } catch (submitError) {
-      if (!orderCreated) draftStorage.resume();
+      const rejected = [400, 401, 403, 404, 409, 422, 429].some(status => hasErrorStatus(submitError, status));
+      if (!orderCreated && (!requestStarted || rejected)) {
+        // Router transitions can lag state updates. Keep the existing form mounted for focus restoration.
+        setRejectedCheckoutKey(submissionKey);
+        setSearchParams({}, { replace: true });
+        draftStorage.resume();
+      }
       if (!orderCreated && hasErrorStatus(submitError, 409)) {
         pricing.retry();
         setTermsAccepted(false);
@@ -470,28 +486,8 @@ export default function CheckoutPage() {
     }
   }
 
-  async function retrySumUpPayment(orderId: string) {
-    setSubmitting(true);
-    setError("");
-
-    try {
-      const checkout = await createSumUpCheckout(orderId);
-      window.location.assign(checkout.url);
-    } catch (retryError) {
-      setError(getErrorMessage(retryError, "A fizetés újraindítása nem sikerült."));
-    } finally {
-      setSubmitting(false);
-    }
-  }
-
-  if (cancelledSumUpOrderId) {
-    return (
-      <CheckoutInterruptedView
-        error={error}
-        submitting={submitting}
-        onRetry={() => void retrySumUpPayment(cancelledSumUpOrderId)}
-      />
-    );
+  if (!submitting && (cancelledSumUpOrderId || checkoutKey)) {
+    return <CheckoutRecoveryView orderId={cancelledSumUpOrderId} checkoutKey={checkoutKey} busy={submitting} error={error} />;
   }
 
   if (cart?.items.length && !draftReady && draftStorage.error) {

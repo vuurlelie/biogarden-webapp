@@ -24,7 +24,7 @@ On IIS/SmarterASP, configure and verify application availability if timely physi
 
 Drafts are not authoritative orders. Checkout still validates inputs, cart state and legal acceptance when placing an order. The cart ID supplies a stable idempotency key without browser storage. The server's ownership checks and existing order/cart uniqueness protections remain authoritative.
 
-After online-payment order creation, the frontend records the order ID in the checkout URL before starting payment. If payment startup fails or the page reloads, retry uses that existing order. The ID does not grant access; guest cookie or account authorization is still required. A cart-refresh failure after a pickup order cannot turn successful order creation into a failed checkout. Provider-side attempt recovery and longer-lived guest order access remain separate from draft persistence.
+The frontend now retains the submission key before placing an order and the order ID before starting online payment, so lost responses and refreshes can recover the existing order. Ownership is still required. A cart-refresh failure after a pickup order cannot turn successful order creation into a failed checkout. See [payment recovery](payment-recovery.md) for browser behaviour, provider attempts and reconciliation; those rules are separate from draft persistence.
 
 ## Deployment and verification
 

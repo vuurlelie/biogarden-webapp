@@ -24,7 +24,7 @@ public sealed class SumUpCheckoutService : ISumUpCheckoutService
 
     public async Task<SumUpCheckoutResult> CreateCheckoutAsync(
         OrderDto order,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default, string? reference = null)
     {
         if (!_options.Enabled)
         {
@@ -46,7 +46,7 @@ public sealed class SumUpCheckoutService : ISumUpCheckoutService
 
         var result = await _checkoutClient.CreateAsync(
             new SumUpCreateCheckoutRequest(
-                CheckoutReference: checkoutReference,
+                CheckoutReference: reference ?? checkoutReference,
                 Amount: order.TotalPrice,
                 Currency: (order.Currency ?? _options.Currency).ToUpperInvariant(),
                 MerchantCode: _options.MerchantCode,
@@ -84,6 +84,12 @@ public sealed class SumUpCheckoutService : ISumUpCheckoutService
             _options.ApiKey,
             BuildApiBaseUri(),
             cancellationToken);
+    }
+
+    public Task<IReadOnlyList<SumUpCheckoutResult>> FindCheckoutsAsync(string reference, CancellationToken cancellationToken = default)
+    {
+        if (!_options.Enabled) throw new InvalidOperationException("SumUp checkout is not enabled.");
+        return _checkoutClient.FindAsync(reference, _options.ApiKey, BuildApiBaseUri(), cancellationToken);
     }
 
     private string BuildRedirectUrl(string checkoutId, OrderDto order)
