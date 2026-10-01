@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useSearchParams } from "react-router";
+import { OrderPurchaseSummary } from "../../features/account/components/OrderPurchaseSummary";
+import { FULFILLMENT_LABELS } from "../../features/checkout/constants/fulfillment";
 import type {
   FulfillmentMethod,
   Order,
@@ -24,11 +26,7 @@ import { getErrorMessage, isAbortError } from "../../shared/utils/errorHandling"
 
 const PAGE_SIZE = 12;
 
-const fulfillmentLabels: Record<FulfillmentMethod, string> = {
-  0: "Személyes átvétel",
-  1: "Házhoz szállítás",
-  2: "Csomagautomata",
-};
+const fulfillmentLabels = FULFILLMENT_LABELS;
 
 const statuses: OrderStatus[] = [0, 1, 2, 3, 4];
 const paymentStatuses: PaymentStatus[] = [0, 1, 2, 3, 4, 5, 6];
@@ -153,6 +151,7 @@ function OrderCard({
 
       {open && (
         <div id={detailsId} className="mt-5 min-w-0 space-y-5 border-t border-site-border pt-5">
+          <OrderPurchaseSummary order={order} />
           <section className="min-w-0">
             <h3 className="font-bold text-site-heading">Termékek</h3>
             <div className="mt-2 space-y-2">
@@ -198,7 +197,7 @@ function OrderCard({
               )}
             </DetailCard>
 
-            <DetailCard title="Szállítási cím">
+              <DetailCard title="Szállítási cím">
               <p>
                 {order.fulfillmentMethod === 0
                   ? "Személyes átvétel"
@@ -448,6 +447,7 @@ export default function AdminOrdersPage() {
             <option value="0">Személyes átvétel</option>
             <option value="1">Házhoz szállítás</option>
             <option value="2">Csomagautomata</option>
+            <option value="3">GLS CsomagPont</option>
           </select>
         </label>
       </section>

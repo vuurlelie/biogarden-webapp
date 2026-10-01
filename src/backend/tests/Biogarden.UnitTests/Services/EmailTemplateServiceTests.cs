@@ -446,6 +446,44 @@ public sealed class EmailTemplateServiceTests
         Assert.Contains("https://bakonykincse.hu/logo.png", message.HtmlBody);
     }
 
+    [Fact]
+    public void OrderMessagesShowSavedFeesPaymentMethodAndEscapedGlsDestination()
+    {
+        var order = CreateOrderDto();
+        order.Subtotal = 5000;
+        order.DeliveryFee = 2590;
+        order.PaymentFee = 600;
+        order.TotalPrice = 8190;
+        order.Currency = "HUF";
+        order.PaymentMethod = OrderPaymentMethod.CashOnDelivery;
+        order.FulfillmentMethod = FulfillmentMethod.ParcelShop;
+        order.GlsDeliveryPointId = "HU-TEST";
+        order.GlsDeliveryPointName = "<GLS shop>";
+        order.GlsDeliveryPointAddress = "Saved street 12";
+        var service = CreateOrderTemplateService();
+        foreach (var message in new[] { service.BuildOrderConfirmationMessage("test@example.com", order),
+            service.BuildOrderBusinessNotificationMessage("test@example.com", order), service.BuildOrderStatusChangedMessage("test@example.com", order) })
+        {
+            Assert.Contains("Szállítási díj", WebUtility.HtmlDecode(message.HtmlBody));
+            Assert.Contains("Fizetési díj", message.PlainTextBody);
+            Assert.Contains("Utánvét", message.PlainTextBody);
+            Assert.Contains("GLS CsomagPont", message.PlainTextBody);
+            Assert.Contains("HU-TEST", message.HtmlBody);
+            Assert.Contains("Saved street 12", message.PlainTextBody);
+            Assert.DoesNotContain("<GLS shop>", message.HtmlBody);
+            Assert.DoesNotContain("nem áll rendelkezésre", message.PlainTextBody);
+        }
+    }
+
+    [Fact]
+    public void LegacyOrderEmailDoesNotInventHistoricalFeesOrPaymentMethod()
+    {
+        var message = CreateOrderTemplateService().BuildOrderConfirmationMessage("test@example.com", CreateOrderDto());
+        Assert.Contains("nincs rögzítve", message.PlainTextBody);
+        Assert.Contains("díjbontása nem áll rendelkezésre", message.PlainTextBody);
+        Assert.DoesNotContain("Szállítási díj:", message.PlainTextBody);
+    }
+
     private static EmailTemplateService CreateOrderTemplateService()
     {
         return new EmailTemplateService(Options.Create(new EmailBrandingOptions

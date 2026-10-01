@@ -10,6 +10,11 @@ import { getAuthSession } from "../../features/auth/utils/authStorage";
 import { validateCart } from "../../features/cart/api/cartApi";
 import { useCart } from "../../features/cart/context/useCart";
 import { useCheckoutDraft } from "../../features/checkout/hooks/useCheckoutDraft";
+import { useGlsDeliveryPoint } from "../../features/checkout/hooks/useGlsDeliveryPoint";
+import { useCheckoutPricing } from "../../features/checkout/hooks/useCheckoutPricing";
+import { PAYMENT, PAYMENT_CODES, PAYMENT_LABELS } from "../../features/checkout/constants/payment";
+import { GlsPointPicker } from "../../features/checkout/components/GlsPointPicker";
+import { FULFILLMENT, FULFILLMENT_LABELS, isGlsMethod } from "../../features/checkout/constants/fulfillment";
 import { CheckoutOrderSummary } from "../../features/checkout/components/CheckoutOrderSummary";
 import { CheckoutReviewModal } from "../../features/checkout/components/CheckoutReviewModal";
 import {
@@ -60,7 +65,8 @@ export default function CheckoutPage() {
   const [deliveryManual, setDeliveryManual] = useState(!authenticated);
   const draftStorage = useCheckoutDraft(cart?.items.length ? cart.id : undefined);
   const { draft, setDraft, ready: draftReady } = draftStorage;
-  const [method, setMethod] = useState<FulfillmentMethod>(0);
+  const method = draft.fulfillmentMethod;
+  const gls = useGlsDeliveryPoint(draft.glsDeliveryPointId, method);
   const [loading, setLoading] = useState(authenticated);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
@@ -79,9 +85,10 @@ export default function CheckoutPage() {
     () => Boolean(cart?.items.length && cart.items.every((item) => item.deliveryAvailable)),
     [cart],
   );
-  const deliveryFee = method === 1 ? 1500 : method === 2 ? 1000 : 0;
-  const paymentFee = paymentMethod === "cash-on-delivery" ? 500 : 0;
-  const grandTotal = (cart?.totalPrice ?? 0) + deliveryFee + paymentFee;
+  const pricing = useCheckoutPricing(cart, method, paymentMethod, isGlsMethod(method) ? draft.glsDeliveryPointId : null,
+    draftReady && (method === FULFILLMENT.PersonalPickup || deliveryAllowed) && (!isGlsMethod(method) || Boolean(gls.point)));
+  const quote = pricing.quote;
+  const availablePayments = pricing.methods?.find(choice => choice.fulfillmentMethod === method)?.paymentMethods ?? [];
   const effectiveCustomerType = authenticated && profile ? profile.customerType : draft.customerType;
   const billingAddress: AddressFormData = {
     postalCode: draft.postalCode,
@@ -108,7 +115,7 @@ export default function CheckoutPage() {
     : null;
 
   useModalFocus(reviewModalRef, {
-    isOpen: showReview && !cancelledSumUpOrderId && !loading && !cartLoading && draftReady && Boolean(cart?.items.length),
+    isOpen: showReview && Boolean(quote) && !cancelledSumUpOrderId && !loading && !cartLoading && draftReady && Boolean(cart?.items.length),
     onClose: () => { if (!submitting) setShowReview(false); },
     returnFocusRef: reviewButtonRef,
   });
@@ -171,12 +178,29 @@ export default function CheckoutPage() {
   }, [authenticated, hasDraft, navigate, profile, draftReady, setDraft]);
 
   useEffect(() => {
-    if (!deliveryAllowed && method !== 0) setMethod(0);
-  }, [deliveryAllowed, method]);
+    if (!cartLoading && draftReady && !deliveryAllowed && method !== FULFILLMENT.PersonalPickup) {
+      setDraft(current => ({ ...current, fulfillmentMethod: FULFILLMENT.PersonalPickup, glsDeliveryPointId: null }));
+    }
+  }, [cartLoading, draftReady, deliveryAllowed, method, setDraft]);
 
   useEffect(() => {
     setPaymentMethod(null);
-  }, [method]);
+    setShowReview(false);
+    setTermsAccepted(false);
+    setPrivacyAccepted(false);
+  }, [method, draft.glsDeliveryPointId]);
+
+  useEffect(() => {
+    setShowReview(false);
+    setTermsAccepted(false);
+    setPrivacyAccepted(false);
+  }, [quote?.version, paymentMethod]);
+
+  function setMethod(next: FulfillmentMethod) {
+    setDraft(current => ({ ...current, fulfillmentMethod: next, glsDeliveryPointId: null,
+      ...(isGlsMethod(next) ? emptyDeliveryDraft() : {}) }));
+    setFieldErrors({});
+  }
 
   useEffect(() => {
     if (!cart?.items.length || checkoutStartedTrackedRef.current) return;
@@ -316,6 +340,14 @@ export default function CheckoutPage() {
     }
 
     const errors = validateCheckoutFields(draft, effectiveCustomerType, method);
+    if (!pricing.methods?.some(choice => choice.fulfillmentMethod === method) || pricing.methodsError) {
+      setError(pricing.methodsError || "Válassz egy elérhető átvételi módot.");
+      return;
+    }
+    if (step === "payment" && !quote) { setError("Ellenőrizd újra az árakat a folytatáshoz."); return; }
+    if (isGlsMethod(method) && !gls.point) {
+      errors.glsDeliveryPointId = gls.loading ? "Várd meg az átvételi pont ellenőrzését." : gls.error ?? "Válassz egy GLS átvételi pontot a térképen.";
+    }
     setFieldErrors(errors);
     if (Object.keys(errors).length) {
       requestAnimationFrame(() => {
@@ -369,6 +401,7 @@ export default function CheckoutPage() {
 
   async function placeOrder() {
     if (submitting) return;
+    if (!quote) { setShowReview(false); setError("Az árösszesítés megváltozott. Tekintsd át újra a rendelést."); return; }
     if (!cart?.items.length) {
       setError("A kosár üres.");
       setShowReview(false);
@@ -395,7 +428,7 @@ export default function CheckoutPage() {
     let orderCreated = false;
     try {
       await draftStorage.pause();
-      const order = await createOrder(buildCheckoutOrderRequest(draft, effectiveCustomerType, method, cart.id));
+      const order = await createOrder(buildCheckoutOrderRequest(draft, effectiveCustomerType, method, cart.id, quote));
       orderCreated = true;
 
       track("order_submitted", {
@@ -405,7 +438,7 @@ export default function CheckoutPage() {
         cartValueBucket: getCartValueBucket(cart.totalPrice),
       });
 
-      if (paymentMethod === "online-card") {
+      if (order.paymentMethod === PAYMENT.OnlineCard) {
         // Retain only the order identifier in the URL, before contacting the provider.
         // The backend still checks ownership; a failed payment start must not resubmit the cart.
         setSearchParams({ sumup: "cancelled", orderId: order.id }, { replace: true });
@@ -418,6 +451,11 @@ export default function CheckoutPage() {
       void refresh().catch(() => undefined);
     } catch (submitError) {
       if (!orderCreated) draftStorage.resume();
+      if (!orderCreated && hasErrorStatus(submitError, 409)) {
+        pricing.retry();
+        setTermsAccepted(false);
+        setPrivacyAccepted(false);
+      }
       setShowReview(false);
       const serverErrors = getServerFieldErrors<keyof CheckoutFieldErrors>(submitError,
         [...Object.keys(draft) as (keyof CheckoutDraft)[], "terms", "privacy"],
@@ -490,7 +528,7 @@ export default function CheckoutPage() {
         </div>
       )}
 
-      <form onSubmit={submit} className="mt-7 grid items-start gap-7 lg:grid-cols-[minmax(0,1fr)_22rem]">
+      <form onSubmit={submit} inert={submitting} className="mt-7 grid items-start gap-7 lg:grid-cols-[minmax(0,1fr)_22rem]">
         <div className={`order-1 space-y-6 ${step === "payment" ? "hidden" : ""}`}>
           {!authenticated && (
             <fieldset className="rounded-sm border border-site-border bg-white p-6 shadow-md">
@@ -535,35 +573,15 @@ export default function CheckoutPage() {
           <fieldset className="rounded-sm border border-site-border bg-white p-6 shadow-md">
             <legend className="px-2 text-xl font-bold">Átvételi mód</legend>
             <div className="grid gap-3 sm:grid-cols-2">
-              <label className="rounded-sm border p-4">
-                <input
-                  type="radio"
-                  checked={method === 0}
-                  onChange={() => setMethod(0)}
-                  className="mr-3"
-                />
-                Személyes átvétel
-              </label>
-              <label className={`rounded-sm border p-4 ${!deliveryAllowed ? "opacity-50" : ""}`}>
-                <input
-                  type="radio"
-                  checked={method === 1}
-                  onChange={() => setMethod(1)}
-                  disabled={!deliveryAllowed}
-                  className="mr-3"
-                />
-                Házhoz szállítás
-              </label>
-              <label className={`rounded-sm border p-4 ${!deliveryAllowed ? "opacity-50" : ""}`}>
-                <input
-                  type="radio"
-                  checked={method === 2}
-                  onChange={() => setMethod(2)}
-                  disabled={!deliveryAllowed}
-                  className="mr-3"
-                />
-                Csomagautomatába szállítás
-              </label>
+              {!pricing.methods && !pricing.methodsError && <p role="status">Átvételi módok betöltése...</p>}
+              {pricing.methodsError && <div role="alert"><p>{pricing.methodsError}</p><button type="button" onClick={pricing.retry}>Átvételi módok újratöltése</button></div>}
+              {pricing.methods?.length === 0 && <p role="alert">Jelenleg nincs elérhető átvételi mód.</p>}
+              {pricing.methods?.map(({ fulfillmentMethod: choice, deliveryFee }) => <label key={choice} className={`rounded-sm border p-4 ${choice !== FULFILLMENT.PersonalPickup && !deliveryAllowed ? "opacity-50" : ""}`}>
+                <input type="radio" name="fulfillmentMethod" aria-label={FULFILLMENT_LABELS[choice]} checked={method === choice}
+                  onChange={() => setMethod(choice)} disabled={choice !== FULFILLMENT.PersonalPickup && !deliveryAllowed} className="mr-3" />
+                {FULFILLMENT_LABELS[choice]}
+                <span className="mt-1 block text-sm">Szállítási díj: {PRICE.format(deliveryFee)}</span>
+              </label>)}
             </div>
           </fieldset>
 
@@ -696,10 +714,17 @@ export default function CheckoutPage() {
           </fieldset>
           )}
 
-          {method !== 0 && (
+          {isGlsMethod(method) && <GlsPointPicker key={method} method={method} point={gls.point} loading={gls.loading}
+            error={gls.point ? undefined : gls.error ?? fieldErrors.glsDeliveryPointId} onRetry={gls.retry}
+            onSelect={point => {
+              setDraft(current => ({ ...current, glsDeliveryPointId: point.id, ...emptyDeliveryDraft() }));
+              clearFieldErrors(["glsDeliveryPointId"]);
+            }} />}
+
+          {method === FULFILLMENT.HomeDelivery && (
             <fieldset className="rounded-sm border border-site-border bg-white p-6 shadow-md">
               <legend className="px-2 text-xl font-bold">
-                {method === 2 ? "Csomagautomata címe" : "Szállítási cím"}
+                Szállítási cím
               </legend>
               {authenticated && (
                 <label className="mb-4 flex items-center gap-3 text-sm font-semibold">
@@ -754,47 +779,14 @@ export default function CheckoutPage() {
 
             <fieldset className="rounded-sm border border-site-border bg-white p-6 shadow-md">
               <legend className="px-2 text-xl font-bold">Fizetési mód</legend>
-              <div className="grid gap-3">
-                <label className="rounded-sm border p-4">
-                  <input
-                    type="radio"
-                    checked={paymentMethod === "online-card"}
-                    onChange={() => setPaymentMethod("online-card")}
-                    className="mr-3"
-                  />
-                  <strong>Online bankkártyás fizetés</strong>
-                  <span className="mt-1 block text-sm text-site-muted">
-                    Biztonságos online kártyás fizetés SumUp-on keresztül.
-                  </span>
-                </label>
-
-                {method === 0 ? (
-                  <label className="rounded-sm border p-4">
-                    <input
-                      type="radio"
-                      checked={paymentMethod === "pay-at-pickup"}
-                      onChange={() => setPaymentMethod("pay-at-pickup")}
-                      className="mr-3"
-                    />
-                    <strong>Fizetés átvételkor</strong>
-                    <span className="mt-1 block text-sm text-site-muted">
-                      A kertészetben készpénzzel vagy bankkártyával.
-                    </span>
-                  </label>
-                ) : (
-                  <label className="rounded-sm border p-4">
-                    <input
-                      type="radio"
-                      checked={paymentMethod === "cash-on-delivery"}
-                      onChange={() => setPaymentMethod("cash-on-delivery")}
-                      className="mr-3"
-                    />
-                    <strong>Utánvét</strong>
-                    <span className="mt-1 block text-sm text-site-muted">
-                      Teszt utánvételi díj: {PRICE.format(500)}.
-                    </span>
-                  </label>
-                )}
+                            <div className="grid gap-3">
+                {(Object.keys(PAYMENT_CODES) as PaymentMethod[]).filter(choice => availablePayments.includes(PAYMENT_CODES[choice])
+                  && !(choice === "cash-on-delivery" && isGlsMethod(method) && gls.point && !gls.point.acceptsCash && !gls.point.acceptsCard))
+                  .map(choice => <label key={choice} className="rounded-sm border p-4">
+                    <input type="radio" name="paymentMethod" checked={paymentMethod === choice} onChange={() => setPaymentMethod(choice)} className="mr-3" />
+                    <strong>{PAYMENT_LABELS[PAYMENT_CODES[choice]]}</strong>
+                    {choice === "cash-on-delivery" && <span className="mt-1 block text-sm text-site-muted">A fizetési díjat az árösszesítés tartalmazza.</span>}
+                  </label>)}
               </div>
 
               {paymentMethod === "online-card" && (
@@ -812,10 +804,11 @@ export default function CheckoutPage() {
 
         <CheckoutOrderSummary
           cart={cart}
-          deliveryFee={deliveryFee}
-          grandTotal={grandTotal}
+          quote={quote}
+          pricingLoading={pricing.loading}
+          pricingError={pricing.methodsError || pricing.error}
+          onRetryPricing={pricing.retry}
           method={method}
-          paymentFee={paymentFee}
           paymentMethod={paymentMethod}
           reviewButtonRef={reviewButtonRef}
           className="order-2 lg:order-2"
@@ -824,15 +817,16 @@ export default function CheckoutPage() {
         />
       </form>
 
-      {showReview && (
+      {showReview && quote && (
         <CheckoutReviewModal
           cart={cart}
           draft={draft}
           effectiveCustomerType={effectiveCustomerType}
           fieldErrors={fieldErrors}
-          grandTotal={grandTotal}
+          quote={quote}
           method={method}
           onClose={() => { if (!submitting) setShowReview(false); }}
+          deliveryPoint={quote.deliveryPoint}
           onFieldErrorsChange={setFieldErrors}
           onPlaceOrder={() => void placeOrder()}
           onPrivacyAcceptedChange={setPrivacyAccepted}

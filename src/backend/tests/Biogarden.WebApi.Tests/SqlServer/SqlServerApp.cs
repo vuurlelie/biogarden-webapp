@@ -1,4 +1,6 @@
 using Biogarden.BusinessLogic.Abstractions;
+using Biogarden.BusinessLogic.DTOs.Orders;
+using Biogarden.DataAccess.Enums;
 using Biogarden.BusinessLogic.Models.Email;
 using Biogarden.DataAccess;
 using Biogarden.DataAccess.Entities;
@@ -25,6 +27,7 @@ public sealed class SqlServerApp : IAsyncLifetime
     public TestEmailSender Sender { get; } = new();
     public QueueSaveFailure QueueFailure { get; } = new();
     public ConcurrentSaveGate SaveGate { get; } = new();
+    public TestGlsDirectory Gls { get; } = new();
 
     public async Task InitializeAsync()
     {
@@ -45,7 +48,7 @@ public sealed class SqlServerApp : IAsyncLifetime
         try
         {
             await database.Database.MigrateAsync();
-            Factory = new TestApi(_connectionString, Sender, QueueFailure, SaveGate);
+            Factory = new TestApi(_connectionString, Sender, QueueFailure, SaveGate, Gls);
         }
         catch
         {
@@ -60,7 +63,7 @@ public sealed class SqlServerApp : IAsyncLifetime
     public async Task RestartApiAsync()
     {
         await Factory.DisposeAsync();
-        Factory = new TestApi(_connectionString, Sender, QueueFailure, SaveGate);
+        Factory = new TestApi(_connectionString, Sender, QueueFailure, SaveGate, Gls);
     }
 
     public async Task DisposeAsync()
@@ -76,7 +79,7 @@ public sealed class SqlServerApp : IAsyncLifetime
         _created = false;
     }
 
-    public sealed class TestApi(string connection, TestEmailSender sender, QueueSaveFailure failure, ConcurrentSaveGate saveGate)
+    public sealed class TestApi(string connection, TestEmailSender sender, QueueSaveFailure failure, ConcurrentSaveGate saveGate, TestGlsDirectory gls)
         : WebApplicationFactory<Program>
     {
         protected override void ConfigureWebHost(IWebHostBuilder builder)
@@ -106,12 +109,28 @@ public sealed class SqlServerApp : IAsyncLifetime
             {
                 services.RemoveAll<IEmailService>();
                 services.AddSingleton<IEmailService>(sender);
+                services.RemoveAll<IGlsDeliveryPointDirectory>();
+                services.AddSingleton<IGlsDeliveryPointDirectory>(gls);
                 services.AddDbContext<AppDbContext>(options => options.AddInterceptors(failure, saveGate));
             });
         }
     }
 
-    // Only external mail transport is replaced. Templates, queue, dispatcher and SQL are real.
+    public sealed class TestGlsDirectory : IGlsDeliveryPointDirectory
+    {
+        public Dictionary<string, GlsDeliveryPointDto> Points { get; } = new();
+        public bool Unavailable { get; set; }
+        public Task<GlsDeliveryPointDto> ResolveAsync(string id, FulfillmentMethod type, CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (Unavailable) throw new GlsDirectoryUnavailableException();
+            if (!Points.TryGetValue(id, out var point) || point.Type != type)
+                throw new InvalidOperationException("Delivery point no longer available.");
+            return Task.FromResult(point);
+        }
+    }
+
+    // External mail transport is replaced. Templates, queue, dispatcher and SQL are real.
     public sealed class TestEmailSender : IEmailService
     {
         public bool Fail { get; set; }

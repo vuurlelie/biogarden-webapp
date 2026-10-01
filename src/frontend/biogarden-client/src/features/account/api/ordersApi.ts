@@ -3,6 +3,8 @@ import {
   getAuthSession,
 } from "../../auth/utils/authStorage";
 import type { Order } from "../types/order.types";
+import type { FulfillmentMethod } from "../../checkout/constants/fulfillment";
+import type { OrderPaymentMethod } from "../../checkout/constants/payment";
 import { apiRequest, type ApiRequestOptions } from "../../../shared/api/httpClient";
 
 export class OrdersApiError extends Error {
@@ -29,7 +31,10 @@ export type CreateOrderRequest = {
   idempotencyKey: string;
   addressId?: number | null;
   deliveryAddressId?: number | null;
-  fulfillmentMethod: 0 | 1 | 2;
+  fulfillmentMethod: FulfillmentMethod;
+  paymentMethod: OrderPaymentMethod;
+  quoteVersion: string;
+  glsDeliveryPointId?: string | null;
   customerName?: string;
   customerEmail?: string;
   customerPhone?: string;
@@ -58,6 +63,13 @@ export type CreateOrderRequest = {
 };
 
 const ORDERS_FALLBACK_MESSAGE = "A művelet nem sikerült. Kérjük, próbáld újra.";
+export async function getCheckoutOrder(orderId: string, signal?: AbortSignal): Promise<Order> {
+  const response = await apiRequest(`/api/orders/${encodeURIComponent(orderId)}/receipt`, {
+    signal, authToken: getAuthSession()?.token, credentials: "include", cache: "no-store",
+    fallbackMessage: "A rendelés részletei ebben a munkamenetben nem érhetők el.",
+  });
+  return response.json() as Promise<Order>;
+}
 const toOrdersError = (message: string, status: number) => new OrdersApiError(message, status);
 
 async function ordersRequest(path = "", init: Partial<ApiRequestOptions> = {}): Promise<Response> {

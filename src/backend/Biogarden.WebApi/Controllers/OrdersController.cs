@@ -44,6 +44,26 @@ public class OrdersController : ControllerBase
             : Ok(result.Order);
     }
 
+    [HttpGet("{orderId:guid}/receipt")]
+    [AllowAnonymous]
+    [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
+    public async Task<ActionResult<OrderDto>> GetCheckoutOrder(Guid orderId, CancellationToken cancellationToken)
+        => Ok(await _orderService.GetCheckoutOrderAsync(GetCurrentUserIdOrNull(), GetCartSessionId(), orderId, cancellationToken));
+
+    [HttpGet("checkout-methods")]
+    [AllowAnonymous]
+    [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
+    public ActionResult<IReadOnlyList<CheckoutMethodDto>> GetCheckoutMethods(
+        [FromServices] Biogarden.BusinessLogic.Services.CheckoutPricingService pricing) => Ok(pricing.GetMethods());
+
+    [HttpPost("quote")]
+    [AllowAnonymous]
+    [EnableRateLimiting(RateLimitPolicyNames.CartMutation)]
+    [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
+    public async Task<ActionResult<CheckoutQuoteDto>> GetCheckoutQuote(
+        [FromBody] CheckoutQuoteRequest request, CancellationToken cancellationToken)
+        => Ok(await _orderService.GetCheckoutQuoteAsync(GetCurrentUserIdOrNull(), GetCartSessionId(), request, cancellationToken));
+
     [HttpPost("{orderId:guid}/sumup-checkout")]
     [AllowAnonymous]
     [EnableRateLimiting(RateLimitPolicyNames.Payment)]

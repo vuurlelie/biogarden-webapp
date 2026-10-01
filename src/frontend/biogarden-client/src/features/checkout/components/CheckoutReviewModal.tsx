@@ -3,16 +3,21 @@ import { Link } from "react-router";
 import type { Cart } from "../../cart/types/cart.types";
 import { ROUTES } from "../../../shared/constants/routes";
 import type { CheckoutDraft, CheckoutFieldErrors, FulfillmentMethod, PaymentMethod } from "../types/checkout.types";
-import { paymentLabel, PRICE } from "../utils/checkoutFormatting";
+import { paymentLabel } from "../utils/checkoutFormatting";
 import { SummaryCartItem } from "./SummaryCartItem";
+import { FULFILLMENT, FULFILLMENT_LABELS } from "../constants/fulfillment";
+import type { GlsDeliveryPoint } from "../api/glsApi";
+import type { CheckoutQuote } from "../api/checkoutPricingApi";
+import { PriceBreakdown } from "./PriceBreakdown";
 
 type CheckoutReviewModalProps = {
   cart: Cart;
   draft: CheckoutDraft;
   effectiveCustomerType: 0 | 1;
   fieldErrors: CheckoutFieldErrors;
-  grandTotal: number;
+  quote: CheckoutQuote;
   method: FulfillmentMethod;
+  deliveryPoint: GlsDeliveryPoint | null;
   onClose: () => void;
   onFieldErrorsChange: (updater: (current: CheckoutFieldErrors) => CheckoutFieldErrors) => void;
   onPlaceOrder: () => void;
@@ -30,8 +35,9 @@ export function CheckoutReviewModal({
   draft,
   effectiveCustomerType,
   fieldErrors,
-  grandTotal,
+  quote,
   method,
+  deliveryPoint,
   onClose,
   onFieldErrorsChange,
   onPlaceOrder,
@@ -83,11 +89,7 @@ export function CheckoutReviewModal({
               <div className="rounded-sm bg-site-surface-soft p-3">
                 <strong className="block">Rendelési mód</strong>
                 <p>
-                  {method === 0
-                    ? "Személyes átvétel"
-                    : method === 1
-                      ? "Házhoz szállítás"
-                      : "Csomagautomatába szállítás"}
+                  {FULFILLMENT_LABELS[method]}
                 </p>
               </div>
               <div className="rounded-sm bg-site-surface-soft p-3">
@@ -122,7 +124,8 @@ export function CheckoutReviewModal({
                 aria-hidden={method === 0}
               >
                 <strong className="block">Szállítási cím</strong>
-                {method !== 0 && (
+                {deliveryPoint && <><p>{deliveryPoint.name}</p><p>{deliveryPoint.postalCode} {deliveryPoint.city}, {deliveryPoint.address}</p></>}
+                {method === FULFILLMENT.HomeDelivery && (
                   <p>
                     {`${draft.deliveryPostalCode} ${draft.deliveryCity}, ${draft.deliveryStreet} ${draft.deliveryHouseNumber}`}
                   </p>
@@ -133,16 +136,13 @@ export function CheckoutReviewModal({
 
           <div className="border-y border-site-border py-3">
             <ul className="divide-y divide-site-border">
-              {cart.items.map((item) => (
-                <SummaryCartItem key={item.id} item={item} compact />
+              {quote.items.map((item) => (
+                <SummaryCartItem key={item.productId} item={{ ...cart.items.find(line => line.productId === item.productId), ...item }} compact />
               ))}
             </ul>
           </div>
 
-          <p className="flex justify-between text-lg font-bold">
-            <span>Összesen</span>
-            <span>{PRICE.format(grandTotal)}</span>
-          </p>
+          <PriceBreakdown price={quote} />
 
           <div className="space-y-3">
             <div>

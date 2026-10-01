@@ -9,11 +9,17 @@ public sealed class PlaceOrderValidator : AbstractValidator<PlaceOrderDto>
 {
     public PlaceOrderValidator()
     {
+        // Required for a new order in the service; optional on an idempotent retry.
+        RuleFor(x => x.PaymentMethod).IsInEnum().When(x => x.PaymentMethod.HasValue);
+        RuleFor(x => x.QuoteVersion).Matches("^[A-F0-9]{64}$").When(x => x.QuoteVersion is not null)
+            .WithMessage("Az árajánlat azonosítója érvénytelen. Tekintsd át újra a rendelést.");
         RuleFor(x => x.IdempotencyKey).Must(value => value is not null &&
             System.Text.RegularExpressions.Regex.IsMatch(value.Trim(), @"^[A-Za-z0-9_-]{8,100}$"))
             .WithMessage("A rendelés azonosító kulcsa érvénytelen. Frissítsd az oldalt.");
         RuleFor(x => x.FulfillmentMethod).IsInEnum().WithMessage("Érvénytelen átvételi mód.");
         RuleFor(x => x.CustomerType).IsInEnum().WithMessage("Érvénytelen vásárlói típus.");
+        RuleFor(x => x.GlsDeliveryPointId).MaximumLength(100);
+        RuleFor(x => x.GlsDeliveryPointId).NotEmpty().When(x => x.FulfillmentMethod is FulfillmentMethod.ParcelLocker or FulfillmentMethod.ParcelShop);
         RuleFor(x => x.AddressId).GreaterThan(0).When(x => x.AddressId.HasValue).WithMessage("Érvénytelen számlázási cím.");
         RuleFor(x => x.DeliveryAddressId).GreaterThan(0).When(x => x.DeliveryAddressId.HasValue).WithMessage("Érvénytelen szállítási cím.");
         RuleFor(x => x.AcceptedTermsVersion).Equal(LegalDocumentVersions.CurrentTermsVersion)
@@ -70,7 +76,7 @@ public sealed class PlaceOrderValidator : AbstractValidator<PlaceOrderDto>
                 if (tax && !ValidationRules.ValidTaxNumber(dto.BillingTaxNumber))
                     context.AddFailure(nameof(dto.BillingTaxNumber), "Hibás adószám. Példa: 12345678-1-12.");
             }
-            if (dto.FulfillmentMethod != FulfillmentMethod.PersonalPickup && !dto.DeliveryAddressId.HasValue)
+            if (dto.FulfillmentMethod == FulfillmentMethod.HomeDelivery && !dto.DeliveryAddressId.HasValue)
                 Address(context, dto.DeliveryPostalCode, dto.DeliveryCity, dto.DeliveryStreet, dto.DeliveryHouseNumber, "Delivery");
         });
     }

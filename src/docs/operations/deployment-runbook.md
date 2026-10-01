@@ -32,6 +32,8 @@ Do not start a production deployment if the target commit is not already reviewe
 
 ## Pre-Deployment Checks
 
+For the pricing and GLS release, follow [checkout migration and deployment compatibility](checkout-pricing.md#migrations-and-deployment-compatibility). Deploy a matching API/frontend pair and complete the [pricing and real-widget verification](checkout-pricing.md#verification-and-release-evidence) before reopening checkout. That guide owns the required migration names, provisional rates and rollback limitations.
+
 For the checkout-draft release, apply `20260929112302_AddCheckoutDrafts` before starting the new API and deploy the matching frontend. Follow the [draft-specific release checks](checkout-drafts.md#deployment-and-verification), including cleanup availability and guest session behaviour.
 
 ### Cart session changes

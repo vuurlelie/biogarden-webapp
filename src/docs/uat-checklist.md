@@ -42,6 +42,7 @@ For each row record **Not run**, **Pass**, **Fail**, **Blocked**, or **Not appli
 | UAT-14 | Submit a contact message and an order-related request as guest and signed-in customer. | Confirmation is clear; the business can find the request and the configured notifications are correct. |
 | UAT-15 | Navigate forms by keyboard, submit incomplete fields, and revisit consent choices. | Focus and validation are usable; consent choices can be changed; checkout remains usable on mobile. |
 | UAT-16 | Fill checkout details, wait for autosave, refresh, discard, and sign out/in. Edit the same draft in two tabs. | Drafts restore only for their current cart/session; discard removes them; conflicts preserve local input with recovery choices. Verify expiry and cleanup using the [draft guide](operations/checkout-drafts.md). |
+| UAT-17 | Exercise each enabled delivery/payment combination using the approved [pricing and GLS setup](operations/checkout-pricing.md), including both locker and CsomagPont selection on desktop/mobile. | Review, saved order, customer/admin views and email agree on fees and destination; an agreed online-payment test charges the saved total. Record payment mode and tested combinations. |
 
 ## Developer-assisted checks
 
@@ -55,6 +56,7 @@ Run these in an isolated test environment using test accounts/data. They support
 | TECH-04 | Check configured request limits and recovery after the retry interval. | Expected 429 responses and usable retry behaviour; follow [abuse protection](operations/abuse-protection.md#manual-testing). |
 | TECH-05 | Rehearse restore into a separate environment. | Record the [restore drill](operations/backup-recovery.md#restore-drill), restored data checks, and actual recovery time. |
 | TECH-06 | Open checkout review using the keyboard. Test Tab/Shift+Tab, both close buttons, Escape, missing consents, and a delayed/failed order request. Repeat with a screen reader and record its browser/version. | Focus enters the labelled dialog, stays inside while open, and returns to the review button on dismissal. Background content is inert. Consent errors are associated with their checkboxes and the first invalid consent receives focus. During submission, progress is announced and dismissal is disabled; a failed request restores interaction. Confirm the dialog title, errors, and progress are understandable with the screen reader; automated browser checks alone do not establish this. |
+| TECH-07 | Exercise changed prices, disabled choices, GLS failure/recovery and a historical order using the [checkout verification guide](operations/checkout-pricing.md#verification-and-release-evidence). | Invalid submissions have no order/stock/email effects; recovery requires a current review; legacy totals remain unchanged. Record real widget and hosted API evidence separately from mocked browser tests. |
 
 ## Results and issue log template
 

@@ -135,6 +135,15 @@ export const successfulOrder = {
   cancelledAtUtc: null,
   deletedAtUtc: null,
   totalPrice: product.price,
+  subtotal: product.price,
+  deliveryFee: 0,
+  paymentFee: 0,
+  currency: "HUF",
+  paymentMethod: 1,
+  glsDeliveryPointId: null,
+  glsDeliveryPointName: null,
+  glsDeliveryPointAddress: null,
+  glsDeliveryPointCountryCode: null,
   status: 0 as OrderStatus,
   paymentStatus: 0 as PaymentStatus,
   fulfillmentMethod: 0,
@@ -311,7 +320,7 @@ export async function mockCheckoutApi(
       onCreateOrder(route.request().postDataJSON() as Record<string, unknown>);
     }
 
-    await route.fulfill({ status: 201, json: successfulOrder });
+    await route.fulfill({ status: 201, json: { ...successfulOrder, paymentMethod: route.request().postDataJSON().paymentMethod } });
   });
 
   await page.route(`${apiBaseUrl}/api/orders/${successfulOrder.id}/sumup-checkout`, async (route) => {
@@ -388,6 +397,7 @@ export async function mockSumUpReturnStatusApi(
   page: Page,
   paymentStatus: PaymentStatus,
 ) {
+  await page.route(`${apiBaseUrl}/api/orders/${successfulOrder.id}/receipt`, route => route.fulfill({ status: 404, json: { detail: "Owning session unavailable" } }));
   await page.route(`${apiBaseUrl}/api/cart`, async (route) => {
     if (route.request().method() === "GET") {
       await route.fulfill({ json: createCart([]) });
@@ -511,6 +521,13 @@ export async function signInAsAdmin(page: Page) {
 }
 
 export async function mockCheckoutDraftApi(page: Page) {
+  await page.route(`${apiBaseUrl}/api/orders/checkout-methods`, route => route.fulfill({ json: [
+    { fulfillmentMethod: 0, deliveryFee: 0, paymentMethods: [0, 1] },
+    { fulfillmentMethod: 1, deliveryFee: 2740, paymentMethods: [0, 2] },
+    { fulfillmentMethod: 2, deliveryFee: 2090, paymentMethods: [0, 2] },
+    { fulfillmentMethod: 3, deliveryFee: 2590, paymentMethods: [0, 2] },
+  ] }));
+  await page.route(`${apiBaseUrl}/api/orders/quote`, route => route.fulfill({ json: checkoutQuote(route.request().postDataJSON()) }));
   let stored: { version: string | null; expiresAtUtc: string | null; fields: unknown } = { version: null, expiresAtUtc: null, fields: null };
   let revision = 0;
   await page.route(`${apiBaseUrl}/api/checkout-drafts/**`, async route => {
@@ -528,6 +545,15 @@ export async function mockCheckoutDraftApi(page: Page) {
     }
     await route.fulfill({ json: stored });
   });
+}
+
+export function checkoutQuote(request: { fulfillmentMethod: number; paymentMethod: number; glsDeliveryPointId?: string | null }) {
+  const deliveryFee = [0, 2740, 2090, 2590][request.fulfillmentMethod];
+  const paymentFee = request.paymentMethod === 2 ? 600 : 0;
+  return { cartId: "33333333-3333-3333-3333-333333333333", ...request, currency: "HUF", subtotal: product.price,
+    deliveryFee, paymentFee, totalPrice: product.price + deliveryFee + paymentFee, version: "A".repeat(64), items: successfulOrder.items,
+    deliveryPoint: request.glsDeliveryPointId ? { id: request.glsDeliveryPointId, type: request.fulfillmentMethod,
+      name: request.fulfillmentMethod === 2 ? "Verified locker" : "Verified shop", countryCode: "HU", postalCode: "8200", city: "Veszprém", address: "GLS utca 1.", acceptsCash: false, acceptsCard: true } : null };
 }
 
 function createCart(items: Array<typeof cartItem>) {

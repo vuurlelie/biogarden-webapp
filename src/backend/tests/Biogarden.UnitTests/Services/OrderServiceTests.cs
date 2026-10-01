@@ -70,7 +70,7 @@ public sealed class OrderServiceTests
             Options.Create(new SumUpOptions
             {
                 Currency = "HUF"
-            }));
+            }), Pricing(), Mock.Of<IGlsDeliveryPointDirectory>(MockBehavior.Strict));
     }
 
     [Fact]
@@ -137,6 +137,8 @@ public sealed class OrderServiceTests
 
         var resultOutcome = await _service.CreateOrderFromCartAsync(null, sessionId, new PlaceOrderDto
         {
+            PaymentMethod = OrderPaymentMethod.OnlineCard,
+            QuoteVersion = Quote(cart),
             IdempotencyKey = IdempotencyKey,
             CustomerName = " Teszt Elek ",
             CustomerEmail = " guest@example.com ",
@@ -208,6 +210,8 @@ public sealed class OrderServiceTests
 
         await Assert.ThrowsAsync<InvalidOperationException>(() => _service.CreateOrderFromCartAsync(null, sessionId, new PlaceOrderDto
         {
+            PaymentMethod = OrderPaymentMethod.OnlineCard,
+            QuoteVersion = Quote(cart),
             IdempotencyKey = IdempotencyKey,
             CustomerName = "Teszt Elek",
             CustomerEmail = "guest@example.com",
@@ -244,6 +248,8 @@ public sealed class OrderServiceTests
 
         var request = new PlaceOrderDto
         {
+            PaymentMethod = OrderPaymentMethod.OnlineCard,
+            QuoteVersion = Quote(cart),
             IdempotencyKey = IdempotencyKey,
             CustomerName = "Teszt Elek",
             CustomerEmail = "guest@example.com",
@@ -316,6 +322,8 @@ public sealed class OrderServiceTests
 
         var resultOutcome = await _service.CreateOrderFromCartAsync(userId, null, new PlaceOrderDto
         {
+            PaymentMethod = OrderPaymentMethod.OnlineCard,
+            QuoteVersion = Quote(cart),
             IdempotencyKey = IdempotencyKey,
             CustomerName = "Teszt Elek",
             CustomerEmail = "guest@example.com",
@@ -346,6 +354,8 @@ public sealed class OrderServiceTests
 
         var resultOutcome = await _service.CreateOrderFromCartAsync(null, sessionId, new PlaceOrderDto
         {
+            PaymentMethod = OrderPaymentMethod.OnlineCard,
+            QuoteVersion = Quote(cart),
             IdempotencyKey = IdempotencyKey,
             CustomerName = "Teszt Elek",
             CustomerEmail = "guest@example.com",
@@ -391,6 +401,8 @@ public sealed class OrderServiceTests
 
         var resultOutcome = await _service.CreateOrderFromCartAsync(null, sessionId, new PlaceOrderDto
         {
+            PaymentMethod = OrderPaymentMethod.OnlineCard,
+            QuoteVersion = Quote(cart),
             IdempotencyKey = IdempotencyKey,
             CustomerName = "Teszt Elek",
             CustomerEmail = "guest@example.com",
@@ -581,6 +593,8 @@ public sealed class OrderServiceTests
         var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
             _service.CreateOrderFromCartAsync(null, sessionId, new PlaceOrderDto
             {
+                PaymentMethod = OrderPaymentMethod.OnlineCard,
+                QuoteVersion = Quote(cart),
                 IdempotencyKey = IdempotencyKey,
                 CustomerName = "Teszt Elek",
                 CustomerEmail = "guest@example.com",
@@ -621,6 +635,8 @@ public sealed class OrderServiceTests
         var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
             _service.CreateOrderFromCartAsync(null, sessionId, new PlaceOrderDto
             {
+                PaymentMethod = OrderPaymentMethod.OnlineCard,
+                QuoteVersion = Quote(cart),
                 IdempotencyKey = IdempotencyKey,
                 CustomerName = "Teszt Elek",
                 CustomerEmail = "guest@example.com",
@@ -658,6 +674,8 @@ public sealed class OrderServiceTests
         var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
             _service.CreateOrderFromCartAsync(null, sessionId, new PlaceOrderDto
             {
+                PaymentMethod = OrderPaymentMethod.OnlineCard,
+                QuoteVersion = Quote(cart),
                 IdempotencyKey = IdempotencyKey,
                 CustomerName = "Teszt Elek",
                 CustomerEmail = "guest@example.com",
@@ -686,6 +704,31 @@ public sealed class OrderServiceTests
 
         await Assert.ThrowsAsync<KeyNotFoundException>(() =>
             _service.GetOrderByIdAsync(requestingUserId, order.Id));
+    }
+
+    [Fact]
+    public async Task ReceiptOfRegisteredCustomerCannotBeReadWithAnotherUserOrGuestSession()
+    {
+        var userId = Guid.NewGuid();
+        var order = CreateOrder(userId);
+        _orders.Setup(x => x.GetByIdWithItemsAndCartAsync(order.Id, It.IsAny<CancellationToken>())).ReturnsAsync(order);
+        Assert.Equal(order.Id, (await _service.GetCheckoutOrderAsync(userId, null, order.Id)).Id);
+        await Assert.ThrowsAsync<KeyNotFoundException>(() => _service.GetCheckoutOrderAsync(Guid.NewGuid(), null, order.Id));
+        await Assert.ThrowsAsync<KeyNotFoundException>(() => _service.GetCheckoutOrderAsync(null, "guest", order.Id));
+    }
+
+    [Theory]
+    [InlineData(OrderPaymentMethod.PayAtPickup)]
+    [InlineData(OrderPaymentMethod.CashOnDelivery)]
+    public async Task OfflineOrderIsRejectedBeforeCallingPaymentProvider(OrderPaymentMethod method)
+    {
+        var userId = Guid.NewGuid();
+        var order = CreateOrder(userId);
+        order.PaymentMethod = method;
+        _orders.Setup(x => x.GetByIdWithItemsAndCartAsync(order.Id, It.IsAny<CancellationToken>())).ReturnsAsync(order);
+        await Assert.ThrowsAsync<InvalidOperationException>(() => _service.CreateSumUpCheckoutAsync(userId, null, order.Id));
+        _sumUpCheckoutService.VerifyNoOtherCalls();
+        _unitOfWork.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]
@@ -1114,6 +1157,21 @@ public sealed class OrderServiceTests
             Times.Never);
     }
 
+    private static CheckoutPricingService Pricing() => new(Options.Create(new CheckoutPricingOptions
+    {
+        DeliveryFees = new() { [FulfillmentMethod.PersonalPickup] = 0 },
+        EnabledPaymentMethods = [OrderPaymentMethod.OnlineCard]
+    }));
+    private static string Quote(Cart cart) => Pricing().Calculate(cart.Id,
+        FulfillmentMethod.PersonalPickup, OrderPaymentMethod.OnlineCard,
+        cart.Items.Select(x => new OrderItemDto
+        {
+            ProductId = x.ProductId,
+            ProductName = x.Product!.Name,
+            UnitPrice = x.Product.Price,
+            Unit = x.Product.Unit,
+            Quantity = x.Quantity
+        })).Version;
     private static Order CreateOrder(Guid? userId) => new()
     {
         Id = Guid.NewGuid(),

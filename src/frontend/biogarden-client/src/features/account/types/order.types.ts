@@ -1,8 +1,10 @@
 import type { UnitOfMeasure } from "../../products/types/product.types";
+import type { FulfillmentMethod } from "../../checkout/constants/fulfillment";
+import type { OrderPaymentMethod } from "../../checkout/constants/payment";
+export type { FulfillmentMethod } from "../../checkout/constants/fulfillment";
 
 export type OrderStatus = 0 | 1 | 2 | 3 | 4;
 export type PaymentStatus = 0 | 1 | 2 | 3 | 4 | 5 | 6;
-export type FulfillmentMethod = 0 | 1 | 2;
 export type CustomerType = 0 | 1;
 
 export type OrderItem = {
@@ -60,6 +62,15 @@ export type Order = {
   cancelledAtUtc: string | null;
   deletedAtUtc: string | null;
   totalPrice: number;
+  subtotal: number | null;
+  deliveryFee: number | null;
+  paymentFee: number | null;
+  currency: string | null;
+  paymentMethod: OrderPaymentMethod | null;
+  glsDeliveryPointId: string | null;
+  glsDeliveryPointName: string | null;
+  glsDeliveryPointAddress: string | null;
+  glsDeliveryPointCountryCode: string | null;
   status: OrderStatus;
   paymentStatus: PaymentStatus;
   fulfillmentMethod: FulfillmentMethod;

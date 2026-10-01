@@ -392,6 +392,10 @@ namespace Biogarden.DataAccess.Migrations
                         .HasColumnType("datetime2")
                         .HasDefaultValueSql("SYSUTCDATETIME()");
 
+                    b.Property<string>("Currency")
+                        .HasMaxLength(3)
+                        .HasColumnType("nvarchar(3)");
+
                     b.Property<string>("CustomerEmail")
                         .IsRequired()
                         .HasMaxLength(256)
@@ -431,6 +435,10 @@ namespace Biogarden.DataAccess.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
 
+                    b.Property<decimal?>("DeliveryFee")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
                     b.Property<string>("DeliveryFloor")
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
@@ -464,6 +472,22 @@ namespace Biogarden.DataAccess.Migrations
                         .HasColumnType("tinyint")
                         .HasDefaultValue((byte)0);
 
+                    b.Property<string>("GlsDeliveryPointAddress")
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.Property<string>("GlsDeliveryPointCountryCode")
+                        .HasMaxLength(2)
+                        .HasColumnType("nvarchar(2)");
+
+                    b.Property<string>("GlsDeliveryPointId")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("GlsDeliveryPointName")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
                     b.Property<string>("HouseNumber")
                         .IsRequired()
                         .HasMaxLength(50)
@@ -477,6 +501,13 @@ namespace Biogarden.DataAccess.Migrations
                         .IsRequired()
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
+
+                    b.Property<decimal?>("PaymentFee")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int?>("PaymentMethod")
+                        .HasColumnType("int");
 
                     b.Property<byte>("PaymentStatus")
                         .ValueGeneratedOnAdd()
@@ -511,6 +542,10 @@ namespace Biogarden.DataAccess.Migrations
                         .IsRequired()
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
+
+                    b.Property<decimal?>("Subtotal")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
 
                     b.Property<string>("SumUpCheckoutId")
                         .HasMaxLength(200)

@@ -2,6 +2,7 @@ using Biogarden.BusinessLogic.Abstractions;
 using Biogarden.BusinessLogic.DTOs.Orders;
 using Biogarden.BusinessLogic.Models.Payments;
 using Biogarden.BusinessLogic.Options;
+using Biogarden.DataAccess.Enums;
 using Microsoft.Extensions.Options;
 
 namespace Biogarden.BusinessLogic.Services;
@@ -35,6 +36,11 @@ public sealed class SumUpCheckoutService : ISumUpCheckoutService
             throw new InvalidOperationException("Cannot create a SumUp checkout for an empty order.");
         }
 
+        if (order.PaymentMethod is not null and not OrderPaymentMethod.OnlineCard)
+            throw new InvalidOperationException("Ehhez a rendeléshez nem online bankkártyás fizetést választottál.");
+        if (order.Currency is not null && !string.Equals(order.Currency, _options.Currency, StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException("A rendelés pénzneme nem egyezik a fizetési szolgáltatás beállításával.");
+
         var checkoutReference = order.Id.ToString("N");
         var provisionalRedirectUrl = BuildRedirectUrl(checkoutReference, order);
 
@@ -42,7 +48,7 @@ public sealed class SumUpCheckoutService : ISumUpCheckoutService
             new SumUpCreateCheckoutRequest(
                 CheckoutReference: checkoutReference,
                 Amount: order.TotalPrice,
-                Currency: _options.Currency.ToUpperInvariant(),
+                Currency: (order.Currency ?? _options.Currency).ToUpperInvariant(),
                 MerchantCode: _options.MerchantCode,
                 Description: $"Bakony Kincse rendelés {order.OrderNumber}",
                 RedirectUrl: provisionalRedirectUrl,

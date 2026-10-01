@@ -38,6 +38,10 @@ Non-secret operational settings should still be reviewed before release:
 | `AbuseProtection__*` | Limits tuned after real traffic appears. |
 | `OrderEmailOutbox__Enabled` | Defaults to true; false pauses queued order-confirmation delivery. See [order email delivery](order-email-delivery.md) for its interaction with SMTP preview mode. |
 
+## Checkout pricing (backend contract)
+
+The [checkout pricing and GLS guide](checkout-pricing.md) owns provisional prices, allowed combinations, backend options, quote and snapshot semantics, GLS configuration, and migration compatibility. Review it before changing fees or enabling delivery methods. SumUp credentials remain in the section below.
+
 ## SumUp Release Setup
 
 Do not commit real SumUp values. When the production account details are available, enter them only through the production host's secret/environment setting UI:
