@@ -16,4 +16,5 @@ public interface IUnitOfWork
         CancellationToken cancellationToken = default);
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
+    void ClearTrackedChanges();
 }

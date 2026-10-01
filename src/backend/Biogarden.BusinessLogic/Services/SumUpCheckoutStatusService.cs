@@ -34,14 +34,15 @@ public sealed class SumUpCheckoutStatusService : ISumUpCheckoutStatusService
         string payload,
         CancellationToken cancellationToken = default)
     {
-        var statusEvent = JsonSerializer.Deserialize<SumUpCheckoutStatusChangedEvent>(payload);
-
-        if (statusEvent is null ||
-            !string.Equals(statusEvent.EventType, CheckoutStatusChanged, StringComparison.Ordinal) ||
-            string.IsNullOrWhiteSpace(statusEvent.Id))
-        {
-            return;
-        }
+        SumUpCheckoutStatusChangedEvent? statusEvent;
+        try { statusEvent = JsonSerializer.Deserialize<SumUpCheckoutStatusChangedEvent>(payload); }
+        catch (JsonException) { throw new ArgumentException("Invalid payment notification JSON."); }
+        if (statusEvent is null || string.IsNullOrWhiteSpace(statusEvent.EventType))
+            throw new ArgumentException("Payment event type is required.");
+        if (!string.Equals(statusEvent.EventType, CheckoutStatusChanged, StringComparison.Ordinal)) return;
+        if (string.IsNullOrWhiteSpace(statusEvent.Id) || statusEvent.Id.Length > 100 ||
+            statusEvent.Id.Any(c => !char.IsAsciiLetterOrDigit(c) && c != '-' && c != '_'))
+            throw new ArgumentException("Invalid payment checkout ID.");
 
         var checkoutId = statusEvent.Id.Trim();
         var eventType = statusEvent.EventType.Trim();
@@ -55,6 +56,8 @@ public sealed class SumUpCheckoutStatusService : ISumUpCheckoutStatusService
         }
 
         var normalizedStatus = checkout.Status.Trim().ToUpperInvariant();
+        if (normalizedStatus is not (Paid or Failed or Expired or "PENDING"))
+            throw new InvalidOperationException("Unknown SumUp checkout status.");
         var eventKey = $"{eventType}:{checkoutId}:{normalizedStatus}";
         var paymentEvent = await GetOrCreatePaymentEventAsync(
             eventKey,
@@ -72,25 +75,7 @@ public sealed class SumUpCheckoutStatusService : ISumUpCheckoutStatusService
 
         try
         {
-            switch (normalizedStatus)
-            {
-                case Paid:
-                    await _orderService.ConfirmSumUpCheckoutAsync(
-                        checkout.CheckoutId,
-                        checkout.TransactionCode,
-                        checkout.Amount,
-                        checkout.Currency,
-                        cancellationToken);
-                    break;
-
-                case Failed:
-                case Expired:
-                    await _orderService.MarkSumUpPaymentFailedAsync(
-                        checkout.CheckoutId,
-                        checkout.TransactionCode,
-                        cancellationToken);
-                    break;
-            }
+            await _orderService.ReconcileSumUpCheckoutAsync(checkout, cancellationToken);
 
             paymentEvent.ProcessedAtUtc = DateTime.UtcNow;
             paymentEvent.ProcessingFailedAtUtc = null;
@@ -99,9 +84,16 @@ public sealed class SumUpCheckoutStatusService : ISumUpCheckoutStatusService
         }
         catch (Exception exception)
         {
-            paymentEvent.ProcessingFailedAtUtc = DateTime.UtcNow;
-            paymentEvent.ProcessingError = Truncate(exception.Message, ProcessingErrorMaxLength);
-            await _unitOfWork.SaveChangesAsync(cancellationToken);
+            // A failed save can leave both the order and event dirty. Persist diagnostics only.
+            _unitOfWork.ClearTrackedChanges();
+            var failedEvent = await _unitOfWork.PaymentProviderEventRepository.GetByProviderAndEventKeyAsync(Provider, eventKey, cancellationToken);
+            if (failedEvent is not null && !failedEvent.ProcessedAtUtc.HasValue)
+            {
+                failedEvent.LastProcessingAttemptAtUtc = attemptedAtUtc;
+                failedEvent.ProcessingFailedAtUtc = DateTime.UtcNow;
+                failedEvent.ProcessingError = Truncate(exception.Message, ProcessingErrorMaxLength);
+                await _unitOfWork.SaveChangesAsync(cancellationToken);
+            }
             throw;
         }
     }
@@ -144,6 +136,8 @@ public sealed class SumUpCheckoutStatusService : ISumUpCheckoutStatusService
         }
         catch (DbUpdateException)
         {
+            // Remove the losing Added entity before loading the winner of a unique-key race.
+            _unitOfWork.ClearTrackedChanges();
             var concurrentEvent = await _unitOfWork.PaymentProviderEventRepository.GetByProviderAndEventKeyAsync(
                 Provider,
                 eventKey,

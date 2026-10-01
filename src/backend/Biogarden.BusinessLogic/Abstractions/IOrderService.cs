@@ -5,6 +5,7 @@ namespace Biogarden.BusinessLogic.Abstractions;
 
 public interface IOrderService
 {
+    Task ReconcileSumUpCheckoutAsync(Models.Payments.SumUpCheckoutResult checkout, CancellationToken cancellationToken = default);
     Task<OrderDto> GetCheckoutOrderAsync(Guid? userId, string? sessionId, Guid orderId, CancellationToken cancellationToken = default);
     Task<CheckoutQuoteDto> GetCheckoutQuoteAsync(Guid? userId, string? sessionId,
         CheckoutQuoteRequest request, CancellationToken cancellationToken = default);

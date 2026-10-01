@@ -925,6 +925,7 @@ public sealed class OrderServiceTests
         order.SumUpCheckoutId = "checkout_123";
         order.PaymentStatus = payment;
         order.Status = OrderStatus.Confirmed;
+        order.SumUpTransactionId = "txn_paid";
 
         _orders
             .Setup(x => x.GetBySumUpCheckoutIdAsync("checkout_123", It.IsAny<CancellationToken>()))
@@ -937,7 +938,7 @@ public sealed class OrderServiceTests
         Assert.NotNull(result);
         Assert.Equal(payment, result.PaymentStatus);
         Assert.Equal(OrderStatus.Confirmed, result.Status);
-        Assert.Equal("txn_late_failure", order.SumUpTransactionId);
+        Assert.Equal("txn_paid", order.SumUpTransactionId);
         _orders.Verify(x => x.Update(order), Times.Once);
         _unitOfWork.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
     }

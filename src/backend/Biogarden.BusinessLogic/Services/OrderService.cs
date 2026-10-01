@@ -434,6 +434,52 @@ public class OrderService : IOrderService
             throw new PaymentRecoveryException();
     }
 
+    // Only call with a checkout fetched using the server's SumUp credentials, never webhook fields.
+    public async Task ReconcileSumUpCheckoutAsync(SumUpCheckoutResult checkout, CancellationToken cancellationToken = default)
+    {
+        var attempts = _unitOfWork.PaymentAttemptRepository;
+        var orderId = await attempts.FindOrderIdAsync(checkout.CheckoutId, checkout.CheckoutReference, cancellationToken)
+            ?? throw new KeyNotFoundException("Payment attempt not found.");
+        await using var paymentLock = await attempts.AcquireLockAsync(orderId, cancellationToken);
+        var order = await _unitOfWork.OrderRepository.GetByIdWithItemsAndCartAsync(orderId, cancellationToken)
+            ?? throw new KeyNotFoundException("Order not found.");
+        var attempt = await attempts.GetByCheckoutAsync(checkout.CheckoutId, cancellationToken);
+        if (attempt is null && checkout.CheckoutReference is not null)
+            attempt = await attempts.GetByReferenceAsync(checkout.CheckoutReference, cancellationToken);
+        if (attempt is null)
+        {
+            // Existing orders predate attempt tracking, but still have a server-owned checkout ID.
+            if (order.SumUpCheckoutId != checkout.CheckoutId) throw new PaymentRecoveryException();
+            attempt = new PaymentAttempt
+            {
+                Id = Guid.NewGuid(),
+                OrderId = orderId,
+                Reference = orderId.ToString("N"),
+                CheckoutId = checkout.CheckoutId,
+                CreatedAtUtc = GetUtcNow(),
+                CreateRequested = true
+            };
+            attempts.Add(attempt);
+        }
+        if (attempt.OrderId != order.Id) throw new PaymentRecoveryException();
+        ValidateAttemptCheckout(order, attempt, checkout);
+        attempt.CheckoutId = checkout.CheckoutId;
+        attempt.Status = checkout.Status.Trim().ToUpperInvariant();
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        if (attempt.Status == "PAID")
+        {
+            if (string.IsNullOrWhiteSpace(checkout.TransactionCode)) throw new PaymentRecoveryException();
+            await ConfirmSumUpCheckoutAsync(checkout.CheckoutId, checkout.TransactionCode, checkout.Amount, checkout.Currency, cancellationToken);
+        }
+        else if (attempt.Status is "FAILED" or "EXPIRED")
+        {
+            // A delayed failure for a superseded checkout must not fail the current attempt.
+            if (order.SumUpCheckoutId is null || order.SumUpCheckoutId == checkout.CheckoutId)
+                await MarkSumUpPaymentFailedAsync(checkout.CheckoutId, checkout.TransactionCode, cancellationToken);
+        }
+    }
+
     public async Task<OrderDto> ConfirmSumUpCheckoutAsync(
         string sumUpCheckoutId,
         string? sumUpTransactionId,
@@ -448,6 +494,11 @@ public class OrderService : IOrderService
 
         EnsureSumUpCheckoutMatchesOrder(order, amount, currency);
 
+        if (order.PaymentStatus is PaymentStatus.Paid or PaymentStatus.RefundPending or PaymentStatus.Refunded or PaymentStatus.PartiallyRefunded &&
+            !string.IsNullOrWhiteSpace(order.SumUpTransactionId) && !string.IsNullOrWhiteSpace(sumUpTransactionId) &&
+            order.SumUpTransactionId != sumUpTransactionId)
+            throw new PaymentRecoveryException(); // Possible second payment: retain the original transaction for reconciliation.
+
         if (order.Status == OrderStatus.Cancelled)
         {
             // Money can arrive after cancellation; preserve fulfillment and released stock.
@@ -461,6 +512,7 @@ public class OrderService : IOrderService
             order.ConfirmedAtUtc ??= GetUtcNow();
         }
 
+        order.SumUpCheckoutId = sumUpCheckoutId;
         order.SumUpTransactionId = NormalizeOptional(sumUpTransactionId) ?? order.SumUpTransactionId;
 
         _unitOfWork.OrderRepository.Update(order);
@@ -495,7 +547,8 @@ public class OrderService : IOrderService
             order.PaymentStatus = PaymentStatus.Failed;
         }
 
-        order.SumUpTransactionId = NormalizeOptional(sumUpTransactionId) ?? order.SumUpTransactionId;
+        if (order.PaymentStatus == PaymentStatus.Failed)
+            order.SumUpTransactionId = NormalizeOptional(sumUpTransactionId) ?? order.SumUpTransactionId;
 
         _unitOfWork.OrderRepository.Update(order);
         await _unitOfWork.SaveChangesAsync(cancellationToken);

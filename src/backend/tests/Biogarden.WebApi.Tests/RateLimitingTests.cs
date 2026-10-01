@@ -433,6 +433,8 @@ public sealed class RateLimitingTests
             return Task.FromResult(new OrderCreationResult(CreateOrder(), Created: true));
         }
 
+        public Task ReconcileSumUpCheckoutAsync(Biogarden.BusinessLogic.Models.Payments.SumUpCheckoutResult checkout, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+
         public Task<SumUpCheckoutDto> CreateSumUpCheckoutAsync(
             Guid? userId,
             string? sessionId,

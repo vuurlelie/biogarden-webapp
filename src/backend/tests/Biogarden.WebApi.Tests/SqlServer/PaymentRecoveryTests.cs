@@ -144,9 +144,21 @@ public sealed class PaymentRecoveryTests : IAsyncLifetime
     private sealed class BindingFailure : SaveChangesInterceptor
     {
         public bool Enabled { get; set; }
+        public bool FailPaidOrder { get; set; }
+        public bool FailProcessedEvent { get; set; }
         public override ValueTask<InterceptionResult<int>> SavingChangesAsync(DbContextEventData data,
             InterceptionResult<int> result, CancellationToken cancellationToken = default)
         {
+            if (FailPaidOrder && data.Context!.ChangeTracker.Entries<Order>().Any(x => x.State == EntityState.Modified && x.Entity.PaymentStatus == PaymentStatus.Paid))
+            {
+                FailPaidOrder = false;
+                throw new InvalidOperationException("Simulated paid order save failure");
+            }
+            if (FailProcessedEvent && data.Context!.ChangeTracker.Entries<PaymentProviderEvent>().Any(x => x.Entity.ProcessedAtUtc.HasValue))
+            {
+                FailProcessedEvent = false;
+                throw new InvalidOperationException("Simulated processed event save failure");
+            }
             if (Enabled && data.Context!.ChangeTracker.Entries<PaymentAttempt>().Any(x => x.Entity.CheckoutId is not null))
             {
                 Enabled = false;
@@ -156,11 +168,153 @@ public sealed class PaymentRecoveryTests : IAsyncLifetime
         }
     }
 
+    private async Task NotifyAsync(string checkoutId = "checkout-1")
+    {
+        await using var scope = _api.Services.CreateAsyncScope();
+        await scope.ServiceProvider.GetRequiredService<ISumUpCheckoutStatusService>()
+            .HandleAsync($$"""{"event_type":"CHECKOUT_STATUS_CHANGED","id":"{{checkoutId}}"}""");
+    }
+
+    [SqlServerFact]
+    public async Task CallbackBindsAnAttemptAfterProviderResponseWasLost()
+    {
+        _provider.LoseResponse = true;
+        await Assert.ThrowsAsync<PaymentRecoveryException>(() => StartAsync());
+        _provider.Checkouts[0] = _provider.Checkouts[0] with { Status = "PAID", TransactionCode = "paid-1" };
+        await NotifyAsync();
+        await using var db = _app.OpenDatabase();
+        Assert.Equal(PaymentStatus.Paid, (await db.Orders.SingleAsync()).PaymentStatus);
+        Assert.Equal("checkout-1", (await db.PaymentAttempts.SingleAsync()).CheckoutId);
+        Assert.NotNull((await db.PaymentProviderEvents.SingleAsync()).ProcessedAtUtc);
+    }
+
+    [SqlServerFact]
+    public async Task DuplicateCallbackInsertRaceLeavesOneProcessedEvent()
+    {
+        await StartAsync();
+        _provider.Checkouts[0] = _provider.Checkouts[0] with { Status = "PAID", TransactionCode = "paid-1" };
+        _app.SaveGate.EntityType = typeof(PaymentProviderEvent);
+        var first = NotifyAsync();
+        var second = NotifyAsync();
+        try { await _app.SaveGate.WaitForBothAsync(); }
+        finally { _app.SaveGate.Release(); }
+        await Task.WhenAll(first, second);
+        await using var db = _app.OpenDatabase();
+        var paymentEvent = Assert.Single(await db.PaymentProviderEvents.ToListAsync());
+        Assert.NotNull(paymentEvent.ProcessedAtUtc);
+        Assert.Null(paymentEvent.ProcessingError);
+        Assert.Equal(PaymentStatus.Paid, (await db.Orders.SingleAsync()).PaymentStatus);
+    }
+
+    [SqlServerTheory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task FailedSaveDoesNotFlushDirtyStateWhenRecordingDiagnosticsAndCanReplay(bool failOrder)
+    {
+        await StartAsync();
+        _provider.Checkouts[0] = _provider.Checkouts[0] with { Status = "PAID", TransactionCode = "paid-1" };
+        _failure.FailPaidOrder = failOrder;
+        _failure.FailProcessedEvent = !failOrder;
+        await Assert.ThrowsAsync<InvalidOperationException>(() => NotifyAsync());
+        await using (var db = _app.OpenDatabase())
+        {
+            Assert.Equal(failOrder ? PaymentStatus.Pending : PaymentStatus.Paid, (await db.Orders.SingleAsync()).PaymentStatus);
+            var paymentEvent = await db.PaymentProviderEvents.SingleAsync();
+            Assert.Null(paymentEvent.ProcessedAtUtc);
+            Assert.NotNull(paymentEvent.ProcessingFailedAtUtc);
+        }
+        await NotifyAsync();
+        await using var verified = _app.OpenDatabase();
+        Assert.Equal(PaymentStatus.Paid, (await verified.Orders.SingleAsync()).PaymentStatus);
+        var recovered = await verified.PaymentProviderEvents.SingleAsync();
+        Assert.NotNull(recovered.ProcessedAtUtc);
+        Assert.Null(recovered.ProcessingError);
+    }
+
+    [SqlServerFact]
+    public async Task DelayedFailureCannotOverwritePaidTransactionOrFailNewCheckout()
+    {
+        await StartAsync();
+        _provider.Checkouts[0] = _provider.Checkouts[0] with { Status = "EXPIRED" };
+        await StartAsync();
+        await NotifyAsync();
+        await using (var db = _app.OpenDatabase())
+            Assert.Equal(PaymentStatus.Pending, (await db.Orders.SingleAsync()).PaymentStatus);
+        _provider.Checkouts[1] = _provider.Checkouts[1] with { Status = "PAID", TransactionCode = "paid-2" };
+        await NotifyAsync("checkout-2");
+        _provider.Checkouts[0] = _provider.Checkouts[0] with { Status = "FAILED", TransactionCode = "failed-1" };
+        await NotifyAsync();
+        await using var verified = _app.OpenDatabase();
+        var order = await verified.Orders.SingleAsync();
+        Assert.Equal(PaymentStatus.Paid, order.PaymentStatus);
+        Assert.Equal("paid-2", order.SumUpTransactionId);
+    }
+
+    [SqlServerFact]
+    public async Task MismatchedMerchantCannotBindOrPayAnUncertainAttempt()
+    {
+        _provider.LoseResponse = true;
+        await Assert.ThrowsAsync<PaymentRecoveryException>(() => StartAsync());
+        _provider.Checkouts[0] = _provider.Checkouts[0] with { Status = "PAID", TransactionCode = "paid-1", MerchantCode = "other" };
+        await Assert.ThrowsAsync<PaymentRecoveryException>(() => NotifyAsync());
+        await using var db = _app.OpenDatabase();
+        Assert.Equal(PaymentStatus.Pending, (await db.Orders.SingleAsync()).PaymentStatus);
+        Assert.Null((await db.PaymentAttempts.SingleAsync()).CheckoutId);
+        Assert.Null((await db.PaymentProviderEvents.SingleAsync()).ProcessedAtUtc);
+    }
+
+    [SqlServerFact]
+    public async Task MalformedAndOversizedNotificationsAreRejectedBeforeProviderLookup()
+    {
+        using var client = _api.CreateClient();
+        foreach (var payload in new[] { "{", "null", "{}", "{\"event_type\":\"CHECKOUT_STATUS_CHANGED\",\"id\":\"../oops\"}" })
+        {
+            using var response = await client.PostAsync("/api/sumup/checkout-status", new StringContent(payload, System.Text.Encoding.UTF8, "application/json"));
+            Assert.Equal(System.Net.HttpStatusCode.BadRequest, response.StatusCode);
+        }
+        using var oversized = await client.PostAsync("/api/sumup/checkout-status", new StringContent(new string('x', 17000)));
+        Assert.Equal(System.Net.HttpStatusCode.RequestEntityTooLarge, oversized.StatusCode);
+        Assert.Equal(0, _provider.Gets);
+    }
+
+    [SqlServerFact]
+    public async Task SecondPaidAttemptIsFlaggedWithoutReplacingOriginalTransaction()
+    {
+        await StartAsync();
+        _provider.Checkouts[0] = _provider.Checkouts[0] with { Status = "EXPIRED" };
+        await StartAsync();
+        _provider.Checkouts[1] = _provider.Checkouts[1] with { Status = "PAID", TransactionCode = "paid-2" };
+        await NotifyAsync("checkout-2");
+        _provider.Checkouts[0] = _provider.Checkouts[0] with { Status = "PAID", TransactionCode = "paid-1" };
+        await Assert.ThrowsAsync<PaymentRecoveryException>(() => NotifyAsync());
+        await using var db = _app.OpenDatabase();
+        var order = await db.Orders.SingleAsync();
+        Assert.Equal("paid-2", order.SumUpTransactionId);
+        Assert.Equal("checkout-2", order.SumUpCheckoutId);
+        Assert.NotNull((await db.PaymentProviderEvents.SingleAsync(x => x.CheckoutId == "checkout-1")).ProcessingFailedAtUtc);
+    }
+
+    [SqlServerFact]
+    public async Task PaidCallbackAfterCancellationPreservesReleasedStockAndRequiresRefund()
+    {
+        await StartAsync();
+        await using (var db = _app.OpenDatabase())
+            await db.Orders.ExecuteUpdateAsync(set => set.SetProperty(x => x.Status, OrderStatus.Cancelled));
+        _provider.Checkouts[0] = _provider.Checkouts[0] with { Status = "PAID", TransactionCode = "paid-1" };
+        await NotifyAsync();
+        await using var verified = _app.OpenDatabase();
+        var order = await verified.Orders.SingleAsync();
+        Assert.Equal(OrderStatus.Cancelled, order.Status);
+        Assert.Equal(PaymentStatus.RefundPending, order.PaymentStatus);
+        Assert.Equal(2, (await verified.Products.SingleAsync()).StockQuantity);
+    }
+
     private sealed class Provider : ISumUpCheckoutClient
     {
         public List<SumUpCheckoutResult> Checkouts { get; } = [];
         public int Creates { get; private set; }
         public int Lookups { get; private set; }
+        public int Gets { get; private set; }
         public bool LoseResponse { get; set; }
         public bool BlockCreate { get; set; }
         public TaskCompletionSource Entered { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -177,7 +331,10 @@ public sealed class PaymentRecoveryTests : IAsyncLifetime
             return result;
         }
         public Task<SumUpCheckoutResult> GetAsync(string id, string key, Uri url, CancellationToken token = default)
-            => Task.FromResult(Checkouts.Single(x => x.CheckoutId == id));
+        {
+            Gets++;
+            return Task.FromResult(Checkouts.Single(x => x.CheckoutId == id));
+        }
         public Task<IReadOnlyList<SumUpCheckoutResult>> FindAsync(string reference, string key, Uri url, CancellationToken token = default)
         {
             Lookups++;

@@ -15,6 +15,15 @@ public sealed class PaymentAttemptRepository(IAppDbContext context) : IPaymentAt
         => context.PaymentAttempts.SingleOrDefaultAsync(x => x.CheckoutId == checkoutId, token);
     public void Add(PaymentAttempt attempt) => context.PaymentAttempts.Add(attempt);
 
+    public async Task<Guid?> FindOrderIdAsync(string checkoutId, string? reference, CancellationToken token = default)
+    {
+        var attemptOrder = await context.PaymentAttempts.Where(x => x.CheckoutId == checkoutId ||
+                (reference != null && x.Reference == reference))
+            .Select(x => (Guid?)x.OrderId).SingleOrDefaultAsync(token);
+        return attemptOrder ?? await context.Orders.Where(x => x.SumUpCheckoutId == checkoutId)
+            .Select(x => (Guid?)x.Id).SingleOrDefaultAsync(token);
+    }
+
     public async Task<IAsyncDisposable> AcquireLockAsync(Guid orderId, CancellationToken token = default)
     {
         var settings = new SqlConnectionStringBuilder(((DbContext)context).Database.GetConnectionString()) { Pooling = false };

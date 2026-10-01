@@ -63,6 +63,8 @@ public sealed class PublicOrderWithdrawalEndpointTests
             CancellationToken cancellationToken = default) =>
             throw new NotSupportedException();
 
+        public Task ReconcileSumUpCheckoutAsync(Biogarden.BusinessLogic.Models.Payments.SumUpCheckoutResult checkout, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+
         public Task<SumUpCheckoutDto> CreateSumUpCheckoutAsync(
             Guid? userId,
             string? sessionId,
