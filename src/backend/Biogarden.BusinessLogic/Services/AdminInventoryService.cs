@@ -49,13 +49,7 @@ public sealed class AdminInventoryService : IAdminInventoryService
     {
         var product = await _unitOfWork.ProductRepository.GetByIdAsync(productId, cancellationToken)
             ?? throw new KeyNotFoundException($"Product {productId} not found.");
-        var now = DateTime.UtcNow;
-        var reserved = await _databaseContext.CartItems
-            .Where(item => item.ProductId == productId && item.Cart != null && !item.Cart.IsCheckedOut && item.Cart.ExpiresAtUtc > now)
-            .SumAsync(item => (int?)item.Quantity, cancellationToken) ?? 0;
-
-        if (changes.StockQuantity < reserved)
-            throw new InvalidOperationException($"A készlet nem lehet kevesebb a jelenleg lefoglalt {reserved} darabnál.");
+        var reserved = await StockUpdatePolicy.ValidateAsync(_unitOfWork, product, changes.StockQuantity, cancellationToken);
 
         product.StockQuantity = changes.StockQuantity;
         product.Available = changes.StockQuantity > 0 && changes.Available;

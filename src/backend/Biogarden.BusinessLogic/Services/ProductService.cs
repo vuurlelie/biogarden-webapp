@@ -107,6 +107,7 @@ public sealed class ProductService : IProductService
             throw new KeyNotFoundException($"Product {productId} not found.");
         }
 
+        await StockUpdatePolicy.ValidateAsync(_unitOfWork, entity, changes.StockQuantity, cancellationToken);
         changes.ApplyChanges(entity);
 
         _unitOfWork.ProductRepository.Update(entity);
