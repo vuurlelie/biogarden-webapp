@@ -28,6 +28,7 @@ export type OrderWithdrawalRequest = {
 };
 
 export type Order = {
+  version: string;
   id: string;
   orderNumber: string;
   userId: string | null;

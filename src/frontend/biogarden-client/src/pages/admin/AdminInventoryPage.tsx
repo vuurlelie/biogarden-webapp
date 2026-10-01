@@ -7,7 +7,7 @@ import {
 import { getUnitLabel } from "../../features/products/utils/productLabels";
 import AdminPageHeader from "../../shared/components/admin/AdminPageHeader";
 import AdminPagination from "../../shared/components/admin/AdminPagination";
-import { getErrorMessage, isAbortError } from "../../shared/utils/errorHandling";
+import { getErrorMessage, isAbortError, hasErrorStatus } from "../../shared/utils/errorHandling";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 const PAGE_SIZE = 12;
@@ -31,9 +31,24 @@ function InventoryCard({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [quantityError, setQuantityError] = useState<string | null>(null);
+  const [conflict, setConflict] = useState(false);
+  const [previousInput, setPreviousInput] = useState("");
+  async function reloadCurrent() {
+    setSaving(true);
+    try {
+      const current = (await getAdminInventory()).find(value => value.productId === item.productId);
+      if (!current) throw new Error("A termék már nem érhető el.");
+      setPreviousInput(`Korábbi bevitel: ${quantity} db, ${available ? "rendelhető" : "nem rendelhető"}. Ellenőrizd az aktuális készletet, majd szükség esetén írd be újra a módosítást.`);
+      onSaved(current);
+      setQuantity(String(current.stockQuantity)); setAvailable(current.available);
+      setConflict(false); setError(null); setQuantityError(null);
+    } catch (error) { setError(getErrorMessage(error, "A frissítés nem sikerült.")); }
+    finally { setSaving(false); }
+  }
   const quantityErrorId = `inventory-${item.productId}-quantity-error`;
 
   async function save() {
+    if (saving || conflict) return;
     const value = Number(quantity);
 
     if (!Number.isInteger(value) || value < item.reservedQuantity) {
@@ -47,10 +62,11 @@ function InventoryCard({
     setError(null);
 
     try {
-      const updated = await updateAdminInventory(item.productId, value, available);
+      const updated = await updateAdminInventory(item.productId, value, available, item.version);
       onSaved(updated);
       setEditing(false);
     } catch (saveError) {
+      if (hasErrorStatus(saveError, 409)) setConflict(true);
       setError(getErrorMessage(saveError, "A mentés nem sikerült."));
     } finally {
       setSaving(false);
@@ -117,6 +133,8 @@ function InventoryCard({
 
           {editing ? (
             <div className="mt-4 space-y-3 border-t border-site-border pt-4">
+              {previousInput && <p role="status">{previousInput}</p>}
+              {conflict && <button type="button" disabled={saving} onClick={() => void reloadCurrent()}>Aktuális adatok betöltése</button>}
               <label className="block text-sm font-semibold">
                 Új teljes készlet
                 <input
@@ -164,7 +182,7 @@ function InventoryCard({
                 <button
                   type="button"
                   onClick={() => void save()}
-                  disabled={saving}
+                  disabled={saving || conflict}
                   className="flex-1 rounded-sm bg-site-green px-3 py-2 text-sm font-semibold text-white disabled:opacity-60"
                 >
                   {saving ? "Mentés..." : "Mentés"}

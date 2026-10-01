@@ -833,6 +833,7 @@ public sealed class OrderServiceTests
     [InlineData(PaymentStatus.Pending, PaymentStatus.RefundPending)]
     [InlineData(PaymentStatus.RefundPending, PaymentStatus.RefundPending)]
     [InlineData(PaymentStatus.Refunded, PaymentStatus.Refunded)]
+    [InlineData(PaymentStatus.PartiallyRefunded, PaymentStatus.PartiallyRefunded)]
     public async Task ConfirmSumUpCheckoutAsync_AfterCancellation_PreservesCancellationAndReconcilesPayment(
         PaymentStatus initial, PaymentStatus expected)
     {
@@ -905,12 +906,16 @@ public sealed class OrderServiceTests
         _unitOfWork.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
     }
 
-    [Fact]
-    public async Task MarkSumUpPaymentFailedAsync_WhenOrderIsAlreadyPaid_DoesNotDowngradePaymentStatus()
+    [Theory]
+    [InlineData(PaymentStatus.Paid)]
+    [InlineData(PaymentStatus.RefundPending)]
+    [InlineData(PaymentStatus.Refunded)]
+    [InlineData(PaymentStatus.PartiallyRefunded)]
+    public async Task MarkSumUpPaymentFailedAsync_WhenOrderIsAlreadyPaid_DoesNotDowngradePaymentStatus(PaymentStatus payment)
     {
         var order = CreateOrder(null);
         order.SumUpCheckoutId = "checkout_123";
-        order.PaymentStatus = PaymentStatus.Paid;
+        order.PaymentStatus = payment;
         order.Status = OrderStatus.Confirmed;
 
         _orders
@@ -922,7 +927,7 @@ public sealed class OrderServiceTests
         var result = await _service.MarkSumUpPaymentFailedAsync("checkout_123", "txn_late_failure");
 
         Assert.NotNull(result);
-        Assert.Equal(PaymentStatus.Paid, result.PaymentStatus);
+        Assert.Equal(payment, result.PaymentStatus);
         Assert.Equal(OrderStatus.Confirmed, result.Status);
         Assert.Equal("txn_late_failure", order.SumUpTransactionId);
         _orders.Verify(x => x.Update(order), Times.Once);

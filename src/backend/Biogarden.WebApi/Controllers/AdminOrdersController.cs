@@ -3,6 +3,7 @@ using Biogarden.BusinessLogic.DTOs.Admin;
 using Biogarden.BusinessLogic.DTOs.Orders;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 
 namespace Biogarden.WebApi.Controllers;
 
@@ -36,7 +37,8 @@ public sealed class AdminOrdersController : ControllerBase
         AdminOrderUpdateDto changes,
         CancellationToken token)
     {
-        return Ok(await _service.UpdateAsync(orderId, changes, token));
+        if (!Guid.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var actorId)) return Unauthorized();
+        return Ok(await _service.UpdateAsync(orderId, changes, token, actorId));
     }
 
     [HttpPut("withdrawal-requests/{requestId:int}/handled")]

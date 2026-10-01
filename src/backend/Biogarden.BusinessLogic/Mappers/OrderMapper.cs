@@ -10,6 +10,7 @@ public static class OrderMapper
         return new OrderDto
         {
             Id = order.Id,
+            Version = Convert.ToBase64String(order.RowVersion),
             OrderNumber = order.OrderNumber,
             IdempotencyKey = order.IdempotencyKey,
             UserId = order.UserId,

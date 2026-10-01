@@ -16,20 +16,20 @@ import {
   getPaymentStatusLabel,
 } from "../../features/account/utils/orderLabels";
 import { getAdminOrders, updateAdminOrder } from "../../features/admin/api/adminOrdersApi";
+import { manualPaymentChoices, PAYMENT_STATUS, ORDER_STATUS } from "../../features/admin/utils/paymentTransitions";
 import { getUnitLabel } from "../../features/products/utils/productLabels";
 import AdminFeedbackMessages from "../../shared/components/admin/AdminFeedbackMessages";
 import AdminListEmptyState from "../../shared/components/admin/AdminListEmptyState";
 import AdminListSkeletonGrid from "../../shared/components/admin/AdminListSkeletonGrid";
 import AdminPageHeader from "../../shared/components/admin/AdminPageHeader";
 import AdminPagination from "../../shared/components/admin/AdminPagination";
-import { getErrorMessage, isAbortError } from "../../shared/utils/errorHandling";
+import { getErrorMessage, isAbortError, hasErrorStatus } from "../../shared/utils/errorHandling";
 
 const PAGE_SIZE = 12;
 
 const fulfillmentLabels = FULFILLMENT_LABELS;
 
 const statuses: OrderStatus[] = [0, 1, 2, 3, 4];
-const paymentStatuses: PaymentStatus[] = [0, 1, 2, 3, 4, 5, 6];
 
 function address(
   postal: string | null,
@@ -67,8 +67,26 @@ function OrderCard({
   const [status, setStatus] = useState<OrderStatus>(order.status);
   const [payment, setPayment] = useState<PaymentStatus>(order.paymentStatus);
   const [reason, setReason] = useState(order.cancellationReason ?? "");
+  const [paymentReason, setPaymentReason] = useState("");
+  const paymentChanged = payment !== order.paymentStatus || (status === ORDER_STATUS.Cancelled && order.status !== ORDER_STATUS.Cancelled &&
+    (order.paymentStatus === PAYMENT_STATUS.Paid || order.paymentStatus === PAYMENT_STATUS.PartiallyRefunded));
+  const allowedPayments = manualPaymentChoices(order);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [conflict, setConflict] = useState(false);
+  const [previousInput, setPreviousInput] = useState("");
+  async function reloadCurrent() {
+    setSaving(true);
+    try {
+      const current = (await getAdminOrders()).find(value => value.id === order.id);
+      if (!current) throw new Error("A rendelés már nem érhető el.");
+      setPreviousInput(`Korábbi bevitel: ${getOrderStatusLabel(status)}, ${getPaymentStatusLabel(payment)}; ${reason}; ${paymentReason}. Ellenőrizd az aktuális adatokat, majd alkalmazd újra a szükséges módosítást.`);
+      onUpdated(current); setStatus(current.status); setPayment(current.paymentStatus);
+      setReason(current.cancellationReason ?? ""); setConflict(false); setError(null);
+      setPaymentReason("");
+    } catch (error) { setError(getErrorMessage(error, "A frissítés nem sikerült.")); }
+    finally { setSaving(false); }
+  }
   const terminal = order.status === 3 || order.status === 4;
   const detailsId = `admin-order-details-${order.id}`;
   const statusSelectId = `admin-order-status-${order.id}`;
@@ -76,6 +94,8 @@ function OrderCard({
   const cancellationReasonId = `admin-order-cancellation-reason-${order.id}`;
 
   async function save() {
+    if (saving || conflict) return;
+    if (paymentChanged && !paymentReason.trim()) { setError("A fizetési módosítás indoklása kötelező."); return; }
     setSaving(true);
     setError(null);
 
@@ -85,10 +105,15 @@ function OrderCard({
         status,
         payment,
         status === 4 ? reason.trim() || null : null,
+        order.version,
+        paymentReason.trim() || null,
       );
       onUpdated(updated);
+      setStatus(updated.status); setPayment(updated.paymentStatus);
+      setReason(updated.cancellationReason ?? ""); setPaymentReason("");
       setEditing(false);
     } catch (saveError) {
+      if (hasErrorStatus(saveError, 409)) setConflict(true);
       setError(getErrorMessage(saveError, "A módosítás nem sikerült."));
     } finally {
       setSaving(false);
@@ -99,6 +124,7 @@ function OrderCard({
     setStatus(order.status);
     setPayment(order.paymentStatus);
     setReason(order.cancellationReason ?? "");
+    setPaymentReason("");
     setError(null);
     setEditing(false);
   }
@@ -143,6 +169,8 @@ function OrderCard({
         </div>
       </dl>
 
+      {previousInput && <p role="status">{previousInput}</p>}
+      {conflict && <button type="button" disabled={saving} onClick={() => void reloadCurrent()}>Aktuális adatok betöltése</button>}
       {error && (
         <p role="alert" className="mt-4 rounded-sm bg-site-danger-soft p-3 text-sm text-site-danger">
           {error}
@@ -242,6 +270,7 @@ function OrderCard({
                   <select
                     id={statusSelectId}
                     value={status}
+                    disabled={terminal}
                     onChange={(event) => setStatus(Number(event.target.value) as OrderStatus)}
                     className="mt-1 w-full rounded-sm border border-site-border bg-white px-3 py-2.5"
                   >
@@ -261,13 +290,17 @@ function OrderCard({
                     onChange={(event) => setPayment(Number(event.target.value) as PaymentStatus)}
                     className="mt-1 w-full rounded-sm border border-site-border bg-white px-3 py-2.5"
                   >
-                    {paymentStatuses.map((value) => (
+                    {allowedPayments.map((value) => (
                       <option key={value} value={value}>{getPaymentStatusLabel(value)}</option>
                     ))}
                   </select>
                 </label>
               </div>
 
+              {paymentChanged && <label className="mt-4 block text-sm font-semibold">Fizetési módosítás indoklása
+                <textarea value={paymentReason} onChange={event => setPaymentReason(event.target.value)} maxLength={500} className="mt-1 w-full rounded-sm border p-2" />
+                <span className="block text-sm">A visszatérítést külön kell elvégezni a szolgáltatónál; itt csak a megtörtént művelet állapotát rögzíted.</span>
+              </label>}
               {status === 4 && (
                 <label htmlFor={cancellationReasonId} className="mt-4 block text-sm font-semibold">
                   Lemondás oka
@@ -293,7 +326,7 @@ function OrderCard({
                 <button
                   type="button"
                   onClick={() => void save()}
-                  disabled={saving}
+                  disabled={saving || conflict}
                   className="rounded-sm bg-site-green px-4 py-2.5 font-semibold text-white disabled:opacity-60"
                 >
                   {saving ? "Mentés..." : "Mentés"}
@@ -314,7 +347,7 @@ function OrderCard({
         >
           {open ? "Részletek bezárása" : "Részletek"}
         </button>
-        {open && !editing && !terminal && (
+        {open && !editing && (
           <button
             type="button"
             onClick={() => setEditing(true)}

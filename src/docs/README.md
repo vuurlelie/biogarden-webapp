@@ -20,6 +20,7 @@ Biogarden is in **User Acceptance Testing (UAT)**. Client feedback and outstandi
 | Operate private checkout drafts | [Checkout drafts](operations/checkout-drafts.md) | Ownership, expiry, cleanup, conflicts and order recovery |
 | Configure checkout pricing and GLS | [Checkout pricing and GLS](operations/checkout-pricing.md) | Provisional fees, COD policy, destination selection, compatibility and verification |
 | Tune request limits | [Abuse protection](operations/abuse-protection.md) | Rate limits and verification |
+| Manage conflicting admin edits and payment corrections | [Admin order updates](operations/admin-order-updates.md) | Versions, reservation rules, payment transitions and audit records |
 | Obtain professional wording/process review | [Legal and accounting handoff](legal/legal-accounting-review-checklist.md) | Review scope and approval evidence |
 | Work on the browser application | [Frontend notes](../frontend/biogarden-client/README.md) | Frontend structure and build behaviour |
 

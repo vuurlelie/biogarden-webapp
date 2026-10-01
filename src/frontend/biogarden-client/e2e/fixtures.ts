@@ -5,7 +5,8 @@ export const apiBaseUrl = "http://localhost:5097";
 type OrderStatus = 0 | 1 | 2 | 3 | 4;
 type PaymentStatus = 0 | 1 | 2 | 3 | 4 | 5 | 6;
 
-const product = {
+export const product = {
+  version: "AAAAAAAAAAE=",
   id: 1,
   name: "Teszt levendula tea",
   price: 1800,
@@ -101,6 +102,7 @@ const cartItem = {
 };
 
 export const successfulOrder = {
+  version: 'AAAAAAAAAAE=',
   id: "11111111-1111-1111-1111-111111111111",
   orderNumber: "BG-2026-0001",
   userId: null,
@@ -457,7 +459,7 @@ export async function mockAdminOrdersApi(page: Page) {
       json: {
         ...adminOrder,
         status: 1,
-        paymentStatus: 1,
+        paymentStatus: 2,
       },
     });
   });

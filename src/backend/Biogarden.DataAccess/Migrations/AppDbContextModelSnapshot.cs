@@ -696,6 +696,39 @@ namespace Biogarden.DataAccess.Migrations
                         });
                 });
 
+            modelBuilder.Entity("Biogarden.DataAccess.Entities.OrderPaymentCorrection", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ActorId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("NewStatus")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("OrderId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("PreviousStatus")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OrderId", "CreatedAtUtc");
+
+                    b.ToTable("OrderPaymentCorrections");
+                });
+
             modelBuilder.Entity("Biogarden.DataAccess.Entities.OrderWithdrawalRequest", b =>
                 {
                     b.Property<int>("Id")
@@ -1174,6 +1207,17 @@ namespace Biogarden.DataAccess.Migrations
                     b.Navigation("Order");
 
                     b.Navigation("Product");
+                });
+
+            modelBuilder.Entity("Biogarden.DataAccess.Entities.OrderPaymentCorrection", b =>
+                {
+                    b.HasOne("Biogarden.DataAccess.Entities.Order", "Order")
+                        .WithMany()
+                        .HasForeignKey("OrderId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Order");
                 });
 
             modelBuilder.Entity("Biogarden.DataAccess.Entities.OrderWithdrawalRequest", b =>

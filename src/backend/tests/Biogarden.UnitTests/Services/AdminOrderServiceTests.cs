@@ -27,6 +27,7 @@ public sealed class AdminOrderServiceTests
         var order = new Order
         {
             Id = Guid.NewGuid(),
+            RowVersion = [0, 0, 0, 0, 0, 0, 0, 1],
             OrderNumber = "BK-TEST-0001",
             CartId = Guid.NewGuid(),
             CustomerName = "Teszt Elek",
@@ -82,6 +83,7 @@ public sealed class AdminOrderServiceTests
             order.Id,
             new AdminOrderUpdateDto
             {
+                Version = Convert.ToBase64String(order.RowVersion),
                 Status = OrderStatus.Confirmed,
                 PaymentStatus = PaymentStatus.Pending
             });

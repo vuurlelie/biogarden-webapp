@@ -235,6 +235,7 @@ public sealed class OrderWorkflowTests : IAsyncLifetime
             var admin = cancelScope.ServiceProvider.GetRequiredService<Biogarden.BusinessLogic.Abstractions.IAdminOrderService>();
             await admin.UpdateAsync(orderId, new Biogarden.BusinessLogic.DTOs.Admin.AdminOrderUpdateDto
             {
+                Version = Convert.ToBase64String((await paymentDatabase.Orders.AsNoTracking().SingleAsync(x => x.Id == orderId)).RowVersion),
                 Status = OrderStatus.Cancelled,
                 PaymentStatus = PaymentStatus.Pending
             });
@@ -340,6 +341,7 @@ public sealed class OrderWorkflowTests : IAsyncLifetime
         var service = scope.ServiceProvider.GetRequiredService<Biogarden.BusinessLogic.Abstractions.IAdminOrderService>();
         await service.UpdateAsync(orderId, new Biogarden.BusinessLogic.DTOs.Admin.AdminOrderUpdateDto
         {
+            Version = (await service.GetAllAsync()).Single(x => x.Id == orderId).Version,
             Status = status,
             PaymentStatus = PaymentStatus.Pending
         });

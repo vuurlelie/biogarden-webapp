@@ -2,6 +2,7 @@ namespace Biogarden.BusinessLogic.DTOs.Admin;
 
 public sealed class AdminInventoryItemDto
 {
+    public string Version { get; init; } = string.Empty;
     public int ProductId { get; init; }
     public required string Name { get; init; }
     public required string Image { get; init; }
@@ -15,6 +16,7 @@ public sealed class AdminInventoryItemDto
 
 public sealed class UpdateAdminInventoryDto
 {
+    public string? Version { get; set; }
     public int StockQuantity { get; set; }
     public bool Available { get; set; }
 }

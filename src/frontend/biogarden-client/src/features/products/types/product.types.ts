@@ -24,6 +24,7 @@ export type ProductListItem = {
 };
 
 export type ProductDetails = ProductListItem & {
+  version: string;
   description: string | null;
   stockQuantity: number;
 };

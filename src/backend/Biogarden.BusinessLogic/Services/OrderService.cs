@@ -334,7 +334,7 @@ public class OrderService : IOrderService
             throw new InvalidOperationException("Cancelled order cannot be paid.");
         }
 
-        if (order.PaymentStatus is PaymentStatus.Paid or PaymentStatus.RefundPending or PaymentStatus.Refunded)
+        if (order.PaymentStatus is PaymentStatus.Paid or PaymentStatus.RefundPending or PaymentStatus.Refunded or PaymentStatus.PartiallyRefunded)
         {
             throw new InvalidOperationException("Order is already paid.");
         }
@@ -375,10 +375,10 @@ public class OrderService : IOrderService
         if (order.Status == OrderStatus.Cancelled)
         {
             // Money can arrive after cancellation; preserve fulfillment and released stock.
-            if (order.PaymentStatus != PaymentStatus.Refunded)
+            if (order.PaymentStatus is not PaymentStatus.Refunded and not PaymentStatus.PartiallyRefunded)
                 order.PaymentStatus = PaymentStatus.RefundPending;
         }
-        else if (order.PaymentStatus is not PaymentStatus.RefundPending and not PaymentStatus.Refunded)
+        else if (order.PaymentStatus is not PaymentStatus.RefundPending and not PaymentStatus.Refunded and not PaymentStatus.PartiallyRefunded)
         {
             order.PaymentStatus = PaymentStatus.Paid;
             if (order.Status == OrderStatus.Pending) order.Status = OrderStatus.Confirmed;
@@ -414,7 +414,7 @@ public class OrderService : IOrderService
             return null;
         }
 
-        if (order.PaymentStatus is not PaymentStatus.Paid and not PaymentStatus.Refunded and not PaymentStatus.RefundPending)
+        if (order.PaymentStatus is not PaymentStatus.Paid and not PaymentStatus.Refunded and not PaymentStatus.RefundPending and not PaymentStatus.PartiallyRefunded)
         {
             order.PaymentStatus = PaymentStatus.Failed;
         }
@@ -452,7 +452,7 @@ public class OrderService : IOrderService
             throw new InvalidOperationException("Order can no longer be cancelled.");
         }
 
-        if (order.PaymentStatus == PaymentStatus.Paid)
+        if (order.PaymentStatus is PaymentStatus.Paid or PaymentStatus.PartiallyRefunded)
         {
             order.PaymentStatus = PaymentStatus.RefundPending;
         }
