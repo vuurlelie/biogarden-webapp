@@ -1,4 +1,4 @@
-using Biogarden.BusinessLogic;
+using Biogarden.WebApi.Services;
 using Biogarden.BusinessLogic.Abstractions;
 using Biogarden.BusinessLogic.DTOs.Common;
 using Biogarden.BusinessLogic.DTOs.Posts;
@@ -12,24 +12,13 @@ namespace Biogarden.WebApi.Controllers;
 [Route("api/admin/posts")]
 public sealed class AdminPostsController : ControllerBase
 {
-    private static readonly HashSet<string> AllowedImageExtensions = new(StringComparer.OrdinalIgnoreCase)
-    {
-        ".jpg", ".jpeg", ".png", ".webp"
-    };
-
-    private static readonly HashSet<string> AllowedImageContentTypes = new(StringComparer.OrdinalIgnoreCase)
-    {
-        "image/jpeg", "image/png", "image/webp"
-    };
-
-    private const long MaximumImageSize = 5 * 1024 * 1024;
     private readonly IPostService _postService;
-    private readonly IWebHostEnvironment _environment;
+    private readonly ManagedImageStorage _images;
 
-    public AdminPostsController(IPostService postService, IWebHostEnvironment environment)
+    public AdminPostsController(IPostService postService, ManagedImageStorage images)
     {
         _postService = postService;
-        _environment = environment;
+        _images = images;
     }
 
     [HttpGet]
@@ -54,13 +43,6 @@ public sealed class AdminPostsController : ControllerBase
 
         await _postService.UpdateAsync(postId, post, cancellationToken);
 
-        if (post.Image is not null &&
-            !string.Equals(previousPost.Image, post.Image, StringComparison.OrdinalIgnoreCase) &&
-            !await _postService.IsImageInUseAsync(previousPost.Image, cancellationToken))
-        {
-            DeleteManagedImage(previousPost.Image);
-        }
-
         return NoContent();
     }
 
@@ -70,71 +52,25 @@ public sealed class AdminPostsController : ControllerBase
         var post = await _postService.GetDetailsAsync(postId, cancellationToken);
         if (post is null || !await _postService.DeleteAsync(postId, cancellationToken)) return NotFound();
 
-        if (!await _postService.IsImageInUseAsync(post.Image, cancellationToken))
-        {
-            DeleteManagedImage(post.Image);
-        }
-
         return NoContent();
     }
 
     [HttpPost("image")]
     [ProducesResponseType(StatusCodes.Status201Created)]
-    [RequestSizeLimit(MaximumImageSize)]
+    [RequestSizeLimit(ManagedImageStorage.MaximumRequestBytes)]
     public async Task<ActionResult<object>> UploadImage(IFormFile image, CancellationToken cancellationToken)
     {
-        if (image.Length == 0 || image.Length > MaximumImageSize)
-        {
-            return BadRequest(new { detail = "A kép mérete legfeljebb 5 MB lehet." });
-        }
-
-        var extension = Path.GetExtension(image.FileName);
-        if (!AllowedImageExtensions.Contains(extension) || !AllowedImageContentTypes.Contains(image.ContentType))
-        {
-            return BadRequest(new { detail = "Csak JPG, PNG vagy WEBP kép tölthető fel." });
-        }
-
-        var uploadsDirectory = Path.Combine(_environment.WebRootPath, "uploads", "posts");
-        Directory.CreateDirectory(uploadsDirectory);
-
-        var fileName = $"{Guid.NewGuid():N}{extension.ToLowerInvariant()}";
-        var filePath = Path.Combine(uploadsDirectory, fileName);
-
-        await using var stream = System.IO.File.Create(filePath);
-        await image.CopyToAsync(stream, cancellationToken);
-
-        var path = $"/uploads/posts/{fileName}";
+        var path = await _images.SaveAsync(image, ImageCategory.Posts, cancellationToken);
         return Created(path, new { path });
     }
 
+    // Older clients may request cleanup after a failed save. Never race a concurrent
+    // assignment (or an ambiguous successful save) by physically deleting its image.
     [HttpDelete("image")]
-    public async Task<IActionResult> DeleteUnusedImage([FromBody] DeletePostImageRequest request, CancellationToken cancellationToken)
+    public IActionResult DeleteUnusedImage([FromBody] DeletePostImageRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.Path)) return BadRequest();
-        if (await _postService.IsImageInUseAsync(request.Path, cancellationToken))
-        {
-            return Conflict(new { detail = "A kép jelenleg egy bejegyzéshez tartozik." });
-        }
-
-        DeleteManagedImage(request.Path);
-        return NoContent();
-    }
-
-    private void DeleteManagedImage(string? publicPath)
-    {
-        if (string.IsNullOrWhiteSpace(publicPath)) return;
-
-        var normalizedPath = publicPath.Replace('\\', '/');
-        if (!normalizedPath.StartsWith("/uploads/posts/", StringComparison.OrdinalIgnoreCase)) return;
-        if (string.Equals(normalizedPath, BusinessRules.DefaultPostImagePath, StringComparison.OrdinalIgnoreCase)) return;
-
-        var uploadsDirectory = Path.GetFullPath(Path.Combine(_environment.WebRootPath, "uploads", "posts"));
-        var candidatePath = Path.GetFullPath(Path.Combine(
-            _environment.WebRootPath,
-            normalizedPath.TrimStart('/').Replace('/', Path.DirectorySeparatorChar)));
-
-        if (!candidatePath.StartsWith(uploadsDirectory + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)) return;
-        if (System.IO.File.Exists(candidatePath)) System.IO.File.Delete(candidatePath);
+        return Conflict(new { detail = ManagedImageStorage.RetentionMessage });
     }
 }
 

@@ -1,5 +1,6 @@
 using Biogarden.BusinessLogic.DTOs.Posts;
 using Biogarden.DataAccess.Entities;
+using Biogarden.BusinessLogic.Validation;
 
 namespace Biogarden.BusinessLogic.Mappers;
 
@@ -19,7 +20,7 @@ public static class PostMapper
             Id = post.Id,
             Title = post.Title,
             Category = post.Category,
-            Article = post.Article,
+            Article = ArticleHtml.Sanitize(post.Article),
             Image = post.Image ?? BusinessRules.DefaultPostImagePath,
             PublishedAt = post.PublishedAt,
             Draft = post.Draft
@@ -31,7 +32,7 @@ public static class PostMapper
         {
             Title = dto.Title.Trim(),
             Category = dto.Category,
-            Article = dto.Article.Trim(),
+            Article = ArticleHtml.ValidateAndSanitize(dto.Article),
             Image = string.IsNullOrWhiteSpace(dto.Image) ? BusinessRules.DefaultPostImagePath : dto.Image,
             PublishedAt = dto.PublishedAt ?? DateTime.UtcNow,
             Draft = dto.Draft
@@ -42,7 +43,7 @@ public static class PostMapper
     {
         entity.Title = changes.Title.Trim();
         entity.Category = changes.Category;
-        entity.Article = changes.Article.Trim();
+        entity.Article = ArticleHtml.ValidateAndSanitize(changes.Article);
 
         if (changes.Image is not null)
         {
@@ -61,7 +62,7 @@ public static class PostMapper
             Id = post.Id,
             Title = post.Title,
             Category = post.Category,
-            Article = post.Article,
+            Article = ArticleHtml.Sanitize(post.Article),
             Image = post.Image ?? BusinessRules.DefaultPostImagePath,
             PublishedAt = post.PublishedAt,
             Draft = post.Draft

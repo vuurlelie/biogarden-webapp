@@ -82,10 +82,3 @@ export async function uploadAdminProductImage(image: File): Promise<string> {
   const result = await response.json() as { path: string };
   return result.path;
 }
-
-export async function deleteUnusedAdminProductImage(path: string): Promise<void> {
-  await adminRequest("/products/image", {
-    method: "DELETE",
-    jsonBody: { path },
-  });
-}

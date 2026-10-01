@@ -45,6 +45,7 @@ public sealed class PostCreateDtoValidator : AbstractValidator<PostCreateDto>
     {
         RuleFor(x => x.Title).Must(value => !string.IsNullOrWhiteSpace(value) && value.Trim().Length >= 3).WithMessage("A cím legalább 3 karakter legyen.");
         RuleFor(x => x.Title).MaximumLength(200).WithMessage("Legfeljebb 200 karakter adható meg.");
+        RuleFor(x => x.Article).MaximumLength(ArticleHtml.MaximumLength).WithMessage("A HTML szöveg túl hosszú.");
         RuleFor(x => x.Article).Must(value => !string.IsNullOrWhiteSpace(value) && value.Trim().Length >= 20).WithMessage("A szöveg legalább 20 karakter legyen.");
         RuleFor(x => x.Image).MaximumLength(500).WithMessage("Legfeljebb 500 karakter adható meg.");
         RuleFor(x => x.Category).IsInEnum().WithMessage("Érvénytelen érték.");
@@ -57,6 +58,7 @@ public sealed class PostEditDtoValidator : AbstractValidator<PostEditDto>
     {
         RuleFor(x => x.Title).Must(value => !string.IsNullOrWhiteSpace(value) && value.Trim().Length >= 3).WithMessage("A cím legalább 3 karakter legyen.");
         RuleFor(x => x.Title).MaximumLength(200).WithMessage("Legfeljebb 200 karakter adható meg.");
+        RuleFor(x => x.Article).MaximumLength(ArticleHtml.MaximumLength).WithMessage("A HTML szöveg túl hosszú.");
         RuleFor(x => x.Article).Must(value => !string.IsNullOrWhiteSpace(value) && value.Trim().Length >= 20).WithMessage("A szöveg legalább 20 karakter legyen.");
         RuleFor(x => x.Image).MaximumLength(500).WithMessage("Legfeljebb 500 karakter adható meg.");
         RuleFor(x => x.Category).IsInEnum().WithMessage("Érvénytelen érték.");
