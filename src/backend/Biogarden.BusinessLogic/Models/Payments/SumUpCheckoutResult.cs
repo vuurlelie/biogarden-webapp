@@ -6,4 +6,6 @@ public sealed record SumUpCheckoutResult(
     string? HostedCheckoutUrl = null,
     string? TransactionCode = null,
     decimal? Amount = null,
-    string? Currency = null);
+    string? Currency = null,
+    string? CheckoutReference = null,
+    string? MerchantCode = null);

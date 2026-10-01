@@ -84,7 +84,7 @@ public class OrderRepository : IOrderRepository
             .Include(order => order.Items)
             .AsSplitQuery()
             .FirstOrDefaultAsync(
-                order => order.SumUpCheckoutId == sumUpCheckoutId,
+                order => order.SumUpCheckoutId == sumUpCheckoutId || _context.PaymentAttempts.Any(attempt => attempt.OrderId == order.Id && attempt.CheckoutId == sumUpCheckoutId),
                 cancellationToken);
     }
 

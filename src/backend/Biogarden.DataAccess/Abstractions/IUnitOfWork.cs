@@ -7,6 +7,7 @@ public interface IUnitOfWork
     IAddressRepository AddressRepository { get; }
     ICartRepository CartRepository { get; }
     IOrderRepository OrderRepository { get; }
+    IPaymentAttemptRepository PaymentAttemptRepository { get; }
     IOrderEmailRepository OrderEmailRepository { get; }
     IPaymentProviderEventRepository PaymentProviderEventRepository { get; }
 

@@ -22,6 +22,7 @@ public sealed class OrderServiceTests
 
     private readonly Mock<IUnitOfWork> _unitOfWork = new(MockBehavior.Strict);
     private readonly Mock<IOrderRepository> _orders = new(MockBehavior.Strict);
+    private readonly Mock<IPaymentAttemptRepository> _attempts = new(MockBehavior.Strict);
     private readonly Mock<IOrderEmailRepository> _orderEmails = new(MockBehavior.Strict);
     private readonly Mock<ICartRepository> _carts = new(MockBehavior.Strict);
     private readonly Mock<IProductRepository> _products = new(MockBehavior.Strict);
@@ -36,6 +37,11 @@ public sealed class OrderServiceTests
     public OrderServiceTests()
     {
         _unitOfWork.SetupGet(x => x.OrderRepository).Returns(_orders.Object);
+        _unitOfWork.SetupGet(x => x.PaymentAttemptRepository).Returns(_attempts.Object);
+        _attempts.Setup(x => x.AcquireLockAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new TestPaymentLock());
+        _attempts.Setup(x => x.GetLatestAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>())).ReturnsAsync((PaymentAttempt?)null);
+        _attempts.Setup(x => x.Add(It.IsAny<PaymentAttempt>()));
         _unitOfWork.SetupGet(x => x.OrderEmailRepository).Returns(_orderEmails.Object);
         _unitOfWork.Setup(x => x.ExecuteInTransactionAsync(
                 It.IsAny<Func<CancellationToken, Task<OrderWithdrawalRequestDto>>>(), It.IsAny<CancellationToken>()))
@@ -69,6 +75,8 @@ public sealed class OrderServiceTests
             }),
             Options.Create(new SumUpOptions
             {
+                Enabled = true,
+                MerchantCode = "merchant",
                 Currency = "HUF"
             }), Pricing(), Mock.Of<IGlsDeliveryPointDirectory>(MockBehavior.Strict));
     }
@@ -287,9 +295,9 @@ public sealed class OrderServiceTests
 
         _sumUpCheckoutService.Setup(x => x.CreateCheckoutAsync(
                 It.Is<OrderDto>(dto => dto.Id == result.Id && dto.UserId == null),
-                It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new SumUpCheckoutResult(
-                "checkout_123", "PENDING", "https://checkout.sumup.com/pay/checkout_123", "txn_123"));
+                It.IsAny<CancellationToken>(), It.IsAny<string?>()))
+            .ReturnsAsync((OrderDto dto, CancellationToken _, string? reference) => new SumUpCheckoutResult(
+                "checkout_123", "PENDING", "https://checkout.sumup.com/pay/checkout_123", "txn_123", dto.TotalPrice, "HUF", reference, "merchant"));
         _orders.Setup(x => x.Update(savedOrder));
 
         var checkout = await _service.CreateSumUpCheckoutAsync(null, sessionId, result.Id);
@@ -760,12 +768,12 @@ public sealed class OrderServiceTests
         _sumUpCheckoutService
             .Setup(x => x.CreateCheckoutAsync(
                 It.Is<OrderDto>(dto => dto.Id == order.Id),
-                It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new SumUpCheckoutResult(
+                It.IsAny<CancellationToken>(), It.IsAny<string?>()))
+            .ReturnsAsync((OrderDto dto, CancellationToken _, string? reference) => new SumUpCheckoutResult(
                 "checkout_123",
                 "PENDING",
                 "https://checkout.sumup.com/pay/checkout_123",
-                "txn_123"));
+                "txn_123", dto.TotalPrice, "HUF", reference, "merchant"));
         _orders.Setup(x => x.Update(order));
         _unitOfWork.Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
 
@@ -1177,6 +1185,11 @@ public sealed class OrderServiceTests
             Unit = x.Product.Unit,
             Quantity = x.Quantity
         })).Version;
+    private sealed class TestPaymentLock : IAsyncDisposable
+    {
+        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+    }
+
     private static Order CreateOrder(Guid? userId) => new()
     {
         Id = Guid.NewGuid(),

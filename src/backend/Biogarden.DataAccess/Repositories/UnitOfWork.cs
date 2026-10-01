@@ -12,6 +12,8 @@ public sealed class UnitOfWork : IUnitOfWork
     private IAddressRepository? _addressRepository;
     private ICartRepository? _cartRepository;
     private IOrderRepository? _orderRepository;
+    private IPaymentAttemptRepository? _paymentAttemptRepository;
+    public IPaymentAttemptRepository PaymentAttemptRepository => _paymentAttemptRepository ??= new PaymentAttemptRepository(_databaseContext);
     private IOrderEmailRepository? _orderEmailRepository;
     private IPaymentProviderEventRepository? _paymentProviderEventRepository;
 

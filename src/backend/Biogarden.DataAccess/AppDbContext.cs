@@ -19,6 +19,7 @@ public class AppDbContext
     public DbSet<Cart> Carts => Set<Cart>();
     public DbSet<CartItem> CartItems => Set<CartItem>();
     public DbSet<Order> Orders => Set<Order>();
+    public DbSet<PaymentAttempt> PaymentAttempts => Set<PaymentAttempt>();
     public DbSet<OrderPaymentCorrection> OrderPaymentCorrections => Set<OrderPaymentCorrection>();
     public DbSet<OrderEmail> OrderEmails => Set<OrderEmail>();
     public DbSet<OrderItem> OrderItems => Set<OrderItem>();

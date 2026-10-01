@@ -778,6 +778,55 @@ namespace Biogarden.DataAccess.Migrations
                     b.ToTable("OrderWithdrawalRequests", (string)null);
                 });
 
+            modelBuilder.Entity("Biogarden.DataAccess.Entities.PaymentAttempt", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("CheckoutId")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<bool>("CreateRequested")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("OrderId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Reference")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CheckoutId")
+                        .IsUnique()
+                        .HasFilter("[CheckoutId] IS NOT NULL");
+
+                    b.HasIndex("Reference")
+                        .IsUnique();
+
+                    b.HasIndex("OrderId", "CreatedAtUtc");
+
+                    b.ToTable("PaymentAttempts");
+                });
+
             modelBuilder.Entity("Biogarden.DataAccess.Entities.PaymentProviderEvent", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1229,6 +1278,15 @@ namespace Biogarden.DataAccess.Migrations
                         .IsRequired();
 
                     b.Navigation("Order");
+                });
+
+            modelBuilder.Entity("Biogarden.DataAccess.Entities.PaymentAttempt", b =>
+                {
+                    b.HasOne("Biogarden.DataAccess.Entities.Order", null)
+                        .WithMany()
+                        .HasForeignKey("OrderId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<System.Guid>", b =>

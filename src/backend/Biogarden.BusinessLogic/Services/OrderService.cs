@@ -10,6 +10,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Biogarden.BusinessLogic.Options;
+using Biogarden.BusinessLogic.Models.Payments;
 
 namespace Biogarden.BusinessLogic.Services;
 
@@ -318,6 +319,7 @@ public class OrderService : IOrderService
         Guid orderId,
         CancellationToken cancellationToken = default)
     {
+        await using var paymentLock = await _unitOfWork.PaymentAttemptRepository.AcquireLockAsync(orderId, cancellationToken);
         var order = await _unitOfWork.OrderRepository.GetByIdWithItemsAndCartAsync(
             orderId,
             cancellationToken)
@@ -339,9 +341,67 @@ public class OrderService : IOrderService
             throw new InvalidOperationException("Order is already paid.");
         }
 
-        var checkout = await _sumUpCheckoutService.CreateCheckoutAsync(
-            order.ToDto(),
-            cancellationToken);
+        if (!_sumUpOptions.Enabled)
+            throw new InvalidOperationException("Online payment is currently unavailable.");
+
+        var attempts = _unitOfWork.PaymentAttemptRepository;
+        var attempt = await attempts.GetLatestAsync(order.Id, cancellationToken);
+        // Retain the known legacy ID before starting any new provider operation.
+        if (attempt is null && !string.IsNullOrWhiteSpace(order.SumUpCheckoutId))
+        {
+            attempt = new PaymentAttempt
+            {
+                Id = Guid.NewGuid(),
+                OrderId = order.Id,
+                Reference = order.Id.ToString("N"),
+                CheckoutId = order.SumUpCheckoutId,
+                CreateRequested = true,
+                CreatedAtUtc = GetUtcNow()
+            };
+            attempts.Add(attempt);
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+        }
+        SumUpCheckoutResult? checkout = null;
+        if (attempt is not null)
+        {
+            checkout = attempt.CheckoutId is not null
+                ? await _sumUpCheckoutService.GetCheckoutAsync(attempt.CheckoutId, cancellationToken)
+                : await RecoverCheckoutAsync(attempt, cancellationToken);
+            ValidateAttemptCheckout(order, attempt, checkout);
+            attempt.CheckoutId = checkout.CheckoutId;
+            attempt.Status = checkout.Status.ToUpperInvariant();
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+            if (attempt.Status == "PAID")
+            {
+                await ConfirmSumUpCheckoutAsync(checkout.CheckoutId, checkout.TransactionCode, checkout.Amount, checkout.Currency, cancellationToken);
+                throw new InvalidOperationException("A rendelés már ki van fizetve. Ellenőrizd a rendelés állapotát.");
+            }
+            if (attempt.Status == "EXPIRED") { attempt = null; checkout = null; }
+        }
+        if (attempt is null)
+        {
+            attempt = new PaymentAttempt { Id = Guid.NewGuid(), OrderId = order.Id, CreatedAtUtc = GetUtcNow(), CreateRequested = true };
+            attempt.Reference = attempt.Id.ToString("N");
+            attempts.Add(attempt);
+            // Commit intent BEFORE contacting the provider. A lost response is never retried with another POST.
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+            try
+            {
+                checkout = await _sumUpCheckoutService.CreateCheckoutAsync(order.ToDto(), cancellationToken, attempt.Reference);
+            }
+            catch (Exception exception) when (exception is HttpRequestException or System.Text.Json.JsonException or InvalidOperationException ||
+                                             exception is OperationCanceledException && !cancellationToken.IsCancellationRequested)
+            {
+                // The provider may have accepted the request. Keep the durable intent for lookup.
+                throw new PaymentRecoveryException();
+            }
+            ValidateAttemptCheckout(order, attempt, checkout);
+            attempt.CheckoutId = checkout.CheckoutId;
+            attempt.Status = checkout.Status.ToUpperInvariant();
+        }
+        if (checkout is null || attempt.Status is not ("PENDING" or "FAILED") ||
+            !Uri.TryCreate(checkout.HostedCheckoutUrl, UriKind.Absolute, out var hostedUrl) || hostedUrl.Scheme != "https")
+            throw new PaymentRecoveryException();
 
         order.SumUpCheckoutId = checkout.CheckoutId;
         order.SumUpTransactionId = checkout.TransactionCode;
@@ -354,8 +414,24 @@ public class OrderService : IOrderService
         {
             OrderId = order.Id,
             CheckoutId = checkout.CheckoutId,
-            Url = checkout.HostedCheckoutUrl!
+            Url = hostedUrl.AbsoluteUri
         };
+    }
+
+    private async Task<SumUpCheckoutResult> RecoverCheckoutAsync(PaymentAttempt attempt, CancellationToken token)
+    {
+        var candidates = await _sumUpCheckoutService.FindCheckoutsAsync(attempt.Reference, token);
+        if (candidates.Count != 1) throw new PaymentRecoveryException();
+        return candidates[0];
+    }
+
+    private void ValidateAttemptCheckout(Order order, PaymentAttempt attempt, SumUpCheckoutResult checkout)
+    {
+        EnsureSumUpCheckoutMatchesOrder(order, checkout.Amount, checkout.Currency);
+        if (string.IsNullOrWhiteSpace(checkout.CheckoutId) || checkout.CheckoutId.Length > 100 ||
+            (attempt.CheckoutId is not null && attempt.CheckoutId != checkout.CheckoutId) ||
+            checkout.CheckoutReference != attempt.Reference || checkout.MerchantCode != _sumUpOptions.MerchantCode)
+            throw new PaymentRecoveryException();
     }
 
     public async Task<OrderDto> ConfirmSumUpCheckoutAsync(

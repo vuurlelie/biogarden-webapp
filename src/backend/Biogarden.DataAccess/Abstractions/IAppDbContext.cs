@@ -11,6 +11,7 @@ public interface IAppDbContext
     DbSet<Cart> Carts { get; }
     DbSet<CartItem> CartItems { get; }
     DbSet<Order> Orders { get; }
+    DbSet<PaymentAttempt> PaymentAttempts { get; }
     DbSet<OrderPaymentCorrection> OrderPaymentCorrections { get; }
     DbSet<OrderEmail> OrderEmails { get; }
     DbSet<OrderItem> OrderItems { get; }

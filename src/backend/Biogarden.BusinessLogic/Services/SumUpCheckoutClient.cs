@@ -70,19 +70,28 @@ public sealed class SumUpCheckoutClient : ISumUpCheckoutClient
         return checkout.ToResult();
     }
 
-    private static async Task EnsureSuccessAsync(
+    private static Task EnsureSuccessAsync(
         HttpResponseMessage response,
         CancellationToken cancellationToken)
     {
         if (response.IsSuccessStatusCode)
         {
-            return;
+            return Task.CompletedTask;
         }
 
-        var body = await response.Content.ReadAsStringAsync(cancellationToken);
+        // Provider bodies can include sensitive account details; never relay them to customers.
+        throw new HttpRequestException("SumUp API request failed.", null, response.StatusCode);
+    }
 
-        throw new InvalidOperationException(
-            $"SumUp API request failed with status {(int)response.StatusCode}: {body}");
+    public async Task<IReadOnlyList<SumUpCheckoutResult>> FindAsync(string reference, string apiKey, Uri apiBaseUrl, CancellationToken cancellationToken = default)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Get, new Uri(apiBaseUrl, $"/v0.1/checkouts?checkout_reference={Uri.EscapeDataString(reference)}"));
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
+        using var response = await _httpClient.SendAsync(request, cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+        var checkouts = await response.Content.ReadFromJsonAsync<SumUpCheckoutApiResponse[]>(cancellationToken: cancellationToken)
+            ?? throw new InvalidOperationException("SumUp checkout list was empty.");
+        return checkouts.Select(x => x.ToResult()).ToArray();
     }
 
     private sealed class SumUpCreateCheckoutApiRequest
@@ -120,6 +129,10 @@ public sealed class SumUpCheckoutClient : ISumUpCheckoutClient
 
     private sealed class SumUpCheckoutApiResponse
     {
+        [JsonPropertyName("checkout_reference")]
+        public string? CheckoutReference { get; init; }
+        [JsonPropertyName("merchant_code")]
+        public string? MerchantCode { get; init; }
         [JsonPropertyName("id")]
         public string Id { get; init; } = string.Empty;
 
@@ -141,6 +154,7 @@ public sealed class SumUpCheckoutClient : ISumUpCheckoutClient
         public SumUpCheckoutResult ToResult()
         {
             var transactionCode = Transactions
+                .Where(transaction => transaction.Status == "SUCCESSFUL")
                 .Select(transaction => transaction.TransactionCode)
                 .FirstOrDefault(code => !string.IsNullOrWhiteSpace(code));
 
@@ -150,12 +164,16 @@ public sealed class SumUpCheckoutClient : ISumUpCheckoutClient
                 HostedCheckoutUrl,
                 transactionCode,
                 Amount,
-                Currency);
+                Currency,
+                CheckoutReference,
+                MerchantCode);
         }
     }
 
     private sealed class SumUpTransactionApiResponse
     {
+        [JsonPropertyName("status")]
+        public string? Status { get; init; }
         [JsonPropertyName("transaction_code")]
         public string? TransactionCode { get; init; }
     }

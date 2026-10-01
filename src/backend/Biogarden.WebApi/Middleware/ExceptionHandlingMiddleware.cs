@@ -52,6 +52,7 @@ public sealed class ExceptionHandlingMiddleware
         var (statusCode, title) = exception switch
         {
             GlsDirectoryUnavailableException => (HttpStatusCode.ServiceUnavailable, "Delivery point directory unavailable."),
+            Biogarden.BusinessLogic.Services.PaymentRecoveryException => (HttpStatusCode.ServiceUnavailable, "Payment reconciliation required."),
             KeyNotFoundException => (HttpStatusCode.NotFound, "Resource not found."),
             ArgumentException => (HttpStatusCode.BadRequest, "Validation failed."),
             UnauthorizedAccessException => (HttpStatusCode.Unauthorized, "Authentication failed."),
