@@ -72,12 +72,32 @@ Check the build's SEO output: a successful build with no fetched posts does not 
 
 Finish with `git diff --check` and review `git status --short` from `src` for unintended tracked changes.
 
+## Real browser-to-database journey
+
+The opt-in `RealBrowser` category launches the actual API through [WebApplicationFactory with Kestrel](https://learn.microsoft.com/en-us/dotnet/api/microsoft.aspnetcore.mvc.testing.webapplicationfactory-1.usekestrel?view=aspnetcore-10.0), seeds a disposable SQL database, and starts Playwright/Vite. Install frontend dependencies and the required Playwright browsers first. Node must be on PATH. The test owns API port 5097 and frontend port 4174; keep both free.
+
+From `src` in PowerShell:
+
+```powershell
+$env:BIOGARDEN_TEST_SQLSERVER = 'Server=(localdb)\MSSQLLocalDB;Integrated Security=True;TrustServerCertificate=True;Encrypt=False'
+$env:BIOGARDEN_REAL_BROWSER = '1'
+try {
+    dotnet test backend/tests/Biogarden.WebApi.Tests --filter Category=RealBrowser
+} finally {
+    Remove-Item Env:BIOGARDEN_TEST_SQLSERVER, Env:BIOGARDEN_REAL_BROWSER
+}
+```
+
+Run this through the .NET test, not by pointing Playwright at a hosted API. The test selects its own database name, injects captured email, disables real payment delivery, and cleans up the database after success or failure. Browser requests are limited to loopback hosts. The existing mocked browser suite remains separate in `e2e`; `e2e-real` is selected only by `playwright.real.config.ts`.
+
+The checkout journey uses two isolated browser contexts, adds a guest item, signs in through the real login endpoint and merges it with an existing user cart. It completes a pickup order, intentionally drops the response **after the real API has committed**, recovers the saved order, and cancels through the account screen. SQL assertions check one order, the authoritative total, merged quantity, exactly one pair of queued confirmations, and restored stock. No checkout response is fabricated. This does not verify a real card charge or SMTP delivery.
+
 ## What these checks establish
 
 Payment-attempt SQL tests and browser recovery scenarios are described in [payment recovery](operations/payment-recovery.md#deployment-and-verification), including the remaining live-provider checks.
 
 Checkout-draft SQL and browser coverage, along with hosted verification requirements, is described in [checkout drafts](operations/checkout-drafts.md#deployment-and-verification).
 
-Backend unit tests cover business behaviour with mocked dependencies. Regular API tests exercise HTTP handling, middleware, and authorization, with services replaced where needed. The SQL Server category adds real API-to-database order workflows as described above. Playwright tests use mocked API responses and verify browser behaviour. These checks do not collectively prove a complete browser-to-API-to-SQL Server transaction or successful live SMTP/SumUp delivery.
+Backend unit tests cover business behaviour with mocked dependencies. Regular API tests exercise HTTP handling, middleware, and authorization, with services replaced where needed. The SQL Server category adds real API-to-database order workflows as described above. The default Playwright suite uses mocked API responses. The separate `RealBrowser` category proves the browser-to-API-to-SQL journey described above when explicitly run; neither suite proves successful live SMTP/SumUp delivery.
 
 Use the [UAT checklist](uat-checklist.md) to record deployed workflows, and the [deployment runbook](operations/deployment-runbook.md) for release smoke checks. Hosting behaviour and real integration delivery require environment-level verification in addition to these automated suites.
