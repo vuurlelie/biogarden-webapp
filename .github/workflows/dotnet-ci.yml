@@ -82,7 +82,7 @@ jobs:
         working-directory: ./src/frontend/biogarden-client
         run: |
           npm ci
-          npx playwright install --with-deps chromium
+          npx playwright install --with-deps chromium firefox
 
       - name: Run real browser-to-database journeys
         env:
