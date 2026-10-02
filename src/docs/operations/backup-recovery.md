@@ -85,7 +85,7 @@ Run this rehearsal before first production launch:
 2. Restore the latest database backup into that environment.
 3. Restore uploaded files into the matching non-production file storage.
 4. Point the API to the restored database and file storage.
-5. Pause the order-email worker with `OrderEmailOutbox__Enabled=false` and disable real SMTP/payment delivery, then start the restored API. A restored queue can include messages already sent after the backup point. Use test recipients/preview mode for recovery testing and reconcile pending messages before enabling delivery.
+5. Pause both email workers with `OrderEmailOutbox__Enabled=false` and `NotificationEmailOutbox__Enabled=false` and disable real SMTP/payment delivery, then start the restored API. A restored queue can include messages already sent after the backup point. Use test recipients/preview mode for recovery testing and reconcile pending messages before enabling delivery.
 6. Check `/health/live` and `/health/ready`.
 7. Open the frontend against the restored API.
 8. Verify products, posts, account login, orders, and admin order details.

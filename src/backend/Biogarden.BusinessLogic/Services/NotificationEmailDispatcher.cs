@@ -1,11 +1,10 @@
 using Biogarden.BusinessLogic.Abstractions;
-using Biogarden.BusinessLogic.Models.Email;
 using Biogarden.DataAccess.Abstractions;
 using Microsoft.Extensions.Logging;
 
 namespace Biogarden.BusinessLogic.Services;
 
-public sealed class NotificationEmailDispatcher(INotificationEmailRepository repository, IEmailService sender,
+public sealed class NotificationEmailDispatcher(INotificationEmailRepository repository, IEmailService sender, NotificationMessageFactory messages,
     TimeProvider timeProvider, ILogger<NotificationEmailDispatcher> logger)
 {
     public async Task<bool> DispatchNextAsync(CancellationToken token)
@@ -17,13 +16,13 @@ public sealed class NotificationEmailDispatcher(INotificationEmailRepository rep
         {
             using var timeout = CancellationTokenSource.CreateLinkedTokenSource(token);
             timeout.CancelAfter(TimeSpan.FromSeconds(30));
-            await sender.SendAsync(new EmailMessage
+            var message = await messages.BuildAsync(email);
+            if (message is null)
             {
-                To = email.Recipient,
-                Subject = email.Subject,
-                HtmlBody = email.HtmlBody,
-                PlainTextBody = email.PlainTextBody
-            }, timeout.Token);
+                await repository.CompleteAsync(email.Id, email.LeaseId!.Value, timeProvider.GetUtcNow().UtcDateTime, "suppressed", token);
+                return true;
+            }
+            await sender.SendAsync(message, timeout.Token);
         }
         catch (OperationCanceledException) when (token.IsCancellationRequested) { throw; }
         catch (Exception exception)

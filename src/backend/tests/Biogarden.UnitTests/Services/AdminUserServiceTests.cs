@@ -17,7 +17,7 @@ namespace Biogarden.UnitTests.Services;
 public sealed class AdminUserServiceTests
 {
     private readonly Mock<IAppDbContext> _databaseContext = new(MockBehavior.Strict);
-    private readonly Mock<IEmailService> _emailService = new(MockBehavior.Strict);
+    private readonly Mock<IAccountNotificationQueue> _emailService = new(MockBehavior.Strict);
     private readonly Mock<IEmailTemplateService> _emailTemplateService = new(MockBehavior.Strict);
     private readonly Mock<UserManager<ApplicationUser>> _userManager;
     private readonly AdminUserService _service;

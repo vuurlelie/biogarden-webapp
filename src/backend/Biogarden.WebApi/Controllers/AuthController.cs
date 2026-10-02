@@ -84,25 +84,25 @@ public class AuthController : ControllerBase
     }
 
     [HttpPost("resend-email-confirmation")]
-    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status202Accepted)]
     [EnableRateLimiting(RateLimitPolicyNames.SensitiveAuth)]
     public async Task<IActionResult> ResendEmailConfirmationAsync(
         [FromBody] ResendEmailConfirmationRequestDto resendEmailConfirmationRequestDto)
     {
         await _authService.ResendEmailConfirmationAsync(resendEmailConfirmationRequestDto);
 
-        return NoContent();
+        return Accepted();
     }
 
     [HttpPost("forgot-password")]
-    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status202Accepted)]
     [EnableRateLimiting(RateLimitPolicyNames.SensitiveAuth)]
     public async Task<IActionResult> ForgotPasswordAsync(
         [FromBody] ForgotPasswordRequestDto forgotPasswordRequestDto)
     {
         await _authService.ForgotPasswordAsync(forgotPasswordRequestDto);
 
-        return NoContent();
+        return Accepted();
     }
 
     [HttpPost("reset-password")]
