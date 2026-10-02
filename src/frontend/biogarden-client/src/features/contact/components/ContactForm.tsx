@@ -35,6 +35,7 @@ export default function ContactForm({
   const [error, setError] = useState("");
   const [fieldErrors, setFieldErrors] = useState<ContactFieldErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const submissionRef = useRef<{ payload: string; id: string } | null>(null);
   const nameInputRef = useRef<HTMLInputElement | null>(null);
   const emailInputRef = useRef<HTMLInputElement | null>(null);
   const messageInputRef = useRef<HTMLTextAreaElement | null>(null);
@@ -109,15 +110,19 @@ export default function ContactForm({
 
     try {
       setIsSubmitting(true);
-      await sendContactMessage({
+      const payload = {
         name: form.name.trim(),
         email: form.email.trim(),
         phone: form.phone.trim() || undefined,
         subject: form.subject.trim() || undefined,
         message: form.message.trim(),
-      });
+      };
+      const serialized = JSON.stringify(payload);
+      if (submissionRef.current?.payload !== serialized) submissionRef.current = { payload: serialized, id: crypto.randomUUID() };
+      await sendContactMessage({ ...payload, submissionId: submissionRef.current.id });
+      submissionRef.current = null;
       track("contact_form_submitted", { source: "footer" });
-      setSuccess("Köszönjük, megkaptuk az üzenetedet. Hamarosan válaszolunk.");
+      setSuccess("Köszönjük, rögzítettük az üzenetedet. Az emailes visszaigazolás később érkezhet.");
       setFieldErrors({});
       setForm(initialForm);
     } catch (submitError) {

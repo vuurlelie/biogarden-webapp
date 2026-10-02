@@ -105,7 +105,7 @@ public sealed class RateLimitingTests
                 "/api/contact",
                 CreateContactRequestContent());
 
-            Assert.Equal(HttpStatusCode.NoContent, allowedResponse.StatusCode);
+            Assert.Equal(HttpStatusCode.Accepted, allowedResponse.StatusCode);
         }
 
         using var rejectedResponse = await client.PostAsync(
@@ -241,6 +241,7 @@ public sealed class RateLimitingTests
               "name": "Test User",
               "email": "test@example.com",
               "phone": "+36301234567",
+              "submissionId": "fabff1b3-007b-437f-b03b-34071288d076",
               "message": "This is a long enough test contact message."
             }
             """);

@@ -18,7 +18,7 @@ public sealed class ContactController : ControllerBase
     }
 
     [HttpPost]
-    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status202Accepted)]
     [EnableRateLimiting(RateLimitPolicyNames.PublicForm)]
     public async Task<IActionResult> SendMessageAsync(
         [FromBody] ContactMessageRequestDto contactMessageRequestDto,
@@ -26,6 +26,6 @@ public sealed class ContactController : ControllerBase
     {
         await _contactService.SendMessageAsync(contactMessageRequestDto, cancellationToken);
 
-        return NoContent();
+        return Accepted(new { submissionId = contactMessageRequestDto.SubmissionId });
     }
 }

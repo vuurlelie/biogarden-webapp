@@ -1,3 +1,5 @@
+using Biogarden.DataAccess.Abstractions;
+using Biogarden.DataAccess.Entities;
 using Biogarden.BusinessLogic.Abstractions;
 using Biogarden.BusinessLogic.DTOs.Contact;
 using Biogarden.BusinessLogic.Models.Email;
@@ -11,9 +13,9 @@ namespace Biogarden.UnitTests.Services;
 public sealed class ContactServiceTests
 {
     [Fact]
-    public async Task SendMessageAsync_SendsBusinessNotificationAndVisitorConfirmation()
+    public async Task SendMessageAsync_QueuesBusinessNotificationAndVisitorConfirmationTogether()
     {
-        var emailService = new Mock<IEmailService>(MockBehavior.Strict);
+        var emailService = new Mock<INotificationEmailRepository>(MockBehavior.Strict);
         var templateService = new Mock<IEmailTemplateService>(MockBehavior.Strict);
 
         var service = new ContactService(
@@ -54,15 +56,14 @@ public sealed class ContactServiceTests
                     request.Name == "Teszt Elek"
                     && request.Email == "visitor@example.com")))
             .Returns(visitorMessage);
-        emailService
-            .Setup(sender => sender.SendAsync(businessMessage, It.IsAny<CancellationToken>()))
-            .Returns(Task.CompletedTask);
-        emailService
-            .Setup(sender => sender.SendAsync(visitorMessage, It.IsAny<CancellationToken>()))
-            .Returns(Task.CompletedTask);
+        emailService.Setup(repository => repository.AcceptContactAsync(
+            It.Is<IReadOnlyList<NotificationEmail>>(emails => emails.Count == 2 && emails[0].Recipient == businessMessage.To &&
+                emails[1].Recipient == visitorMessage.To && emails[0].EventId == emails[1].EventId && emails[0].RequestHash == emails[1].RequestHash),
+            It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
 
         await service.SendMessageAsync(new ContactMessageRequestDto
         {
+            SubmissionId = Guid.NewGuid(),
             Name = " Teszt Elek ",
             Email = " visitor@example.com ",
             Phone = " +36 20 123 4567 ",
