@@ -45,6 +45,8 @@ If the test process is forcibly terminated, its database may remain. Review the 
 
 `SessionRevocationTests` uses real Identity users, issued JWTs, and SQL Server to verify account-state checks, password-reset revocation, role changes, and concurrent administrator/self-deactivation requests. The concurrency tests synchronize requests after initial authentication and exercise the actual database lock and authorization recheck. The ordinary HTTP contract-test factory bypasses that SQL filter deliberately; it is not evidence for session security.
 
+`IdentityOwnershipTests` adds real Identity/JWT and SQL checks for concurrent case-insensitive registration, expired/tampered JWTs, expired confirmation/reset tokens, reset-token reuse and cross-account use, cart/order ownership, saved delivery-address ownership, and public withdrawal lookup. Concurrent registration uses a save barrier and must create exactly one account and confirmation request; the loser receives the normal duplicate-email response. The public payment-status route intentionally exposes only its limited status contract: the checkout reference is derived from the order ID and is not an additional secret or an ownership check.
+
 `CartSessionTests` exercises real cart services and SQL Server with separate request scopes. It covers last-item and overlapping-cart merges, third-party reservations, rejected merges without partial quantities, repeated/concurrent merging, simultaneous first additions for guest and user owners, expired-cart replacement, and separation of user carts from guest cookies. These are database/service integration tests; hosted cookie delivery is checked separately in the [deployment runbook](operations/deployment-runbook.md#cart-session-changes).
 
 ## Frontend

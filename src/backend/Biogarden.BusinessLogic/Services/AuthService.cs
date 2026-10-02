@@ -7,6 +7,7 @@ using Biogarden.BusinessLogic.Options;
 using Biogarden.DataAccess.Entities;
 using Biogarden.DataAccess.Enums;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 
@@ -37,8 +38,21 @@ public class AuthService : IAuthService
         _authEmailOptions = authEmailOptions.Value;
     }
 
-    public Task<AuthOperationResultDto> RegisterAsync(RegisterRequestDto registerRequestDto)
-        => NotificationTransaction.RunAsync(_databaseContext, () => RegisterAsyncCore(registerRequestDto));
+    public async Task<AuthOperationResultDto> RegisterAsync(RegisterRequestDto registerRequestDto)
+    {
+        try
+        {
+            return await NotificationTransaction.RunAsync(_databaseContext, () => RegisterAsyncCore(registerRequestDto));
+        }
+        catch (DbUpdateException exception) when (exception.InnerException is SqlException { Number: 2601 or 2627 })
+        {
+            // Another registration can win after our initial lookup. The transaction has
+            // rolled back; only translate the conflict if that account now exists.
+            if (await _userManager.FindByEmailAsync(registerRequestDto.Email.Trim()) is not null)
+                return AuthOperationResultDto.Failure("Ezzel az email címmel már létezik felhasználó.");
+            throw;
+        }
+    }
 
     private async Task<AuthOperationResultDto> RegisterAsyncCore(RegisterRequestDto registerRequestDto)
     {
