@@ -405,6 +405,11 @@ public static class ServiceCollectionExtensions
     private static IServiceCollection AddCommunicationServices(this IServiceCollection services)
     {
         services.AddScoped<IContactService, ContactService>();
+        services.AddScoped<INotificationEmailRepository, NotificationEmailRepository>();
+        services.AddScoped<NotificationEmailDispatcher>();
+        services.AddScoped<NotificationMessageFactory>();
+        services.AddScoped<IAccountNotificationQueue, AccountNotificationQueue>();
+        services.AddHostedService<Biogarden.WebApi.Services.NotificationEmailWorker>();
         services.AddScoped<IEmailService, SmtpEmailService>();
         services.AddScoped<IOrderEmailRepository, OrderEmailRepository>();
         services.AddScoped<OrderEmailDispatcher>();

@@ -127,7 +127,7 @@ export default function LoginPage() {
     try {
       setIsResendingConfirmation(true);
       await resendEmailConfirmation({ email: email.trim() });
-      setInfoMessage("Ha a fiók még megerősítésre vár, elküldtük az új megerősítő emailt.");
+      setInfoMessage("Ha a fiók még megerősítésre vár, rögzítettük az új megerősítő email kérését. Az email később is érkezhet.");
     } catch (resendError) {
       setError(getErrorMessage(resendError, "A megerősítő email újraküldése nem sikerült."));
     } finally {
@@ -156,7 +156,7 @@ export default function LoginPage() {
 
         {registrationRequiresConfirmation && (
           <div className="mt-6 rounded-sm border border-site-green/30 bg-site-surface-soft p-3 text-sm leading-6 text-site-green-dark" role="status">
-            Sikeres regisztráció. Elküldtük a megerősítő emailt, kérjük, kattints a benne található linkre a bejelentkezés előtt.
+            Sikeres regisztráció. A megerősítő email küldésre vár; később is érkezhet. Bejelentkezés előtt kattints a benne található linkre. Ha nem érkezik meg, kérhetsz új megerősítő emailt.
           </div>
         )}
 

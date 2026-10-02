@@ -28,6 +28,7 @@ public sealed class ContactMessageRequestDtoValidator : AbstractValidator<Contac
 {
     public ContactMessageRequestDtoValidator()
     {
+        RuleFor(x => x.SubmissionId).NotEmpty().WithMessage("Az üzenetazonosító megadása kötelező.");
         RuleFor(x => x.Name).NotEmpty().WithMessage("A mező megadása kötelező.");
         RuleFor(x => x.Name).MaximumLength(100).WithMessage("Legfeljebb 100 karakter adható meg.");
         RuleFor(x => x.Email).Must(value => System.Net.Mail.MailAddress.TryCreate(value?.Trim(), out _)).WithMessage("Adj meg egy érvényes email címet.");

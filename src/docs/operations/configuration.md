@@ -37,6 +37,7 @@ Non-secret operational settings should still be reviewed before release:
 | `SumUp__ReturnUrl` | Public API callback/status URL. |
 | `AbuseProtection__*` | Limits tuned after real traffic appears. |
 | `OrderEmailOutbox__Enabled` | Defaults to true; false pauses queued order-confirmation delivery. See [order email delivery](order-email-delivery.md) for its interaction with SMTP preview mode. |
+| `NotificationEmailOutbox__Enabled` | Defaults to true; false pauses contact/account notification delivery and expiry cleanup. See [notification recovery](notification-recovery.md). |
 
 ## Checkout pricing (backend contract)
 

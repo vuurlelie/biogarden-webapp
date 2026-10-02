@@ -14,6 +14,7 @@ public interface IAppDbContext
     DbSet<PaymentAttempt> PaymentAttempts { get; }
     DbSet<OrderPaymentCorrection> OrderPaymentCorrections { get; }
     DbSet<OrderEmail> OrderEmails { get; }
+    DbSet<NotificationEmail> NotificationEmails { get; }
     DbSet<OrderItem> OrderItems { get; }
     DbSet<AccountLifecycleRequest> AccountLifecycleRequests { get; }
     DbSet<OrderWithdrawalRequest> OrderWithdrawalRequests { get; }

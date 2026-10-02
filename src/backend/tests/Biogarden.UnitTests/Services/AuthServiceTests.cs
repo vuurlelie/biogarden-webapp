@@ -20,7 +20,7 @@ public sealed class AuthServiceTests
 {
     private readonly Mock<UserManager<ApplicationUser>> _userManager;
     private readonly Mock<ITokenService> _tokenService = new(MockBehavior.Strict);
-    private readonly Mock<IEmailService> _emailService = new(MockBehavior.Strict);
+    private readonly Mock<IAccountNotificationQueue> _emailService = new(MockBehavior.Strict);
     private readonly Mock<IEmailTemplateService> _emailTemplateService = new(MockBehavior.Strict);
     private readonly AuthService _service;
 
@@ -44,11 +44,11 @@ public sealed class AuthServiceTests
                 ConfirmEmailPath = "/email-megerosites",
                 ResetPasswordPath = "/jelszo-visszaallitas",
                 UnconfirmedAccountRetentionDays = 14
-            }));
+            }), Mock.Of<Biogarden.DataAccess.Abstractions.IAppDbContext>());
     }
 
     [Fact]
-    public async Task RegisterAsync_WhenRegistrationSucceeds_SendsConfirmationEmail()
+    public async Task RegisterAsync_WhenRegistrationSucceeds_QueuesConfirmationEmail()
     {
         _userManager
             .Setup(manager => manager.FindByEmailAsync("vasarlo@example.com"))
@@ -61,29 +61,10 @@ public sealed class AuthServiceTests
                     && !user.EmailConfirmed),
                 "Password1"))
             .ReturnsAsync(IdentityResult.Success);
-        _userManager
-            .Setup(manager => manager.GenerateEmailConfirmationTokenAsync(
-                It.Is<ApplicationUser>(user => user.Email == "vasarlo@example.com")))
-            .ReturnsAsync("token value");
-        _emailTemplateService
-            .Setup(service => service.BuildEmailConfirmationMessage(
-                "vasarlo@example.com",
-                It.Is<string>(url =>
-                    url.Contains("https://bakonykincse.hu/email-megerosites")
-                    && url.Contains("token%20value"))))
-            .Returns(new EmailMessage
-            {
-                To = "vasarlo@example.com",
-                Subject = "Email cím megerősítése - Bakony Kincse Biokertészet",
-                PlainTextBody = "confirmation email",
-                HtmlBody = "<p>confirmation email</p>"
-            });
         _emailService
-            .Setup(service => service.SendAsync(
-                It.Is<EmailMessage>(message =>
-                    message.To == "vasarlo@example.com"
-                    && message.Subject.Contains("Email cím megerősítése")),
-                It.IsAny<CancellationToken>()))
+            .Setup(service => service.QueueAuthenticationAsync(
+                It.Is<ApplicationUser>(user => user.Email == "vasarlo@example.com"),
+                AccountNotificationQueue.Confirmation, It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
         var result = await _service.RegisterAsync(new RegisterRequestDto
@@ -112,25 +93,10 @@ public sealed class AuthServiceTests
                 "Password1"))
             .Callback<ApplicationUser, string>((user, _) => createdUser = user)
             .ReturnsAsync(IdentityResult.Success);
-        _userManager
-            .Setup(manager => manager.GenerateEmailConfirmationTokenAsync(
-                It.IsAny<ApplicationUser>()))
-            .ReturnsAsync("token value");
-        _emailTemplateService
-            .Setup(service => service.BuildEmailConfirmationMessage(
-                "ceg@example.com",
-                It.IsAny<string>()))
-            .Returns(new EmailMessage
-            {
-                To = "ceg@example.com",
-                Subject = "Email confirmation",
-                PlainTextBody = "confirmation email",
-                HtmlBody = "<p>confirmation email</p>"
-            });
         _emailService
-            .Setup(service => service.SendAsync(
-                It.Is<EmailMessage>(message => message.To == "ceg@example.com"),
-                It.IsAny<CancellationToken>()))
+            .Setup(service => service.QueueAuthenticationAsync(
+                It.Is<ApplicationUser>(user => user.Email == "ceg@example.com"),
+                AccountNotificationQueue.Confirmation, It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
         var result = await _service.RegisterAsync(new RegisterRequestDto
@@ -181,8 +147,8 @@ public sealed class AuthServiceTests
         Assert.False(result.Succeeded);
         Assert.Equal("Ezzel az email címmel már létezik felhasználó.", result.ErrorMessage);
         _emailService.Verify(
-            service => service.SendAsync(
-                It.IsAny<EmailMessage>(),
+            service => service.QueueAuthenticationAsync(
+                It.IsAny<ApplicationUser>(), It.IsAny<string>(),
                 It.IsAny<CancellationToken>()),
             Times.Never);
     }
@@ -277,14 +243,14 @@ public sealed class AuthServiceTests
             new ResendEmailConfirmationRequestDto { Email = "missing@example.com" });
 
         _emailService.Verify(
-            service => service.SendAsync(
-                It.IsAny<EmailMessage>(),
+            service => service.QueueAuthenticationAsync(
+                It.IsAny<ApplicationUser>(), It.IsAny<string>(),
                 It.IsAny<CancellationToken>()),
             Times.Never);
     }
 
     [Fact]
-    public async Task ForgotPasswordAsync_WhenUserExistsAndIsActive_SendsResetEmail()
+    public async Task ForgotPasswordAsync_WhenUserExistsAndIsActive_QueuesResetEmail()
     {
         var user = new ApplicationUser
         {
@@ -296,28 +262,10 @@ public sealed class AuthServiceTests
         _userManager
             .Setup(manager => manager.FindByEmailAsync("vasarlo@example.com"))
             .ReturnsAsync(user);
-        _userManager
-            .Setup(manager => manager.GeneratePasswordResetTokenAsync(user))
-            .ReturnsAsync("reset token");
-        _emailTemplateService
-            .Setup(service => service.BuildPasswordResetMessage(
-                "vasarlo@example.com",
-                It.Is<string>(url =>
-                    url.Contains("https://bakonykincse.hu/jelszo-visszaallitas")
-                    && url.Contains("reset%20token"))))
-            .Returns(new EmailMessage
-            {
-                To = "vasarlo@example.com",
-                Subject = "Jelszó visszaállítása - Bakony Kincse Biokertészet",
-                PlainTextBody = "reset email",
-                HtmlBody = "<p>reset email</p>"
-            });
         _emailService
-            .Setup(service => service.SendAsync(
-                It.Is<EmailMessage>(message =>
-                    message.To == "vasarlo@example.com"
-                    && message.Subject.Contains("Jelszó visszaállítása")),
-                It.IsAny<CancellationToken>()))
+            .Setup(service => service.QueueAuthenticationAsync(
+                It.Is<ApplicationUser>(user => user.Email == "vasarlo@example.com"),
+                AccountNotificationQueue.PasswordReset, It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
         await _service.ForgotPasswordAsync(new ForgotPasswordRequestDto
@@ -342,8 +290,8 @@ public sealed class AuthServiceTests
         });
 
         _emailService.Verify(
-            service => service.SendAsync(
-                It.IsAny<EmailMessage>(),
+            service => service.QueueAuthenticationAsync(
+                It.IsAny<ApplicationUser>(), It.IsAny<string>(),
                 It.IsAny<CancellationToken>()),
             Times.Never);
     }
@@ -373,11 +321,11 @@ public sealed class AuthServiceTests
                 HtmlBody = "<p>password changed</p>"
             });
         _emailService
-            .Setup(service => service.SendAsync(
+            .Setup(service => service.QueueMessageAsync(
                 It.Is<EmailMessage>(message =>
                     message.To == "vasarlo@example.com"
                     && message.Subject.Contains("Jelszavad megváltozott")),
-                It.IsAny<CancellationToken>()))
+                "password-changed", It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
         var result = await _service.ResetPasswordAsync(new ResetPasswordRequestDto

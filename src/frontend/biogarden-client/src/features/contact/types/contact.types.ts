@@ -1,4 +1,5 @@
 export type ContactMessageRequest = {
+  submissionId: string;
   name: string;
   email: string;
   phone?: string;

@@ -19,8 +19,8 @@ public sealed class ResponseStatusTests
     [Theory]
     [InlineData("register", "{\"email\":\"test@example.com\",\"password\":\"Password123!\",\"confirmPassword\":\"Password123!\"}", HttpStatusCode.Created)]
     [InlineData("confirm-email", "{\"userId\":\"00000000-0000-0000-0000-000000000001\",\"token\":\"test-token\"}", HttpStatusCode.NoContent)]
-    [InlineData("resend-email-confirmation", "{\"email\":\"test@example.com\"}", HttpStatusCode.NoContent)]
-    [InlineData("forgot-password", "{\"email\":\"test@example.com\"}", HttpStatusCode.NoContent)]
+    [InlineData("resend-email-confirmation", "{\"email\":\"test@example.com\"}", HttpStatusCode.Accepted)]
+    [InlineData("forgot-password", "{\"email\":\"test@example.com\"}", HttpStatusCode.Accepted)]
     [InlineData("reset-password", "{\"userId\":\"00000000-0000-0000-0000-000000000001\",\"token\":\"test-token\",\"password\":\"Password123!\",\"confirmPassword\":\"Password123!\"}", HttpStatusCode.NoContent)]
     public async Task SuccessfulAuthCommand_ReturnsExpectedStatusWithoutBody(string action, string json, HttpStatusCode status)
     {

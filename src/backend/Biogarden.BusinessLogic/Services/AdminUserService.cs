@@ -12,18 +12,18 @@ public sealed class AdminUserService : IAdminUserService
 {
     private readonly IAppDbContext _databaseContext;
     private readonly UserManager<ApplicationUser> _userManager;
-    private readonly IEmailService _emailService;
+    private readonly IAccountNotificationQueue _notifications;
     private readonly IEmailTemplateService _emailTemplateService;
 
     public AdminUserService(
         IAppDbContext databaseContext,
         UserManager<ApplicationUser> userManager,
-        IEmailService emailService,
+        IAccountNotificationQueue notifications,
         IEmailTemplateService emailTemplateService)
     {
         _databaseContext = databaseContext;
         _userManager = userManager;
-        _emailService = emailService;
+        _notifications = notifications;
         _emailTemplateService = emailTemplateService;
     }
 
@@ -133,7 +133,10 @@ public sealed class AdminUserService : IAdminUserService
         return await BuildUserDtoAsync(user.Id, cancellationToken);
     }
 
-    public async Task<AdminUserDto> DeactivateAsync(Guid userId, Guid currentAdminId, CancellationToken cancellationToken = default)
+    public Task<AdminUserDto> DeactivateAsync(Guid userId, Guid currentAdminId, CancellationToken cancellationToken = default)
+        => NotificationTransaction.RunAsync(_databaseContext, () => DeactivateAsyncCore(userId, currentAdminId, cancellationToken), cancellationToken);
+
+    private async Task<AdminUserDto> DeactivateAsyncCore(Guid userId, Guid currentAdminId, CancellationToken cancellationToken = default)
     {
         if (userId == currentAdminId)
         {
@@ -142,19 +145,25 @@ public sealed class AdminUserService : IAdminUserService
 
         var user = await FindUserAsync(userId, cancellationToken);
         await UserService.DeactivateUserAsync(user, _userManager);
-        await SendAccountDeactivatedEmailAsync(user.Email, cancellationToken);
+        await QueueAccountDeactivatedEmailAsync(user.Email, cancellationToken);
         return await BuildUserDtoAsync(user.Id, cancellationToken);
     }
 
-    public async Task<AdminUserDto> ReactivateAsync(Guid userId, CancellationToken cancellationToken = default)
+    public Task<AdminUserDto> ReactivateAsync(Guid userId, CancellationToken cancellationToken = default)
+        => NotificationTransaction.RunAsync(_databaseContext, () => ReactivateAsyncCore(userId, cancellationToken), cancellationToken);
+
+    private async Task<AdminUserDto> ReactivateAsyncCore(Guid userId, CancellationToken cancellationToken = default)
     {
         var user = await FindUserAsync(userId, cancellationToken);
         await UserService.ReactivateUserAsync(user, _userManager);
-        await SendAccountReactivatedEmailAsync(user.Email, cancellationToken);
+        await QueueAccountReactivatedEmailAsync(user.Email, cancellationToken);
         return await BuildUserDtoAsync(user.Id, cancellationToken);
     }
 
-    public async Task<AdminUserErasureResultDto> EraseAsync(
+    public Task<AdminUserErasureResultDto> EraseAsync(Guid userId, Guid currentAdminId, CancellationToken cancellationToken = default)
+        => NotificationTransaction.RunAsync(_databaseContext, () => EraseAsyncCore(userId, currentAdminId, cancellationToken), cancellationToken);
+
+    private async Task<AdminUserErasureResultDto> EraseAsyncCore(
         Guid userId,
         Guid currentAdminId,
         CancellationToken cancellationToken = default)
@@ -180,7 +189,7 @@ public sealed class AdminUserService : IAdminUserService
             var deletedEmail = user.Email;
             await CompletePendingErasureRequestsAsync(user.Id, currentAdminId, "Admin által törölve.", cancellationToken);
             await userService.DeleteUserWithoutOrdersAsync(user, cancellationToken);
-            await SendAccountDeletedEmailAsync(deletedEmail, cancellationToken);
+            await QueueAccountDeletedEmailAsync(deletedEmail, cancellationToken);
 
             return new AdminUserErasureResultDto
             {
@@ -192,7 +201,7 @@ public sealed class AdminUserService : IAdminUserService
 
         var anonymizedEmail = user.Email;
         await userService.AnonymizeUserAsync(user, cancellationToken);
-        await userService.SendAccountAnonymizedEmailAsync(anonymizedEmail);
+        await userService.QueueAccountAnonymizedEmailAsync(anonymizedEmail);
         await CompletePendingErasureRequestsAsync(user.Id, currentAdminId, "Admin által anonimizálva.", cancellationToken);
 
         return new AdminUserErasureResultDto
@@ -203,7 +212,10 @@ public sealed class AdminUserService : IAdminUserService
         };
     }
 
-    public async Task<AdminUserDto> CompleteErasureRequestAsync(
+    public Task<AdminUserDto> CompleteErasureRequestAsync(int requestId, Guid currentAdminId, AdminAccountLifecycleDecisionDto decision, CancellationToken cancellationToken = default)
+        => NotificationTransaction.RunAsync(_databaseContext, () => CompleteErasureRequestAsyncCore(requestId, currentAdminId, decision, cancellationToken), cancellationToken);
+
+    private async Task<AdminUserDto> CompleteErasureRequestAsyncCore(
         int requestId,
         Guid currentAdminId,
         AdminAccountLifecycleDecisionDto decision,
@@ -241,7 +253,7 @@ public sealed class AdminUserService : IAdminUserService
         var userService = BuildUserService();
         var anonymizedEmail = user.Email;
         await userService.AnonymizeUserAsync(user, cancellationToken);
-        await userService.SendAccountAnonymizedEmailAsync(anonymizedEmail);
+        await userService.QueueAccountAnonymizedEmailAsync(anonymizedEmail);
 
         request.Status = AccountLifecycleRequestStatus.Completed;
         request.HandledAtUtc = DateTime.UtcNow;
@@ -385,13 +397,13 @@ public sealed class AdminUserService : IAdminUserService
     {
         return new UserService(
             _userManager,
-            null!,
+            new Biogarden.DataAccess.Repositories.UnitOfWork(_databaseContext),
             _databaseContext,
-            _emailService,
+            _notifications,
             _emailTemplateService);
     }
 
-    private async Task SendAccountDeactivatedEmailAsync(
+    private async Task QueueAccountDeactivatedEmailAsync(
         string? email,
         CancellationToken cancellationToken)
     {
@@ -401,10 +413,10 @@ public sealed class AdminUserService : IAdminUserService
         }
 
         var message = _emailTemplateService.BuildAccountDeactivatedMessage(email);
-        await _emailService.SendAsync(message, cancellationToken);
+        await _notifications.QueueMessageAsync(message, "account-deactivated", cancellationToken);
     }
 
-    private async Task SendAccountReactivatedEmailAsync(
+    private async Task QueueAccountReactivatedEmailAsync(
         string? email,
         CancellationToken cancellationToken)
     {
@@ -414,10 +426,10 @@ public sealed class AdminUserService : IAdminUserService
         }
 
         var message = _emailTemplateService.BuildAccountReactivatedMessage(email);
-        await _emailService.SendAsync(message, cancellationToken);
+        await _notifications.QueueMessageAsync(message, "account-reactivated", cancellationToken);
     }
 
-    private async Task SendAccountDeletedEmailAsync(
+    private async Task QueueAccountDeletedEmailAsync(
         string? email,
         CancellationToken cancellationToken)
     {
@@ -427,6 +439,6 @@ public sealed class AdminUserService : IAdminUserService
         }
 
         var message = _emailTemplateService.BuildAccountDeletedMessage(email);
-        await _emailService.SendAsync(message, cancellationToken);
+        await _notifications.QueueMessageAsync(message, "account-deleted", cancellationToken);
     }
 }

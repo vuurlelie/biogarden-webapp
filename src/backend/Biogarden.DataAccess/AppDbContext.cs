@@ -22,6 +22,7 @@ public class AppDbContext
     public DbSet<PaymentAttempt> PaymentAttempts => Set<PaymentAttempt>();
     public DbSet<OrderPaymentCorrection> OrderPaymentCorrections => Set<OrderPaymentCorrection>();
     public DbSet<OrderEmail> OrderEmails => Set<OrderEmail>();
+    public DbSet<NotificationEmail> NotificationEmails => Set<NotificationEmail>();
     public DbSet<OrderItem> OrderItems => Set<OrderItem>();
     public DbSet<AccountLifecycleRequest> AccountLifecycleRequests => Set<AccountLifecycleRequest>();
     public DbSet<PaymentProviderEvent> PaymentProviderEvents => Set<PaymentProviderEvent>();

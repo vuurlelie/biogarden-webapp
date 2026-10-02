@@ -1,3 +1,4 @@
+using Biogarden.DataAccess.Abstractions;
 using Biogarden.BusinessLogic.Abstractions;
 using Biogarden.BusinessLogic.DTOs.Auth;
 using Biogarden.BusinessLogic.DTOs.Addresses;
@@ -13,27 +14,33 @@ namespace Biogarden.BusinessLogic.Services;
 
 public class AuthService : IAuthService
 {
+    private readonly IAppDbContext _databaseContext;
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly ITokenService _tokenService;
-    private readonly IEmailService _emailService;
+    private readonly IAccountNotificationQueue _notifications;
     private readonly IEmailTemplateService _emailTemplateService;
     private readonly AuthEmailOptions _authEmailOptions;
 
     public AuthService(
         UserManager<ApplicationUser> userManager,
         ITokenService tokenService,
-        IEmailService emailService,
+        IAccountNotificationQueue notifications,
         IEmailTemplateService emailTemplateService,
-        IOptions<AuthEmailOptions> authEmailOptions)
+        IOptions<AuthEmailOptions> authEmailOptions,
+        IAppDbContext databaseContext)
     {
         _userManager = userManager;
         _tokenService = tokenService;
-        _emailService = emailService;
+        _notifications = notifications;
+        _databaseContext = databaseContext;
         _emailTemplateService = emailTemplateService;
         _authEmailOptions = authEmailOptions.Value;
     }
 
-    public async Task<AuthOperationResultDto> RegisterAsync(RegisterRequestDto registerRequestDto)
+    public Task<AuthOperationResultDto> RegisterAsync(RegisterRequestDto registerRequestDto)
+        => NotificationTransaction.RunAsync(_databaseContext, () => RegisterAsyncCore(registerRequestDto));
+
+    private async Task<AuthOperationResultDto> RegisterAsyncCore(RegisterRequestDto registerRequestDto)
     {
         await DeleteExpiredUnconfirmedUsersAsync();
 
@@ -116,7 +123,7 @@ public class AuthService : IAuthService
             return AuthOperationResultDto.Failure(errors);
         }
 
-        await SendEmailConfirmationAsync(user);
+        await QueueEmailConfirmationAsync(user);
 
         return AuthOperationResultDto.Success();
     }
@@ -226,7 +233,7 @@ public class AuthService : IAuthService
             return;
         }
 
-        await SendEmailConfirmationAsync(user);
+        await QueueEmailConfirmationAsync(user);
     }
 
     public async Task ForgotPasswordAsync(ForgotPasswordRequestDto forgotPasswordRequestDto)
@@ -250,14 +257,13 @@ public class AuthService : IAuthService
             return;
         }
 
-        var token = await _userManager.GeneratePasswordResetTokenAsync(user);
-        var resetUrl = BuildPasswordResetUrl(user.Id, token);
-        var message = _emailTemplateService.BuildPasswordResetMessage(user.Email, resetUrl);
-
-        await _emailService.SendAsync(message);
+        await _notifications.QueueAuthenticationAsync(user, AccountNotificationQueue.PasswordReset);
     }
 
-    public async Task<AuthOperationResultDto> ResetPasswordAsync(
+    public Task<AuthOperationResultDto> ResetPasswordAsync(ResetPasswordRequestDto resetPasswordRequestDto)
+        => NotificationTransaction.RunAsync(_databaseContext, () => ResetPasswordAsyncCore(resetPasswordRequestDto));
+
+    private async Task<AuthOperationResultDto> ResetPasswordAsyncCore(
         ResetPasswordRequestDto resetPasswordRequestDto)
     {
         if (resetPasswordRequestDto.Password != resetPasswordRequestDto.ConfirmPassword)
@@ -296,47 +302,14 @@ public class AuthService : IAuthService
         if (!string.IsNullOrWhiteSpace(user.Email))
         {
             var message = _emailTemplateService.BuildPasswordChangedMessage(user.Email);
-            await _emailService.SendAsync(message);
+            await _notifications.QueueMessageAsync(message, "password-changed");
         }
 
         return AuthOperationResultDto.Success();
     }
 
-    private async Task SendEmailConfirmationAsync(ApplicationUser user)
-    {
-        if (string.IsNullOrWhiteSpace(user.Email))
-        {
-            throw new InvalidOperationException("A felhasználó email címe hiányzik.");
-        }
-
-        var token = await _userManager.GenerateEmailConfirmationTokenAsync(user);
-        var confirmationUrl = BuildEmailConfirmationUrl(user.Id, token);
-        var message = _emailTemplateService.BuildEmailConfirmationMessage(
-            user.Email,
-            confirmationUrl);
-
-        await _emailService.SendAsync(message);
-    }
-
-    private string BuildEmailConfirmationUrl(Guid userId, string token)
-    {
-        var clientBaseUrl = _authEmailOptions.ClientBaseUrl.TrimEnd('/');
-        var confirmEmailPath = _authEmailOptions.ConfirmEmailPath.StartsWith('/')
-            ? _authEmailOptions.ConfirmEmailPath
-            : $"/{_authEmailOptions.ConfirmEmailPath}";
-
-        return $"{clientBaseUrl}{confirmEmailPath}?userId={userId}&token={Uri.EscapeDataString(token)}";
-    }
-
-    private string BuildPasswordResetUrl(Guid userId, string token)
-    {
-        var clientBaseUrl = _authEmailOptions.ClientBaseUrl.TrimEnd('/');
-        var resetPasswordPath = _authEmailOptions.ResetPasswordPath.StartsWith('/')
-            ? _authEmailOptions.ResetPasswordPath
-            : $"/{_authEmailOptions.ResetPasswordPath}";
-
-        return $"{clientBaseUrl}{resetPasswordPath}?userId={userId}&token={Uri.EscapeDataString(token)}";
-    }
+    private Task QueueEmailConfirmationAsync(ApplicationUser user)
+        => _notifications.QueueAuthenticationAsync(user, AccountNotificationQueue.Confirmation);
 
     private async Task DeleteExpiredUnconfirmedUsersAsync()
     {

@@ -16,20 +16,20 @@ public class UserService : IUserService
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly IUnitOfWork _unitOfWork;
     private readonly IAppDbContext _databaseContext;
-    private readonly IEmailService _emailService;
+    private readonly IAccountNotificationQueue _notifications;
     private readonly IEmailTemplateService _emailTemplateService;
 
     public UserService(
         UserManager<ApplicationUser> userManager,
         IUnitOfWork unitOfWork,
         IAppDbContext databaseContext,
-        IEmailService emailService,
+        IAccountNotificationQueue notifications,
         IEmailTemplateService emailTemplateService)
     {
         _userManager = userManager;
         _unitOfWork = unitOfWork;
         _databaseContext = databaseContext;
-        _emailService = emailService;
+        _notifications = notifications;
         _emailTemplateService = emailTemplateService;
     }
 
@@ -194,7 +194,10 @@ public class UserService : IUserService
         }
     }
 
-    public async Task<AccountLifecycleResultDto> RequestAccountLifecycleAsync(
+    public Task<AccountLifecycleResultDto> RequestAccountLifecycleAsync(Guid userId, AccountLifecycleRequestDto request, CancellationToken cancellationToken = default)
+        => NotificationTransaction.RunAsync(_databaseContext, () => RequestAccountLifecycleAsyncCore(userId, request, cancellationToken), cancellationToken);
+
+    private async Task<AccountLifecycleResultDto> RequestAccountLifecycleAsyncCore(
         Guid userId,
         AccountLifecycleRequestDto request,
         CancellationToken cancellationToken = default)
@@ -215,7 +218,7 @@ public class UserService : IUserService
         if (request.Type == AccountLifecycleRequestType.Deactivation)
         {
             await DeactivateUserAsync(user);
-            await SendAccountDeactivatedEmailAsync(user.Email);
+            await QueueAccountDeactivatedEmailAsync(user.Email);
             await AddCompletedLifecycleRequestAsync(
                 user.Id,
                 request.Type,
@@ -252,7 +255,7 @@ public class UserService : IUserService
         {
             var deletedEmail = user.Email;
             await DeleteUserWithoutOrdersAsync(user, cancellationToken);
-            await SendAccountDeletedEmailAsync(deletedEmail);
+            await QueueAccountDeletedEmailAsync(deletedEmail);
 
             return new AccountLifecycleResultDto
             {
@@ -264,7 +267,7 @@ public class UserService : IUserService
 
         var anonymizedEmail = user.Email;
         await AnonymizeUserAsync(user, cancellationToken);
-        await SendAccountAnonymizedEmailAsync(anonymizedEmail);
+        await QueueAccountAnonymizedEmailAsync(anonymizedEmail);
         await AddCompletedLifecycleRequestAsync(
             user.Id,
             request.Type,
@@ -506,7 +509,7 @@ public class UserService : IUserService
         await _databaseContext.SaveChangesAsync(cancellationToken);
     }
 
-    internal async Task SendAccountAnonymizedEmailAsync(string? email)
+    internal async Task QueueAccountAnonymizedEmailAsync(string? email)
     {
         if (string.IsNullOrWhiteSpace(email))
         {
@@ -514,10 +517,10 @@ public class UserService : IUserService
         }
 
         var message = _emailTemplateService.BuildAccountAnonymizedMessage(email);
-        await _emailService.SendAsync(message);
+        await _notifications.QueueMessageAsync(message, "account-anonymized");
     }
 
-    private async Task SendAccountDeactivatedEmailAsync(string? email)
+    private async Task QueueAccountDeactivatedEmailAsync(string? email)
     {
         if (string.IsNullOrWhiteSpace(email))
         {
@@ -525,10 +528,10 @@ public class UserService : IUserService
         }
 
         var message = _emailTemplateService.BuildAccountDeactivatedMessage(email);
-        await _emailService.SendAsync(message);
+        await _notifications.QueueMessageAsync(message, "account-deactivated");
     }
 
-    private async Task SendAccountDeletedEmailAsync(string? email)
+    private async Task QueueAccountDeletedEmailAsync(string? email)
     {
         if (string.IsNullOrWhiteSpace(email))
         {
@@ -536,7 +539,7 @@ public class UserService : IUserService
         }
 
         var message = _emailTemplateService.BuildAccountDeletedMessage(email);
-        await _emailService.SendAsync(message);
+        await _notifications.QueueMessageAsync(message, "account-deleted");
     }
 
     private static void MarkAddressDeleted(Address? address)

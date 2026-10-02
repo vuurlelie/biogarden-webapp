@@ -101,6 +101,7 @@ public sealed class SqlServerApp : IAsyncLifetime
                     ["SumUp:Enabled"] = "false",
                     ["ErrorAlerts:Enabled"] = "false",
                     ["OrderEmailOutbox:Enabled"] = "false",
+                    ["NotificationEmailOutbox:Enabled"] = "false",
                     ["CheckoutDrafts:CleanupEnabled"] = "false",
                     ["EmailBranding:ContactEmail"] = "business@example.com",
                     ["AbuseProtection:PublicForm:PermitLimit"] = "100"
@@ -147,6 +148,7 @@ public sealed class SqlServerApp : IAsyncLifetime
     public sealed class QueueSaveFailure : SaveChangesInterceptor
     {
         public bool Enabled { get; set; }
+        public bool NotificationsEnabled { get; set; }
 
         public override ValueTask<InterceptionResult<int>> SavingChangesAsync(
             DbContextEventData eventData, InterceptionResult<int> result, CancellationToken cancellationToken = default)
@@ -154,6 +156,9 @@ public sealed class SqlServerApp : IAsyncLifetime
             if (Enabled && eventData.Context!.ChangeTracker.Entries<OrderEmail>()
                 .Any(entry => entry.State == EntityState.Added))
                 throw new InvalidOperationException("Simulated queue persistence failure");
+            if (NotificationsEnabled && eventData.Context!.ChangeTracker.Entries<NotificationEmail>()
+                .Any(entry => entry.State == EntityState.Added))
+                throw new InvalidOperationException("Simulated notification persistence failure");
             return base.SavingChangesAsync(eventData, result, cancellationToken);
         }
     }
