@@ -10,10 +10,12 @@ namespace Biogarden.DataAccess.Repositories;
 public class CartRepository : ICartRepository
 {
     private readonly IAppDbContext _context;
+    private readonly TimeProvider _timeProvider;
 
-    public CartRepository(IAppDbContext context)
+    public CartRepository(IAppDbContext context, TimeProvider timeProvider)
     {
         _context = context;
+        _timeProvider = timeProvider;
     }
 
     public async Task<IAsyncDisposable> AcquireOwnerLockAsync(
@@ -55,6 +57,7 @@ public class CartRepository : ICartRepository
 
     public async Task<Cart?> GetActiveByUserIdAsync(Guid userId, CancellationToken cancellationToken = default)
     {
+        var now = _timeProvider.GetUtcNow().UtcDateTime;
         return await _context.Carts
             .Include(cart => cart.Items)
             .ThenInclude(cartItem => cartItem.Product)
@@ -63,12 +66,13 @@ public class CartRepository : ICartRepository
                 cart =>
                     cart.UserId == userId &&
                     !cart.IsCheckedOut &&
-                    cart.ExpiresAtUtc > DateTime.UtcNow,
+                    cart.ExpiresAtUtc > now,
                 cancellationToken);
     }
 
     public async Task<Cart?> GetActiveBySessionIdAsync(string sessionId, CancellationToken cancellationToken = default)
     {
+        var now = _timeProvider.GetUtcNow().UtcDateTime;
         return await _context.Carts
             .Include(cart => cart.Items)
             .ThenInclude(cartItem => cartItem.Product)
@@ -77,7 +81,7 @@ public class CartRepository : ICartRepository
                 cart =>
                     cart.UserId == null && cart.SessionId == sessionId &&
                     !cart.IsCheckedOut &&
-                    cart.ExpiresAtUtc > DateTime.UtcNow,
+                    cart.ExpiresAtUtc > now,
                 cancellationToken);
     }
 
@@ -133,38 +137,38 @@ public class CartRepository : ICartRepository
     }
 
     public async Task<int> GetActiveReservedQuantityForProductAsync(int productId, Guid? excludedCartId = null, CancellationToken cancellationToken = default)
-    {
-        var query = _context.CartItems
-            .Where(cartItem =>
-                cartItem.ProductId == productId &&
-                cartItem.Cart != null &&
-                !cartItem.Cart.IsCheckedOut &&
-                cartItem.Cart.ExpiresAtUtc > DateTime.UtcNow);
+        => (await GetActiveReservedQuantitiesAsync([productId], excludedCartId, null, cancellationToken))
+            .GetValueOrDefault(productId);
 
-        if (excludedCartId.HasValue)
-        {
-            query = query.Where(cartItem => cartItem.CartId != excludedCartId.Value);
-        }
-
-        return await query.SumAsync(cartItem => cartItem.Quantity, cancellationToken);
-    }
-
-    public Task<int> GetActiveReservedQuantityForProductAsync(
+    public async Task<int> GetActiveReservedQuantityForProductAsync(
         int productId, Guid excludedCartId, Guid additionalExcludedCartId,
         CancellationToken cancellationToken = default)
+        => (await GetActiveReservedQuantitiesAsync([productId], excludedCartId, additionalExcludedCartId, cancellationToken))
+            .GetValueOrDefault(productId);
+
+    public async Task<IReadOnlyDictionary<int, int>> GetActiveReservedQuantitiesAsync(
+        IReadOnlyCollection<int> productIds, Guid? excludedCartId = null, Guid? additionalExcludedCartId = null,
+        CancellationToken cancellationToken = default)
     {
-        var now = DateTime.UtcNow;
-        return _context.CartItems.Where(item => item.ProductId == productId
-            && item.Cart != null && !item.Cart.IsCheckedOut && item.Cart.ExpiresAtUtc > now
-            && item.CartId != excludedCartId && item.CartId != additionalExcludedCartId)
-            .SumAsync(item => item.Quantity, cancellationToken);
+        if (productIds.Count == 0) return new Dictionary<int, int>();
+        var now = _timeProvider.GetUtcNow().UtcDateTime;
+        var ids = productIds.Distinct().ToArray();
+        var query = _context.CartItems.Where(item => ids.Contains(item.ProductId)
+            && item.Cart != null && !item.Cart.IsCheckedOut && item.Cart.ExpiresAtUtc > now);
+        if (excludedCartId.HasValue) query = query.Where(item => item.CartId != excludedCartId.Value);
+        if (additionalExcludedCartId.HasValue) query = query.Where(item => item.CartId != additionalExcludedCartId.Value);
+
+        return await query.GroupBy(item => item.ProductId)
+            .Select(group => new { ProductId = group.Key, Quantity = group.Sum(item => item.Quantity) })
+            .ToDictionaryAsync(item => item.ProductId, item => item.Quantity, cancellationToken);
     }
 
     public async Task<List<Cart>> GetExpiredCartsAsync(CancellationToken cancellationToken = default)
     {
+        var now = _timeProvider.GetUtcNow().UtcDateTime;
         return await _context.Carts
             .Include(cart => cart.Items)
-            .Where(cart => !cart.IsCheckedOut && cart.ExpiresAtUtc <= DateTime.UtcNow)
+            .Where(cart => !cart.IsCheckedOut && cart.ExpiresAtUtc <= now)
             .ToListAsync(cancellationToken);
     }
 }

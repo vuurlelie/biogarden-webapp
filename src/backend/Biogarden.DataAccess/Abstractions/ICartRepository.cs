@@ -22,6 +22,10 @@ public interface ICartRepository
         Guid? excludedCartId = null,
         CancellationToken cancellationToken = default);
 
+    Task<IReadOnlyDictionary<int, int>> GetActiveReservedQuantitiesAsync(
+        IReadOnlyCollection<int> productIds, Guid? excludedCartId = null, Guid? additionalExcludedCartId = null,
+        CancellationToken cancellationToken = default);
+
     Task<List<Cart>> GetExpiredCartsAsync(CancellationToken cancellationToken = default);
 
     Task<int> GetActiveReservedQuantityForProductAsync(

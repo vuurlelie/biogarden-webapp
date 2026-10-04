@@ -6,6 +6,7 @@ namespace Biogarden.DataAccess.Repositories;
 public sealed class UnitOfWork : IUnitOfWork
 {
     private readonly IAppDbContext _databaseContext;
+    private readonly TimeProvider _timeProvider;
 
     private IPostRepository? _postRepository;
     private IProductRepository? _productRepository;
@@ -18,9 +19,10 @@ public sealed class UnitOfWork : IUnitOfWork
     private IPaymentProviderEventRepository? _paymentProviderEventRepository;
 
 
-    public UnitOfWork(IAppDbContext databaseContext)
+    public UnitOfWork(IAppDbContext databaseContext, TimeProvider timeProvider)
     {
         _databaseContext = databaseContext;
+        _timeProvider = timeProvider;
     }
 
     public IPostRepository PostRepository
@@ -31,7 +33,7 @@ public sealed class UnitOfWork : IUnitOfWork
     public IAddressRepository AddressRepository
     => _addressRepository ??= new AddressRepository(_databaseContext);
     public ICartRepository CartRepository =>
-        _cartRepository ??= new CartRepository(_databaseContext);
+        _cartRepository ??= new CartRepository(_databaseContext, _timeProvider);
     public IOrderRepository OrderRepository =>
         _orderRepository ??= new OrderRepository(_databaseContext);
     public IOrderEmailRepository OrderEmailRepository =>
