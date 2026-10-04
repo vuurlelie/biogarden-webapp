@@ -396,6 +396,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IProductService, ProductService>();
         services.AddScoped<IAddressService, AddressService>();
         services.AddScoped<IAuthService, AuthService>();
+        services.AddScoped<IAccountLifecycleOperations, AccountLifecycleOperations>();
         services.AddScoped<IUserService, UserService>();
         services.AddScoped<ITokenService, JwtTokenService>();
 
