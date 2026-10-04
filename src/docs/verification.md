@@ -45,6 +45,8 @@ If the test process is forcibly terminated, its database may remain. Review the 
 
 `SessionRevocationTests` uses real Identity users, issued JWTs, and SQL Server to verify account-state checks, password-reset revocation, role changes, and concurrent administrator/self-deactivation requests. The concurrency tests synchronize requests after initial authentication and exercise the actual database lock and authorization recheck. The ordinary HTTP contract-test factory bypasses that SQL filter deliberately; it is not evidence for session security.
 
+`IdentityOwnershipTests` adds real Identity/JWT and SQL checks for concurrent case-insensitive registration, expired/tampered JWTs, expired confirmation/reset tokens, reset-token reuse and cross-account use, cart/order ownership, saved delivery-address ownership, and public withdrawal lookup. Concurrent registration uses a save barrier and must create exactly one account and confirmation request; the loser receives the normal duplicate-email response. The public payment-status route intentionally exposes only its limited status contract: the checkout reference is derived from the order ID and is not an additional secret or an ownership check.
+
 `CartSessionTests` exercises real cart services and SQL Server with separate request scopes. It covers last-item and overlapping-cart merges, third-party reservations, rejected merges without partial quantities, repeated/concurrent merging, simultaneous first additions for guest and user owners, expired-cart replacement, and separation of user carts from guest cookies. These are database/service integration tests; hosted cookie delivery is checked separately in the [deployment runbook](operations/deployment-runbook.md#cart-session-changes).
 
 ## Frontend
@@ -70,12 +72,34 @@ Check the build's SEO output: a successful build with no fetched posts does not 
 
 Finish with `git diff --check` and review `git status --short` from `src` for unintended tracked changes.
 
+## Real browser-to-database journey
+
+The opt-in `RealBrowser` category launches the actual API through [WebApplicationFactory with Kestrel](https://learn.microsoft.com/en-us/dotnet/api/microsoft.aspnetcore.mvc.testing.webapplicationfactory-1.usekestrel?view=aspnetcore-10.0), seeds a disposable SQL database, and starts Playwright/Vite. Install frontend dependencies and Playwright Chromium/Firefox first (`npx playwright install chromium firefox`). Node must be on PATH. The test owns HTTPS API port 5097 and HTTPS frontend port 4174; keep both free. Each Chromium desktop, Firefox desktop and Chromium mobile case gets a fresh database. A one-hour self-signed certificate is created for the run and removed afterwards; certificate trust is bypassed only inside the test, without changing the machine trust store.
+
+From `src` in PowerShell:
+
+```powershell
+$env:BIOGARDEN_TEST_SQLSERVER = 'Server=(localdb)\MSSQLLocalDB;Integrated Security=True;TrustServerCertificate=True;Encrypt=False'
+$env:BIOGARDEN_REAL_BROWSER = '1'
+try {
+    dotnet test backend/tests/Biogarden.WebApi.Tests --filter Category=RealBrowser
+} finally {
+    Remove-Item Env:BIOGARDEN_TEST_SQLSERVER, Env:BIOGARDEN_REAL_BROWSER
+}
+```
+
+Run this through the .NET test, not by pointing Playwright at a hosted API. The test selects its own database name, injects captured email, disables real payment delivery, and cleans up the database after success or failure. Browser requests are limited to loopback hosts. The existing mocked browser suite remains separate in `e2e`; `e2e-real` is selected only by `playwright.real.config.ts`.
+
+The checkout journey uses two isolated browser contexts, adds a guest item, signs in through the real login endpoint and merges it with an existing user cart. It completes a pickup order, intentionally drops the response **after the real API has committed**, recovers the saved order, and cancels through the account screen. SQL assertions check one order, the authoritative total, merged quantity, exactly one pair of queued confirmations, and restored stock. No checkout response is fabricated. The same run verifies actual HTTPS cookie flags, guest-session separation, checkout modal focus/Escape behaviour, and a mobile viewport. A second scenario starts with an expired SQL cart, verifies it is replaced and cannot be checked out, checks rejection of an unavailable product, and proves draft/deleted article URLs do not render their content while a published article does.
+
+These are loopback, same-site browser tests. They do not reproduce SmarterASP's different-domain deployment, third-party-cookie blocking, proxy TLS termination, Safari/iOS, a real card charge or SMTP delivery. Those remain explicit hosted checks in the deployment runbook. Failure traces contain only synthetic test data and can be uploaded by CI; do not reuse real customer data in this harness.
+
 ## What these checks establish
 
 Payment-attempt SQL tests and browser recovery scenarios are described in [payment recovery](operations/payment-recovery.md#deployment-and-verification), including the remaining live-provider checks.
 
 Checkout-draft SQL and browser coverage, along with hosted verification requirements, is described in [checkout drafts](operations/checkout-drafts.md#deployment-and-verification).
 
-Backend unit tests cover business behaviour with mocked dependencies. Regular API tests exercise HTTP handling, middleware, and authorization, with services replaced where needed. The SQL Server category adds real API-to-database order workflows as described above. Playwright tests use mocked API responses and verify browser behaviour. These checks do not collectively prove a complete browser-to-API-to-SQL Server transaction or successful live SMTP/SumUp delivery.
+Backend unit tests cover business behaviour with mocked dependencies. Regular API tests exercise HTTP handling, middleware, and authorization, with services replaced where needed. The SQL Server category adds real API-to-database order workflows as described above. The default Playwright suite uses mocked API responses. The separate `RealBrowser` category proves the browser-to-API-to-SQL journey described above when explicitly run; neither suite proves successful live SMTP/SumUp delivery.
 
 Use the [UAT checklist](uat-checklist.md) to record deployed workflows, and the [deployment runbook](operations/deployment-runbook.md) for release smoke checks. Hosting behaviour and real integration delivery require environment-level verification in addition to these automated suites.

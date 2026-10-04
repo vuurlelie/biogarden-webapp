@@ -71,6 +71,32 @@ jobs:
           BIOGARDEN_TEST_SQLSERVER: 'Server=localhost,1433;User Id=sa;Password=IntegrationTestsOnly_2026!;TrustServerCertificate=True'
         run: dotnet test ./src/backend/tests/Biogarden.WebApi.Tests --configuration Release --no-restore --filter Category=SqlServer --logger "trx;LogFileName=sqlserver.trx"
 
+      - name: Setup Node.js for real browser journeys
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: ./src/frontend/biogarden-client/package-lock.json
+
+      - name: Install real browser test dependencies
+        working-directory: ./src/frontend/biogarden-client
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium firefox
+
+      - name: Run real browser-to-database journeys
+        env:
+          BIOGARDEN_TEST_SQLSERVER: 'Server=localhost,1433;User Id=sa;Password=IntegrationTestsOnly_2026!;TrustServerCertificate=True'
+          BIOGARDEN_REAL_BROWSER: '1'
+        run: dotnet test ./src/backend/tests/Biogarden.WebApi.Tests --configuration Release --no-build --no-restore --filter Category=RealBrowser --logger "trx;LogFileName=real-browser.trx"
+
+      - name: Upload real browser failure traces
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: real-browser-traces
+          path: src/frontend/biogarden-client/test-results/
+
       - name: Upload integration test results
         if: always()
         uses: actions/upload-artifact@v4
