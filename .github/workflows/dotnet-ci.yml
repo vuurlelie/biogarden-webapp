@@ -2,44 +2,58 @@ name: .NET CI
 
 on:
   push:
-    branches:
-      - main
-      - audit/**
-      - feature/**
+    branches: [main, audit/**, feature/**]
   pull_request:
-    branches:
-      - main
+    branches: [main]
+
+permissions:
+  contents: read
+
+env:
+  PYTHONDONTWRITEBYTECODE: '1'
 
 jobs:
   backend:
     runs-on: ubuntu-latest
-
+    defaults:
+      run:
+        working-directory: src
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
         with:
           global-json-file: src/global.json
-
-      - name: Restore dependencies
-        run: dotnet restore ./src/backend/Biogarden.sln --locked-mode
-
-      - name: Audit backend dependencies
-        run: dotnet list ./src/backend/Biogarden.sln package --vulnerable --include-transitive
-
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Test verification gates
+        run: python -m unittest discover -s scripts/verification -p 'test_*.py' -v
+      - name: Locked restore and dependency audit
+        run: dotnet restore backend/Biogarden.sln --locked-mode --force -p:AuditPipeline=true
+      - name: Verify unchanged dependency locks
+        run: git diff --exit-code -- '**/packages.lock.json' '**/package-lock.json'
       - name: Build solution
-        run: dotnet build ./src/backend/Biogarden.sln --no-restore --configuration Release
-
+        run: dotnet build backend/Biogarden.sln --no-restore --configuration Release
       - name: Verify backend formatting
-        run: dotnet format ./src/backend/Biogarden.sln --verify-no-changes --no-restore
-
-      - name: Run tests
-        run: dotnet test ./src/backend/Biogarden.sln --no-build --configuration Release --verbosity normal
+        run: dotnet format backend/Biogarden.sln --verify-no-changes --no-restore
+      - name: Run unit and HTTP contract tests
+        run: dotnet test backend/Biogarden.sln --no-build --no-restore --configuration Release --filter 'Category!=SqlServer&Category!=RealBrowser' --settings backend/verification.runsettings --logger 'trx;LogFilePrefix=backend' --results-directory artifacts/ci/backend
+      - name: Require both test assemblies to execute without skips
+        if: always()
+        run: python scripts/verification/check_results.py trx artifacts/ci/backend Biogarden.UnitTests.dll Biogarden.WebApi.Tests.dll
+      - name: Upload backend evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-results
+          path: src/artifacts/ci/backend/
+          retention-days: 14
 
   backend-integration:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: src
     services:
       sqlserver:
         image: mcr.microsoft.com/mssql/server:2022-latest
@@ -55,93 +69,101 @@ jobs:
           --health-retries=20
           --health-start-period=20s
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
         with:
           global-json-file: src/global.json
-
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
       - name: Restore dependencies
-        run: dotnet restore ./src/backend/Biogarden.sln --locked-mode
-
+        run: dotnet restore backend/Biogarden.sln --locked-mode
       - name: Run SQL Server integration tests
         env:
           BIOGARDEN_TEST_SQLSERVER: 'Server=localhost,1433;User Id=sa;Password=IntegrationTestsOnly_2026!;TrustServerCertificate=True'
-        run: dotnet test ./src/backend/tests/Biogarden.WebApi.Tests --configuration Release --no-restore --filter Category=SqlServer --logger "trx;LogFileName=sqlserver.trx"
-
-      - name: Setup Node.js for real browser journeys
-        uses: actions/setup-node@v4
+        run: dotnet test backend/tests/Biogarden.WebApi.Tests --configuration Release --no-restore --filter Category=SqlServer --settings backend/verification.runsettings --logger 'trx;LogFileName=sqlserver.trx' --results-directory artifacts/ci/sqlserver
+      - name: Require SQL tests to execute without skips
+        if: always()
+        run: python scripts/verification/check_results.py trx artifacts/ci/sqlserver Biogarden.WebApi.Tests.dll
+      - uses: actions/setup-node@v4
         with:
           node-version: 24
           cache: npm
-          cache-dependency-path: ./src/frontend/biogarden-client/package-lock.json
-
+          cache-dependency-path: src/frontend/biogarden-client/package-lock.json
       - name: Install real browser test dependencies
-        working-directory: ./src/frontend/biogarden-client
+        working-directory: src/frontend/biogarden-client
         run: |
           npm ci
           npx playwright install --with-deps chromium firefox
-
+      - name: Verify unchanged dependency locks
+        run: git diff --exit-code -- '**/packages.lock.json' '**/package-lock.json'
       - name: Run real browser-to-database journeys
         env:
           BIOGARDEN_TEST_SQLSERVER: 'Server=localhost,1433;User Id=sa;Password=IntegrationTestsOnly_2026!;TrustServerCertificate=True'
           BIOGARDEN_REAL_BROWSER: '1'
-        run: dotnet test ./src/backend/tests/Biogarden.WebApi.Tests --configuration Release --no-build --no-restore --filter Category=RealBrowser --logger "trx;LogFileName=real-browser.trx"
-
-      - name: Upload real browser failure traces
+        run: dotnet test backend/tests/Biogarden.WebApi.Tests --configuration Release --no-build --no-restore --filter Category=RealBrowser --settings backend/verification.runsettings --logger 'trx;LogFileName=real-browser.trx' --results-directory artifacts/ci/real-browser
+      - name: Require real browser journeys to execute without skips
+        if: always()
+        run: python scripts/verification/check_results.py trx artifacts/ci/real-browser Biogarden.WebApi.Tests.dll
+      - name: Upload browser traces
         if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: real-browser-traces
           path: src/frontend/biogarden-client/test-results/
-
-      - name: Upload integration test results
+          retention-days: 14
+      - name: Upload integration evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: sqlserver-test-results
-          path: src/backend/tests/Biogarden.WebApi.Tests/TestResults/*.trx
+          name: integration-results
+          path: src/artifacts/ci/
+          retention-days: 14
 
   frontend:
     runs-on: ubuntu-latest
-
     defaults:
       run:
-        working-directory: ./src/frontend/biogarden-client
-
+        working-directory: src/frontend/biogarden-client
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: 24
           cache: npm
-          cache-dependency-path: ./src/frontend/biogarden-client/package-lock.json
-
+          cache-dependency-path: src/frontend/biogarden-client/package-lock.json
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
       - name: Install dependencies
         run: npm ci
-
+      - name: Verify unchanged dependency lock
+        run: git diff --exit-code -- package-lock.json
       - name: Audit frontend dependencies
         run: npm audit --audit-level=moderate
-
       - name: Install Playwright browsers
-        run: npx playwright install chromium
-
+        run: npx playwright install --with-deps chromium
       - name: Lint frontend
         run: npm run lint
-
       - name: Typecheck frontend
         run: npm run typecheck
-
       - name: Build frontend
         run: npm run build
-
       - name: Verify SEO files
         run: npm run verify:seo
-
       - name: Run E2E tests
-        run: npm run test:e2e
+        env:
+          PLAYWRIGHT_JSON_OUTPUT_FILE: test-results/results.json
+        run: npm run test:e2e -- --reporter=github,html,json
+      - name: Require browser tests to execute without skips
+        if: always()
+        run: python ../../scripts/verification/check_results.py playwright test-results/results.json
+      - name: Upload frontend reports and traces
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-results
+          path: |
+            src/frontend/biogarden-client/test-results/
+            src/frontend/biogarden-client/playwright-report/
+          retention-days: 14

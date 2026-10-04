@@ -18,13 +18,21 @@ From the repository's `src` directory:
 
 ```bash
 dotnet restore backend/Biogarden.sln --locked-mode
-dotnet list backend/Biogarden.sln package --vulnerable --include-transitive
+dotnet restore backend/Biogarden.sln --locked-mode --force -p:AuditPipeline=true
 dotnet build backend/Biogarden.sln --configuration Release --no-restore
 dotnet format backend/Biogarden.sln --verify-no-changes --no-restore
 dotnet test backend/Biogarden.sln --configuration Release --no-build --no-restore
 ```
 
-Review the dependency report as well as the exit status. If a running local API locks build outputs, stop that local process before building again.
+The audit restore checks direct and transitive dependencies and fails on moderate, high or critical advisories, or unavailable advisory data (NU1900/NU1905). Low-severity advisories do not block this policy, matching the npm moderate threshold. The opt-in `AuditPipeline` property keeps ordinary offline/local restores separate from release verification. CI must pass the online audit; an unavailable feed is not evidence of safety. See [NuGet audit configuration](https://learn.microsoft.com/nuget/concepts/auditing-packages). If a running local API locks build outputs, stop that local process before building again.
+
+### CI execution and evidence gates
+
+The ordinary backend job runs unit and HTTP contract tests, explicitly excluding `SqlServer` and `RealBrowser`. The dedicated integration job supplies its own SQL Server and runs each excluded category separately. `verification.runsettings` treats empty discovery as an error. After each run, `scripts/verification/check_results.py` also checks TRX summaries, individual outcomes and expected assemblies: missing reports, zero tests, incomplete execution, any skipped test or a missing assembly fail the job. Local opt-in skips remain useful, but cannot make the required CI jobs green.
+
+The frontend emits a Playwright JSON report checked for nonzero execution, zero unexpected failures and zero skips. Existing two-retry CI behaviour remains; tests passing on retry are reported as flaky and should be investigated. Backend TRX files, frontend JSON/HTML reports and failure traces are retained as GitHub Actions artifacts for 14 days, including after failed runs. Runs use fresh result directories on clean runners so previous passing results cannot hide missing execution. Locally, use a new results directory for each verification run.
+
+Gate scripts use Python 3.12's standard library and have negative-case tests (`python -m unittest discover -s scripts/verification -p 'test_*.py'`). Raw artifacts stay ignored. Use synthetic test data only: traces and exception output can contain request payloads. For durable release evidence, record the commit and CI run link in the private release record rather than committing generated reports.
 
 ### SQL Server integration tests
 
