@@ -2,12 +2,34 @@ using Biogarden.DataAccess.Abstractions;
 using Biogarden.DataAccess.Entities;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
+using System.Runtime.ExceptionServices;
 
 namespace Biogarden.DataAccess.Repositories;
 
 public sealed class NotificationEmailRepository(IAppDbContext database) : INotificationEmailRepository
 {
     public async Task AcceptContactAsync(IReadOnlyList<NotificationEmail> emails, CancellationToken token)
+    {
+        var context = (DbContext)database;
+        // A duplicate pair can deadlock while inserting its two unique event/kind rows.
+        // Retry the whole idempotent acceptance, including the persisted replay check.
+        // Keep this policy local: order/payment transactions have their own recovery rules.
+        var strategy = new SqlServerRetryingExecutionStrategy(context,
+            maxRetryCount: 3, maxRetryDelay: TimeSpan.FromSeconds(1), errorNumbersToAdd: [1205]);
+        await strategy.ExecuteAsync(async cancellationToken =>
+        {
+            foreach (var email in emails) context.Entry(email).State = EntityState.Detached;
+            try { await AcceptContactCoreAsync(emails, cancellationToken); }
+            catch (InvalidOperationException exception) when (exception.InnerException is DbUpdateException { InnerException: SqlException })
+            {
+                // The application's non-retrying SQL strategy wraps transient save failures.
+                // Let this local strategy classify the original database error, not the wrapper.
+                ExceptionDispatchInfo.Capture(exception.InnerException).Throw();
+            }
+        }, token);
+    }
+
+    private async Task AcceptContactCoreAsync(IReadOnlyList<NotificationEmail> emails, CancellationToken token)
     {
         var first = emails[0];
         var existing = await database.NotificationEmails.AsNoTracking()
