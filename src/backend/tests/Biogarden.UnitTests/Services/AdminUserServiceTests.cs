@@ -30,8 +30,8 @@ public sealed class AdminUserServiceTests
         _service = new AdminUserService(
             _databaseContext.Object,
             _userManager.Object,
-            _emailService.Object,
-            _emailTemplateService.Object);
+            new AccountLifecycleOperations(_userManager.Object, _databaseContext.Object,
+                _emailService.Object, _emailTemplateService.Object));
     }
 
     [Fact]

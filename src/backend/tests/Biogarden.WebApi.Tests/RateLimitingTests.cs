@@ -403,11 +403,6 @@ public sealed class RateLimitingTests
             return Task.FromResult(new CartValidationResultDto());
         }
 
-        public Task<int> CleanupExpiredCartsAsync(CancellationToken cancellationToken = default)
-        {
-            return Task.FromResult(0);
-        }
-
         private static CartDto CreateCart()
         {
             return new CartDto

@@ -1,4 +1,9 @@
 using System.Net;
+using System.Data.Common;
+using Biogarden.DataAccess;
+using Microsoft.AspNetCore.TestHost;
+using Microsoft.EntityFrameworkCore.Diagnostics;
+using Microsoft.Data.SqlClient;
 using System.Net.Http.Json;
 using Biogarden.BusinessLogic.DTOs.Contact;
 using Biogarden.BusinessLogic.Services;
@@ -68,6 +73,70 @@ public sealed class NotificationRecoveryTests : IAsyncLifetime
         Assert.All(await Task.WhenAll(a, b), response => Assert.Equal(HttpStatusCode.Accepted, response.StatusCode));
         await using var db = _app.OpenDatabase();
         Assert.Equal(2, await db.NotificationEmails.CountAsync());
+    }
+
+    [SqlServerTheory]
+    [InlineData(1, HttpStatusCode.Accepted, 2)]
+    [InlineData(4, HttpStatusCode.InternalServerError, 4)]
+    public async Task ContactAcceptance_RetriesSqlDeadlockWithoutDuplicatingQueuedMessages(
+        int failures, HttpStatusCode expectedStatus, int expectedAttempts)
+    {
+        await using (var seed = _app.OpenDatabase())
+        {
+            await seed.Database.ExecuteSqlRawAsync("CREATE TABLE dbo.ContactRetryProbe (Id int PRIMARY KEY, Value int NOT NULL); INSERT INTO dbo.ContactRetryProbe VALUES (1, 0), (2, 0);");
+        }
+        var deadlock = new ContactDeadlock(failures, _app.CreateConnection);
+        using var api = _app.Factory.WithWebHostBuilder(builder => builder.ConfigureTestServices(services =>
+            services.AddDbContext<AppDbContext>(options => options.AddInterceptors(deadlock))));
+        using var client = api.CreateClient();
+        var request = Contact();
+        var response = await client.PostAsJsonAsync("/api/contact", request);
+        Assert.True(response.StatusCode == expectedStatus, await response.Content.ReadAsStringAsync());
+        Assert.Equal(expectedAttempts, deadlock.InsertAttempts);
+        await using var database = _app.OpenDatabase();
+        Assert.Equal(expectedStatus == HttpStatusCode.Accepted ? 2 : 0, await database.NotificationEmails.CountAsync());
+        Assert.Equal(HttpStatusCode.Accepted, (await client.PostAsJsonAsync("/api/contact", request)).StatusCode);
+        var attemptsAfterRecovery = expectedStatus == HttpStatusCode.Accepted ? expectedAttempts : expectedAttempts + 1;
+        Assert.Equal(attemptsAfterRecovery, deadlock.InsertAttempts);
+        Assert.Equal(HttpStatusCode.Accepted, (await client.PostAsJsonAsync("/api/contact", request)).StatusCode);
+        Assert.Equal(attemptsAfterRecovery, deadlock.InsertAttempts);
+        Assert.Equal(2, await database.NotificationEmails.CountAsync());
+        Assert.Empty(_app.Sender.Sent);
+    }
+
+    private sealed class ContactDeadlock(int failures, Func<SqlConnection> createConnection) : DbCommandInterceptor
+    {
+        public int InsertAttempts;
+        public override async ValueTask<InterceptionResult<DbDataReader>> ReaderExecutingAsync(
+            DbCommand command, CommandEventData eventData, InterceptionResult<DbDataReader> result,
+            CancellationToken cancellationToken = default)
+        {
+            if (command.CommandText.Contains("INSERT INTO [NotificationEmails]", StringComparison.Ordinal)
+                && Interlocked.Increment(ref InsertAttempts) <= failures)
+            {
+                // Two test-only rows establish a real lock cycle before the queue insert.
+                // Priorities select the victim deterministically; no sleeps or fabricated exceptions.
+                await using var victim = createConnection();
+                await using var winner = createConnection();
+                await victim.OpenAsync(cancellationToken);
+                await winner.OpenAsync(cancellationToken);
+                await using var victimTransaction = (SqlTransaction)await victim.BeginTransactionAsync(cancellationToken);
+                await using var winnerTransaction = (SqlTransaction)await winner.BeginTransactionAsync(cancellationToken);
+                await Execute(victim, victimTransaction, "SET DEADLOCK_PRIORITY LOW; UPDATE dbo.ContactRetryProbe SET Value = Value + 1 WHERE Id = 1;", cancellationToken);
+                await Execute(winner, winnerTransaction, "SET DEADLOCK_PRIORITY HIGH; UPDATE dbo.ContactRetryProbe SET Value = Value + 1 WHERE Id = 2;", cancellationToken);
+                await Task.WhenAll(
+                    Execute(victim, victimTransaction, "UPDATE dbo.ContactRetryProbe SET Value = Value + 1 WHERE Id = 2;", cancellationToken),
+                    Execute(winner, winnerTransaction, "UPDATE dbo.ContactRetryProbe SET Value = Value + 1 WHERE Id = 1;", cancellationToken));
+                throw new InvalidOperationException("The test lock cycle did not produce a deadlock victim.");
+            }
+            return result;
+        }
+
+        private static async Task Execute(SqlConnection connection, SqlTransaction transaction, string sql, CancellationToken token)
+        {
+            await using var command = new SqlCommand(sql, connection, transaction) { CommandTimeout = 15 };
+            await command.ExecuteNonQueryAsync(token);
+        }
     }
 
     [SqlServerFact]

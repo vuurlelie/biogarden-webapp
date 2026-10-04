@@ -60,6 +60,10 @@ public sealed class SqlServerApp : IAsyncLifetime
     public AppDbContext OpenDatabase() => new(new DbContextOptionsBuilder<AppDbContext>()
         .UseSqlServer(_connectionString).Options);
 
+    // An opened SqlConnection omits its password when Persist Security Info is false.
+    // Create additional connections from the fixture's original, isolated configuration.
+    public SqlConnection CreateConnection() => new(_connectionString);
+
     public async Task RestartApiAsync()
     {
         await Factory.DisposeAsync();
@@ -102,6 +106,7 @@ public sealed class SqlServerApp : IAsyncLifetime
                     ["ErrorAlerts:Enabled"] = "false",
                     ["OrderEmailOutbox:Enabled"] = "false",
                     ["NotificationEmailOutbox:Enabled"] = "false",
+                    ["CartCleanup:Enabled"] = "false",
                     ["CheckoutDrafts:CleanupEnabled"] = "false",
                     ["EmailBranding:ContactEmail"] = "business@example.com",
                     ["AbuseProtection:PublicForm:PermitLimit"] = "100"

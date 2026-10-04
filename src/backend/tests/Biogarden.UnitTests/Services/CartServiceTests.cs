@@ -19,6 +19,9 @@ public sealed class CartServiceTests
         _carts.Setup(repository => repository.AcquireOwnerLockAsync(It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new TestOwnerLock());
         _products.Setup(repository => repository.GuardStockReservation(It.IsAny<Product>()));
+        _carts.Setup(repository => repository.GetActiveReservedQuantitiesAsync(
+            It.IsAny<IReadOnlyCollection<int>>(), It.IsAny<Guid?>(), It.IsAny<Guid?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Dictionary<int, int>());
         _unitOfWork.SetupGet(x => x.CartRepository).Returns(_carts.Object);
         _unitOfWork.SetupGet(x => x.ProductRepository).Returns(_products.Object);
         _service = new CartService(_unitOfWork.Object, _timeProvider);
@@ -158,9 +161,10 @@ public sealed class CartServiceTests
             .Setup(x => x.GetByIdAsync(product.Id, It.IsAny<CancellationToken>()))
             .ReturnsAsync(product);
         _carts
-            .Setup(x => x.GetActiveReservedQuantityForProductAsync(
-                product.Id, cart.Id, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(1);
+            .Setup(x => x.GetActiveReservedQuantitiesAsync(
+                It.Is<IReadOnlyCollection<int>>(ids => ids.Count == 1 && ids.Contains(product.Id)),
+                cart.Id, null, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Dictionary<int, int> { [product.Id] = 1 });
 
         var result = await _service.ValidateCartForCheckoutAsync(userId, null);
 
@@ -292,31 +296,6 @@ public sealed class CartServiceTests
         Assert.Null(guestCart.CheckedOutAtUtc);
         Assert.Equal(2, userCart.Items.Single().Quantity);
         _unitOfWork.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
-    }
-
-    [Fact]
-    public async Task CleanupExpiredCarts_RemovesAllExpiredCarts_AndSavesOnce()
-    {
-        var expired = new List<Cart> { new() { Id = Guid.NewGuid() }, new() { Id = Guid.NewGuid() } };
-        _carts
-            .Setup(x => x.GetExpiredCartsAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync(expired);
-        foreach (var cart in expired)
-        {
-            _carts.Setup(x => x.Remove(cart));
-        }
-        _unitOfWork
-            .Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync(expired.Count);
-
-        var removedCount = await _service.CleanupExpiredCartsAsync();
-
-        Assert.Equal(2, removedCount);
-        foreach (var cart in expired)
-        {
-            _carts.Verify(x => x.Remove(cart), Times.Once);
-        }
-        _unitOfWork.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
     }
 
     private static Cart CreateCart(Guid userId, int productId, int quantity)

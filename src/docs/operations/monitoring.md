@@ -46,6 +46,10 @@ Alert emails should contain enough context to identify the failing request witho
 - request path,
 - whether a query string was present.
 
+## Cart Cleanup
+
+Monitor scheduled completion counts, repeated failures and backlog using [expired cart maintenance](cart-maintenance.md#hosting-and-monitoring). API health does not establish worker progress.
+
 ## Production Checklist
 
 - Configure external uptime monitoring for `/health/live`.

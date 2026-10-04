@@ -6,6 +6,8 @@
 
 A unique event/kind index makes concurrent identical retries safe. Reusing an ID with different normalized content returns 409. Each recipient has an independent delivery record: a failed visitor confirmation does not replay a completed business notification. Pending message content remains available to authorized operators in the database; there is no new admin inbox screen.
 
+Contact acceptance retries transient SQL save failures (including deadlocks) up to three times, with delays capped at one second, and rechecks the stored submission before each attempt. Exhausted retries return an error without claiming acceptance; the unchanged form can retry the same submission ID. This retry policy is scoped to contact persistence and does not change payment or order transaction handling.
+
 `NotificationEmailOutbox:Enabled` defaults to true. The worker polls every 15 seconds, uses a two-minute database lease and a 30-second send timeout, and retries with exponential delays capped at one hour. Expired leases recover after a restart. Delivery is **at least once**: SMTP may accept a message before the application records completion, so a crash or ambiguous SMTP failure can still cause a duplicate. Submission deduplication cannot remove that SMTP limitation.
 
 Contact payloads are retained while pending for up to 30 days. Successful delivery or expiry erases recipient, subject and bodies. The worker expires at most 100 records per iteration; disabled/stopped workers postpone cleanup until they resume. Event IDs, hashes, attempt counts and outcomes remain for deduplication and diagnosis. Monitor failures before expiry and recover accepted business messages manually if needed. Do not wait 30 days to investigate an outage.

@@ -294,6 +294,9 @@ public class CartService : ICartService
 
         var now = GetUtcNow();
 
+        var reservations = await _unitOfWork.CartRepository.GetActiveReservedQuantitiesAsync(
+            guestCart.Items.Select(item => item.ProductId).Distinct().ToArray(), userCart.Id, guestCart.Id, cancellationToken);
+
         foreach (var guestCartItem in guestCart.Items.ToList())
         {
             var existingUserCartItem = FindItemByProductId(userCart, guestCartItem.ProductId);
@@ -308,7 +311,7 @@ public class CartService : ICartService
                 requestedQuantity: mergedQuantity,
                 cartId: userCart.Id,
                 cancellationToken,
-                additionalExcludedCartId: guestCart.Id);
+                reservations: reservations);
 
             if (existingUserCartItem is null)
             {
@@ -384,6 +387,8 @@ public class CartService : ICartService
         }
 
         var issues = new List<CartValidationIssueDto>();
+        var reservations = await _unitOfWork.CartRepository.GetActiveReservedQuantitiesAsync(
+            cart.Items.Select(item => item.ProductId).Distinct().ToArray(), cart.Id, null, cancellationToken);
 
         foreach (var cartItem in cart.Items)
         {
@@ -415,11 +420,7 @@ public class CartService : ICartService
                 continue;
             }
 
-            var reservedQuantity =
-                await _unitOfWork.CartRepository.GetActiveReservedQuantityForProductAsync(
-                    product.Id,
-                    cart.Id,
-                    cancellationToken);
+            var reservedQuantity = reservations.GetValueOrDefault(product.Id);
 
             var availableStock = Math.Max(0, product.StockQuantity - reservedQuantity);
 
@@ -440,25 +441,6 @@ public class CartService : ICartService
             IsValid = issues.Count == 0,
             Issues = issues
         };
-    }
-
-    public async Task<int> CleanupExpiredCartsAsync(CancellationToken cancellationToken = default)
-    {
-        var expiredCarts = await _unitOfWork.CartRepository.GetExpiredCartsAsync(cancellationToken);
-
-        if (expiredCarts.Count == 0)
-        {
-            return 0;
-        }
-
-        foreach (var expiredCart in expiredCarts)
-        {
-            _unitOfWork.CartRepository.Remove(expiredCart);
-        }
-
-        await _unitOfWork.SaveChangesAsync(cancellationToken);
-
-        return expiredCarts.Count;
     }
 
     private async Task<Cart> GetOrCreateCartAsync(
@@ -545,23 +527,8 @@ public class CartService : ICartService
         Cart cart,
         CancellationToken cancellationToken)
     {
-        var reservedQuantitiesByProductId = new Dictionary<int, int>();
-
-        foreach (var cartItem in cart.Items)
-        {
-            if (reservedQuantitiesByProductId.ContainsKey(cartItem.ProductId))
-            {
-                continue;
-            }
-
-            var reservedQuantity =
-                await _unitOfWork.CartRepository.GetActiveReservedQuantityForProductAsync(
-                    cartItem.ProductId,
-                    cart.Id,
-                    cancellationToken);
-
-            reservedQuantitiesByProductId[cartItem.ProductId] = reservedQuantity;
-        }
+        var reservedQuantitiesByProductId = await _unitOfWork.CartRepository.GetActiveReservedQuantitiesAsync(
+            cart.Items.Select(item => item.ProductId).Distinct().ToArray(), cart.Id, null, cancellationToken);
 
         return cart.ToDto(reservedQuantitiesByProductId);
     }
@@ -571,7 +538,7 @@ public class CartService : ICartService
         int requestedQuantity,
         Guid cartId,
         CancellationToken cancellationToken,
-        Guid? additionalExcludedCartId = null)
+        IReadOnlyDictionary<int, int>? reservations = null)
     {
         var product = await _unitOfWork.ProductRepository.GetByIdAsync(
             productId,
@@ -589,9 +556,8 @@ public class CartService : ICartService
         }
 
         // A merge transfers existing reservations; neither participating cart is a competitor.
-        var reservedQuantity = additionalExcludedCartId.HasValue
-            ? await _unitOfWork.CartRepository.GetActiveReservedQuantityForProductAsync(
-                productId, cartId, additionalExcludedCartId.Value, cancellationToken)
+        var reservedQuantity = reservations is not null
+            ? reservations.GetValueOrDefault(productId)
             : await _unitOfWork.CartRepository.GetActiveReservedQuantityForProductAsync(
                 productId, cartId, cancellationToken);
 

@@ -28,6 +28,7 @@ public sealed class BiogardenWebApiFactory : WebApplicationFactory<Program>
                 ["Jwt:SecretKey"] = TestJwtSecretKey,
                 ["OrderEmailOutbox:Enabled"] = "false",
                 ["NotificationEmailOutbox:Enabled"] = "false",
+                ["CartCleanup:Enabled"] = "false",
                 ["CheckoutDrafts:CleanupEnabled"] = "false"
             });
         });

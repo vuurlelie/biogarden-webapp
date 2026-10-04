@@ -12,19 +12,16 @@ public sealed class AdminUserService : IAdminUserService
 {
     private readonly IAppDbContext _databaseContext;
     private readonly UserManager<ApplicationUser> _userManager;
-    private readonly IAccountNotificationQueue _notifications;
-    private readonly IEmailTemplateService _emailTemplateService;
+    private readonly IAccountLifecycleOperations _lifecycle;
 
     public AdminUserService(
         IAppDbContext databaseContext,
         UserManager<ApplicationUser> userManager,
-        IAccountNotificationQueue notifications,
-        IEmailTemplateService emailTemplateService)
+        IAccountLifecycleOperations lifecycle)
     {
         _databaseContext = databaseContext;
         _userManager = userManager;
-        _notifications = notifications;
-        _emailTemplateService = emailTemplateService;
+        _lifecycle = lifecycle;
     }
 
     public async Task<IReadOnlyList<AdminUserDto>> GetAllAsync(CancellationToken cancellationToken = default)
@@ -144,8 +141,8 @@ public sealed class AdminUserService : IAdminUserService
         }
 
         var user = await FindUserAsync(userId, cancellationToken);
-        await UserService.DeactivateUserAsync(user, _userManager);
-        await QueueAccountDeactivatedEmailAsync(user.Email, cancellationToken);
+        await _lifecycle.DeactivateAsync(user, cancellationToken);
+
         return await BuildUserDtoAsync(user.Id, cancellationToken);
     }
 
@@ -155,8 +152,8 @@ public sealed class AdminUserService : IAdminUserService
     private async Task<AdminUserDto> ReactivateAsyncCore(Guid userId, CancellationToken cancellationToken = default)
     {
         var user = await FindUserAsync(userId, cancellationToken);
-        await UserService.ReactivateUserAsync(user, _userManager);
-        await QueueAccountReactivatedEmailAsync(user.Email, cancellationToken);
+        await _lifecycle.ReactivateAsync(user, cancellationToken);
+
         return await BuildUserDtoAsync(user.Id, cancellationToken);
     }
 
@@ -182,14 +179,12 @@ public sealed class AdminUserService : IAdminUserService
 
         var orderCount = await _databaseContext.Orders
             .CountAsync(order => order.UserId == user.Id, cancellationToken);
-        var userService = BuildUserService();
 
         if (orderCount == 0)
         {
-            var deletedEmail = user.Email;
             await CompletePendingErasureRequestsAsync(user.Id, currentAdminId, "Admin által törölve.", cancellationToken);
-            await userService.DeleteUserWithoutOrdersAsync(user, cancellationToken);
-            await QueueAccountDeletedEmailAsync(deletedEmail, cancellationToken);
+            await _lifecycle.DeleteWithoutOrdersAsync(user, cancellationToken);
+
 
             return new AdminUserErasureResultDto
             {
@@ -199,9 +194,8 @@ public sealed class AdminUserService : IAdminUserService
             };
         }
 
-        var anonymizedEmail = user.Email;
-        await userService.AnonymizeUserAsync(user, cancellationToken);
-        await userService.QueueAccountAnonymizedEmailAsync(anonymizedEmail);
+        await _lifecycle.AnonymizeAsync(user, cancellationToken);
+
         await CompletePendingErasureRequestsAsync(user.Id, currentAdminId, "Admin által anonimizálva.", cancellationToken);
 
         return new AdminUserErasureResultDto
@@ -250,10 +244,8 @@ public sealed class AdminUserService : IAdminUserService
             throw new InvalidOperationException("A felhasználónak még van folyamatban lévő rendelése.");
         }
 
-        var userService = BuildUserService();
-        var anonymizedEmail = user.Email;
-        await userService.AnonymizeUserAsync(user, cancellationToken);
-        await userService.QueueAccountAnonymizedEmailAsync(anonymizedEmail);
+        await _lifecycle.AnonymizeAsync(user, cancellationToken);
+
 
         request.Status = AccountLifecycleRequestStatus.Completed;
         request.HandledAtUtc = DateTime.UtcNow;
@@ -393,52 +385,4 @@ public sealed class AdminUserService : IAdminUserService
         }
     }
 
-    private UserService BuildUserService()
-    {
-        return new UserService(
-            _userManager,
-            new Biogarden.DataAccess.Repositories.UnitOfWork(_databaseContext),
-            _databaseContext,
-            _notifications,
-            _emailTemplateService);
-    }
-
-    private async Task QueueAccountDeactivatedEmailAsync(
-        string? email,
-        CancellationToken cancellationToken)
-    {
-        if (string.IsNullOrWhiteSpace(email))
-        {
-            return;
-        }
-
-        var message = _emailTemplateService.BuildAccountDeactivatedMessage(email);
-        await _notifications.QueueMessageAsync(message, "account-deactivated", cancellationToken);
-    }
-
-    private async Task QueueAccountReactivatedEmailAsync(
-        string? email,
-        CancellationToken cancellationToken)
-    {
-        if (string.IsNullOrWhiteSpace(email))
-        {
-            return;
-        }
-
-        var message = _emailTemplateService.BuildAccountReactivatedMessage(email);
-        await _notifications.QueueMessageAsync(message, "account-reactivated", cancellationToken);
-    }
-
-    private async Task QueueAccountDeletedEmailAsync(
-        string? email,
-        CancellationToken cancellationToken)
-    {
-        if (string.IsNullOrWhiteSpace(email))
-        {
-            return;
-        }
-
-        var message = _emailTemplateService.BuildAccountDeletedMessage(email);
-        await _notifications.QueueMessageAsync(message, "account-deleted", cancellationToken);
-    }
 }

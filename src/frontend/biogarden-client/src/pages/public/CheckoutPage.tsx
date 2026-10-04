@@ -1,87 +1,35 @@
-import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
-import { Link, useNavigate, useSearchParams } from "react-router";
-import { createOrder, createSumUpCheckout } from "../../features/account/api/ordersApi";
-import { getAddresses, getProfile } from "../../features/account/api/profileApi";
-import type { UserAddresses } from "../../features/account/types/address.types";
-import type { UserProfile } from "../../features/account/types/profile.types";
-import { useAnalytics } from "../../features/analytics/context/AnalyticsContextCore";
-import { getCartValueBucket } from "../../features/analytics/utils/eventValidation";
-import { getAuthSession } from "../../features/auth/utils/authStorage";
-import { validateCart } from "../../features/cart/api/cartApi";
+import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router";
 import { useCart } from "../../features/cart/context/useCart";
-import { useCheckoutDraft } from "../../features/checkout/hooks/useCheckoutDraft";
+import { useCheckoutForm } from "../../features/checkout/hooks/useCheckoutForm";
+import { useCheckoutFlow } from "../../features/checkout/hooks/useCheckoutFlow";
 import { useGlsDeliveryPoint } from "../../features/checkout/hooks/useGlsDeliveryPoint";
 import { useCheckoutPricing } from "../../features/checkout/hooks/useCheckoutPricing";
-import { PAYMENT, PAYMENT_CODES, PAYMENT_LABELS } from "../../features/checkout/constants/payment";
+import { PAYMENT_CODES, PAYMENT_LABELS } from "../../features/checkout/constants/payment";
 import { GlsPointPicker } from "../../features/checkout/components/GlsPointPicker";
 import { FULFILLMENT, FULFILLMENT_LABELS, isGlsMethod } from "../../features/checkout/constants/fulfillment";
 import { CheckoutOrderSummary } from "../../features/checkout/components/CheckoutOrderSummary";
 import { CheckoutReviewModal } from "../../features/checkout/components/CheckoutReviewModal";
-import {
-  CheckoutEmptyCartView,
-  CheckoutLoadingView,
-} from "../../features/checkout/components/CheckoutStatusViews";
+import { CheckoutEmptyCartView, CheckoutLoadingView } from "../../features/checkout/components/CheckoutStatusViews";
 import { CheckoutRecoveryView } from "../../features/checkout/components/CheckoutRecoveryView";
-import {
-  CONTACT_FIELDS,
-} from "../../features/checkout/constants/checkoutFields";
-import type {
-  CheckoutDraft,
-  CheckoutDraftTextField,
-  CheckoutFieldErrors,
-  CheckoutStep,
-  FulfillmentMethod,
-  PaymentMethod,
-} from "../../features/checkout/types/checkout.types";
-import {
-  billingAddressDraft,
-  buildCustomerName,
-  deliveryAddressDraft,
-  emptyBillingDraft,
-  emptyCustomerDraft,
-  emptyDeliveryDraft,
-} from "../../features/checkout/utils/checkoutDraft";
+import { CONTACT_FIELDS } from "../../features/checkout/constants/checkoutFields";
+import type { PaymentMethod } from "../../features/checkout/types/checkout.types";
+import { emptyDeliveryDraft } from "../../features/checkout/utils/checkoutDraft";
 import { PRICE } from "../../features/checkout/utils/checkoutFormatting";
-import { buildCheckoutOrderRequest } from "../../features/checkout/utils/checkoutOrderPayload";
-import {
-  isCheckoutFieldValid,
-  validateCheckoutFields,
-} from "../../features/checkout/utils/checkoutValidation";
 import { ROUTES } from "../../shared/constants/routes";
 import AddressFields from "../../shared/components/forms/AddressFields";
-import { useModalFocus } from "../../shared/hooks/useModalFocus";
-import type { AddressFormData } from "../../shared/types/address.types";
-import { getErrorMessage, getServerFieldErrors, hasErrorStatus } from "../../shared/utils/errorHandling";
 
 export default function CheckoutPage() {
-  const navigate = useNavigate();
-  const [searchParams, setSearchParams] = useSearchParams();
-  const { cart, isLoading: cartLoading, refresh } = useCart();
-  const authenticated = Boolean(getAuthSession());
-  const [addresses, setAddresses] = useState<UserAddresses | null>(null);
-  const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [contactManual, setContactManual] = useState(!authenticated);
-  const [billingManual, setBillingManual] = useState(!authenticated);
-  const [deliveryManual, setDeliveryManual] = useState(!authenticated);
-  const draftStorage = useCheckoutDraft(cart?.items.length ? cart.id : undefined);
-  const { draft, setDraft, ready: draftReady } = draftStorage;
-  const method = draft.fulfillmentMethod;
+  const cartState = useCart();
+  const { cart, isLoading: cartLoading } = cartState;
+  const form = useCheckoutForm(cart?.items.length ? cart.id : undefined);
+  const { draftStorage, draft, setDraft, draftReady, method, authenticated, addresses,
+    contactManual, billingManual, deliveryManual, loading, error, fieldErrors, setFieldErrors,
+    effectiveCustomerType, billingAddress, deliveryAddress, setMethod, update, fieldClass, clearFieldErrors,
+    handleBillingAddressChange, handleDeliveryAddressChange, handleAccountContactChange,
+    handleAccountBillingChange, handleAccountDeliveryChange } = form;
   const gls = useGlsDeliveryPoint(draft.glsDeliveryPointId, method);
-  const [loading, setLoading] = useState(authenticated);
-  const [submitting, setSubmitting] = useState(false);
-  const [rejectedCheckoutKey, setRejectedCheckoutKey] = useState<string | null>(null);
-  const [error, setError] = useState("");
-  const [fieldErrors, setFieldErrors] = useState<CheckoutFieldErrors>({});
-  const [showReview, setShowReview] = useState(false);
-  const [termsAccepted, setTermsAccepted] = useState(false);
-  const [privacyAccepted, setPrivacyAccepted] = useState(false);
-  const [step, setStep] = useState<CheckoutStep>("details");
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | null>(null);
-  const reviewModalRef = useRef<HTMLElement | null>(null);
-  const reviewButtonRef = useRef<HTMLButtonElement | null>(null);
-  const checkoutStartedTrackedRef = useRef(false);
-  const { track } = useAnalytics();
-  const hasDraft = Object.values(draft).some(Boolean);
   const deliveryAllowed = useMemo(
     () => Boolean(cart?.items.length && cart.items.every((item) => item.deliveryAvailable)),
     [cart],
@@ -90,401 +38,17 @@ export default function CheckoutPage() {
     draftReady && (method === FULFILLMENT.PersonalPickup || deliveryAllowed) && (!isGlsMethod(method) || Boolean(gls.point)));
   const quote = pricing.quote;
   const availablePayments = pricing.methods?.find(choice => choice.fulfillmentMethod === method)?.paymentMethods ?? [];
-  const effectiveCustomerType = authenticated && profile ? profile.customerType : draft.customerType;
-  const billingAddress: AddressFormData = {
-    postalCode: draft.postalCode,
-    city: draft.city,
-    street: draft.street,
-    houseNumber: draft.houseNumber,
-    building: draft.building,
-    floor: draft.floor,
-    door: draft.door,
-    doorbell: draft.doorbell,
-  };
-  const deliveryAddress: AddressFormData = {
-    postalCode: draft.deliveryPostalCode,
-    city: draft.deliveryCity,
-    street: draft.deliveryStreet,
-    houseNumber: draft.deliveryHouseNumber,
-    building: draft.deliveryBuilding,
-    floor: draft.deliveryFloor,
-    door: draft.deliveryDoor,
-    doorbell: draft.deliveryDoorbell,
-  };
-  const cancelledSumUpOrderId = searchParams.get("sumup") === "cancelled"
-    ? searchParams.get("orderId")
-    : null;
-  const checkoutKey = searchParams.get("checkoutKey") === rejectedCheckoutKey ? null : searchParams.get("checkoutKey");
-
-  useModalFocus(reviewModalRef, {
-    isOpen: showReview && Boolean(quote) && (submitting || (!cancelledSumUpOrderId && !checkoutKey)) && !loading && !cartLoading && draftReady && Boolean(cart?.items.length),
-    onClose: () => { if (!submitting) setShowReview(false); },
-    returnFocusRef: reviewButtonRef,
-  });
-
-  useEffect(() => {
-    if (!authenticated || profile) {
-      setLoading(false);
-      return;
-    }
-    if (!draftReady) return;
-
-    let ignore = false;
-
-    void Promise.all([getAddresses(), getProfile()])
-      .then(([loadedAddresses, loadedProfile]) => {
-        if (ignore) return;
-
-        setAddresses(loadedAddresses);
-        setProfile(loadedProfile);
-
-        if (!hasDraft) {
-          setContactManual(false);
-          setBillingManual(!loadedAddresses.billingAddress);
-          setDeliveryManual(!loadedAddresses.shippingAddress);
-          setDraft((current) => ({
-            ...current,
-            customerName: buildCustomerName(loadedProfile),
-            customerEmail: loadedProfile.email ?? "",
-            customerPhone: loadedProfile.phoneNumber ?? "",
-            customerType: loadedProfile.customerType,
-            billingCompanyName: loadedProfile.companyName ?? "",
-            billingTaxNumber: loadedProfile.taxNumber ?? "",
-            printedInvoiceRequested: loadedProfile.printedInvoiceRequested,
-            ...(loadedAddresses.billingAddress ? billingAddressDraft(loadedAddresses.billingAddress) : {}),
-            ...(loadedAddresses.shippingAddress ? deliveryAddressDraft(loadedAddresses.shippingAddress) : {}),
-          }));
-        } else {
-          // Restored values are a checkout snapshot, not a live selection of profile data.
-          setContactManual(true);
-          setBillingManual(true);
-          setDeliveryManual(true);
-        }
-      })
-      .catch((loadError) => {
-        if (!ignore) {
-          if (hasErrorStatus(loadError, 401)) {
-            navigate(ROUTES.login, { replace: true });
-            return;
-          }
-          setError(getErrorMessage(loadError, "A fiókadatok betöltése nem sikerült."));
-        }
-      })
-      .finally(() => {
-        if (!ignore) setLoading(false);
-      });
-
-    return () => {
-      ignore = true;
-    };
-  }, [authenticated, hasDraft, navigate, profile, draftReady, setDraft]);
+  const { submitting, showReview, setShowReview, termsAccepted, setTermsAccepted,
+    privacyAccepted, setPrivacyAccepted, step, setStep, reviewModalRef, reviewButtonRef,
+    cancelledSumUpOrderId, checkoutKey, submit, discardDraft, placeOrder } = useCheckoutFlow({
+      form, cartState, pricing, gls, paymentMethod, setPaymentMethod,
+    });
 
   useEffect(() => {
     if (!cartLoading && draftReady && !deliveryAllowed && method !== FULFILLMENT.PersonalPickup) {
       setDraft(current => ({ ...current, fulfillmentMethod: FULFILLMENT.PersonalPickup, glsDeliveryPointId: null }));
     }
   }, [cartLoading, draftReady, deliveryAllowed, method, setDraft]);
-
-  useEffect(() => {
-    setPaymentMethod(null);
-    setShowReview(false);
-    setTermsAccepted(false);
-    setPrivacyAccepted(false);
-  }, [method, draft.glsDeliveryPointId]);
-
-  useEffect(() => {
-    setShowReview(false);
-    setTermsAccepted(false);
-    setPrivacyAccepted(false);
-  }, [quote?.version, paymentMethod]);
-
-  function setMethod(next: FulfillmentMethod) {
-    setDraft(current => ({ ...current, fulfillmentMethod: next, glsDeliveryPointId: null,
-      ...(isGlsMethod(next) ? emptyDeliveryDraft() : {}) }));
-    setFieldErrors({});
-  }
-
-  useEffect(() => {
-    if (!cart?.items.length || checkoutStartedTrackedRef.current) return;
-
-    checkoutStartedTrackedRef.current = true;
-    track("checkout_started", {
-      itemCount: cart.totalItemCount,
-      cartValueBucket: getCartValueBucket(cart.totalPrice),
-    });
-  }, [cart, track]);
-
-  function update(field: CheckoutDraftTextField, value: string) {
-    setDraft((current) => ({ ...current, [field]: value }));
-    setFieldErrors((current) => ({ ...current, [field]: undefined }));
-  }
-
-  function fieldClass(field: CheckoutDraftTextField): string {
-    const base = "mt-2 block w-full rounded-sm border px-3 py-2.5 disabled:cursor-default";
-    if (fieldErrors[field]) return `${base} border-site-danger bg-white`;
-
-    return isCheckoutFieldValid(field, draft)
-      ? `${base} border-site-green bg-site-surface-soft`
-      : `${base} border-site-border bg-white`;
-  }
-
-  function clearFieldErrors(fields: Array<keyof CheckoutFieldErrors>) {
-    setFieldErrors((current) => {
-      const next = { ...current };
-      fields.forEach((field) => {
-        next[field] = undefined;
-      });
-      return next;
-    });
-  }
-
-  function handleBillingAddressChange(address: AddressFormData) {
-    clearFieldErrors(["postalCode", "city", "street", "houseNumber", "billingAddress"]);
-    setDraft((current) => ({
-      ...current,
-      postalCode: address.postalCode,
-      city: address.city,
-      street: address.street,
-      houseNumber: address.houseNumber,
-      building: address.building ?? "",
-      floor: address.floor ?? "",
-      door: address.door ?? "",
-      doorbell: address.doorbell ?? "",
-    }));
-  }
-
-  function handleDeliveryAddressChange(address: AddressFormData) {
-    clearFieldErrors([
-      "deliveryPostalCode",
-      "deliveryCity",
-      "deliveryStreet",
-      "deliveryHouseNumber",
-      "deliveryAddress",
-    ]);
-    setDraft((current) => ({
-      ...current,
-      deliveryPostalCode: address.postalCode,
-      deliveryCity: address.city,
-      deliveryStreet: address.street,
-      deliveryHouseNumber: address.houseNumber,
-      deliveryBuilding: address.building ?? "",
-      deliveryFloor: address.floor ?? "",
-      deliveryDoor: address.door ?? "",
-      deliveryDoorbell: address.doorbell ?? "",
-    }));
-  }
-
-  function handleAccountContactChange(checked: boolean) {
-    setContactManual(!checked);
-    clearFieldErrors(["customerName", "customerEmail", "customerPhone", "accountContact"]);
-    setDraft((current) => (
-      checked && profile
-        ? {
-            ...current,
-            customerName: buildCustomerName(profile),
-            customerEmail: profile.email ?? "",
-            customerPhone: profile.phoneNumber ?? "",
-          }
-        : { ...current, ...emptyCustomerDraft() }
-    ));
-  }
-
-  function handleAccountBillingChange(checked: boolean) {
-    setBillingManual(!checked);
-    clearFieldErrors([
-      "billingCompanyName",
-      "billingTaxNumber",
-      "postalCode",
-      "city",
-      "street",
-      "houseNumber",
-      "billingAddress",
-    ]);
-
-    const address = addresses?.billingAddress;
-    setDraft((current) => (
-      checked && address
-        ? {
-            ...current,
-            billingCompanyName: profile?.companyName ?? "",
-            billingTaxNumber: profile?.taxNumber ?? "",
-            ...billingAddressDraft(address),
-          }
-        : { ...current, ...emptyBillingDraft() }
-    ));
-  }
-
-  function handleAccountDeliveryChange(checked: boolean) {
-    setDeliveryManual(!checked);
-    clearFieldErrors([
-      "deliveryPostalCode",
-      "deliveryCity",
-      "deliveryStreet",
-      "deliveryHouseNumber",
-      "deliveryAddress",
-    ]);
-
-    const address = addresses?.shippingAddress;
-    setDraft((current) => (
-      checked && address
-        ? { ...current, ...deliveryAddressDraft(address) }
-        : { ...current, ...emptyDeliveryDraft() }
-    ));
-  }
-
-  async function submit(event: FormEvent) {
-    event.preventDefault();
-    setError("");
-
-    if (!cart?.items.length) {
-      setError("A kosár üres.");
-      return;
-    }
-
-    const errors = validateCheckoutFields(draft, effectiveCustomerType, method);
-    if (!pricing.methods?.some(choice => choice.fulfillmentMethod === method) || pricing.methodsError) {
-      setError(pricing.methodsError || "Válassz egy elérhető átvételi módot.");
-      return;
-    }
-    if (step === "payment" && !quote) { setError("Ellenőrizd újra az árakat a folytatáshoz."); return; }
-    if (isGlsMethod(method) && !gls.point) {
-      errors.glsDeliveryPointId = gls.loading ? "Várd meg az átvételi pont ellenőrzését." : gls.error ?? "Válassz egy GLS átvételi pontot a térképen.";
-    }
-    setFieldErrors(errors);
-    if (Object.keys(errors).length) {
-      requestAnimationFrame(() => {
-        const firstInvalidField = document.querySelector<HTMLElement>('[aria-invalid="true"]');
-        firstInvalidField?.scrollIntoView({ behavior: "smooth", block: "center" });
-        firstInvalidField?.focus({ preventScroll: true });
-      });
-      return;
-    }
-
-    setSubmitting(true);
-    try {
-      const validation = await validateCart();
-      if (!validation.isValid) {
-        setError(validation.issues.map((issue) => issue.message).join(" "));
-        await refresh();
-        return;
-      }
-
-      if (step === "details") {
-        setStep("payment");
-        track("checkout_step_completed", {
-          step: "details",
-          fulfillmentMethod: String(method),
-        });
-      } else {
-        setShowReview(true);
-        track("checkout_step_completed", {
-          step: "payment",
-          fulfillmentMethod: String(method),
-          paymentMethod,
-        });
-      }
-    } catch (validationError) {
-      setError(getErrorMessage(validationError, "A kosár ellenőrzése nem sikerült."));
-    } finally {
-      setSubmitting(false);
-    }
-  }
-
-  async function discardDraft() {
-    if (!await draftStorage.discard()) return;
-    setContactManual(true);
-    setBillingManual(true);
-    setDeliveryManual(true);
-    setTermsAccepted(false);
-    setPrivacyAccepted(false);
-    setFieldErrors({});
-    setStep("details");
-  }
-
-  async function placeOrder() {
-    if (submitting) return;
-    if (!quote) { setShowReview(false); setError("Az árösszesítés megváltozott. Tekintsd át újra a rendelést."); return; }
-    if (!cart?.items.length) {
-      setError("A kosár üres.");
-      setShowReview(false);
-      return;
-    }
-
-    const consentErrors: CheckoutFieldErrors = {};
-    if (!termsAccepted) {
-      consentErrors.terms = "Az Általános Szerződési Feltételek elfogadása kötelező.";
-    }
-    if (!privacyAccepted) {
-      consentErrors.privacy = "Az Adatkezelési Tájékoztató elfogadása kötelező.";
-    }
-
-    setFieldErrors((current) => ({ ...current, ...consentErrors }));
-    if (Object.keys(consentErrors).length) {
-      requestAnimationFrame(() => reviewModalRef.current?.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus());
-      return;
-    }
-
-    setSubmitting(true);
-    setError("");
-
-    let orderCreated = false;
-    let requestStarted = false;
-    let submissionKey: string | null = null;
-    try {
-      await draftStorage.pause();
-      const request = buildCheckoutOrderRequest(draft, effectiveCustomerType, method, cart.id, quote);
-      submissionKey = request.idempotencyKey;
-      setRejectedCheckoutKey(null);
-      // Save only the server-owned cart key in the URL before submitting; no personal data.
-      setSearchParams({ checkoutKey: request.idempotencyKey }, { replace: true });
-      requestStarted = true;
-      const order = await createOrder(request);
-      orderCreated = true;
-
-      track("order_submitted", {
-        paymentMethod,
-        fulfillmentMethod: String(method),
-        itemCount: cart.totalItemCount,
-        cartValueBucket: getCartValueBucket(cart.totalPrice),
-      });
-
-      if (order.paymentMethod === PAYMENT.OnlineCard) {
-        // Retain only the order identifier in the URL, before contacting the provider.
-        // The backend still checks ownership; a failed payment start must not resubmit the cart.
-        setSearchParams({ sumup: "cancelled", orderId: order.id }, { replace: true });
-        const checkout = await createSumUpCheckout(order.id);
-        window.location.assign(checkout.url);
-        return;
-      }
-
-        navigate(ROUTES.orderSuccess, { replace: true, state: { order } });
-      void refresh().catch(() => undefined);
-    } catch (submitError) {
-      const rejected = [400, 401, 403, 404, 409, 422, 429].some(status => hasErrorStatus(submitError, status));
-      if (!orderCreated && (!requestStarted || rejected)) {
-        // Router transitions can lag state updates. Keep the existing form mounted for focus restoration.
-        setRejectedCheckoutKey(submissionKey);
-        setSearchParams({}, { replace: true });
-        draftStorage.resume();
-      }
-      if (!orderCreated && hasErrorStatus(submitError, 409)) {
-        pricing.retry();
-        setTermsAccepted(false);
-        setPrivacyAccepted(false);
-      }
-      setShowReview(false);
-      const serverErrors = getServerFieldErrors<keyof CheckoutFieldErrors>(submitError,
-        [...Object.keys(draft) as (keyof CheckoutDraft)[], "terms", "privacy"],
-        { acceptedTermsVersion: "terms", acceptedPrivacyPolicyVersion: "privacy" });
-      setFieldErrors(serverErrors);
-      if (Object.keys(serverErrors).some((field) => field !== "terms" && field !== "privacy")) {
-        setStep("details");
-      }
-      setError(getErrorMessage(submitError, "A rendelést nem sikerült elküldeni."));
-    } finally {
-      setSubmitting(false);
-    }
-  }
 
   if (!submitting && (cancelledSumUpOrderId || checkoutKey)) {
     return <CheckoutRecoveryView orderId={cancelledSumUpOrderId} checkoutKey={checkoutKey} busy={submitting} error={error} />;

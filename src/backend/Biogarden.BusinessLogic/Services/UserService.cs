@@ -16,21 +16,18 @@ public class UserService : IUserService
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly IUnitOfWork _unitOfWork;
     private readonly IAppDbContext _databaseContext;
-    private readonly IAccountNotificationQueue _notifications;
-    private readonly IEmailTemplateService _emailTemplateService;
+    private readonly IAccountLifecycleOperations _lifecycle;
 
     public UserService(
         UserManager<ApplicationUser> userManager,
         IUnitOfWork unitOfWork,
         IAppDbContext databaseContext,
-        IAccountNotificationQueue notifications,
-        IEmailTemplateService emailTemplateService)
+        IAccountLifecycleOperations lifecycle)
     {
         _userManager = userManager;
         _unitOfWork = unitOfWork;
         _databaseContext = databaseContext;
-        _notifications = notifications;
-        _emailTemplateService = emailTemplateService;
+        _lifecycle = lifecycle;
     }
 
     public async Task<UserProfileDto?> GetProfileAsync(Guid userId)
@@ -217,8 +214,8 @@ public class UserService : IUserService
 
         if (request.Type == AccountLifecycleRequestType.Deactivation)
         {
-            await DeactivateUserAsync(user);
-            await QueueAccountDeactivatedEmailAsync(user.Email);
+            await _lifecycle.DeactivateAsync(user, cancellationToken);
+
             await AddCompletedLifecycleRequestAsync(
                 user.Id,
                 request.Type,
@@ -253,9 +250,8 @@ public class UserService : IUserService
 
         if (orderCount == 0)
         {
-            var deletedEmail = user.Email;
-            await DeleteUserWithoutOrdersAsync(user, cancellationToken);
-            await QueueAccountDeletedEmailAsync(deletedEmail);
+            await _lifecycle.DeleteWithoutOrdersAsync(user, cancellationToken);
+
 
             return new AccountLifecycleResultDto
             {
@@ -265,9 +261,8 @@ public class UserService : IUserService
             };
         }
 
-        var anonymizedEmail = user.Email;
-        await AnonymizeUserAsync(user, cancellationToken);
-        await QueueAccountAnonymizedEmailAsync(anonymizedEmail);
+        await _lifecycle.AnonymizeAsync(user, cancellationToken);
+
         await AddCompletedLifecycleRequestAsync(
             user.Id,
             request.Type,
@@ -282,8 +277,6 @@ public class UserService : IUserService
             Status = AccountLifecycleRequestStatus.Completed
         };
     }
-
-    internal static bool IsActiveOrderStatus(OrderStatus status) => ActiveOrderStatuses.Contains(status);
 
     private async Task EnsureAccountLifecycleDoesNotRemoveLastAdminAsync(ApplicationUser user)
     {
@@ -304,71 +297,6 @@ public class UserService : IUserService
         {
             throw new InvalidOperationException(
                 "Az utolsó aktív admin fiók nem deaktiválható vagy törölhető. Előbb adj admin jogosultságot egy másik aktív fióknak.");
-        }
-    }
-
-    internal static async Task DeactivateUserAsync(ApplicationUser user, UserManager<ApplicationUser> userManager)
-    {
-        user.RecordStatus = RecordStatus.Deleted;
-        user.DeactivatedAtUtc ??= DateTime.UtcNow;
-        user.LockoutEnabled = true;
-        user.LockoutEnd = DateTimeOffset.MaxValue;
-        await UpdateIdentityUserAsync(userManager, user);
-    }
-
-    internal static async Task ReactivateUserAsync(ApplicationUser user, UserManager<ApplicationUser> userManager)
-    {
-        if (user.AnonymizedAtUtc is not null)
-        {
-            throw new InvalidOperationException("Anonimizált fiók nem aktiválható újra.");
-        }
-
-        user.RecordStatus = RecordStatus.Active;
-        user.DeactivatedAtUtc = null;
-        user.LockoutEnd = null;
-        await UpdateIdentityUserAsync(userManager, user);
-    }
-
-    internal async Task AnonymizeUserAsync(ApplicationUser user, CancellationToken cancellationToken)
-    {
-        var now = DateTime.UtcNow;
-        var anonymizedEmail = $"deleted-user-{user.Id:N}@deleted.invalid";
-
-        user.Email = anonymizedEmail;
-        user.NormalizedEmail = anonymizedEmail.ToUpperInvariant();
-        user.UserName = anonymizedEmail;
-        user.NormalizedUserName = anonymizedEmail.ToUpperInvariant();
-        user.FirstName = "Törölt";
-        user.LastName = "Felhasználó";
-        user.PhoneNumber = null;
-        user.CustomerType = CustomerType.Private;
-        user.CompanyName = null;
-        user.TaxNumber = null;
-        user.PrintedInvoiceRequested = false;
-        user.EmailConfirmed = false;
-        user.PhoneNumberConfirmed = false;
-        user.RecordStatus = RecordStatus.Deleted;
-        user.DeactivatedAtUtc ??= now;
-        user.AnonymizedAtUtc = now;
-        user.LockoutEnabled = true;
-        user.LockoutEnd = DateTimeOffset.MaxValue;
-
-        MarkAddressDeleted(user.ShippingAddress);
-        MarkAddressDeleted(user.BillingAddress);
-        user.ShippingAddressId = null;
-        user.BillingAddressId = null;
-
-        await DeleteOpenCartsAsync(user.Id, cancellationToken);
-        await UpdateIdentityUserAsync(_userManager, user);
-    }
-
-    internal async Task DeleteUserWithoutOrdersAsync(ApplicationUser user, CancellationToken cancellationToken)
-    {
-        await DeleteOpenCartsAsync(user.Id, cancellationToken);
-        var result = await _userManager.DeleteAsync(user);
-        if (!result.Succeeded)
-        {
-            throw new InvalidOperationException(string.Join(", ", result.Errors.Select(error => error.Description)));
         }
     }
 
@@ -441,11 +369,6 @@ public class UserService : IUserService
         OrderStatus.Shipped
     ];
 
-    private async Task DeactivateUserAsync(ApplicationUser user)
-    {
-        await DeactivateUserAsync(user, _userManager);
-    }
-
     private async Task AddPendingLifecycleRequestAsync(
         Guid userId,
         AccountLifecycleRequestType type,
@@ -498,68 +421,4 @@ public class UserService : IUserService
         await _databaseContext.SaveChangesAsync(cancellationToken);
     }
 
-    private async Task DeleteOpenCartsAsync(Guid userId, CancellationToken cancellationToken)
-    {
-        var carts = await _databaseContext.Carts
-            .Include(cart => cart.Items)
-            .Where(cart => cart.UserId == userId && !cart.IsCheckedOut)
-            .ToListAsync(cancellationToken);
-
-        _databaseContext.Carts.RemoveRange(carts);
-        await _databaseContext.SaveChangesAsync(cancellationToken);
-    }
-
-    internal async Task QueueAccountAnonymizedEmailAsync(string? email)
-    {
-        if (string.IsNullOrWhiteSpace(email))
-        {
-            return;
-        }
-
-        var message = _emailTemplateService.BuildAccountAnonymizedMessage(email);
-        await _notifications.QueueMessageAsync(message, "account-anonymized");
-    }
-
-    private async Task QueueAccountDeactivatedEmailAsync(string? email)
-    {
-        if (string.IsNullOrWhiteSpace(email))
-        {
-            return;
-        }
-
-        var message = _emailTemplateService.BuildAccountDeactivatedMessage(email);
-        await _notifications.QueueMessageAsync(message, "account-deactivated");
-    }
-
-    private async Task QueueAccountDeletedEmailAsync(string? email)
-    {
-        if (string.IsNullOrWhiteSpace(email))
-        {
-            return;
-        }
-
-        var message = _emailTemplateService.BuildAccountDeletedMessage(email);
-        await _notifications.QueueMessageAsync(message, "account-deleted");
-    }
-
-    private static void MarkAddressDeleted(Address? address)
-    {
-        if (address is not null)
-        {
-            address.RecordStatus = RecordStatus.Deleted;
-        }
-    }
-
-    private static async Task UpdateIdentityUserAsync(
-        UserManager<ApplicationUser> userManager,
-        ApplicationUser user)
-    {
-        // Persist account changes and revocation together; do not ignore a failed stamp update.
-        user.SecurityStamp = Guid.NewGuid().ToString();
-        var result = await userManager.UpdateAsync(user);
-        if (!result.Succeeded)
-        {
-            throw new InvalidOperationException(string.Join(", ", result.Errors.Select(error => error.Description)));
-        }
-    }
 }
