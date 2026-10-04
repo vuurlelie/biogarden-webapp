@@ -85,7 +85,7 @@ public sealed class NotificationRecoveryTests : IAsyncLifetime
         {
             await seed.Database.ExecuteSqlRawAsync("CREATE TABLE dbo.ContactRetryProbe (Id int PRIMARY KEY, Value int NOT NULL); INSERT INTO dbo.ContactRetryProbe VALUES (1, 0), (2, 0);");
         }
-        var deadlock = new ContactDeadlock(failures);
+        var deadlock = new ContactDeadlock(failures, _app.CreateConnection);
         using var api = _app.Factory.WithWebHostBuilder(builder => builder.ConfigureTestServices(services =>
             services.AddDbContext<AppDbContext>(options => options.AddInterceptors(deadlock))));
         using var client = api.CreateClient();
@@ -104,7 +104,7 @@ public sealed class NotificationRecoveryTests : IAsyncLifetime
         Assert.Empty(_app.Sender.Sent);
     }
 
-    private sealed class ContactDeadlock(int failures) : DbCommandInterceptor
+    private sealed class ContactDeadlock(int failures, Func<SqlConnection> createConnection) : DbCommandInterceptor
     {
         public int InsertAttempts;
         public override async ValueTask<InterceptionResult<DbDataReader>> ReaderExecutingAsync(
@@ -116,8 +116,8 @@ public sealed class NotificationRecoveryTests : IAsyncLifetime
             {
                 // Two test-only rows establish a real lock cycle before the queue insert.
                 // Priorities select the victim deterministically; no sleeps or fabricated exceptions.
-                await using var victim = new SqlConnection(command.Connection!.ConnectionString);
-                await using var winner = new SqlConnection(command.Connection.ConnectionString);
+                await using var victim = createConnection();
+                await using var winner = createConnection();
                 await victim.OpenAsync(cancellationToken);
                 await winner.OpenAsync(cancellationToken);
                 await using var victimTransaction = (SqlTransaction)await victim.BeginTransactionAsync(cancellationToken);
