@@ -4,6 +4,16 @@ Use this checklist for code changes and the exact commit selected for deployment
 
 ## Backend
 
+### Reproducible restores
+
+Run .NET commands from `src` or below so that `src/global.json` selects the .NET 10.0.4xx SDK feature band (minimum 10.0.401, servicing patches allowed). CI reads the same file. The EF tool version is separately pinned in `src/.config/dotnet-tools.json`; restore it with `dotnet tool restore` before migration commands. Frontend verification uses Node 24 and npm 11. The resolved application dependency versions come from the committed lockfiles, not the locally installed SDK or Node patch.
+
+Use `dotnet restore backend/Biogarden.sln --locked-mode` and `npm ci` for an existing checkout. Keep all five NuGet `packages.lock.json` files and the frontend `package-lock.json` tracked. A locked restore must fail when project declarations and locks disagree; do not delete locks to get a green build. After switching branches, restore the new branch before building, and check `git diff --exit-code -- '**/packages.lock.json' '**/package-lock.json'` from the repository root.
+
+For an intentional dependency change, update the project/central package declaration, run an ordinary restore once, review every affected lockfile (including transitive project dependencies), then run locked restore again. For npm, use an intentional `npm install` update and review both manifest and lock. Commit these changes together. Do not commit unexpected IDE-generated lock changes without comparing them to the branch's declarations.
+
+Investigation of the earlier validation change (`966c89a`) shows a legitimate dependency-graph change: FluentValidation moved into BusinessLogic and FluentValidation.AspNetCore was removed. Dependent test-project locks consequently changed too. The historical uncommitted files are not available, so their exact cause cannot be established from history alone. On the current merged tree, SDK 10.0.401 and npm 11.6.0 restore the committed graph without lockfile changes; no package upgrade is needed for this work.
+
 From the repository's `src` directory:
 
 ```bash
