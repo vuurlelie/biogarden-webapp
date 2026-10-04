@@ -37,7 +37,7 @@ jobs:
       - name: Verify backend formatting
         run: dotnet format backend/Biogarden.sln --verify-no-changes --no-restore
       - name: Run unit and HTTP contract tests
-        run: dotnet test backend/Biogarden.sln --no-build --no-restore --configuration Release --filter 'Category!=SqlServer&Category!=RealBrowser' --settings backend/verification.runsettings --logger 'trx;LogFilePrefix=backend' --results-directory artifacts/ci/backend
+        run: dotnet test backend/Biogarden.sln --no-build --no-restore --configuration Release --filter 'Category!=SqlServer&Category!=RealBrowser' --settings backend/verification.runsettings --collect 'XPlat Code Coverage' --logger 'trx;LogFilePrefix=backend' --results-directory artifacts/ci/backend
       - name: Require both test assemblies to execute without skips
         if: always()
         run: python scripts/verification/check_results.py trx artifacts/ci/backend Biogarden.UnitTests.dll Biogarden.WebApi.Tests.dll
@@ -81,7 +81,7 @@ jobs:
       - name: Run SQL Server integration tests
         env:
           BIOGARDEN_TEST_SQLSERVER: 'Server=localhost,1433;User Id=sa;Password=IntegrationTestsOnly_2026!;TrustServerCertificate=True'
-        run: dotnet test backend/tests/Biogarden.WebApi.Tests --configuration Release --no-restore --filter Category=SqlServer --settings backend/verification.runsettings --logger 'trx;LogFileName=sqlserver.trx' --results-directory artifacts/ci/sqlserver
+        run: dotnet test backend/tests/Biogarden.WebApi.Tests --configuration Release --no-restore --filter Category=SqlServer --settings backend/verification.runsettings --collect 'XPlat Code Coverage' --logger 'trx;LogFileName=sqlserver.trx' --results-directory artifacts/ci/sqlserver
       - name: Require SQL tests to execute without skips
         if: always()
         run: python scripts/verification/check_results.py trx artifacts/ci/sqlserver Biogarden.WebApi.Tests.dll
@@ -166,4 +166,39 @@ jobs:
           path: |
             src/frontend/biogarden-client/test-results/
             src/frontend/biogarden-client/playwright-report/
+          retention-days: 14
+
+  critical-coverage:
+    needs: [backend, backend-integration]
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: src
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/download-artifact@v4
+        with:
+          name: backend-results
+          path: src/artifacts/ci/coverage/backend
+      - uses: actions/download-artifact@v4
+        with:
+          name: integration-results
+          path: src/artifacts/ci/coverage/integration
+      - name: Summarize and gate critical backend coverage
+        run: python scripts/verification/coverage_report.py artifacts/ci/coverage scripts/verification/coverage-targets.json artifacts/ci/critical-coverage.md
+      - name: Publish coverage summary
+        if: always()
+        run: |
+          if [ -f artifacts/ci/critical-coverage.md ]; then
+            cat artifacts/ci/critical-coverage.md >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - name: Retain critical coverage summary
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: critical-coverage-summary
+          path: src/artifacts/ci/critical-coverage.md
           retention-days: 14

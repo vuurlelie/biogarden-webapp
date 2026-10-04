@@ -114,6 +114,45 @@ These are loopback, same-site browser tests. They do not reproduce SmarterASP's 
 
 ## What these checks establish
 
+### Critical backend coverage
+
+CI collects Cobertura reports from the ordinary backend job and the SQL Server category using the existing Coverlet collector. A dependent `critical-coverage` job combines hits by source file and line, publishes a Markdown summary to the Actions job summary, and fails if a required file is absent or falls below its reviewed floor in [`coverage-targets.json`](../scripts/verification/coverage-targets.json). Configure branch protection to require this job alongside the three test jobs. Workflow changes alone do not update GitHub branch protection.
+
+Only application assemblies are included; generated EF migrations are excluded. Ordinary service, repository and filter code is not excluded to improve the numbers. Reports combine executed lines across unit/HTTP/SQL runs without double-counting duplicate reports or generated async classes. The report also lists uncovered lines and branch sites without a fully covered observation. Branch observations are conservative (best observation per line, not a claimed merged branch percentage). SQL query predicates executed inside the database still need behavioural assertions; a covered query-construction line does not prove every database condition.
+
+To reproduce locally from `src`, set the disposable SQL connection as above and use a fresh output directory:
+
+```bash
+dotnet test backend/Biogarden.sln --configuration Release --no-restore --filter 'Category!=RealBrowser' --settings backend/verification.runsettings --collect 'XPlat Code Coverage' --logger 'trx;LogFilePrefix=backend' --results-directory artifacts/coverage-review
+python scripts/verification/check_results.py trx artifacts/coverage-review Biogarden.UnitTests.dll Biogarden.WebApi.Tests.dll
+python scripts/verification/coverage_report.py artifacts/coverage-review scripts/verification/coverage-targets.json artifacts/coverage-review/summary.md
+```
+
+Baseline measured on 2026-10-04 against the application code merged in `d083d34`: 221 unit tests and 188 API/SQL tests passed, with zero skips. These are local Windows/SQL Server results; the first PR run establishes the Linux CI baseline. Examples of combined line coverage:
+
+| Source | Measured | Initial floor |
+| --- | ---: | ---: |
+| CheckoutPricingService | 94.1% | 90% |
+| OrderService | 86.4% | 85% |
+| SumUpCheckoutService / SumUpCheckoutStatusService | 92.2% / 96.8% | 90% / 95% |
+| CartService / CartRepository | 80.3% / 75.5% | 80% / 75% |
+| AuthService / AccountSecurityMutationFilter | 90.2% / 88.0% | 90% / 85% |
+| AccountLifecycleOperations | 52.7% | 50% |
+| CheckoutDraftService / OrderEmailDispatcher | 100% / 100% | 100% / 100% |
+| NotificationEmailRepository | 98.4% | 95% |
+
+Floors protect this baseline, not a claim of complete verification. Review uncovered behaviour when changing these files; add meaningful assertions and raise floors as coverage improves. Do not lower a floor just to make a PR green, or replace concurrency/ownership assertions with line execution alone. No frontend JavaScript coverage or real-browser coverage is included in these percentages; their execution evidence remains separate.
+
+The baseline identifies the following next test targets, in risk order. These are coverage gaps, not proof of defects:
+
+1. **Ownership and account lifecycle:** exercise `AccountLifecycleOperations.AnonymizeAsync` through the actual account workflow with orders, addresses and an open cart. Assert retained order history, erased account contact fields, removed open carts, revoked sessions and a single queued notice. Add Identity update/delete failure injection and verify transaction rollback. The existing successful deactivation/reactivation/deletion tests do not establish the anonymization path.
+2. **Payment recovery:** force `PaymentAttemptRepository.AcquireLockAsync` timeout/cancellation and connection failure, then verify a later request can acquire the lock and no extra payment attempt or stock change was persisted. Add unknown provider status and missing provider checkout identifiers to the remaining SumUp service rejection paths. Real provider requests stay a hosted acceptance check.
+3. **Stock and guest ownership:** test remove-item and clear-cart through real SQL services, including attempts against another guest's item, missing items, reservation release and unchanged physical stock. Existing add/update/merge and last-item concurrency cases do not cover every removal path.
+4. **Order administration:** exercise withdrawal listing and repeated `MarkWithdrawalRequestHandledAsync`, plus the remaining illegal completed/shipped/backward transitions. Assert persisted state and no extra notification when an operation is rejected or repeated.
+5. **Recovery and defensive guards:** cover cancellation while dispatching notifications, and the remaining service-level legal-version, incomplete account contact and invalid billing checks. Request-validator rejection can prevent these defensive service branches from executing in an HTTP test; use direct service tests where appropriate.
+
+Use the generated report's current line locations when implementing these tests; fixed line numbers become stale after edits. The existing scenario assertions and hosted checks remain the acceptance criteria even when a small class has 100% line coverage.
+
 Payment-attempt SQL tests and browser recovery scenarios are described in [payment recovery](operations/payment-recovery.md#deployment-and-verification), including the remaining live-provider checks.
 
 Checkout-draft SQL and browser coverage, along with hosted verification requirements, is described in [checkout drafts](operations/checkout-drafts.md#deployment-and-verification).

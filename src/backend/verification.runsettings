@@ -5,7 +5,8 @@
   </RunConfiguration>
   <DataCollectionRunSettings>
     <DataCollectors>
-      <DataCollector friendlyName="XPlat Code Coverage">
+      <!-- Only the collect CLI option opts in; browser and discovery probes do not instrument assemblies. -->
+      <DataCollector friendlyName="XPlat Code Coverage" enabled="false">
         <Configuration>
           <Format>cobertura</Format>
           <Include>[Biogarden.BusinessLogic]*,[Biogarden.DataAccess]*,[Biogarden.WebApi]*</Include>
