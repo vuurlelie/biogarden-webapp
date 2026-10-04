@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RunSettings>
+  <RunConfiguration>
+    <TreatNoTestsAsError>true</TreatNoTestsAsError>
+  </RunConfiguration>
+  <DataCollectionRunSettings>
+    <DataCollectors>
+      <!-- Only the collect CLI option opts in; browser and discovery probes do not instrument assemblies. -->
+      <DataCollector friendlyName="XPlat Code Coverage" enabled="false">
+        <Configuration>
+          <Format>cobertura</Format>
+          <Include>[Biogarden.BusinessLogic]*,[Biogarden.DataAccess]*,[Biogarden.WebApi]*</Include>
+          <ExcludeByFile>**/Migrations/*.cs</ExcludeByFile>
+        </Configuration>
+      </DataCollector>
+    </DataCollectors>
+  </DataCollectionRunSettings>
+</RunSettings>

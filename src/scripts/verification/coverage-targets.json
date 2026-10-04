@@ -1,0 +1,21 @@
+{
+  "Biogarden.BusinessLogic/Services/CheckoutPricingService.cs": 90,
+  "Biogarden.BusinessLogic/Services/OrderService.cs": 85,
+  "Biogarden.BusinessLogic/Services/AdminOrderService.cs": 60,
+  "Biogarden.BusinessLogic/Services/AdminPaymentTransition.cs": 100,
+  "Biogarden.BusinessLogic/Services/SumUpCheckoutService.cs": 90,
+  "Biogarden.BusinessLogic/Services/SumUpCheckoutStatusService.cs": 95,
+  "Biogarden.BusinessLogic/Services/CartService.cs": 80,
+  "Biogarden.BusinessLogic/Services/AuthService.cs": 90,
+  "Biogarden.BusinessLogic/Services/AccountLifecycleOperations.cs": 50,
+  "Biogarden.BusinessLogic/Services/CheckoutDraftService.cs": 100,
+  "Biogarden.BusinessLogic/Services/OrderEmailDispatcher.cs": 100,
+  "Biogarden.BusinessLogic/Services/NotificationEmailDispatcher.cs": 95,
+  "Biogarden.DataAccess/Repositories/CartRepository.cs": 75,
+  "Biogarden.DataAccess/Repositories/OrderRepository.cs": 80,
+  "Biogarden.DataAccess/Repositories/PaymentAttemptRepository.cs": 85,
+  "Biogarden.DataAccess/Repositories/NotificationEmailRepository.cs": 95,
+  "Biogarden.BusinessLogic/Services/StockUpdatePolicy.cs": 100,
+  "Biogarden.DataAccess/Repositories/PaymentProviderEventRepository.cs": 100,
+  "Biogarden.WebApi/Filters/AccountSecurityMutationFilter.cs": 85
+}

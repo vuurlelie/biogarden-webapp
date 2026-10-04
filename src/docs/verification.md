@@ -4,17 +4,35 @@ Use this checklist for code changes and the exact commit selected for deployment
 
 ## Backend
 
+### Reproducible restores
+
+Run .NET commands from `src` or below so that `src/global.json` selects the .NET 10.0.4xx SDK feature band (minimum 10.0.401, servicing patches allowed). CI reads the same file. The EF tool version is separately pinned in `src/.config/dotnet-tools.json`; restore it with `dotnet tool restore` before migration commands. Frontend verification uses Node 24 and npm 11. The resolved application dependency versions come from the committed lockfiles, not the locally installed SDK or Node patch.
+
+Use `dotnet restore backend/Biogarden.sln --locked-mode` and `npm ci` for an existing checkout. Keep all five NuGet `packages.lock.json` files and the frontend `package-lock.json` tracked. A locked restore must fail when project declarations and locks disagree; do not delete locks to get a green build. After switching branches, restore the new branch before building, and check `git diff --exit-code -- '**/packages.lock.json' '**/package-lock.json'` from the repository root.
+
+For an intentional dependency change, update the project/central package declaration, run an ordinary restore once, review every affected lockfile (including transitive project dependencies), then run locked restore again. For npm, use an intentional `npm install` update and review both manifest and lock. Commit these changes together. Do not commit unexpected IDE-generated lock changes without comparing them to the branch's declarations.
+
+Investigation of the earlier validation change (`966c89a`) shows a legitimate dependency-graph change: FluentValidation moved into BusinessLogic and FluentValidation.AspNetCore was removed. Dependent test-project locks consequently changed too. The historical uncommitted files are not available, so their exact cause cannot be established from history alone. On the current merged tree, SDK 10.0.401 and npm 11.6.0 restore the committed graph without lockfile changes; no package upgrade is needed for this work.
+
 From the repository's `src` directory:
 
 ```bash
 dotnet restore backend/Biogarden.sln --locked-mode
-dotnet list backend/Biogarden.sln package --vulnerable --include-transitive
+dotnet restore backend/Biogarden.sln --locked-mode --force -p:AuditPipeline=true
 dotnet build backend/Biogarden.sln --configuration Release --no-restore
 dotnet format backend/Biogarden.sln --verify-no-changes --no-restore
 dotnet test backend/Biogarden.sln --configuration Release --no-build --no-restore
 ```
 
-Review the dependency report as well as the exit status. If a running local API locks build outputs, stop that local process before building again.
+The audit restore checks direct and transitive dependencies and fails on moderate, high or critical advisories, or unavailable advisory data (NU1900/NU1905). Low-severity advisories do not block this policy, matching the npm moderate threshold. The opt-in `AuditPipeline` property keeps ordinary offline/local restores separate from release verification. CI must pass the online audit; an unavailable feed is not evidence of safety. See [NuGet audit configuration](https://learn.microsoft.com/nuget/concepts/auditing-packages). If a running local API locks build outputs, stop that local process before building again.
+
+### CI execution and evidence gates
+
+The ordinary backend job runs unit and HTTP contract tests, explicitly excluding `SqlServer` and `RealBrowser`. The dedicated integration job supplies its own SQL Server and runs each excluded category separately. `verification.runsettings` treats empty discovery as an error. After each run, `scripts/verification/check_results.py` also checks TRX summaries, individual outcomes and expected assemblies: missing reports, zero tests, incomplete execution, any skipped test or a missing assembly fail the job. Local opt-in skips remain useful, but cannot make the required CI jobs green.
+
+The frontend emits a Playwright JSON report checked for nonzero execution, zero unexpected failures and zero skips. Existing two-retry CI behaviour remains; tests passing on retry are reported as flaky and should be investigated. Backend TRX files, frontend JSON/HTML reports and failure traces are retained as GitHub Actions artifacts for 14 days, including after failed runs. Runs use fresh result directories on clean runners so previous passing results cannot hide missing execution. Locally, use a new results directory for each verification run.
+
+Gate scripts use Python 3.12's standard library and have negative-case tests (`python -m unittest discover -s scripts/verification -p 'test_*.py'`). Raw artifacts stay ignored. Use synthetic test data only: traces and exception output can contain request payloads. For durable release evidence, record the commit and CI run link in the private release record rather than committing generated reports.
 
 ### SQL Server integration tests
 
@@ -95,6 +113,45 @@ The checkout journey uses two isolated browser contexts, adds a guest item, sign
 These are loopback, same-site browser tests. They do not reproduce SmarterASP's different-domain deployment, third-party-cookie blocking, proxy TLS termination, Safari/iOS, a real card charge or SMTP delivery. Those remain explicit hosted checks in the deployment runbook. Failure traces contain only synthetic test data and can be uploaded by CI; do not reuse real customer data in this harness.
 
 ## What these checks establish
+
+### Critical backend coverage
+
+CI collects Cobertura reports from the ordinary backend job and the SQL Server category using the existing Coverlet collector. A dependent `critical-coverage` job combines hits by source file and line, publishes a Markdown summary to the Actions job summary, and fails if a required file is absent or falls below its reviewed floor in [`coverage-targets.json`](../scripts/verification/coverage-targets.json). Configure branch protection to require this job alongside the three test jobs. Workflow changes alone do not update GitHub branch protection.
+
+Only application assemblies are included; generated EF migrations are excluded. Ordinary service, repository and filter code is not excluded to improve the numbers. Reports combine executed lines across unit/HTTP/SQL runs without double-counting duplicate reports or generated async classes. The report also lists uncovered lines and branch sites without a fully covered observation. Branch observations are conservative (best observation per line, not a claimed merged branch percentage). SQL query predicates executed inside the database still need behavioural assertions; a covered query-construction line does not prove every database condition.
+
+To reproduce locally from `src`, set the disposable SQL connection as above and use a fresh output directory:
+
+```bash
+dotnet test backend/Biogarden.sln --configuration Release --no-restore --filter 'Category!=RealBrowser' --settings backend/verification.runsettings --collect 'XPlat Code Coverage' --logger 'trx;LogFilePrefix=backend' --results-directory artifacts/coverage-review
+python scripts/verification/check_results.py trx artifacts/coverage-review Biogarden.UnitTests.dll Biogarden.WebApi.Tests.dll
+python scripts/verification/coverage_report.py artifacts/coverage-review scripts/verification/coverage-targets.json artifacts/coverage-review/summary.md
+```
+
+Baseline measured on 2026-10-04 against the application code merged in `d083d34`: 221 unit tests and 188 API/SQL tests passed, with zero skips. These are local Windows/SQL Server results; the first PR run establishes the Linux CI baseline. Examples of combined line coverage:
+
+| Source | Measured | Initial floor |
+| --- | ---: | ---: |
+| CheckoutPricingService | 94.1% | 90% |
+| OrderService | 86.4% | 85% |
+| SumUpCheckoutService / SumUpCheckoutStatusService | 92.2% / 96.8% | 90% / 95% |
+| CartService / CartRepository | 80.3% / 75.5% | 80% / 75% |
+| AuthService / AccountSecurityMutationFilter | 90.2% / 88.0% | 90% / 85% |
+| AccountLifecycleOperations | 52.7% | 50% |
+| CheckoutDraftService / OrderEmailDispatcher | 100% / 100% | 100% / 100% |
+| NotificationEmailRepository | 98.4% | 95% |
+
+Floors protect this baseline, not a claim of complete verification. Review uncovered behaviour when changing these files; add meaningful assertions and raise floors as coverage improves. Do not lower a floor just to make a PR green, or replace concurrency/ownership assertions with line execution alone. No frontend JavaScript coverage or real-browser coverage is included in these percentages; their execution evidence remains separate.
+
+The baseline identifies the following next test targets, in risk order. These are coverage gaps, not proof of defects:
+
+1. **Ownership and account lifecycle:** exercise `AccountLifecycleOperations.AnonymizeAsync` through the actual account workflow with orders, addresses and an open cart. Assert retained order history, erased account contact fields, removed open carts, revoked sessions and a single queued notice. Add Identity update/delete failure injection and verify transaction rollback. The existing successful deactivation/reactivation/deletion tests do not establish the anonymization path.
+2. **Payment recovery:** force `PaymentAttemptRepository.AcquireLockAsync` timeout/cancellation and connection failure, then verify a later request can acquire the lock and no extra payment attempt or stock change was persisted. Add unknown provider status and missing provider checkout identifiers to the remaining SumUp service rejection paths. Real provider requests stay a hosted acceptance check.
+3. **Stock and guest ownership:** test remove-item and clear-cart through real SQL services, including attempts against another guest's item, missing items, reservation release and unchanged physical stock. Existing add/update/merge and last-item concurrency cases do not cover every removal path.
+4. **Order administration:** exercise withdrawal listing and repeated `MarkWithdrawalRequestHandledAsync`, plus the remaining illegal completed/shipped/backward transitions. Assert persisted state and no extra notification when an operation is rejected or repeated.
+5. **Recovery and defensive guards:** cover cancellation while dispatching notifications, and the remaining service-level legal-version, incomplete account contact and invalid billing checks. Request-validator rejection can prevent these defensive service branches from executing in an HTTP test; use direct service tests where appropriate.
+
+Use the generated report's current line locations when implementing these tests; fixed line numbers become stale after edits. The existing scenario assertions and hosted checks remain the acceptance criteria even when a small class has 100% line coverage.
 
 Payment-attempt SQL tests and browser recovery scenarios are described in [payment recovery](operations/payment-recovery.md#deployment-and-verification), including the remaining live-provider checks.
 
