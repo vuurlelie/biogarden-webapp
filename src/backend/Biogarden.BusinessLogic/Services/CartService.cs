@@ -443,25 +443,6 @@ public class CartService : ICartService
         };
     }
 
-    public async Task<int> CleanupExpiredCartsAsync(CancellationToken cancellationToken = default)
-    {
-        var expiredCarts = await _unitOfWork.CartRepository.GetExpiredCartsAsync(cancellationToken);
-
-        if (expiredCarts.Count == 0)
-        {
-            return 0;
-        }
-
-        foreach (var expiredCart in expiredCarts)
-        {
-            _unitOfWork.CartRepository.Remove(expiredCart);
-        }
-
-        await _unitOfWork.SaveChangesAsync(cancellationToken);
-
-        return expiredCarts.Count;
-    }
-
     private async Task<Cart> GetOrCreateCartAsync(
         Guid? userId,
         string? sessionId,

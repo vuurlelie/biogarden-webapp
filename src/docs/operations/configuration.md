@@ -92,6 +92,10 @@ If the frontend host supports response headers, also configure:
 - `Referrer-Policy: strict-origin-when-cross-origin`
 - `X-Frame-Options: DENY` or a CSP `frame-ancestors 'none'` directive
 
+## Cart Maintenance
+
+`CartCleanup` controls bounded physical deletion of old, unsubmitted carts. Defaults, validated ranges, hosting behavior and verification are maintained in [expired cart maintenance](cart-maintenance.md).
+
 ## Authentication Sessions
 
 Checkout draft cleanup is enabled by default through `CheckoutDrafts:CleanupEnabled`. Keep it enabled on hosted environments and verify worker availability; see [checkout draft retention](checkout-drafts.md#retention-and-cleanup) for limits and operational checks.

@@ -48,6 +48,4 @@ public interface ICartService
         Guid? userId,
         string? sessionId,
         CancellationToken cancellationToken = default);
-
-    Task<int> CleanupExpiredCartsAsync(CancellationToken cancellationToken = default);
 }

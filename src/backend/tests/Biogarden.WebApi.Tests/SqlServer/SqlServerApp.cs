@@ -102,6 +102,7 @@ public sealed class SqlServerApp : IAsyncLifetime
                     ["ErrorAlerts:Enabled"] = "false",
                     ["OrderEmailOutbox:Enabled"] = "false",
                     ["NotificationEmailOutbox:Enabled"] = "false",
+                    ["CartCleanup:Enabled"] = "false",
                     ["CheckoutDrafts:CleanupEnabled"] = "false",
                     ["EmailBranding:ContactEmail"] = "business@example.com",
                     ["AbuseProtection:PublicForm:PermitLimit"] = "100"

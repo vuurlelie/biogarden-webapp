@@ -298,31 +298,6 @@ public sealed class CartServiceTests
         _unitOfWork.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
     }
 
-    [Fact]
-    public async Task CleanupExpiredCarts_RemovesAllExpiredCarts_AndSavesOnce()
-    {
-        var expired = new List<Cart> { new() { Id = Guid.NewGuid() }, new() { Id = Guid.NewGuid() } };
-        _carts
-            .Setup(x => x.GetExpiredCartsAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync(expired);
-        foreach (var cart in expired)
-        {
-            _carts.Setup(x => x.Remove(cart));
-        }
-        _unitOfWork
-            .Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync(expired.Count);
-
-        var removedCount = await _service.CleanupExpiredCartsAsync();
-
-        Assert.Equal(2, removedCount);
-        foreach (var cart in expired)
-        {
-            _carts.Verify(x => x.Remove(cart), Times.Once);
-        }
-        _unitOfWork.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
-    }
-
     private static Cart CreateCart(Guid userId, int productId, int quantity)
     {
         var cart = new Cart { Id = Guid.NewGuid(), UserId = userId };

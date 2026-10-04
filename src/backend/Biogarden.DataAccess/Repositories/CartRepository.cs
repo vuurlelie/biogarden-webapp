@@ -163,12 +163,19 @@ public class CartRepository : ICartRepository
             .ToDictionaryAsync(item => item.ProductId, item => item.Quantity, cancellationToken);
     }
 
-    public async Task<List<Cart>> GetExpiredCartsAsync(CancellationToken cancellationToken = default)
+    public Task<int> DeleteExpiredBatchAsync(DateTime cutoffUtc, int batchSize, CancellationToken cancellationToken = default)
     {
-        var now = _timeProvider.GetUtcNow().UtcDateTime;
-        return await _context.Carts
-            .Include(cart => cart.Items)
-            .Where(cart => !cart.IsCheckedOut && cart.ExpiresAtUtc <= now)
-            .ToListAsync(cancellationToken);
+        if (batchSize is < 1 or > 1000) throw new ArgumentOutOfRangeException(nameof(batchSize));
+        // Never let a caller bypass the retention boundary with a future cutoff.
+        if (cutoffUtc >= _timeProvider.GetUtcNow().UtcDateTime)
+            throw new ArgumentOutOfRangeException(nameof(cutoffUtc));
+
+        // SQL applies eligibility and deletion in one statement. No stale tracked snapshot,
+        // no loading item graphs. The FK also protects a cart linked to an order concurrently.
+        return _context.Carts.Where(cart => !cart.IsCheckedOut && cart.ExpiresAtUtc <= cutoffUtc
+                && !_context.Orders.Any(order => order.CartId == cart.Id))
+            .OrderBy(cart => cart.ExpiresAtUtc).ThenBy(cart => cart.Id)
+            .Take(batchSize)
+            .ExecuteDeleteAsync(cancellationToken);
     }
 }
