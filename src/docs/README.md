@@ -17,6 +17,7 @@ Biogarden is in **User Acceptance Testing (UAT)**. Client feedback and outstandi
 | Back up or recover data | [Backup and recovery](operations/backup-recovery.md) | Scope, proposed targets, restore drill, ownership |
 | Diagnose failures | [Monitoring](operations/monitoring.md) | Health endpoints, request tracing, alerts |
 | Operate queued order notifications | [Order email delivery](operations/order-email-delivery.md) | Retry semantics, queue monitoring, worker availability |
+| Operate contact and account notifications | [Notification recovery](operations/notification-recovery.md) | Durable acceptance, retry/expiry, account links and hosted SMTP evidence |
 | Recover interrupted online payments | [Payment recovery](operations/payment-recovery.md) | Attempts, callbacks, browser recovery and operator reconciliation |
 | Maintain expired carts | [Expired cart maintenance](operations/cart-maintenance.md) | Retention, bounded cleanup, scheduling and operational checks |
 | Operate private checkout drafts | [Checkout drafts](operations/checkout-drafts.md) | Ownership, expiry, cleanup, conflicts and order recovery |

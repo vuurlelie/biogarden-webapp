@@ -28,6 +28,26 @@ Before deploying, collect:
 - planned deployment window,
 - rollback owner.
 
+### SmarterASP.NET environment evidence
+
+Treat the UAT preview URL as a location to test, not proof of the deployed release. Before a refresh, complete the environment section of the private release record below using the actual hosting panel and browser network observations:
+
+| Check | Evidence required |
+| --- | --- |
+| Frontend and API identity | Exact HTTPS origins, mapped hosting websites, deployment directories and current frontend/API package versions |
+| Hosting runtime | Assigned server's ASP.NET Core 10/IIS support and the API's actual startup result |
+| TLS and routing | Successful normal GET on each intended public origin, certificate validity for that hostname, expected redirects and API routing; a HEAD response alone is insufficient |
+| Origin relationship | Whether requests are same-origin, same-site or cross-site; actual CORS origin/credentials response and guest cookie storage on supported browsers |
+| Proxy scheme | Where TLS terminates, whether the application sees HTTPS, and any explicitly trusted forwarding configuration; do not trust arbitrary forwarded headers |
+| Frontend headers | Effective response headers/CSP from the host plus the document policy; verify intended API/image/GLS origins, framing policy and SPA deep-link reloads |
+| Availability controls | Actual API stop/start/recycle and frontend maintenance controls available on the assigned plan, plus worker availability during idle periods |
+| Deployment artifacts | Release SHA, API/frontend package hashes and private package locations, frontend build-time API origin, retained rollback pair |
+| Target data | Operator-verified database identity, applied migration list, upload directory, backups and restricted evidence references |
+
+Do not record passwords, tokens, full connection strings, cookies or unredacted network exports. Build-time `VITE_API_BASE_URL` must match the intended API: changing host environment variables after a static frontend build does not rewrite the bundle. Record how package hashes/versions were associated with the deployed files; if that cannot be established, mark the deployed version unknown and resolve it before acceptance. Git `main`, a green CI run, and a working homepage do not identify the hosted binaries by themselves.
+
+If a public URL returns 404, record the exact URL, request method, time, status and redacted response headers. Check the domain-to-site mapping, site status, target directory and frontend artifact before assigning a cause. Do not change DNS, SSL, bindings or the API origin as an incidental documentation task. Such a change needs its own operational review and relevant cookie/payment-link retests.
+
 Do not start a production deployment if the target commit is not already reviewed and merged into `main`.
 
 ## Pre-Deployment Checks
@@ -76,6 +96,8 @@ Review pending EF Core migrations:
 dotnet ef migrations list --project Biogarden.DataAccess --startup-project Biogarden.WebApi
 ```
 
+Use an operator-approved connection to inspect the **target** database, not merely the local development configuration. A restricted read of `SELECT MigrationId FROM __EFMigrationsHistory ORDER BY MigrationId;` supplies the applied migration list. Compare it with the selected release's migration history, record the last applied and intended target migrations, and review every pending step. Keep database identity and query evidence private. Do not put a connection string in a shared command transcript or PR.
+
 Generate and review the SQL migration script before applying it:
 
 ```bash
@@ -90,15 +112,15 @@ Complete the [database backup checklist](backup-recovery.md#database-backup-chec
 
 ## Deployment Steps
 
-1. Put the application into maintenance mode if the host supports it.
-2. Stop the API and its background worker; prevent automatic restart during migration/deployment.
-3. Deploy the API package for the target commit.
-4. Deploy the frontend build for the same target commit.
-5. Apply the reviewed database migration script.
-6. Configure production secrets and environment variables.
-7. Start the API.
-8. Start or swap frontend traffic.
-9. Remove maintenance mode.
+1. Confirm the selected commit's CI, approved enabled-method scope, verified backups and compatible rollback pair. Record the host's actual controls before starting.
+2. Stop checkout/write traffic using the available maintenance controls. Stop the API and all its workers; prevent automatic restart during migration/deployment. If the host cannot provide the required isolation, resolve that before changing the schema.
+3. Preserve the existing API/frontend packages, host configuration and uploaded files. Prepare the new matching packages without deleting runtime uploads or replacing secrets with repository placeholders.
+4. Apply the reviewed pending migrations to the verified database and read back `__EFMigrationsHistory`. Record the result, including when no migration was needed.
+5. Deploy the API and frontend from the selected release while keeping public write traffic paused. Verify the frontend build's API origin and the actual upload/stop/start controls used.
+6. Configure the target environment's secrets, enabled checkout methods, SMTP/payment modes and worker settings through private host controls.
+7. Start the API and run health/startup checks. Verify that it uses the expected database and schema before checkout is reopened.
+8. Run the applicable smoke checks with designated test data and approved integration modes. Confirm the deployed frontend/API pair and test a fresh browser as well as an old tab requiring refresh.
+9. Reopen the approved UAT scope only when its checks pass; otherwise keep the affected workflow closed and follow the compatible rollback/forward-fix decision.
 
 Record the actual SmarterASP.NET/IIS package upload, stop/start, and traffic controls used for the target environment before its release. Do not assume that deploying a package also applies database migrations.
 
@@ -137,6 +159,10 @@ Check operational signals:
 - error-alert delivery is configured for production,
 - rate limit responses still return JSON with `traceId`.
 
+Record the exact frontend/API origins and browser privacy settings for the [hosted cart checks](#cart-session-changes), not only a screenshot of a cart count. Confirm actual customer and business SMTP receipt, pending queue recovery after an API recycle, and account/contact notices using the owning [order delivery](order-email-delivery.md) and [notification recovery](notification-recovery.md) guides. Use designated recipients; introducing SMTP failure or replaying payment events belongs in an isolated, approved test window. A queued record, preview file or readiness response does not establish mailbox delivery.
+
+Verify bounded [cart cleanup](cart-maintenance.md#release-verification) and [draft cleanup](checkout-drafts.md#deployment-and-verification) through worker evidence. Record the actual application availability/recycle settings; a worker cannot progress while IIS has stopped the API process. Use the [UAT scenario IDs](../uat-checklist.md#regression-traceability) as references in the private record instead of duplicating feature-specific procedures here.
+
 ## Rollback Triggers
 
 Rollback if any of these happen after deployment:
@@ -151,30 +177,43 @@ Rollback if any of these happen after deployment:
 
 ## Rollback Steps
 
-1. Put the application into maintenance mode if possible.
-2. Stop the API.
-3. Re-deploy the previous known-good API package.
-4. Re-deploy the previous known-good frontend build.
-5. If the database changed, decide whether to use a down migration, a corrective migration, or restore from backup.
-6. Start the API.
-7. Run the post-deployment smoke checks again.
-8. Record the incident, failed commit SHA, rollback action, and follow-up fix.
+1. Stop write traffic and the API/its workers using the recorded hosting controls. Preserve current data and diagnostics before taking recovery actions.
+2. Decide whether the previous API/frontend pair supports the **current schema and newly written data**. Record this compatibility before restoring binaries. Additive migrations alone do not prove compatibility: older code may not understand new delivery values, payment attempts or queued notifications.
+3. If compatible, redeploy both previous packages while preserving uploads and verified environment settings. Retain the additive schema unless a separately reviewed database action is necessary.
+4. If incompatible, keep the affected scope closed and choose a reviewed forward fix or rehearsed database/file restore. Do not automatically run down migrations or replace the database with a backup that loses orders created after the backup point.
+5. Reconcile order/payment events and both notification queues before resuming external delivery. A restored database can forget a provider charge or an already-sent email; rolling back binaries cannot reverse either external effect. Follow [backup recovery](backup-recovery.md#incident-recovery) and [payment recovery](payment-recovery.md).
+6. Start the compatible application pair with approved integration modes, run smoke checks, then reopen only the verified scope.
+7. Record the failed SHA, actual recovery action, restored versions, elapsed time, data reconciliation and follow-up issue.
 
 Database rollback is the riskiest part. Prefer forward corrective migrations when data has already changed and customers may have created orders after the deployment.
 
 ## Release Record Template
 
 ```text
-Date:
-Deployed commit:
-API package:
-Frontend package:
-Database backup:
-Uploaded files backup:
-Migration script:
-Started by:
-Verified by:
-Smoke check result:
-Rollback package:
-Notes:
+Release ID / date / timezone:
+Environment / operator / verifier:
+Selected full commit SHA / PR / CI run URL and result:
+Approved UAT scope / client decision references:
+Frontend origin / hosting site / deployed version evidence:
+API origin / hosting site / deployed version evidence:
+API package hash / private location:
+Frontend package hash / private location / build-time API origin:
+TLS / routing / CORS / cookie / header evidence:
+Assigned runtime / actual stop-start-recycle controls:
+Database identity (private; no connection string):
+Applied migrations before / expected target / verified after:
+Reviewed migration script hash / execution result:
+Database backup reference / timestamp / restore validation:
+Uploaded files backup reference / timestamp / validation:
+Effective fulfillment-payment matrix / fees / payment mode:
+Email mode / designated recipients (private) / worker settings:
+Scenario ID / status / actual result / evidence / tester / time:
+Outbox SMTP/restart evidence / cleanup evidence:
+Restore drill reference / measured RPO-RTO / unresolved issues:
+Rollback API-frontend pair / schema-data compatibility evidence:
+Accepted exclusions / issue owners / retest dates:
+Decision: Not ready / limited UAT scope / accepted UAT scope:
+Decision owner / date / evidence:
 ```
+
+This is a blank template. Complete it in a private tracker or ignored local `src/artifacts/` directory; keep a durable private copy outside the checkout. Use **Not run**, **Pass**, **Fail**, **Blocked** and **Not applicable** consistently with the UAT checklist. Unknown versions, unexecuted restore drills and untested SMTP/provider delivery remain explicitly unverified. Public documentation records the procedure, not client approvals, credentials, private hosting details or fabricated execution results.
