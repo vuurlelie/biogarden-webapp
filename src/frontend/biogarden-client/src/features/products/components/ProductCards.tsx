@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link } from "react-router";
 import { useCart } from "../../cart/context/useCart";
 import { ROUTES } from "../../../shared/constants/routes";
+import { getErrorMessage } from "../../../shared/utils/errorHandling";
 import type { ProductListItem } from "../types/product.types";
 import {
   formatProductPrice,
@@ -22,13 +23,15 @@ function getProductImageUrl(image: string): string {
 export default function ProductCards({ products }: ProductCardsProps) {
   const { addItem } = useCart();
   const [addingProductId, setAddingProductId] = useState<number | null>(null);
+  const [errors, setErrors] = useState<Record<number, string | undefined>>({});
 
   async function handleAddToCart(productId: number) {
     setAddingProductId(productId);
+    setErrors(current => ({ ...current, [productId]: undefined }));
     try {
       await addItem(productId);
-    } catch {
-      // Cart errors are presented on the cart page; the button becomes available again.
+    } catch (error) {
+      setErrors(current => ({ ...current, [productId]: getErrorMessage(error, "A terméket nem sikerült kosárba tenni.") }));
     } finally {
       setAddingProductId(null);
     }
@@ -116,6 +119,7 @@ export default function ProductCards({ products }: ProductCardsProps) {
                   {addingProductId === product.id ? "Hozzáadás..." : "Kosárba"}
                 </button>
               </div>
+              {errors[product.id] && <p role="alert" className="mt-3 text-sm font-semibold text-site-danger">{errors[product.id]}</p>}
             </div>
           </article>
         );
