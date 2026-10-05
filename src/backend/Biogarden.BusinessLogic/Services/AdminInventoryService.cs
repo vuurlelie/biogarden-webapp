@@ -1,5 +1,6 @@
 using Biogarden.BusinessLogic.Abstractions;
 using Biogarden.BusinessLogic.DTOs.Admin;
+using Biogarden.BusinessLogic.DTOs.Common;
 using Biogarden.DataAccess.Abstractions;
 using Biogarden.DataAccess.Enums;
 using Microsoft.EntityFrameworkCore;
@@ -17,10 +18,32 @@ public sealed class AdminInventoryService : IAdminInventoryService
         _unitOfWork = unitOfWork;
     }
 
-    public async Task<IReadOnlyList<AdminInventoryItemDto>> GetAllAsync(CancellationToken cancellationToken = default)
+    public async Task<PagedResultDto<AdminInventoryItemDto>> GetPageAsync(AdminInventoryListQuery filter, CancellationToken cancellationToken = default)
+    {
+        var query = InventoryQuery();
+        var search = filter.Search?.Trim();
+        if (!string.IsNullOrEmpty(search)) query = query.Where(x => x.Name.Contains(search));
+        query = filter.Stock switch
+        {
+            "low" => query.Where(x => x.AvailableQuantity > 0 && x.AvailableQuantity <= 5),
+            "empty" => query.Where(x => x.AvailableQuantity == 0),
+            "reserved" => query.Where(x => x.ReservedQuantity > 0),
+            _ => query
+        };
+        var count = await query.CountAsync(cancellationToken);
+        var page = AdminPaging.Page(filter, count);
+        var items = await query.OrderBy(x => x.Name).ThenBy(x => x.ProductId)
+            .Skip((page - 1) * filter.NormalizedPageSize).Take(filter.NormalizedPageSize).ToListAsync(cancellationToken);
+        return new(items, page, filter.NormalizedPageSize, count);
+    }
+
+    public Task<AdminInventoryItemDto?> GetByIdAsync(int id, CancellationToken cancellationToken = default)
+        => InventoryQuery().SingleOrDefaultAsync(x => x.ProductId == id, cancellationToken);
+
+    private IQueryable<AdminInventoryItemDto> InventoryQuery()
     {
         var now = DateTime.UtcNow;
-        return await _databaseContext.Products.AsNoTracking()
+        return _databaseContext.Products.AsNoTracking()
             .Where(product => product.RecordStatus == RecordStatus.Active)
             .OrderBy(product => product.Name)
             .Select(product => new AdminInventoryItemDto
@@ -43,7 +66,7 @@ public sealed class AdminInventoryService : IAdminInventoryService
                     : 0,
                 Available = product.Available,
                 DeliveryAvailable = product.DeliveryAvailable
-            }).ToListAsync(cancellationToken);
+            });
     }
 
     public async Task<AdminInventoryItemDto> UpdateAsync(int productId, UpdateAdminInventoryDto changes, CancellationToken cancellationToken = default)

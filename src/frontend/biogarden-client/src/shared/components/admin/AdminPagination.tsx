@@ -6,8 +6,8 @@ type AdminPaginationProps = {
 
 export default function AdminPagination({ page, totalPages, onPageChange }: AdminPaginationProps) {
   if (totalPages <= 1) return null;
-  const pages = Array.from({ length: totalPages }, (_, index) => index + 1)
-    .filter((candidate) => candidate === 1 || candidate === totalPages || Math.abs(candidate - page) <= 1);
+  const pages = [...new Set([1, page - 1, page, page + 1, totalPages])]
+    .filter(candidate => candidate >= 1 && candidate <= totalPages).sort((a, b) => a - b);
 
   return (
     <nav aria-label="Lapozás" className="flex flex-wrap items-center justify-center gap-2">

@@ -72,7 +72,7 @@ public sealed class AdminConcurrencyTests : IAsyncLifetime
         var service = scope.ServiceProvider.GetRequiredService<IAdminOrderService>();
         await Assert.ThrowsAsync<InvalidOperationException>(() => service.UpdateAsync(order.Id,
             new AdminOrderUpdateDto { Version = order.Version, Status = OrderStatus.Confirmed, PaymentStatus = PaymentStatus.Pending }));
-        var fresh = (await service.GetAllAsync()).Single();
+        var fresh = (await service.GetPageAsync(new())).Items.Single();
         Assert.Equal(PaymentStatus.Paid, fresh.PaymentStatus);
         var saved = await service.UpdateAsync(order.Id, new AdminOrderUpdateDto { Version = fresh.Version, Status = OrderStatus.Shipped, PaymentStatus = PaymentStatus.Paid });
         Assert.NotEqual(fresh.Version, saved.Version);
@@ -93,7 +93,7 @@ public sealed class AdminConcurrencyTests : IAsyncLifetime
         {
             using var scope = _app.Factory.Services.CreateScope();
             var service = scope.ServiceProvider.GetRequiredService<IAdminOrderService>();
-            var fresh = (await service.GetAllAsync()).Single();
+            var fresh = (await service.GetPageAsync(new())).Items.Single();
             return await service.UpdateAsync(order.Id, new AdminOrderUpdateDto
             {
                 Version = fresh.Version,
@@ -130,7 +130,7 @@ public sealed class AdminConcurrencyTests : IAsyncLifetime
             await using var setup = _app.OpenDatabase();
             await setup.Orders.Where(x => x.Id == order.Id).ExecuteUpdateAsync(x => x.SetProperty(o => o.PaymentStatus, PaymentStatus.Paid));
             using var scope = _app.Factory.Services.CreateScope();
-            order = (await scope.ServiceProvider.GetRequiredService<IAdminOrderService>().GetAllAsync()).Single();
+            order = (await scope.ServiceProvider.GetRequiredService<IAdminOrderService>().GetPageAsync(new())).Items.Single();
         }
         _app.SaveGate.EntityType = typeof(Biogarden.DataAccess.Entities.Order);
         _app.SaveGate.State = EntityState.Modified;
@@ -171,7 +171,7 @@ public sealed class AdminConcurrencyTests : IAsyncLifetime
         (await customer.PostAsJsonAsync("/api/cart/items", new AddCartItemDto { ProductId = id, Quantity = 2 })).EnsureSuccessStatusCode();
         using var scope = _app.Factory.Services.CreateScope();
         var service = scope.ServiceProvider.GetRequiredService<IAdminOrderService>();
-        var fresh = (await service.GetAllAsync()).Single();
+        var fresh = (await service.GetPageAsync(new())).Items.Single();
         await Assert.ThrowsAsync<InvalidOperationException>(() => service.UpdateAsync(order.Id,
             new AdminOrderUpdateDto { Version = fresh.Version, Status = OrderStatus.Confirmed, PaymentStatus = PaymentStatus.Pending }));
         Assert.Equal(2, (await db.Products.SingleAsync()).StockQuantity);
@@ -189,7 +189,7 @@ public sealed class AdminConcurrencyTests : IAsyncLifetime
             .SetProperty(o => o.StockCommitted, false));
         using var scope = _app.Factory.Services.CreateScope();
         var service = scope.ServiceProvider.GetRequiredService<IAdminOrderService>();
-        var fresh = (await service.GetAllAsync()).Single();
+        var fresh = (await service.GetPageAsync(new())).Items.Single();
         var saved = await service.UpdateAsync(order.Id, new AdminOrderUpdateDto
         {
             Version = fresh.Version,

@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   getAdminInventory,
+  getAdminInventoryItem,
   updateAdminInventory,
   type AdminInventoryItem,
 } from "../../features/admin/api/adminInventoryApi";
@@ -36,7 +37,7 @@ function InventoryCard({
   async function reloadCurrent() {
     setSaving(true);
     try {
-      const current = (await getAdminInventory()).find(value => value.productId === item.productId);
+      const current = await getAdminInventoryItem(item.productId);
       if (!current) throw new Error("A termék már nem érhető el.");
       setPreviousInput(`Korábbi bevitel: ${quantity} db, ${available ? "rendelhető" : "nem rendelhető"}. Ellenőrizd az aktuális készletet, majd szükség esetén írd be újra a módosítást.`);
       onSaved(current);
@@ -213,26 +214,40 @@ export default function AdminInventoryPage() {
   const [filter, setFilter] = useState<StockFilter>("all");
   const [page, setPage] = useState(1);
 
-  const load = useCallback(async (signal?: AbortSignal) => {
-    setLoading(true);
+  const [totalPages, setTotalPages] = useState(1);
+  const requestId = useRef(0);
+  const mounted = useRef(true);
+
+  const load = useCallback(async (signal?: AbortSignal, background = false) => {
+    if (!mounted.current) return;
+    const id = ++requestId.current;
+    if (!background) setLoading(true);
     setError(null);
 
     try {
-      setItems(await getAdminInventory(signal));
+      const result = await getAdminInventory({ page, pageSize: PAGE_SIZE, search, stock: filter }, signal);
+      if (!mounted.current || signal?.aborted || id !== requestId.current) return;
+      setItems(result.items);
+      setTotalPages(result.totalPages);
+      if (result.page !== page) setPage(result.page);
     } catch (loadError) {
-      if (!isAbortError(loadError)) {
+      if (mounted.current && !signal?.aborted && id === requestId.current && !isAbortError(loadError)) {
         setError(getErrorMessage(loadError, "A készlet betöltése nem sikerült."));
       }
     } finally {
-      if (!signal?.aborted) setLoading(false);
+      if (mounted.current && !signal?.aborted && id === requestId.current) setLoading(false);
     }
-  }, []);
+  }, [page, search, filter]);
 
+  const latestLoad = useRef(load);
   useEffect(() => {
+    latestLoad.current = load;
+    mounted.current = true;
+    ++requestId.current;
     const controller = new AbortController();
-    void load(controller.signal);
-    return () => controller.abort();
-  }, [load]);
+    const timer = window.setTimeout(() => void load(controller.signal), search.trim() ? 250 : 0);
+    return () => { mounted.current = false; window.clearTimeout(timer); controller.abort(); };
+  }, [load, search]);
 
   useEffect(() => {
     if (!message) return;
@@ -240,26 +255,14 @@ export default function AdminInventoryPage() {
     return () => window.clearTimeout(timer);
   }, [message]);
 
-  const filtered = useMemo(() => {
-    const query = search.trim().toLocaleLowerCase("hu-HU");
-
-    return items.filter((item) => {
-      if (query && !item.name.toLocaleLowerCase("hu-HU").includes(query)) return false;
-      if (filter === "low" && !(item.availableQuantity > 0 && item.availableQuantity <= 5)) return false;
-      if (filter === "empty" && item.availableQuantity !== 0) return false;
-      if (filter === "reserved" && item.reservedQuantity === 0) return false;
-      return true;
-    });
-  }, [items, search, filter]);
-
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  const currentPage = Math.min(page, totalPages);
-  const pageItems = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+  const currentPage = page;
+  const pageItems = items;
 
   function saved(updated: AdminInventoryItem) {
     setItems((current) =>
       current.map((item) => (item.productId === updated.productId ? updated : item)),
     );
+    void latestLoad.current(undefined, true);
     setMessage(`${updated.name} készlete frissült.`);
   }
 
@@ -286,6 +289,7 @@ export default function AdminInventoryPage() {
         <label className="text-sm font-semibold">
           Keresés
           <input
+            maxLength={200}
             value={search}
             onChange={(event) => {
               setSearch(event.target.value);
@@ -330,7 +334,7 @@ export default function AdminInventoryPage() {
         </section>
       )}
 
-      {!loading && filtered.length > 0 && (
+      {!loading && items.length > 0 && (
         <AdminPagination page={currentPage} totalPages={totalPages} onPageChange={setPage} />
       )}
     </div>

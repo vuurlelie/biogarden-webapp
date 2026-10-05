@@ -341,7 +341,7 @@ public sealed class OrderWorkflowTests : IAsyncLifetime
         var service = scope.ServiceProvider.GetRequiredService<Biogarden.BusinessLogic.Abstractions.IAdminOrderService>();
         await service.UpdateAsync(orderId, new Biogarden.BusinessLogic.DTOs.Admin.AdminOrderUpdateDto
         {
-            Version = (await service.GetAllAsync()).Single(x => x.Id == orderId).Version,
+            Version = (await service.GetPageAsync(new())).Items.Single(x => x.Id == orderId).Version,
             Status = status,
             PaymentStatus = PaymentStatus.Pending
         });

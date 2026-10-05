@@ -69,6 +69,10 @@ If the test process is forcibly terminated, its database may remain. Review the 
 
 ## Frontend
 
+`AdminPaginationTests` verifies SQL-backed filtering before paging, stable ordering for tied sort values, bounded page sizes, adjusted out-of-range pages, live inventory reservations, role/lifecycle filters, single-record reads and admin authorization. The four admin list endpoints default to 12 rows and cap page size at 60; page numbers are adjusted to the available range. Search uses the database collation. Account role/order/request enrichment is limited to the selected page. Products and articles retain their existing paginated endpoints.
+
+`admin-pagination.spec.ts` checks server page requests, search reset, obsolete-response protection and last-page recovery after a request is handled. `admin-concurrency.spec.ts` checks single-record conflict reload without depending on the current list page. These are controlled regression checks, not a production load benchmark.
+
 From `src/frontend/biogarden-client`:
 
 ```bash

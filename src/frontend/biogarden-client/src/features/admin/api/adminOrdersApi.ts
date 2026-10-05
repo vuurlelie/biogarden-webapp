@@ -1,3 +1,5 @@
+import { adminListQuery, type AdminListQuery } from "./adminListQuery";
+import type { PagedResult } from "../../../shared/types/pagination";
 import type { Order, OrderStatus, PaymentStatus } from "../../account/types/order.types";
 import { adminRequest } from "./adminApiClient";
 
@@ -15,11 +17,11 @@ export type AdminOrderWithdrawalRequest = {
   handledAtUtc: string | null;
 };
 
-export async function getAdminOrders(signal?: AbortSignal): Promise<Order[]> {
-  const response = await adminRequest("/orders", {
+export async function getAdminOrders(query: AdminListQuery, signal?: AbortSignal): Promise<PagedResult<Order>> {
+  const response = await adminRequest(`/orders${adminListQuery(query)}`, {
     signal,
   });
-  return response.json() as Promise<Order[]>;
+  return response.json() as Promise<PagedResult<Order>>;
 }
 
 export async function updateAdminOrder(
@@ -37,12 +39,12 @@ export async function updateAdminOrder(
   return response.json() as Promise<Order>;
 }
 
-export async function getAdminOrderWithdrawalRequests(signal?: AbortSignal): Promise<AdminOrderWithdrawalRequest[]> {
-  const response = await adminRequest("/orders/withdrawal-requests", {
+export async function getAdminOrderWithdrawalRequests(query: AdminListQuery, signal?: AbortSignal): Promise<PagedResult<AdminOrderWithdrawalRequest>> {
+  const response = await adminRequest(`/orders/withdrawal-requests${adminListQuery(query)}`, {
     fallbackMessage: "Az elállási vagy fogyasztói kérések betöltése nem sikerült.",
     signal,
   });
-  return response.json() as Promise<AdminOrderWithdrawalRequest[]>;
+  return response.json() as Promise<PagedResult<AdminOrderWithdrawalRequest>>;
 }
 
 export async function markAdminOrderWithdrawalRequestHandled(id: number): Promise<AdminOrderWithdrawalRequest> {
@@ -51,4 +53,9 @@ export async function markAdminOrderWithdrawalRequestHandled(id: number): Promis
     fallbackMessage: "A kérés feldolgozottra állítása nem sikerült.",
   });
   return response.json() as Promise<AdminOrderWithdrawalRequest>;
+}
+
+export async function getAdminOrder(id: string): Promise<Order> {
+  const response = await adminRequest(`/orders/${id}`);
+  return response.json() as Promise<Order>;
 }

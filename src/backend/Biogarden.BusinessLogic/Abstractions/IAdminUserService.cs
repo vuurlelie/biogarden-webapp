@@ -1,10 +1,11 @@
+using Biogarden.BusinessLogic.DTOs.Common;
 using Biogarden.BusinessLogic.DTOs.Admin;
 
 namespace Biogarden.BusinessLogic.Abstractions;
 
 public interface IAdminUserService
 {
-    Task<IReadOnlyList<AdminUserDto>> GetAllAsync(CancellationToken cancellationToken = default);
+    Task<PagedResultDto<AdminUserDto>> GetPageAsync(AdminUserListQuery query, CancellationToken cancellationToken = default);
 
     Task<AdminUserDto> SetAdminRoleAsync(Guid userId, bool isAdmin, Guid currentAdminId, CancellationToken cancellationToken = default);
 

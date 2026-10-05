@@ -10,6 +10,8 @@ Use this together with:
 
 ## Release Inputs
 
+Admin pagination changes the list responses for `/api/admin/orders`, `/api/admin/users`, `/api/admin/inventory`, and `/api/admin/orders/withdrawal-requests` from arrays to `{ items, page, pageSize, totalCount, totalPages }`. Deploy the matching frontend and API together; an older frontend cannot read the new response shape. Roll back both packages together. There is no schema migration for this change. Verify page navigation, search/filter reset, handling/deletion on the last page, and order/inventory conflict reload after deployment.
+
 For the .NET 10 upgrade, confirm that the target SmarterASP.NET server has the ASP.NET Core 10 runtime and compatible IIS hosting support before uploading the API. Provider-wide support does not establish availability on the assigned server. Retain the previous API package and record its database compatibility for rollback.
 
 Validate the upgrade using the [engineering checks](../verification.md), including the SQL Server tests. Apply the existing migration history to a disposable database and check for pending model changes; changing the target framework alone is not a reason to create or apply a migration. If EF reports model changes, review them and any resulting SQL separately before deployment.

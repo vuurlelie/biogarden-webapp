@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { useSearchParams } from "react-router";
 import { OrderPurchaseSummary } from "../../features/account/components/OrderPurchaseSummary";
 import { FULFILLMENT_LABELS } from "../../features/checkout/constants/fulfillment";
@@ -15,7 +15,7 @@ import {
   getOrderStatusLabel,
   getPaymentStatusLabel,
 } from "../../features/account/utils/orderLabels";
-import { getAdminOrders, updateAdminOrder } from "../../features/admin/api/adminOrdersApi";
+import { getAdminOrders, getAdminOrder, updateAdminOrder } from "../../features/admin/api/adminOrdersApi";
 import { manualPaymentChoices, PAYMENT_STATUS, ORDER_STATUS } from "../../features/admin/utils/paymentTransitions";
 import { getUnitLabel } from "../../features/products/utils/productLabels";
 import AdminFeedbackMessages from "../../shared/components/admin/AdminFeedbackMessages";
@@ -78,7 +78,7 @@ function OrderCard({
   async function reloadCurrent() {
     setSaving(true);
     try {
-      const current = (await getAdminOrders()).find(value => value.id === order.id);
+      const current = await getAdminOrder(order.id);
       if (!current) throw new Error("A rendelés már nem érhető el.");
       setPreviousInput(`Korábbi bevitel: ${getOrderStatusLabel(status)}, ${getPaymentStatusLabel(payment)}; ${reason}; ${paymentReason}. Ellenőrizd az aktuális adatokat, majd alkalmazd újra a szükséges módosítást.`);
       onUpdated(current); setStatus(current.status); setPayment(current.paymentStatus);
@@ -372,26 +372,40 @@ export default function AdminOrdersPage() {
   const [fulfillment, setFulfillment] = useState<"all" | FulfillmentMethod>("all");
   const [page, setPage] = useState(1);
 
-  const load = useCallback(async (signal?: AbortSignal) => {
-    setLoading(true);
+  const [pages, setTotalPages] = useState(1);
+  const requestId = useRef(0);
+  const mounted = useRef(true);
+
+  const load = useCallback(async (signal?: AbortSignal, background = false) => {
+    if (!mounted.current) return;
+    const id = ++requestId.current;
+    if (!background) setLoading(true);
     setError(null);
 
     try {
-      setOrders(await getAdminOrders(signal));
+      const result = await getAdminOrders({ page, pageSize: PAGE_SIZE, search, status, fulfillment }, signal);
+      if (!mounted.current || signal?.aborted || id !== requestId.current) return;
+      setOrders(result.items);
+      setTotalPages(result.totalPages);
+      if (result.page !== page) setPage(result.page);
     } catch (loadError) {
-      if (!isAbortError(loadError)) {
+      if (mounted.current && !signal?.aborted && id === requestId.current && !isAbortError(loadError)) {
         setError(getErrorMessage(loadError, "A rendelések betöltése nem sikerült."));
       }
     } finally {
-      if (!signal?.aborted) setLoading(false);
+      if (mounted.current && !signal?.aborted && id === requestId.current) setLoading(false);
     }
-  }, []);
+  }, [page, search, status, fulfillment]);
 
+  const latestLoad = useRef(load);
   useEffect(() => {
+    latestLoad.current = load;
+    mounted.current = true;
+    ++requestId.current;
     const controller = new AbortController();
-    void load(controller.signal);
-    return () => controller.abort();
-  }, [load]);
+    const timer = window.setTimeout(() => void load(controller.signal), search.trim() ? 250 : 0);
+    return () => { mounted.current = false; window.clearTimeout(timer); controller.abort(); };
+  }, [load, search]);
 
   useEffect(() => {
     if (!message) return;
@@ -399,30 +413,12 @@ export default function AdminOrdersPage() {
     return () => clearTimeout(timer);
   }, [message]);
 
-  const filtered = useMemo(() => {
-    const query = search.trim().toLocaleLowerCase("hu-HU");
-
-    return orders.filter((order) => {
-      if (
-        query &&
-        ![order.orderNumber, order.customerName, order.customerEmail].some((value) =>
-          value.toLocaleLowerCase("hu-HU").includes(query),
-        )
-      ) {
-        return false;
-      }
-      if (status !== "all" && order.status !== status) return false;
-      if (fulfillment !== "all" && order.fulfillmentMethod !== fulfillment) return false;
-      return true;
-    });
-  }, [orders, search, status, fulfillment]);
-
-  const pages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  const current = Math.min(page, pages);
-  const shown = filtered.slice((current - 1) * PAGE_SIZE, current * PAGE_SIZE);
+  const current = page;
+  const shown = orders;
 
   function updated(order: Order) {
     setOrders((items) => items.map((item) => (item.id === order.id ? order : item)));
+    void latestLoad.current(undefined, true);
     setMessage(`${order.orderNumber} állapota frissült.`);
   }
 
@@ -439,6 +435,7 @@ export default function AdminOrdersPage() {
         <label className="text-sm font-semibold">
           Keresés
           <input
+            maxLength={200}
             value={search}
             onChange={(event) => {
               setSearch(event.target.value);
@@ -497,7 +494,7 @@ export default function AdminOrdersPage() {
         </section>
       )}
 
-      {!loading && filtered.length > 0 && (
+      {!loading && orders.length > 0 && (
         <AdminPagination page={current} totalPages={pages} onPageChange={setPage} />
       )}
     </div>

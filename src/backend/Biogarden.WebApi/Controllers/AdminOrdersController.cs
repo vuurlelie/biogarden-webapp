@@ -1,3 +1,4 @@
+using Biogarden.BusinessLogic.DTOs.Common;
 using Biogarden.BusinessLogic.Abstractions;
 using Biogarden.BusinessLogic.DTOs.Admin;
 using Biogarden.BusinessLogic.DTOs.Orders;
@@ -20,15 +21,22 @@ public sealed class AdminOrdersController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<ActionResult<IReadOnlyList<OrderDto>>> GetAll(CancellationToken token)
+    public async Task<ActionResult<PagedResultDto<OrderDto>>> GetAll([FromQuery] AdminOrderListQuery query, CancellationToken token)
     {
-        return Ok(await _service.GetAllAsync(token));
+        return Ok(await _service.GetPageAsync(query, token));
     }
 
     [HttpGet("withdrawal-requests")]
-    public async Task<ActionResult<IReadOnlyList<AdminOrderWithdrawalRequestDto>>> GetWithdrawalRequests(CancellationToken token)
+    public async Task<ActionResult<PagedResultDto<AdminOrderWithdrawalRequestDto>>> GetWithdrawalRequests([FromQuery] AdminWithdrawalListQuery query, CancellationToken token)
     {
-        return Ok(await _service.GetWithdrawalRequestsAsync(token));
+        return Ok(await _service.GetWithdrawalRequestsAsync(query, token));
+    }
+
+    [HttpGet("{id:guid}")]
+    public async Task<ActionResult<OrderDto>> GetById(Guid id, CancellationToken token)
+    {
+        var result = await _service.GetByIdAsync(id, token);
+        return result is null ? NotFound() : Ok(result);
     }
 
     [HttpPut("{orderId:guid}")]

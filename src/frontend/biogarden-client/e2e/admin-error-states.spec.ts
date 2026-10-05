@@ -13,7 +13,7 @@ test.beforeEach(async ({ page }) => {
 });
 
 test("admin orders page shows load failures", async ({ page }) => {
-  await page.route(`${apiBaseUrl}/api/admin/orders`, async (route) => {
+  await page.route((url) => url.origin === apiBaseUrl && url.pathname === "/api/admin/orders", async (route) => {
     await route.fulfill({
       status: 503,
       json: { detail: "A rendelések most nem tölthetők be." },
@@ -54,8 +54,8 @@ test("admin products page can retry after a load failure", async ({ page }) => {
 });
 
 test("admin accounts page shows the empty account state", async ({ page }) => {
-  await page.route(`${apiBaseUrl}/api/admin/users`, async (route) => {
-    await route.fulfill({ json: [] });
+  await page.route((url) => url.origin === apiBaseUrl && url.pathname === "/api/admin/users", async (route) => {
+    await route.fulfill({ json: { items: [], page: 1, pageSize: 12, totalCount: 0, totalPages: 1 } });
   });
 
   await page.goto("/admin/fiok");
