@@ -1,3 +1,4 @@
+import { normalizeImage, MAX_IMAGE_UPLOAD_BYTES } from "../../../shared/utils/normalizeImage";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import type { Post, PostCategory } from "../../posts/types/post.types";
 import { useModalFocus } from "../../../shared/hooks/useModalFocus";
@@ -11,7 +12,7 @@ import {
 import RichTextEditor from "./RichTextEditor";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
-const MAX_IMAGE_UPLOAD_SIZE_BYTES = 2 * 1024 * 1024;
+const MAX_IMAGE_UPLOAD_SIZE_BYTES = MAX_IMAGE_UPLOAD_BYTES;
 const POST_IMAGE_WIDTH = 1600;
 const POST_IMAGE_HEIGHT = 1200;
 
@@ -69,83 +70,6 @@ function initialState(post: Post | null): FormState {
 
 function imageUrl(path: string): string {
   return path ? `${API_BASE_URL}/${path.replace(/^\/+/, "")}` : "";
-}
-
-function loadSelectedImage(file: File): Promise<HTMLImageElement> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-
-    reader.onload = () => {
-      if (typeof reader.result !== "string") {
-        reject(new Error("A kiválasztott kép nem tölthető be."));
-        return;
-      }
-
-      const image = new Image();
-      image.onload = () => resolve(image);
-      image.onerror = () => reject(new Error("A kiválasztott kép nem tölthető be."));
-      image.src = reader.result;
-    };
-    reader.onerror = () => reject(new Error("A kiválasztott kép nem tölthető be."));
-    reader.readAsDataURL(file);
-  });
-}
-
-function canvasToJpegFile(canvas: HTMLCanvasElement, originalFile: File, quality: number): Promise<File> {
-  return new Promise((resolve, reject) => {
-    canvas.toBlob(
-      (blob) => {
-        if (!blob) {
-          reject(new Error("A kép feldolgozása nem sikerült."));
-          return;
-        }
-
-        const fileName = originalFile.name.replace(/\.[^.]+$/, "") || "bejegyzes-kep";
-        resolve(new File([blob], `${fileName}.jpg`, { type: "image/jpeg" }));
-      },
-      "image/jpeg",
-      quality,
-    );
-  });
-}
-
-async function normalizePostImageFile(file: File): Promise<File> {
-  const image = await loadSelectedImage(file);
-  const canvas = document.createElement("canvas");
-  canvas.width = POST_IMAGE_WIDTH;
-  canvas.height = POST_IMAGE_HEIGHT;
-
-  const context = canvas.getContext("2d");
-  if (!context) throw new Error("A kép feldolgozása nem támogatott ebben a böngészőben.");
-
-  const targetRatio = POST_IMAGE_WIDTH / POST_IMAGE_HEIGHT;
-  const sourceRatio = image.naturalWidth / image.naturalHeight;
-  const sourceWidth = sourceRatio > targetRatio ? image.naturalHeight * targetRatio : image.naturalWidth;
-  const sourceHeight = sourceRatio > targetRatio ? image.naturalHeight : image.naturalWidth / targetRatio;
-  const sourceX = Math.max(0, (image.naturalWidth - sourceWidth) / 2);
-  const sourceY = Math.max(0, (image.naturalHeight - sourceHeight) / 2);
-
-  context.fillStyle = "#ffffff";
-  context.fillRect(0, 0, POST_IMAGE_WIDTH, POST_IMAGE_HEIGHT);
-  context.drawImage(
-    image,
-    sourceX,
-    sourceY,
-    sourceWidth,
-    sourceHeight,
-    0,
-    0,
-    POST_IMAGE_WIDTH,
-    POST_IMAGE_HEIGHT,
-  );
-
-  let normalizedFile = await canvasToJpegFile(canvas, file, 0.9);
-  for (const quality of [0.82, 0.74, 0.66]) {
-    if (normalizedFile.size <= MAX_IMAGE_UPLOAD_SIZE_BYTES) break;
-    normalizedFile = await canvasToJpegFile(canvas, file, quality);
-  }
-
-  return normalizedFile;
 }
 
 export default function AdminPostFormModal({ post, onClose, onSaved }: Props) {
@@ -443,7 +367,7 @@ export default function AdminPostFormModal({ post, onClose, onSaved }: Props) {
                     }
 
                     try {
-                      const normalizedFile = await normalizePostImageFile(selectedFile);
+                      const normalizedFile = await normalizeImage(selectedFile, POST_IMAGE_WIDTH, POST_IMAGE_HEIGHT);
                       if (normalizedFile.size > MAX_IMAGE_UPLOAD_SIZE_BYTES) {
                         input.value = "";
                         setImageFile(null);
