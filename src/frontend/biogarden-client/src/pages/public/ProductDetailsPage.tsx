@@ -52,6 +52,8 @@ export default function ProductDetailsPage() {
   const [notFound, setNotFound] = useState(false);
   const [isAddingToCart, setIsAddingToCart] = useState(false);
   const [cartMessage, setCartMessage] = useState<string | null>(null);
+  const [availabilityRefreshFailed, setAvailabilityRefreshFailed] = useState(false);
+  const [isRefreshingAvailability, setIsRefreshingAvailability] = useState(false);
   const [quantity, setQuantity] = useState(1);
   const [availableToAdd, setAvailableToAdd] = useState(0);
   const [isImageOpen, setIsImageOpen] = useState(false);
@@ -178,18 +180,30 @@ export default function ProductDetailsPage() {
     },
   };
 
+  async function refreshAvailability(currentProduct: ProductDetails) {
+    setIsRefreshingAvailability(true);
+    try {
+      const remaining = await getAvailableQuantityToAdd(currentProduct.id);
+      setAvailableToAdd(remaining);
+      setQuantity(remaining > 0 ? 1 : 0);
+      setAvailabilityRefreshFailed(false);
+    } catch {
+      setAvailabilityRefreshFailed(true);
+    } finally {
+      setIsRefreshingAvailability(false);
+    }
+  }
+
   async function handleAddToCart() {
     const currentProduct = product;
-    if (!currentProduct) return;
+    if (!currentProduct || isAddingToCart || isRefreshingAvailability || availabilityRefreshFailed) return;
 
     setIsAddingToCart(true);
     setCartMessage(null);
     try {
       await addItem(currentProduct.id, quantity);
-      const remaining = await getAvailableQuantityToAdd(currentProduct.id);
-      setAvailableToAdd(remaining);
-      setQuantity(remaining > 0 ? 1 : 0);
       setCartMessage(`${quantity} ${getUnitLabel(currentProduct.unit)} bekerült a kosárba.`);
+      await refreshAvailability(currentProduct);
     } catch (error) {
       setCartMessage(getErrorMessage(error, "A terméket nem sikerült kosárba tenni."));
     } finally {
@@ -310,7 +324,7 @@ export default function ProductDetailsPage() {
                     const next = Number(event.target.value);
                     setQuantity(Math.min(availableToAdd, Math.max(1, Number.isFinite(next) ? next : 1)));
                   }}
-                  disabled={availableToAdd === 0 || isAddingToCart}
+                  disabled={availableToAdd === 0 || isAddingToCart || isRefreshingAvailability || availabilityRefreshFailed}
                   className="w-20 rounded-sm border border-site-border px-3 py-2 text-center"
                 />
                 <span className="text-site-muted">{getUnitLabel(product.unit)}</span>
@@ -318,7 +332,7 @@ export default function ProductDetailsPage() {
               <button
                 type="button"
                 onClick={() => void handleAddToCart()}
-                disabled={!product.available || availableToAdd === 0 || quantity < 1 || isAddingToCart}
+                disabled={!product.available || availableToAdd === 0 || quantity < 1 || isAddingToCart || isRefreshingAvailability || availabilityRefreshFailed}
                 className="inline-flex rounded-sm bg-site-green px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-site-green-hover disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {isAddingToCart ? "Kosárba helyezés..." : "Kosárba teszem"}
@@ -333,6 +347,15 @@ export default function ProductDetailsPage() {
             </div>
             {product.available && availableToAdd === 0 && <p className="mt-3 text-sm font-semibold text-site-danger">A teljes készlet jelenleg más kosarakban van lefoglalva vagy már a kosaradban található.</p>}
             {cartMessage && <p className="mt-3 text-sm font-semibold text-site-green-dark" role="status">{cartMessage}</p>}
+            {availabilityRefreshFailed && (
+              <div className="mt-3 text-sm text-site-danger">
+                <p role="alert">A termék a kosárba került, de a fennmaradó készletet nem sikerült frissíteni. Újabb hozzáadás előtt frissítsd a készletet.</p>
+                <button type="button" disabled={isRefreshingAvailability} onClick={() => void refreshAvailability(product)}
+                  className="mt-2 font-semibold underline disabled:opacity-50">
+                  {isRefreshingAvailability ? "Készlet frissítése..." : "Készlet újrapróbálása"}
+                </button>
+              </div>
+            )}
         </div>
       </article>
 
