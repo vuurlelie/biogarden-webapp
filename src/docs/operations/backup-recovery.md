@@ -27,7 +27,10 @@ Database backup must include:
 - products and inventory,
 - carts and orders,
 - payment provider event records,
+- durable payment attempts and manual payment-correction audit records,
 - queued order emails and their delivery state,
+- queued contact/account notifications, leases and expiry state,
+- private checkout drafts (handle their personal data with the backup's restricted retention policy),
 - account lifecycle requests,
 - all EF Core migration history.
 
@@ -85,13 +88,16 @@ Run this rehearsal before first production launch:
 2. Restore the latest database backup into that environment.
 3. Restore uploaded files into the matching non-production file storage.
 4. Point the API to the restored database and file storage.
-5. Pause both email workers with `OrderEmailOutbox__Enabled=false` and `NotificationEmailOutbox__Enabled=false` and disable real SMTP/payment delivery, then start the restored API. A restored queue can include messages already sent after the backup point. Use test recipients/preview mode for recovery testing and reconcile pending messages before enabling delivery.
+5. Before the first API start, pause both email workers with `OrderEmailOutbox__Enabled=false` and `NotificationEmailOutbox__Enabled=false`, disable real SMTP/payment/error-alert delivery, and pause draft/cart cleanup while checking the restored baseline. A restored queue can include messages already sent after the backup point. Keep the restore environment private and callbacks pointed at the intended environment. Resume each worker only as part of its deliberate test; use designated test recipients/preview mode and reconcile pending messages before enabling delivery.
 6. Check `/health/live` and `/health/ready`.
 7. Open the frontend against the restored API.
 8. Verify products, posts, account login, orders, and admin order details.
-9. Record restore duration and any manual fixes.
+9. Reconcile representative order totals, stock, payment attempts/events/corrections, notification queue state and uploaded-image references with the backup point. Account sessions and tokens restored from a backup may reflect an earlier security state; decide how sessions will be revoked before reopening a recovered environment. Do not send restored reset links or treat database payment state as proof that the provider has reversed or forgotten a charge.
+10. Record restore duration and any manual fixes, then record whether the measured data loss/recovery time meet the agreed RPO/RTO. A failed or unexecuted rehearsal remains a failed or unverified release gate.
 
 The restore drill is successful only when the restored system can serve real application pages, not merely when a backup file exists.
+
+Keep the drill record private: source backup identifier/time, target isolated environment, database/file restoration start/end times, selected application packages, migration state, safety settings before first start, actual scenario outcomes, discrepancies, reconciliation, operator and evidence references. Link its identifier from the [release record](deployment-runbook.md#release-record-template). A locally migrated empty database is not a restore drill from a hosted backup.
 
 ## Incident Recovery
 
