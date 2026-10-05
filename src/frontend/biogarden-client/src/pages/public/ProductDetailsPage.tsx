@@ -1,3 +1,4 @@
+import { managedImage } from "../../shared/utils/managedImage";
 import { useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router";
 import { getProductById, getProducts } from "../../features/products/api/productsApi";
@@ -269,7 +270,8 @@ export default function ProductDetailsPage() {
             aria-label="Termékkép nagyítása"
           >
             <img
-              src={getProductImageUrl(product.image)}
+              {...managedImage(product.image)}
+              sizes="(min-width: 640px) 420px, 100vw"
               alt={product.name}
               className="aspect-square max-h-[420px] w-full max-w-[420px] cursor-zoom-in rounded-sm object-cover"
             />

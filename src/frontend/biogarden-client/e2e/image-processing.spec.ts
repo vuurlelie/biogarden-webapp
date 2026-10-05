@@ -23,3 +23,20 @@ test("admin image processing crops without upscaling and rejects oversized sourc
   expect(result.post).toEqual([400, 300]);
   expect(result.error).toContain("20 MB");
 });
+
+test("responsive image paths distinguish new uploads from legacy files", async ({ page }) => {
+  await mockPublicShopApi(page);
+  await page.goto("/termekek");
+  const images = await page.evaluate(async () => {
+    const modulePath = "/src/shared/utils/managedImage.ts";
+    const { managedImage } = await import(/* @vite-ignore */ modulePath);
+    const stem = "/uploads/products/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+    return [managedImage(`${stem}.jpg`), managedImage(`${stem}-r1200.jpg`), managedImage(`${stem}-r300.png`)];
+  });
+  expect(images[0].srcSet).toBeUndefined();
+  expect(images[1].srcSet).toContain("-480w.webp 480w");
+  expect(images[1].srcSet).toContain("-960w.webp 960w");
+  expect(images[1].srcSet).toContain("-1200w.webp 1200w");
+  expect(images[2].srcSet.split(", ")).toHaveLength(1);
+  expect(images[2].srcSet).toContain("-300w.webp 300w");
+});

@@ -31,3 +31,11 @@ No database migration is required. Deploy the matching API and frontend. Magick.
 Back up and preserve `wwwroot/uploads/posts` and `wwwroot/uploads/products` across publish, rollback and redeployment. Do not synchronize these directories with deletion enabled or overwrite them with an empty build output. The app identity needs create/write/rename permissions there. Multiple API instances require the same durable upload storage. Keep `.uploading` files non-public if adding IIS MIME mappings or replacing the static-file configuration. Existing images are retained as-is; only newly uploaded images are decoded/re-encoded by this release.
 
 Automated coverage includes HTML attack vectors and editor markup, real SQL/API article writes and legacy reads, multipart uploads for both image categories, public image retrieval, authentication/authorization, corrupt and renamed files, dimensions/pixel limits, actual-byte limits, metadata stripping, temporary-file visibility, failed writes, concurrent decoding and cancellation.
+
+## Responsive images
+
+New uploads retain their full re-encoded image and generate WebP variants at 480, 960 and 1600 pixels wide, capped at the source width without upscaling. Duplicate widths are generated once. The original filename uses `<id>-r<source-width>.<extension>`; its variants use `<id>-<width>w.webp`. The original is published last, after every variant succeeds. A failed operation removes its generated variants; a process crash can leave unreferenced files for reviewed maintenance.
+
+Public product/article cards and detail images use responsive sources only for this new filename format. Legacy/default images keep their original URL; zoom keeps the full image. No database migration or automatic rewriting of existing uploads is required. Keep every variant with its original during backup, deployment and cleanup. A variant is referenced implicitly by its original: never classify it as orphaned solely because its filename is absent from SQL.
+
+The admin browser rejects source files over 20 MiB before decoding and centre-crops without enlarging small images. Its processed JPEG limit remains 2 MiB; server validation remains authoritative. The server permits at most three additional variants per upload, each bounded by the existing output limit. Account for the additional storage in hosting capacity checks.
