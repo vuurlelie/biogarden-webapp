@@ -1,3 +1,4 @@
+import { managedImage } from "../../../shared/utils/managedImage";
 import { useRef, useState } from "react";
 import { Link } from "react-router";
 import { useCart } from "../../cart/context/useCart";
@@ -10,15 +11,10 @@ import {
   getProductPackageLabel,
 } from "../utils/productLabels";
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 type ProductCardsProps = {
   products: ProductListItem[];
 };
-
-function getProductImageUrl(image: string): string {
-  return `${API_BASE_URL}/${image.replace(/^\/+/, "")}`;
-}
 
 export default function ProductCards({ products }: ProductCardsProps) {
   const { addItem } = useCart();
@@ -57,7 +53,8 @@ export default function ProductCards({ products }: ProductCardsProps) {
           >
             <Link to={detailsUrl} className="group relative block p-3">
               <img
-                src={getProductImageUrl(product.image)}
+                {...managedImage(product.image)}
+                sizes="(min-width: 1280px) 280px, (min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
                 alt={product.name}
                 className="aspect-square w-full rounded-sm object-cover transition duration-300 group-hover:scale-[1.02]"
                 width={600}

@@ -1,9 +1,9 @@
+import { managedImage } from "../../../shared/utils/managedImage";
 import { NavLink } from "react-router";
 import type { Post } from "../types/post.types";
 import { ROUTES } from "../../../shared/constants/routes";
 import FacebookPostActions from "./FacebookPostActions";
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 type KnowledgeCardsProps = {
   posts: Post[];
@@ -33,7 +33,6 @@ export default function KnowledgeCards({ posts }: KnowledgeCardsProps) {
   return (
     <div className="grid gap-8">
       {posts.map((post) => {
-        const imageUrl = `${API_BASE_URL}/${post.image}`;
         const postPath = `${ROUTES.posts}/${post.id}`;
 
         return (
@@ -45,7 +44,8 @@ export default function KnowledgeCards({ posts }: KnowledgeCardsProps) {
                 <div className="p-4">
                   <img
                     className="h-52 w-full object-cover rounded-sm md:h-64"
-                    src={imageUrl}
+                    {...managedImage(post.image)}
+                    sizes="(min-width: 1024px) 750px, 100vw"
                     alt={post.title}
                     width={1600}
                     height={1200}

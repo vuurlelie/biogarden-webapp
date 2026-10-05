@@ -1,10 +1,10 @@
+import { managedImage } from "../../../shared/utils/managedImage";
 import parse from "html-react-parser";
 import type { PostDetails } from "../types/post.types";
 import { ROUTES } from "../../../shared/constants/routes";
 import FacebookPostActions from "./FacebookPostActions";
 import PostDetailsNavigation from "./PostDetailsNavigation";
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 type PostDetailsContentProps = {
   post: PostDetails;
@@ -24,7 +24,6 @@ function getPostCategoryLabel(category: 0 | 1): string {
 export default function PostDetailsContent({
   post,
 }: PostDetailsContentProps) {
-  const imageUrl = `${API_BASE_URL}/${post.image}`;
   const postPath = `${ROUTES.posts}/${post.id}`;
 
   return (
@@ -57,7 +56,8 @@ export default function PostDetailsContent({
 
         <div className="relative overflow-hidden rounded-sm shadow-lg">
           <img
-            src={imageUrl}
+            {...managedImage(post.image)}
+            sizes="(min-width: 1152px) 1120px, 100vw"
             alt={post.title}
             className="h-[260px] w-full object-cover md:h-[420px] lg:h-[520px]"
             width={1600}

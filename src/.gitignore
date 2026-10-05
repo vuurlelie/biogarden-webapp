@@ -3,3 +3,8 @@
 # Local hosting publish settings and generated frontend deployment packages.
 **/Properties/PublishProfiles/
 /frontend/biogarden-client/*.zip
+
+# Runtime responsive uploads (original and generated variants).
+/backend/Biogarden.WebApi/wwwroot/uploads/*/[0-9a-f]*-r[0-9]*.*
+/backend/Biogarden.WebApi/wwwroot/uploads/*/[0-9a-f]*-[0-9]*w.webp
+/backend/Biogarden.WebApi/wwwroot/uploads/**/*.uploading

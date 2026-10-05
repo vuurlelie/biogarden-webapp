@@ -46,6 +46,8 @@ public sealed class ManagedImageStorage(IWebHostEnvironment environment)
         if (!await DecodeGate.WaitAsync(0, cancellationToken))
             throw new InvalidOperationException("Másik képfeltöltés folyamatban van. Próbáld újra.");
         string? temporaryPath = null;
+        var publishedVariants = new List<string>();
+        var completed = false;
         try
         {
             await using var input = file.OpenReadStream();
@@ -77,7 +79,28 @@ public sealed class ManagedImageStorage(IWebHostEnvironment environment)
             decoded.Strip();
 
             var directory = GetDirectory(category);
-            var fileName = $"{Guid.NewGuid():N}{extension}";
+            var imageId = Guid.NewGuid().ToString("N");
+            var fileName = $"{imageId}-r{decoded.Width}{extension}";
+            // The -r<width> marker guarantees that these bounded variants exist.
+            // Legacy filenames have no marker and remain single-source images.
+            foreach (var width in new uint[] { 480, 960, 1600 }.Select(x => Math.Min(x, decoded.Width)).Distinct())
+            {
+                using var variant = decoded.Clone();
+                variant.Resize(width, 0);
+                variant.Quality = 82;
+                temporaryPath = Path.Combine(directory, $"{Guid.NewGuid():N}.uploading");
+                await using (var output = new FileStream(temporaryPath, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+                {
+                    await variant.WriteAsync(output, MagickFormat.WebP, cancellationToken);
+                    if (output.Length > MaximumFileBytes)
+                        throw new ArgumentException("A feldolgozott kép túl nagy. Használj kisebb képet.");
+                }
+                cancellationToken.ThrowIfCancellationRequested();
+                var variantPath = Path.Combine(directory, $"{imageId}-{width}w.webp");
+                File.Move(temporaryPath, variantPath);
+                publishedVariants.Add(variantPath);
+                temporaryPath = null;
+            }
             // The temporary suffix is not served by the static-file middleware. A rename in
             // the same directory publishes only the complete, re-encoded image atomically.
             temporaryPath = Path.Combine(directory, $"{Guid.NewGuid():N}.uploading");
@@ -90,6 +113,7 @@ public sealed class ManagedImageStorage(IWebHostEnvironment environment)
             cancellationToken.ThrowIfCancellationRequested();
             File.Move(temporaryPath, Path.Combine(directory, fileName));
             temporaryPath = null;
+            completed = true;
             return $"/uploads/{Folder(category)}/{fileName}";
         }
         catch (MagickException exception)
@@ -98,7 +122,11 @@ public sealed class ManagedImageStorage(IWebHostEnvironment environment)
         }
         finally
         {
-            try { if (temporaryPath is not null) File.Delete(temporaryPath); }
+            try
+            {
+                if (temporaryPath is not null) File.Delete(temporaryPath);
+                if (!completed) foreach (var path in publishedVariants) File.Delete(path);
+            }
             finally { DecodeGate.Release(); }
         }
     }

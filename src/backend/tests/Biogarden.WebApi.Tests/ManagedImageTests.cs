@@ -21,6 +21,34 @@ public sealed class ManagedImageTests : IDisposable
 {
     private readonly string _root = Path.Combine(Path.GetTempPath(), $"BiogardenImageTests_{Guid.NewGuid():N}");
 
+    [Fact]
+    public async Task DefaultImagesDoNotReceiveImmutableCaching()
+    {
+        var directory = Path.Combine(_root, "uploads", "products");
+        Directory.CreateDirectory(directory);
+        await File.WriteAllBytesAsync(Path.Combine(directory, "default.jpg"), ImageBytes(MagickFormat.Jpeg));
+        using var factory = CreateFactory();
+        using var client = factory.CreateClient();
+        using var response = await client.GetAsync("/uploads/products/default.jpg");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.DoesNotContain("immutable", response.Headers.CacheControl?.ToString() ?? string.Empty);
+    }
+
+    [Fact]
+    public async Task Upload_CreatesBoundedVariantsWithMatchingAspectRatio()
+    {
+        var path = await Storage().SaveAsync(Form(CreatePng(1800, 1200), "large.png", "image/png"), ImageCategory.Products, default);
+        Assert.EndsWith("-r1800.png", path);
+        foreach (var width in new[] { 480, 960, 1600 })
+        {
+            var file = Path.Combine(_root, path.TrimStart('/').Replace("-r1800.png", $"-{width}w.webp"));
+            using var image = new MagickImage(file);
+            Assert.Equal((uint)width, image.Width);
+            Assert.InRange((int)image.Height, width * 2 / 3, width * 2 / 3 + 1);
+        }
+        Assert.Equal(4, Directory.GetFiles(Path.Combine(_root, "uploads", "products")).Length);
+    }
+
     [Theory]
     [InlineData("posts", "jpg", "image/jpeg", MagickFormat.Jpeg)]
     [InlineData("posts", "png", "image/png", MagickFormat.Png)]
@@ -39,7 +67,7 @@ public sealed class ManagedImageTests : IDisposable
         using var response = await client.PostAsync($"/api/admin/{category}/image", content);
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
         var result = await response.Content.ReadFromJsonAsync<ImageResponse>();
-        Assert.Matches($"^/uploads/{category}/[a-f0-9]{{32}}\\.{extension}$", result!.Path);
+        Assert.Matches($"^/uploads/{category}/[a-f0-9]{{32}}-r16\\.{extension}$", result!.Path);
         Assert.Equal(result.Path, response.Headers.Location!.OriginalString);
         var saved = await File.ReadAllBytesAsync(Path.Combine(_root, result.Path.TrimStart('/')));
         Assert.DoesNotContain("trailing-payload", Encoding.UTF8.GetString(saved));
@@ -47,9 +75,19 @@ public sealed class ManagedImageTests : IDisposable
         Assert.Equal(16u, decoded.Width);
         Assert.Equal(12u, decoded.Height);
         Assert.Empty(decoded.ProfileNames);
+        var variantPath = result.Path.Replace($"-r16.{extension}", "-16w.webp");
+        using var variantResponse = await client.GetAsync(variantPath);
+        Assert.Equal(HttpStatusCode.OK, variantResponse.StatusCode);
+        using var variant = new MagickImage(await variantResponse.Content.ReadAsByteArrayAsync());
+        Assert.Equal(16u, variant.Width);
+        Assert.Equal(12u, variant.Height);
+        Assert.Equal(MagickFormat.WebP, variant.Format);
         using var published = await client.GetAsync(result.Path);
         Assert.Equal(HttpStatusCode.OK, published.StatusCode);
         Assert.Equal(mime, published.Content.Headers.ContentType!.MediaType);
+        Assert.Contains("immutable", published.Headers.CacheControl!.ToString());
+        Assert.Equal(TimeSpan.FromDays(365), published.Headers.CacheControl.MaxAge);
+        Assert.Contains("immutable", variantResponse.Headers.CacheControl!.ToString());
         Assert.Empty(Directory.GetFiles(_root, "*.uploading", SearchOption.AllDirectories));
 
         // Even a legacy cleanup request must not delete a file another save may reference.

@@ -1,3 +1,4 @@
+import { bundledImageSources } from "../../../shared/utils/bundledImageSources";
 export default function AboutGarden({ bemutatkozo }: { bemutatkozo: string }) {
   return (
     <>
@@ -5,6 +6,8 @@ export default function AboutGarden({ bemutatkozo }: { bemutatkozo: string }) {
         <img
           className="w-full h-auto object-cover"
           src={bemutatkozo}
+          srcSet={bundledImageSources.bemutatkozo}
+          sizes="(min-width: 1152px) 1120px, 100vw"
           width={1667}
           height={600}
           alt="Életkép a kertészetből"

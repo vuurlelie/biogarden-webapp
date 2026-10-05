@@ -31,3 +31,19 @@ No database migration is required. Deploy the matching API and frontend. Magick.
 Back up and preserve `wwwroot/uploads/posts` and `wwwroot/uploads/products` across publish, rollback and redeployment. Do not synchronize these directories with deletion enabled or overwrite them with an empty build output. The app identity needs create/write/rename permissions there. Multiple API instances require the same durable upload storage. Keep `.uploading` files non-public if adding IIS MIME mappings or replacing the static-file configuration. Existing images are retained as-is; only newly uploaded images are decoded/re-encoded by this release.
 
 Automated coverage includes HTML attack vectors and editor markup, real SQL/API article writes and legacy reads, multipart uploads for both image categories, public image retrieval, authentication/authorization, corrupt and renamed files, dimensions/pixel limits, actual-byte limits, metadata stripping, temporary-file visibility, failed writes, concurrent decoding and cancellation.
+
+## Responsive images
+
+New uploads retain their full re-encoded image and generate WebP variants at 480, 960 and 1600 pixels wide, capped at the source width without upscaling. Duplicate widths are generated once. The original filename uses `<id>-r<source-width>.<extension>`; its variants use `<id>-<width>w.webp`. The original is published last, after every variant succeeds. A failed operation removes its generated variants; a process crash can leave unreferenced files for reviewed maintenance.
+
+Public product/article cards and detail images use responsive sources only for this new filename format. Legacy/default images keep their original URL; zoom keeps the full image. No database migration or automatic rewriting of existing uploads is required. Keep every variant with its original during backup, deployment and cleanup. A variant is referenced implicitly by its original: never classify it as orphaned solely because its filename is absent from SQL.
+
+The admin browser rejects source files over 20 MiB before decoding and centre-crops without enlarging small images. Its processed JPEG limit remains 2 MiB; server validation remains authoritative. The server permits at most three additional variants per upload, each bounded by the existing output limit. Account for the additional storage in hosting capacity checks.
+
+Server-named GUID uploads and their variants receive `Cache-Control: public,max-age=31536000,immutable`. Default/replaceable assets keep the normal static-file policy. Verify these headers on the actual hosting origin because IIS may serve files independently of ASP.NET Core. Emergency removal of an already-cached public image cannot retract browser copies; replacement must use a new filename.
+
+## Bundled image optimisation
+
+The homepage carousel/banner and about-page photos have checked-in WebP variants (768 pixels wide and full source width). Original JPEGs remain fallbacks. Regenerate these assets with `python scripts/images/generate_variants.py` using Pillow with WebP support; normal frontend builds need neither Python nor Pillow. Review visual quality after changing originals or encoder settings. The first carousel image remains eager and receives high fetch priority; other slides retain lazy loading.
+
+For the seven current photos, original JPEGs total 1,984,193 bytes; full-width WebP variants total 1,318,424 bytes (about 34% smaller), and 768-pixel variants total 394,372 bytes (about 80% smaller). These are file-size comparisons, not measured page-load improvements. Browser selection depends on viewport and device pixel ratio. Generated asset filenames are content-hashed by Vite during production builds.
