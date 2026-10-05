@@ -64,25 +64,29 @@ public sealed class AccountLifecycleOperations(
         user.LockoutEnabled = true;
         user.LockoutEnd = DateTimeOffset.MaxValue;
 
-        MarkAddressDeleted(user.ShippingAddress);
-        MarkAddressDeleted(user.BillingAddress);
+        var addressIds = GetSavedAddressIds(user);
+        user.ShippingAddress = null;
+        user.BillingAddress = null;
         user.ShippingAddressId = null;
         user.BillingAddressId = null;
 
         await DeleteOpenCartsAsync(user.Id, cancellationToken);
         await UpdateIdentityUserAsync(userManager, user);
+        await DeleteUnreferencedAddressesAsync(addressIds, cancellationToken);
         await QueueAccountAnonymizedEmailAsync(email, cancellationToken);
     }
 
     public async Task DeleteWithoutOrdersAsync(ApplicationUser user, CancellationToken cancellationToken)
     {
         var email = user.Email;
+        var addressIds = GetSavedAddressIds(user);
         await DeleteOpenCartsAsync(user.Id, cancellationToken);
         var result = await userManager.DeleteAsync(user);
         if (!result.Succeeded)
         {
             throw new InvalidOperationException(string.Join(", ", result.Errors.Select(error => error.Description)));
         }
+        await DeleteUnreferencedAddressesAsync(addressIds, cancellationToken);
         await QueueAccountDeletedEmailAsync(email, cancellationToken);
     }
 
@@ -143,12 +147,23 @@ public sealed class AccountLifecycleOperations(
         await notifications.QueueMessageAsync(message, "account-reactivated", cancellationToken);
     }
 
-    private static void MarkAddressDeleted(Address? address)
+    private static int[] GetSavedAddressIds(ApplicationUser user)
+        => new[] { user.ShippingAddressId, user.BillingAddressId }
+            .OfType<int>().Distinct().ToArray();
+
+    private async Task DeleteUnreferencedAddressesAsync(int[] addressIds, CancellationToken cancellationToken)
     {
-        if (address is not null)
-        {
-            address.RecordStatus = RecordStatus.Deleted;
-        }
+        if (addressIds.Length == 0) return;
+
+        // Run after Identity has persisted the detached/deleted user, inside the caller's
+        // transaction. Historical order addresses and other accounts' addresses must survive.
+        var addresses = await databaseContext.Addresses
+            .Where(address => addressIds.Contains(address.Id)
+                && !userManager.Users.Any(user => user.ShippingAddressId == address.Id || user.BillingAddressId == address.Id)
+                && !databaseContext.Orders.Any(order => order.AddressId == address.Id))
+            .ToListAsync(cancellationToken);
+        databaseContext.Addresses.RemoveRange(addresses);
+        await databaseContext.SaveChangesAsync(cancellationToken);
     }
 
     private static async Task UpdateIdentityUserAsync(

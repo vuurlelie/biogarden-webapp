@@ -97,7 +97,7 @@ The following references identify the concerns addressed during UAT preparation.
 | F09 — expiry, cleanup and pending-order policy | `CartCleanupTests`, `CheckoutDraftTests`, `ConcurrentCheckoutTests` | UAT-09/16; TECH-02/13; unpaid-order decision recorded explicitly |
 | F10 — hosted operation and release evidence | CI test/coverage gates and loopback browser journeys provide supporting evidence only | TECH-05/06/09; hosted smoke, TLS/origins, restart, SMTP, restore and rollback records |
 
-Passing one automated example does not close the whole reference. In particular, the [coverage follow-ups](verification.md#critical-backend-coverage) include account anonymization, payment-lock failure cleanup, cart removal/clearing and withdrawal handling. Record each applicable unresolved concern with its impact, owner and disposition before accepting the round.
+Passing one automated example does not close the whole reference. In particular, the [coverage follow-ups](verification.md#critical-backend-coverage) include Identity persistence failures, payment-lock failure cleanup, cart removal/clearing and withdrawal handling. Account erasure and saved-address cleanup have SQL workflow coverage in `AccountErasureTests`. Record each applicable unresolved concern with its impact, owner and disposition before accepting the round.
 
 ## Results and issue log template
 
