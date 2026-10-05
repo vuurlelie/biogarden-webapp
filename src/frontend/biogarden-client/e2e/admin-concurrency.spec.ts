@@ -28,9 +28,10 @@ test("product conflict preserves the draft and reloads current stock before reap
 test("stale order edit preserves input and reloads the verified payment before another save", async ({ page }) => {
 
   const writes: Record<string, unknown>[] = [];
-  await page.route(`${apiBaseUrl}/api/admin/orders`, route => route.fulfill({ json: [{ ...successfulOrder,
-    version: writes.length === 0 ? "old" : "new", paymentStatus: writes.length === 0 ? 0 : 2, status: 1 }] }));
+  await page.route((url) => url.origin === apiBaseUrl && url.pathname === "/api/admin/orders", route => route.fulfill({ json: { items: [{ ...successfulOrder,
+    version: writes.length === 0 ? "old" : "new", paymentStatus: writes.length === 0 ? 0 : 2, status: writes.length > 1 ? 2 : 1 }], page: 1, pageSize: 12, totalCount: 1, totalPages: 1 } }));
   await page.route(`${apiBaseUrl}/api/admin/orders/${successfulOrder.id}`, async route => {
+    if (route.request().method() === "GET") { await route.fulfill({ json: { ...successfulOrder, version: "new", paymentStatus: 2, status: 1 } }); return; }
     writes.push(route.request().postDataJSON());
     await route.fulfill(writes.length === 1 ? { status: 409, json: { detail: "Az adatok időközben megváltoztak." } }
       : { json: { ...successfulOrder, version: "saved", status: 2, paymentStatus: 2 } });
@@ -55,9 +56,10 @@ test("stale order edit preserves input and reloads the verified payment before a
 test("inventory conflict reloads sold stock and retains the previous input for comparison", async ({ page }) => {
 
   let submitted: Record<string, unknown> | undefined;
-  await page.route(`${apiBaseUrl}/api/admin/inventory`, route => route.fulfill({ json: [{ ...product, productId: 1,
-    version: submitted ? "new" : "old", stockQuantity: submitted ? 7 : 8, reservedQuantity: 0, availableQuantity: 7 }] }));
+  await page.route((url) => url.origin === apiBaseUrl && url.pathname === "/api/admin/inventory", route => route.fulfill({ json: { items: [{ ...product, productId: 1,
+    version: submitted ? "new" : "old", stockQuantity: submitted ? 7 : 8, reservedQuantity: 0, availableQuantity: 7 }], page: 1, pageSize: 12, totalCount: 1, totalPages: 1 } }));
   await page.route(`${apiBaseUrl}/api/admin/inventory/1`, async route => {
+    if (route.request().method() === "GET") { await route.fulfill({ json: { ...product, productId: 1, version: "new", stockQuantity: 7, reservedQuantity: 0, availableQuantity: 7 } }); return; }
     submitted = route.request().postDataJSON();
     await route.fulfill({ status: 409, json: { detail: "Készlet megváltozott." } });
   });
@@ -73,7 +75,7 @@ test("inventory conflict reloads sold stock and retains the previous input for c
 
 test("completed order permits audited refund recording but cannot become unpaid", async ({ page }) => {
   let submitted: Record<string, unknown> | undefined;
-  await page.route(`${apiBaseUrl}/api/admin/orders`, route => route.fulfill({ json: [{ ...successfulOrder, status: 3, paymentStatus: 4 }] }));
+  await page.route((url) => url.origin === apiBaseUrl && url.pathname === "/api/admin/orders", route => route.fulfill({ json: { items: [{ ...successfulOrder, status: 3, paymentStatus: submitted ? 5 : 4 }], page: 1, pageSize: 12, totalCount: 1, totalPages: 1 } }));
   await page.route(`${apiBaseUrl}/api/admin/orders/${successfulOrder.id}`, async route => {
     submitted = route.request().postDataJSON();
     await route.fulfill({ json: { ...successfulOrder, status: 3, paymentStatus: 5, version: "refunded" } });

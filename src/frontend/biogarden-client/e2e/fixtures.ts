@@ -439,7 +439,7 @@ export async function mockSumUpReturnStatusApi(
 }
 
 export async function mockAdminOrdersApi(page: Page) {
-  const adminOrder = {
+  let adminOrder = {
     ...successfulOrder,
     userId: "22222222-2222-2222-2222-222222222222",
     customerType: 1,
@@ -461,11 +461,12 @@ export async function mockAdminOrdersApi(page: Page) {
     await route.fallback();
   });
 
-  await page.route(`${apiBaseUrl}/api/admin/orders`, async (route) => {
-    await route.fulfill({ json: [adminOrder] });
+  await page.route((url) => url.origin === apiBaseUrl && url.pathname === "/api/admin/orders", async (route) => {
+    await route.fulfill({ json: createPagedResult([adminOrder], 1, 12, 1) });
   });
 
   await page.route(`${apiBaseUrl}/api/admin/orders/${adminOrder.id}`, async (route) => {
+    if (route.request().method() === "PUT") adminOrder = { ...adminOrder, status: 1, paymentStatus: 2 };
     await route.fulfill({
       json: {
         ...adminOrder,

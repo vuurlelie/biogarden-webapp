@@ -5,6 +5,8 @@ namespace Biogarden.DataAccess.Abstractions;
 
 public interface IAppDbContext
 {
+    DbSet<Microsoft.AspNetCore.Identity.IdentityUserRole<Guid>> UserRoles { get; }
+    DbSet<Microsoft.AspNetCore.Identity.IdentityRole<Guid>> Roles { get; }
     DbSet<Post> Posts { get; }
     DbSet<Product> Products { get; }
     DbSet<Address> Addresses { get; }

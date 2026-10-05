@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import AdminPagination from "../../shared/components/admin/AdminPagination";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
 import {
   getAdminOrderWithdrawalRequests,
@@ -32,6 +33,8 @@ function orderSearchUrl(orderNumber: string) {
   return `${ROUTES.adminOrders}?search=${encodeURIComponent(orderNumber)}`;
 }
 
+const PAGE_SIZE = 12;
+
 export default function AdminWithdrawalRequestsPage() {
   const [requests, setRequests] = useState<AdminOrderWithdrawalRequest[]>([]);
   const [loading, setLoading] = useState(true);
@@ -39,28 +42,43 @@ export default function AdminWithdrawalRequestsPage() {
   const [message, setMessage] = useState<string | null>(null);
   const [status, setStatus] = useState<RequestStatusFilter>("pending");
   const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
   const [handlingId, setHandlingId] = useState<number | null>(null);
 
-  const load = useCallback(async (signal?: AbortSignal) => {
-    setLoading(true);
+  const [pages, setTotalPages] = useState(1);
+  const requestId = useRef(0);
+  const mounted = useRef(true);
+
+  const load = useCallback(async (signal?: AbortSignal, background = false) => {
+    if (!mounted.current) return;
+    const id = ++requestId.current;
+    if (!background) setLoading(true);
     setError(null);
 
     try {
-      setRequests(await getAdminOrderWithdrawalRequests(signal));
+      const result = await getAdminOrderWithdrawalRequests({ page, pageSize: PAGE_SIZE, search, status: status === "all" ? undefined : status === "pending" ? 1 : 2 }, signal);
+      if (!mounted.current || signal?.aborted || id !== requestId.current) return;
+      setRequests(result.items);
+      setTotalPages(result.totalPages);
+      if (result.page !== page) setPage(result.page);
     } catch (loadError) {
-      if (!isAbortError(loadError)) {
+      if (mounted.current && !signal?.aborted && id === requestId.current && !isAbortError(loadError)) {
         setError(getErrorMessage(loadError, "Az elállási vagy fogyasztói kérések betöltése nem sikerült."));
       }
     } finally {
-      if (!signal?.aborted) setLoading(false);
+      if (mounted.current && !signal?.aborted && id === requestId.current) setLoading(false);
     }
-  }, []);
+  }, [page, search, status]);
 
+  const latestLoad = useRef(load);
   useEffect(() => {
+    latestLoad.current = load;
+    mounted.current = true;
+    ++requestId.current;
     const controller = new AbortController();
-    void load(controller.signal);
-    return () => controller.abort();
-  }, [load]);
+    const timer = window.setTimeout(() => void load(controller.signal), search.trim() ? 250 : 0);
+    return () => { mounted.current = false; window.clearTimeout(timer); controller.abort(); };
+  }, [load, search]);
 
   useEffect(() => {
     if (!message) return;
@@ -68,23 +86,8 @@ export default function AdminWithdrawalRequestsPage() {
     return () => clearTimeout(timer);
   }, [message]);
 
-  const filtered = useMemo(() => {
-    const query = search.trim().toLocaleLowerCase("hu-HU");
-
-    return requests.filter((request) => {
-      if (status === "pending" && request.status !== 1) return false;
-      if (status === "handled" && request.status !== 2) return false;
-      if (
-        query &&
-        ![request.orderNumber, request.customerName, request.customerEmail, request.reason].some((value) =>
-          value.toLocaleLowerCase("hu-HU").includes(query),
-        )
-      ) {
-        return false;
-      }
-      return true;
-    });
-  }, [requests, search, status]);
+  const current = page;
+  const filtered = requests;
 
   async function markHandled(request: AdminOrderWithdrawalRequest) {
     setHandlingId(request.id);
@@ -93,6 +96,7 @@ export default function AdminWithdrawalRequestsPage() {
     try {
       const updated = await markAdminOrderWithdrawalRequestHandled(request.id);
       setRequests((items) => items.map((item) => (item.id === updated.id ? updated : item)));
+      void latestLoad.current(undefined, true);
       setMessage(`${request.orderNumber} kérését feldolgozottra állítottad.`);
     } catch (handleError) {
       setError(getErrorMessage(handleError, "A kérés feldolgozottra állítása nem sikerült."));
@@ -114,8 +118,9 @@ export default function AdminWithdrawalRequestsPage() {
         <label className="text-sm font-semibold">
           Keresés
           <input
+            maxLength={200}
             value={search}
-            onChange={(event) => setSearch(event.target.value)}
+            onChange={(event) => { setSearch(event.target.value); setPage(1); }}
             placeholder="Rendelésszám, név, email vagy kérés szövege"
             className="mt-1.5 w-full rounded-sm border border-site-border px-3 py-2.5"
           />
@@ -125,7 +130,7 @@ export default function AdminWithdrawalRequestsPage() {
           Állapot
           <select
             value={status}
-            onChange={(event) => setStatus(event.target.value as RequestStatusFilter)}
+            onChange={(event) => { setStatus(event.target.value as RequestStatusFilter); setPage(1); }}
             className="mt-1.5 w-full rounded-sm border border-site-border px-3 py-2.5"
           >
             <option value="pending">Feldolgozásra vár</option>
@@ -207,6 +212,7 @@ export default function AdminWithdrawalRequestsPage() {
           ))}
         </section>
       )}
+      {!loading && requests.length > 0 && <AdminPagination page={current} totalPages={pages} onPageChange={setPage} />}
     </div>
   );
 }

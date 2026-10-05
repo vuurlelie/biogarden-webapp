@@ -1,11 +1,13 @@
+import { adminListQuery, type AdminListQuery } from "./adminListQuery";
+import type { PagedResult } from "../../../shared/types/pagination";
 import type { AdminUser, AdminUserErasureResult } from "../types/users.types";
 import { adminRequest } from "./adminApiClient";
 
-export async function getAdminUsers(signal?: AbortSignal): Promise<AdminUser[]> {
-  const response = await adminRequest("/users", {
+export async function getAdminUsers(query: AdminListQuery, signal?: AbortSignal): Promise<PagedResult<AdminUser>> {
+  const response = await adminRequest(`/users${adminListQuery(query)}`, {
     signal,
   });
-  return response.json() as Promise<AdminUser[]>;
+  return response.json() as Promise<PagedResult<AdminUser>>;
 }
 
 export async function setAdminRole(userId: string, isAdmin: boolean): Promise<AdminUser> {

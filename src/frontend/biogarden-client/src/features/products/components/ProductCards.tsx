@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Link } from "react-router";
 import { useCart } from "../../cart/context/useCart";
 import { ROUTES } from "../../../shared/constants/routes";
+import { getErrorMessage } from "../../../shared/utils/errorHandling";
 import type { ProductListItem } from "../types/product.types";
 import {
   formatProductPrice,
@@ -21,16 +22,22 @@ function getProductImageUrl(image: string): string {
 
 export default function ProductCards({ products }: ProductCardsProps) {
   const { addItem } = useCart();
-  const [addingProductId, setAddingProductId] = useState<number | null>(null);
+  const pendingProducts = useRef(new Set<number>());
+  const [addingProductIds, setAddingProductIds] = useState<ReadonlySet<number>>(new Set());
+  const [errors, setErrors] = useState<Record<number, string | undefined>>({});
 
   async function handleAddToCart(productId: number) {
-    setAddingProductId(productId);
+    if (pendingProducts.current.has(productId)) return;
+    pendingProducts.current.add(productId);
+    setAddingProductIds(new Set(pendingProducts.current));
+    setErrors(current => ({ ...current, [productId]: undefined }));
     try {
       await addItem(productId);
-    } catch {
-      // Cart errors are presented on the cart page; the button becomes available again.
+    } catch (error) {
+      setErrors(current => ({ ...current, [productId]: getErrorMessage(error, "A terméket nem sikerült kosárba tenni.") }));
     } finally {
-      setAddingProductId(null);
+      pendingProducts.current.delete(productId);
+      setAddingProductIds(new Set(pendingProducts.current));
     }
   }
 
@@ -110,12 +117,13 @@ export default function ProductCards({ products }: ProductCardsProps) {
                 <button
                   type="button"
                   onClick={() => void handleAddToCart(product.id)}
-                  disabled={!product.available || addingProductId === product.id}
+                  disabled={!product.available || addingProductIds.has(product.id)}
                   className="inline-flex rounded-sm border border-transparent bg-site-green px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-site-green-hover disabled:cursor-not-allowed disabled:border-site-border disabled:bg-transparent disabled:text-site-muted disabled:hover:bg-transparent"
                 >
-                  {addingProductId === product.id ? "Hozzáadás..." : "Kosárba"}
+                  {addingProductIds.has(product.id) ? "Hozzáadás..." : "Kosárba"}
                 </button>
               </div>
+              {errors[product.id] && <p role="alert" className="mt-3 text-sm font-semibold text-site-danger">{errors[product.id]}</p>}
             </div>
           </article>
         );

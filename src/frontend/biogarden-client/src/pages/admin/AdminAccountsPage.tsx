@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import {
   completeErasureRequest,
   confirmAdminUserEmail,
@@ -395,25 +395,39 @@ export default function AdminAccountsPage() {
   const [status, setStatus] = useState<"all" | "active" | "inactive" | "request">("all");
   const [page, setPage] = useState(1);
 
-  const load = useCallback(async (signal?: AbortSignal) => {
-    setLoading(true);
+  const [pages, setTotalPages] = useState(1);
+  const requestId = useRef(0);
+  const mounted = useRef(true);
+
+  const load = useCallback(async (signal?: AbortSignal, background = false) => {
+    if (!mounted.current) return;
+    const id = ++requestId.current;
+    if (!background) setLoading(true);
     setError(null);
     try {
-      setUsers(await getAdminUsers(signal));
+      const result = await getAdminUsers({ page, pageSize: PAGE_SIZE, search, role, status }, signal);
+      if (!mounted.current || signal?.aborted || id !== requestId.current) return;
+      setUsers(result.items);
+      setTotalPages(result.totalPages);
+      if (result.page !== page) setPage(result.page);
     } catch (loadError) {
-      if (!isAbortError(loadError)) {
+      if (mounted.current && !signal?.aborted && id === requestId.current && !isAbortError(loadError)) {
         setError(getErrorMessage(loadError, "A felhasználók betöltése nem sikerült."));
       }
     } finally {
-      if (!signal?.aborted) setLoading(false);
+      if (mounted.current && !signal?.aborted && id === requestId.current) setLoading(false);
     }
-  }, []);
+  }, [page, search, role, status]);
 
+  const latestLoad = useRef(load);
   useEffect(() => {
+    latestLoad.current = load;
+    mounted.current = true;
+    ++requestId.current;
     const controller = new AbortController();
-    void load(controller.signal);
-    return () => controller.abort();
-  }, [load]);
+    const timer = window.setTimeout(() => void load(controller.signal), search.trim() ? 250 : 0);
+    return () => { mounted.current = false; window.clearTimeout(timer); controller.abort(); };
+  }, [load, search]);
 
   useEffect(() => {
     if (!message) return;
@@ -421,32 +435,19 @@ export default function AdminAccountsPage() {
     return () => clearTimeout(timer);
   }, [message]);
 
-  const filtered = useMemo(() => {
-    const query = search.trim().toLocaleLowerCase("hu-HU");
-    return users.filter((user) => {
-      if (isTerminalDeletedUser(user)) return false;
-      if (query && ![fullName(user), user.email, user.phoneNumber ?? "", user.companyName ?? "", user.taxNumber ?? ""].some((value) => value.toLocaleLowerCase("hu-HU").includes(query))) return false;
-      if (role === "admin" && !user.isAdmin) return false;
-      if (role === "customer" && user.isAdmin) return false;
-      if (status === "active" && user.isDeactivated) return false;
-      if (status === "inactive" && !user.isDeactivated) return false;
-      if (status === "request" && !user.pendingRequest) return false;
-      return true;
-    });
-  }, [users, search, role, status]);
-
-  const pages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  const current = Math.min(page, pages);
-  const shown = filtered.slice((current - 1) * PAGE_SIZE, current * PAGE_SIZE);
+  const current = page;
+  const shown = users;
 
   function updateUser(updated: AdminUser) {
     setUsers((items) => items.map((item) => item.id === updated.id ? updated : item));
+    void latestLoad.current(undefined, true);
   }
 
   function eraseUser(result: AdminUserErasureResult) {
     setUsers((items) => result.user
       ? items.map((item) => item.id === result.userId ? result.user! : item).filter((item) => !isTerminalDeletedUser(item))
       : items.filter((item) => item.id !== result.userId));
+    void latestLoad.current(undefined, true);
   }
 
   return (
@@ -458,7 +459,8 @@ export default function AdminAccountsPage() {
       <section className="grid gap-4 rounded-sm border border-site-border bg-white p-4 shadow-sm md:grid-cols-3">
         <label htmlFor="admin-account-search" className="text-sm font-semibold">
           Keresés
-          <input id="admin-account-search" value={search} onChange={(event) => { setSearch(event.target.value); setPage(1); }} placeholder="Név, email, telefon, cég" className="mt-1.5 w-full rounded-sm border border-site-border px-3 py-2.5" />
+          <input id="admin-account-search" maxLength={200}
+            value={search} onChange={(event) => { setSearch(event.target.value); setPage(1); }} placeholder="Név, email, telefon, cég" className="mt-1.5 w-full rounded-sm border border-site-border px-3 py-2.5" />
         </label>
         <label htmlFor="admin-account-role" className="text-sm font-semibold">
           Szerepkör
@@ -489,7 +491,7 @@ export default function AdminAccountsPage() {
         </section>
       )}
 
-      {!loading && filtered.length > 0 && <AdminPagination page={current} totalPages={pages} onPageChange={setPage} />}
+      {!loading && users.length > 0 && <AdminPagination page={current} totalPages={pages} onPageChange={setPage} />}
     </div>
   );
 }

@@ -1,3 +1,4 @@
+using Biogarden.BusinessLogic.DTOs.Common;
 using Biogarden.BusinessLogic.Abstractions;
 using Biogarden.BusinessLogic.DTOs.Admin;
 using Microsoft.AspNetCore.Authorization;
@@ -14,8 +15,15 @@ public sealed class AdminInventoryController : ControllerBase
     public AdminInventoryController(IAdminInventoryService inventoryService) => _inventoryService = inventoryService;
 
     [HttpGet]
-    public async Task<ActionResult<IReadOnlyList<AdminInventoryItemDto>>> GetAll(CancellationToken cancellationToken)
-        => Ok(await _inventoryService.GetAllAsync(cancellationToken));
+    public async Task<ActionResult<PagedResultDto<AdminInventoryItemDto>>> GetAll([FromQuery] AdminInventoryListQuery query, CancellationToken cancellationToken)
+        => Ok(await _inventoryService.GetPageAsync(query, cancellationToken));
+
+    [HttpGet("{id:int}")]
+    public async Task<ActionResult<AdminInventoryItemDto>> GetById(int id, CancellationToken token)
+    {
+        var result = await _inventoryService.GetByIdAsync(id, token);
+        return result is null ? NotFound() : Ok(result);
+    }
 
     [HttpPut("{productId:int}")]
     public async Task<ActionResult<AdminInventoryItemDto>> Update(int productId, UpdateAdminInventoryDto changes, CancellationToken cancellationToken)

@@ -52,6 +52,9 @@ export default function ProductDetailsPage() {
   const [notFound, setNotFound] = useState(false);
   const [isAddingToCart, setIsAddingToCart] = useState(false);
   const [cartMessage, setCartMessage] = useState<string | null>(null);
+  const [availabilityRefreshFailed, setAvailabilityRefreshFailed] = useState(false);
+  const [isRefreshingAvailability, setIsRefreshingAvailability] = useState(false);
+  const productRequests = useRef<AbortController | null>(null);
   const [quantity, setQuantity] = useState(1);
   const [availableToAdd, setAvailableToAdd] = useState(0);
   const [isImageOpen, setIsImageOpen] = useState(false);
@@ -67,6 +70,8 @@ export default function ProductDetailsPage() {
   useEffect(() => {
     const parsedProductId = Number(productId);
     let shouldIgnoreResult = false;
+    const controller = new AbortController();
+    productRequests.current = controller;
 
     if (!Number.isInteger(parsedProductId) || parsedProductId <= 0) {
       setNotFound(true);
@@ -79,8 +84,13 @@ export default function ProductDetailsPage() {
         setIsLoading(true);
         setHasError(false);
         setNotFound(false);
+        setRelatedProducts([]);
+        setCartMessage(null);
+        setAvailabilityRefreshFailed(false);
+        setIsRefreshingAvailability(false);
+        setIsAddingToCart(false);
 
-        const loadedProduct = await getProductById(parsedProductId);
+        const loadedProduct = await getProductById(parsedProductId, controller.signal);
 
         if (shouldIgnoreResult) return;
 
@@ -91,15 +101,18 @@ export default function ProductDetailsPage() {
         }
 
         setProduct(loadedProduct);
-        const products = await getProducts();
-        if (shouldIgnoreResult) return;
+        // Recommendations are optional and must not delay availability or block purchasing.
+        void getProducts(controller.signal).then(products => {
+          if (shouldIgnoreResult) return;
+          const otherProducts = products.filter((item) => item.id !== loadedProduct.id);
+          const sameCategoryProducts = otherProducts.filter((item) => item.category === loadedProduct.category);
+          const fallbackProducts = otherProducts.filter((item) => item.category !== loadedProduct.category);
+          setRelatedProducts([...sameCategoryProducts, ...fallbackProducts].slice(0, 4));
+        }).catch(() => {
+          // The product remains usable when optional recommendations are unavailable.
+        });
 
-        const otherProducts = products.filter((item) => item.id !== loadedProduct.id);
-        const sameCategoryProducts = otherProducts.filter((item) => item.category === loadedProduct.category);
-        const fallbackProducts = otherProducts.filter((item) => item.category !== loadedProduct.category);
-        setRelatedProducts([...sameCategoryProducts, ...fallbackProducts].slice(0, 4));
-
-        const availableQuantity = await getAvailableQuantityToAdd(loadedProduct.id);
+        const availableQuantity = await getAvailableQuantityToAdd(loadedProduct.id, controller.signal);
         if (shouldIgnoreResult) return;
         setAvailableToAdd(availableQuantity);
         setQuantity(availableQuantity > 0 ? 1 : 0);
@@ -115,6 +128,7 @@ export default function ProductDetailsPage() {
     void loadProduct();
     return () => {
       shouldIgnoreResult = true;
+      controller.abort();
     };
   }, [productId]);
 
@@ -178,22 +192,38 @@ export default function ProductDetailsPage() {
     },
   };
 
+  async function refreshAvailability(currentProduct: ProductDetails) {
+    const signal = productRequests.current?.signal;
+    setIsRefreshingAvailability(true);
+    try {
+      const remaining = await getAvailableQuantityToAdd(currentProduct.id, signal);
+      if (signal?.aborted) return;
+      setAvailableToAdd(remaining);
+      setQuantity(remaining > 0 ? 1 : 0);
+      setAvailabilityRefreshFailed(false);
+    } catch {
+      if (!signal?.aborted) setAvailabilityRefreshFailed(true);
+    } finally {
+      if (!signal?.aborted) setIsRefreshingAvailability(false);
+    }
+  }
+
   async function handleAddToCart() {
     const currentProduct = product;
-    if (!currentProduct) return;
+    if (!currentProduct || isAddingToCart || isRefreshingAvailability || availabilityRefreshFailed) return;
+    const signal = productRequests.current?.signal;
 
     setIsAddingToCart(true);
     setCartMessage(null);
     try {
       await addItem(currentProduct.id, quantity);
-      const remaining = await getAvailableQuantityToAdd(currentProduct.id);
-      setAvailableToAdd(remaining);
-      setQuantity(remaining > 0 ? 1 : 0);
+      if (signal?.aborted) return;
       setCartMessage(`${quantity} ${getUnitLabel(currentProduct.unit)} bekerült a kosárba.`);
+      await refreshAvailability(currentProduct);
     } catch (error) {
-      setCartMessage(getErrorMessage(error, "A terméket nem sikerült kosárba tenni."));
+      if (!signal?.aborted) setCartMessage(getErrorMessage(error, "A terméket nem sikerült kosárba tenni."));
     } finally {
-      setIsAddingToCart(false);
+      if (!signal?.aborted) setIsAddingToCart(false);
     }
   }
 
@@ -310,7 +340,7 @@ export default function ProductDetailsPage() {
                     const next = Number(event.target.value);
                     setQuantity(Math.min(availableToAdd, Math.max(1, Number.isFinite(next) ? next : 1)));
                   }}
-                  disabled={availableToAdd === 0 || isAddingToCart}
+                  disabled={availableToAdd === 0 || isAddingToCart || isRefreshingAvailability || availabilityRefreshFailed}
                   className="w-20 rounded-sm border border-site-border px-3 py-2 text-center"
                 />
                 <span className="text-site-muted">{getUnitLabel(product.unit)}</span>
@@ -318,7 +348,7 @@ export default function ProductDetailsPage() {
               <button
                 type="button"
                 onClick={() => void handleAddToCart()}
-                disabled={!product.available || availableToAdd === 0 || quantity < 1 || isAddingToCart}
+                disabled={!product.available || availableToAdd === 0 || quantity < 1 || isAddingToCart || isRefreshingAvailability || availabilityRefreshFailed}
                 className="inline-flex rounded-sm bg-site-green px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-site-green-hover disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {isAddingToCart ? "Kosárba helyezés..." : "Kosárba teszem"}
@@ -333,6 +363,15 @@ export default function ProductDetailsPage() {
             </div>
             {product.available && availableToAdd === 0 && <p className="mt-3 text-sm font-semibold text-site-danger">A teljes készlet jelenleg más kosarakban van lefoglalva vagy már a kosaradban található.</p>}
             {cartMessage && <p className="mt-3 text-sm font-semibold text-site-green-dark" role="status">{cartMessage}</p>}
+            {availabilityRefreshFailed && (
+              <div className="mt-3 text-sm text-site-danger">
+                <p role="alert">A termék a kosárba került, de a fennmaradó készletet nem sikerült frissíteni. Újabb hozzáadás előtt frissítsd a készletet.</p>
+                <button type="button" disabled={isRefreshingAvailability} onClick={() => void refreshAvailability(product)}
+                  className="mt-2 font-semibold underline disabled:opacity-50">
+                  {isRefreshingAvailability ? "Készlet frissítése..." : "Készlet újrapróbálása"}
+                </button>
+              </div>
+            )}
         </div>
       </article>
 

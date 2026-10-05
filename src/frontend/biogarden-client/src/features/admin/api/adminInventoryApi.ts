@@ -1,3 +1,5 @@
+import { adminListQuery, type AdminListQuery } from "./adminListQuery";
+import type { PagedResult } from "../../../shared/types/pagination";
 import type { UnitOfMeasure } from "../../products/types/product.types";
 import { adminRequest } from "./adminApiClient";
 
@@ -14,11 +16,11 @@ export type AdminInventoryItem = {
   deliveryAvailable: boolean;
 };
 
-export async function getAdminInventory(signal?: AbortSignal): Promise<AdminInventoryItem[]> {
-  const response = await adminRequest("/inventory", {
+export async function getAdminInventory(query: AdminListQuery, signal?: AbortSignal): Promise<PagedResult<AdminInventoryItem>> {
+  const response = await adminRequest(`/inventory${adminListQuery(query)}`, {
     signal,
   });
-  return response.json() as Promise<AdminInventoryItem[]>;
+  return response.json() as Promise<PagedResult<AdminInventoryItem>>;
 }
 
 export async function updateAdminInventory(
@@ -31,5 +33,10 @@ export async function updateAdminInventory(
     method: "PUT",
     jsonBody: { stockQuantity, available, version },
   });
+  return response.json() as Promise<AdminInventoryItem>;
+}
+
+export async function getAdminInventoryItem(id: number): Promise<AdminInventoryItem> {
+  const response = await adminRequest(`/inventory/${id}`);
   return response.json() as Promise<AdminInventoryItem>;
 }

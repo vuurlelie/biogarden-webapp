@@ -1,6 +1,7 @@
 using Biogarden.BusinessLogic.Abstractions;
 using Biogarden.BusinessLogic.DTOs.Admin;
 using Biogarden.BusinessLogic.DTOs.Orders;
+using Biogarden.BusinessLogic.DTOs.Common;
 using Biogarden.BusinessLogic.Mappers;
 using Biogarden.DataAccess.Abstractions;
 using Biogarden.DataAccess.Enums;
@@ -27,21 +28,45 @@ public sealed class AdminOrderService : IAdminOrderService
         _emailTemplateService = emailTemplateService;
     }
 
-    public async Task<IReadOnlyList<OrderDto>> GetAllAsync(CancellationToken cancellationToken = default)
+    public async Task<PagedResultDto<OrderDto>> GetPageAsync(AdminOrderListQuery filter, CancellationToken cancellationToken = default)
     {
-        var orders = await _databaseContext.Orders.AsNoTracking()
+        var query = _databaseContext.Orders.AsNoTracking();
+        var search = filter.Search?.Trim();
+        if (!string.IsNullOrEmpty(search)) query = query.Where(x => x.OrderNumber.Contains(search) || x.CustomerName.Contains(search) || x.CustomerEmail.Contains(search));
+        if (filter.Status.HasValue) query = query.Where(x => x.Status == filter.Status);
+        if (filter.Fulfillment.HasValue) query = query.Where(x => x.FulfillmentMethod == filter.Fulfillment);
+        var count = await query.CountAsync(cancellationToken);
+        var page = AdminPaging.Page(filter, count);
+        var orders = await query
+            .OrderByDescending(order => order.CreatedAtUtc).ThenBy(order => order.Id)
+            .Skip((page - 1) * filter.NormalizedPageSize).Take(filter.NormalizedPageSize)
             .Include(order => order.Items)
             .Include(order => order.WithdrawalRequests)
-            .OrderByDescending(order => order.CreatedAtUtc).ToListAsync(cancellationToken);
-        return orders.Select(order => order.ToDto()).ToList();
+            .AsSplitQuery().ToListAsync(cancellationToken);
+        return new(orders.Select(order => order.ToDto()).ToList(), page, filter.NormalizedPageSize, count);
     }
 
-    public async Task<IReadOnlyList<AdminOrderWithdrawalRequestDto>> GetWithdrawalRequestsAsync(CancellationToken cancellationToken = default)
+    public async Task<OrderDto?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
     {
-        return await _databaseContext.OrderWithdrawalRequests.AsNoTracking()
+        var order = await _databaseContext.Orders.AsNoTracking().Include(x => x.Items).Include(x => x.WithdrawalRequests)
+            .AsSplitQuery().SingleOrDefaultAsync(x => x.Id == id, cancellationToken);
+        return order?.ToDto();
+    }
+
+    public async Task<PagedResultDto<AdminOrderWithdrawalRequestDto>> GetWithdrawalRequestsAsync(AdminWithdrawalListQuery filter, CancellationToken cancellationToken = default)
+    {
+        var query = _databaseContext.OrderWithdrawalRequests.AsNoTracking();
+        var search = filter.Search?.Trim();
+        if (!string.IsNullOrEmpty(search)) query = query.Where(x => x.CustomerName.Contains(search) || x.CustomerEmail.Contains(search) || x.Reason.Contains(search) || (x.Order != null && x.Order.OrderNumber.Contains(search)));
+        if (filter.Status.HasValue) query = query.Where(x => x.Status == filter.Status);
+        var count = await query.CountAsync(cancellationToken);
+        var page = AdminPaging.Page(filter, count);
+        var items = await query
             .Include(request => request.Order)
             .OrderBy(request => request.Status)
             .ThenByDescending(request => request.RequestedAtUtc)
+            .ThenBy(request => request.Id)
+            .Skip((page - 1) * filter.NormalizedPageSize).Take(filter.NormalizedPageSize)
             .Select(request => new AdminOrderWithdrawalRequestDto
             {
                 Id = request.Id,
@@ -57,6 +82,7 @@ public sealed class AdminOrderService : IAdminOrderService
                 HandledAtUtc = request.HandledAtUtc
             })
             .ToListAsync(cancellationToken);
+        return new(items, page, filter.NormalizedPageSize, count);
     }
 
     public async Task<OrderDto> UpdateAsync(Guid orderId, AdminOrderUpdateDto changes, CancellationToken cancellationToken = default, Guid? actorId = null)

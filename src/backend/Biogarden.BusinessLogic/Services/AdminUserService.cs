@@ -1,5 +1,6 @@
 using Biogarden.BusinessLogic.Abstractions;
 using Biogarden.BusinessLogic.DTOs.Admin;
+using Biogarden.BusinessLogic.DTOs.Common;
 using Biogarden.DataAccess.Abstractions;
 using Biogarden.DataAccess.Entities;
 using Biogarden.DataAccess.Enums;
@@ -24,11 +25,27 @@ public sealed class AdminUserService : IAdminUserService
         _lifecycle = lifecycle;
     }
 
-    public async Task<IReadOnlyList<AdminUserDto>> GetAllAsync(CancellationToken cancellationToken = default)
+    public async Task<PagedResultDto<AdminUserDto>> GetPageAsync(AdminUserListQuery filter, CancellationToken cancellationToken = default)
     {
-        var users = await _userManager.Users
-            .AsNoTracking()
+        var query = _userManager.Users.AsNoTracking()
+            .Where(x => x.AnonymizedAtUtc == null && (x.Email == null || !x.Email.EndsWith("@deleted.invalid")));
+        var search = filter.Search?.Trim();
+        if (!string.IsNullOrEmpty(search)) query = query.Where(x =>
+            ((x.LastName ?? "") + " " + (x.FirstName ?? "")).Contains(search)
+            || (x.Email != null && x.Email.Contains(search)) || (x.PhoneNumber != null && x.PhoneNumber.Contains(search))
+            || (x.CompanyName != null && x.CompanyName.Contains(search)) || (x.TaxNumber != null && x.TaxNumber.Contains(search)));
+        var adminIds = _databaseContext.UserRoles.Where(ur => _databaseContext.Roles.Any(r => r.Id == ur.RoleId && r.NormalizedName == "ADMIN")).Select(ur => ur.UserId);
+        if (filter.Role == "admin") query = query.Where(x => adminIds.Contains(x.Id));
+        if (filter.Role == "customer") query = query.Where(x => !adminIds.Contains(x.Id));
+        if (filter.Status == "active") query = query.Where(x => x.DeactivatedAtUtc == null);
+        if (filter.Status == "inactive") query = query.Where(x => x.DeactivatedAtUtc != null);
+        if (filter.Status == "request") query = query.Where(x => _databaseContext.AccountLifecycleRequests.Any(r => r.UserId == x.Id && r.Status == AccountLifecycleRequestStatus.Pending));
+        var count = await query.CountAsync(cancellationToken);
+        var page = AdminPaging.Page(filter, count);
+        var users = await query
             .OrderByDescending(user => user.CreatedAt)
+            .ThenBy(user => user.Id)
+            .Skip((page - 1) * filter.NormalizedPageSize).Take(filter.NormalizedPageSize)
             .ToListAsync(cancellationToken);
 
         var userIds = users.Select(user => user.Id).ToArray();
@@ -60,16 +77,20 @@ public sealed class AdminUserService : IAdminUserService
             .ToDictionaryAsync(request => request.UserId, cancellationToken);
 
         var result = new List<AdminUserDto>(users.Count);
+        var pageRoles = await (from membership in _databaseContext.UserRoles
+                               join role in _databaseContext.Roles on membership.RoleId equals role.Id
+                               where userIds.Contains(membership.UserId)
+                               select new { membership.UserId, role.Name }).ToListAsync(cancellationToken);
         foreach (var user in users)
         {
-            var roles = await _userManager.GetRolesAsync(user);
+            var roles = pageRoles.Where(x => x.UserId == user.Id && x.Name != null).Select(x => x.Name!).ToList();
             orderCounts.TryGetValue(user.Id, out var counts);
             pendingRequests.TryGetValue(user.Id, out var pendingRequest);
 
             result.Add(ToDto(user, roles, counts?.OrderCount ?? 0, counts?.ActiveOrderCount ?? 0, pendingRequest));
         }
 
-        return result;
+        return new(result, page, filter.NormalizedPageSize, count);
     }
 
     public async Task<AdminUserDto> SetAdminRoleAsync(Guid userId, bool isAdmin, Guid currentAdminId, CancellationToken cancellationToken = default)

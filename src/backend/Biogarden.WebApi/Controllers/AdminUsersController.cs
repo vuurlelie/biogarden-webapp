@@ -1,3 +1,4 @@
+using Biogarden.BusinessLogic.DTOs.Common;
 using System.Security.Claims;
 using Biogarden.BusinessLogic.Abstractions;
 using Biogarden.BusinessLogic.DTOs.Admin;
@@ -21,9 +22,9 @@ public sealed class AdminUsersController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<ActionResult<IReadOnlyList<AdminUserDto>>> GetAll(CancellationToken cancellationToken)
+    public async Task<ActionResult<PagedResultDto<AdminUserDto>>> GetAll([FromQuery] AdminUserListQuery query, CancellationToken cancellationToken)
     {
-        return Ok(await _service.GetAllAsync(cancellationToken));
+        return Ok(await _service.GetPageAsync(query, cancellationToken));
     }
 
     [HttpPost("{userId:guid}/admin-role")]
