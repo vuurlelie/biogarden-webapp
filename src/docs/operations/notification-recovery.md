@@ -16,6 +16,10 @@ Contact payloads are retained while pending for up to 30 days. Successful delive
 
 Registration, password reset and account lifecycle changes commit their state and notification in the same SQL transaction. If notification persistence fails, the account change rolls back. SMTP runs only in the worker, after commit: an SMTP outage cannot turn a successful registration, password change, deactivation, reactivation, deletion or anonymization into a failed HTTP operation. The existing order-confirmation outbox remains separate.
 
+Account deletion/anonymization also removes the account's saved shipping and billing address rows when no remaining account or order references them. Anonymization detaches both saved addresses; historical order snapshots and addresses still referenced by orders or other accounts are preserved unchanged. Address cleanup and removal of open carts/drafts roll back with the account change if notification persistence fails. A pending erasure request does not remove addresses until it is completed; deactivation retains them for reactivation.
+
+This cleanup applies to erasures performed with the updated application. It does not retroactively identify address rows left by earlier deletions: their former account links may already be lost. Before removing legacy orphan rows, review their provenance and all remaining references in a backed-up environment. No bulk cleanup or schema migration is included in this change.
+
 | Operation | Successful HTTP response | Meaning |
 | --- | --- | --- |
 | Registration | 201 | Account created and confirmation request stored. |
