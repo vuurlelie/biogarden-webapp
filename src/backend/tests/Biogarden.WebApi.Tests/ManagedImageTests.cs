@@ -22,6 +22,19 @@ public sealed class ManagedImageTests : IDisposable
     private readonly string _root = Path.Combine(Path.GetTempPath(), $"BiogardenImageTests_{Guid.NewGuid():N}");
 
     [Fact]
+    public async Task DefaultImagesDoNotReceiveImmutableCaching()
+    {
+        var directory = Path.Combine(_root, "uploads", "products");
+        Directory.CreateDirectory(directory);
+        await File.WriteAllBytesAsync(Path.Combine(directory, "default.jpg"), ImageBytes(MagickFormat.Jpeg));
+        using var factory = CreateFactory();
+        using var client = factory.CreateClient();
+        using var response = await client.GetAsync("/uploads/products/default.jpg");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.DoesNotContain("immutable", response.Headers.CacheControl?.ToString() ?? string.Empty);
+    }
+
+    [Fact]
     public async Task Upload_CreatesBoundedVariantsWithMatchingAspectRatio()
     {
         var path = await Storage().SaveAsync(Form(CreatePng(1800, 1200), "large.png", "image/png"), ImageCategory.Products, default);
@@ -72,6 +85,9 @@ public sealed class ManagedImageTests : IDisposable
         using var published = await client.GetAsync(result.Path);
         Assert.Equal(HttpStatusCode.OK, published.StatusCode);
         Assert.Equal(mime, published.Content.Headers.ContentType!.MediaType);
+        Assert.Contains("immutable", published.Headers.CacheControl!.ToString());
+        Assert.Equal(TimeSpan.FromDays(365), published.Headers.CacheControl.MaxAge);
+        Assert.Contains("immutable", variantResponse.Headers.CacheControl!.ToString());
         Assert.Empty(Directory.GetFiles(_root, "*.uploading", SearchOption.AllDirectories));
 
         // Even a legacy cleanup request must not delete a file another save may reference.
