@@ -1,3 +1,4 @@
+import { bundledImageSources } from "../../../shared/utils/bundledImageSources";
 export default function AboutItems({ bemutatokep }: { bemutatokep: string }) {
   return (
     <section id="about" className="relative mt-16 overflow-hidden bg-white shadow-lg">
@@ -42,6 +43,8 @@ export default function AboutItems({ bemutatokep }: { bemutatokep: string }) {
           <img
             className="h-auto w-full object-cover object-top sm:h-72 md:h-96 lg:h-full"
             src={bemutatokep}
+          srcSet={bundledImageSources.bemutatokep}
+          sizes="(min-width: 1152px) 560px, 100vw"
             width={1220}
             height={1251}
             alt="Kertészeti életkép"

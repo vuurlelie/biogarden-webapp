@@ -1,3 +1,4 @@
+import { bundledImageSources } from "../../shared/utils/bundledImageSources";
 import Carousel from "../../features/home/components/Carousel";
 import ArticleGrid from "../../features/home/components/ArticleGrid";
 import Seo from "../../shared/seo/Seo";
@@ -8,7 +9,12 @@ import thirdslide from "../../assets/images/thirdcarousel.jpg";
 import fourthslide from "../../assets/images/fourthcarousel.jpg";
 import actual from "../../assets/images/actual.jpg";
 
-const slides = [firstslide, secondslide, thirdslide, fourthslide];
+const slides = [
+  { src: firstslide, srcSet: bundledImageSources.firstcarousel },
+  { src: secondslide, srcSet: bundledImageSources.secondcarousel },
+  { src: thirdslide, srcSet: bundledImageSources.thirdcarousel },
+  { src: fourthslide, srcSet: bundledImageSources.fourthcarousel },
+];
 const SITE_URL = (import.meta.env.VITE_SITE_URL ?? "https://bakonykincse.hu").replace(/\/$/, "");
 
 const organizationStructuredData = {
@@ -35,10 +41,12 @@ export default function HomePage() {
       {/* CAROUSEL */}
       <div className="w-full px-0 mt-2 sm:mt-3 shadow-lg">
         <Carousel auto interval={5000}>
-          {slides.map((src, i) => (
+          {slides.map((slide, i) => (
             <img
               key={i}
-              src={src}
+              {...slide}
+              sizes="100vw"
+              fetchPriority={i === 0 ? "high" : "auto"}
               alt={`Biogarden slide ${i + 1}`}
               className="w-full object-cover object-center"
               width={1667}
@@ -60,6 +68,8 @@ export default function HomePage() {
         <img
           className="w-full h-auto"
           src={actual}
+          srcSet={bundledImageSources.actual}
+          sizes="100vw"
           width={1667}
           height={834}
           alt="Aktuális hirdetés"

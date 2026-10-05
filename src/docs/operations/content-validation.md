@@ -41,3 +41,9 @@ Public product/article cards and detail images use responsive sources only for t
 The admin browser rejects source files over 20 MiB before decoding and centre-crops without enlarging small images. Its processed JPEG limit remains 2 MiB; server validation remains authoritative. The server permits at most three additional variants per upload, each bounded by the existing output limit. Account for the additional storage in hosting capacity checks.
 
 Server-named GUID uploads and their variants receive `Cache-Control: public,max-age=31536000,immutable`. Default/replaceable assets keep the normal static-file policy. Verify these headers on the actual hosting origin because IIS may serve files independently of ASP.NET Core. Emergency removal of an already-cached public image cannot retract browser copies; replacement must use a new filename.
+
+## Bundled image optimisation
+
+The homepage carousel/banner and about-page photos have checked-in WebP variants (768 pixels wide and full source width). Original JPEGs remain fallbacks. Regenerate these assets with `python scripts/images/generate_variants.py` using Pillow with WebP support; normal frontend builds need neither Python nor Pillow. Review visual quality after changing originals or encoder settings. The first carousel image remains eager and receives high fetch priority; other slides retain lazy loading.
+
+For the seven current photos, original JPEGs total 1,984,193 bytes; full-width WebP variants total 1,318,424 bytes (about 34% smaller), and 768-pixel variants total 394,372 bytes (about 80% smaller). These are file-size comparisons, not measured page-load improvements. Browser selection depends on viewport and device pixel ratio. Generated asset filenames are content-hashed by Vite during production builds.

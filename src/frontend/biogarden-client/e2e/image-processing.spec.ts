@@ -40,3 +40,16 @@ test("responsive image paths distinguish new uploads from legacy files", async (
   expect(images[2].srcSet.split(", ")).toHaveLength(1);
   expect(images[2].srcSet).toContain("-300w.webp 300w");
 });
+
+for (const width of [390, 1440]) {
+  test(`homepage uses decoded responsive images at ${width}px`, async ({ page }) => {
+    await mockPublicShopApi(page);
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto("/");
+    const first = page.getByRole("img", { name: "Biogarden slide 1", exact: true });
+    await expect(first).toHaveAttribute("fetchpriority", "high");
+    await expect.poll(() => first.evaluate((img: HTMLImageElement) => img.naturalWidth)).toBeGreaterThan(0);
+    expect(await first.evaluate((img: HTMLImageElement) => img.currentSrc)).toContain(width < 768 ? "firstcarousel-768w.webp" : "firstcarousel-1664w.webp");
+    await page.screenshot({ path: `test-results/home-images-${width}.png`, fullPage: true });
+  });
+}
