@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Response } from "@playwright/test";
 
 test("isolated guests, login merge, lost checkout response and cancellation use the real API", async ({ page, browser }) => {
   const api = process.env.E2E_API_URL!;
@@ -29,9 +29,34 @@ test("isolated guests, login merge, lost checkout response and cancellation use 
     await page.getByLabel(/Telefonszám/).fill("+36301234567");
     await page.getByRole("button", { name: /Tovább a pénztárhoz/ }).click();
     await page.getByLabel(/Fizetés átvételkor/).check();
-    await page.getByRole("button", { name: /Rendelés áttekintése/ }).click();
+    await expect(page.getByLabel(/Fizetés átvételkor/)).toBeChecked();
+    await expect(page.getByRole("definition").last()).toHaveText(/1\s*800/);
+    const reviewButton = page.getByRole("button", { name: /Rendelés áttekintése/ });
+    await expect(reviewButton).toBeEnabled();
     const dialog = page.getByRole("dialog", { name: /Megrendelés áttekintése/ });
-    await expect(dialog).toBeVisible();
+    const validationResponses: { status: number; body: unknown }[] = [];
+    const recordValidation = async (response: Response) => {
+      if (response.url() !== `${api}/api/cart/validate`) return;
+      validationResponses.push({ status: response.status(), body: await response.json().catch(() => null) });
+    };
+    page.on("response", recordValidation);
+    try {
+      await reviewButton.click();
+      await expect(dialog).toBeVisible();
+      await expect.poll(() => validationResponses).toContainEqual({ status: 200, body: { isValid: true, issues: [] } });
+    } catch (error) {
+      // Only this isolated journey's synthetic data is logged; never run it against a hosted API.
+      console.error("Checkout review diagnostics:", JSON.stringify({
+        validationResponses,
+        alerts: await page.getByRole("alert").allTextContents(),
+        invalidFields: await page.locator("input:invalid, [aria-invalid='true']").evaluateAll(elements =>
+          elements.map(element => ({ name: element.getAttribute("name"), type: element.getAttribute("type"),
+            message: element instanceof HTMLInputElement ? element.validationMessage : null }))),
+        formInert: await page.locator("form").evaluateAll(elements => elements.map(element => (element as HTMLElement).inert)),
+        dialogCount: await page.locator('[role="dialog"]').count(),
+      }));
+      throw error;
+    } finally { page.off("response", recordValidation); }
     await expect.poll(() => dialog.evaluate(element => element.contains(document.activeElement))).toBe(true);
     await page.keyboard.press("Escape");
     await expect(dialog).not.toBeVisible();
