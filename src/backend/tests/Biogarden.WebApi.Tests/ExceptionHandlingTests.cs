@@ -13,8 +13,10 @@ public sealed class ExceptionHandlingTests
 {
     [Theory]
     [InlineData("unexpected", 500)]
+    [InlineData("wrapped-database", 500)]
     [InlineData("validation", 400)]
     [InlineData("concurrency", 409)]
+    [InlineData("wrapped-concurrency", 409)]
     [InlineData("business-conflict", 409)]
     [InlineData("payment-recovery", 503)]
     [InlineData("non-sql-timeout", 500)]
@@ -23,7 +25,9 @@ public sealed class ExceptionHandlingTests
         const string internalDetail = "Database internal-server/customer-table is unavailable";
         Exception exception = failure switch
         {
+            "wrapped-database" => new InvalidOperationException(internalDetail, new DbUpdateException(internalDetail)),
             "validation" => new ArgumentException("Quantity must be positive."),
+            "wrapped-concurrency" => new InvalidOperationException(internalDetail, new DbUpdateConcurrencyException(internalDetail)),
             "concurrency" => new DbUpdateConcurrencyException(internalDetail),
             "business-conflict" => new InvalidOperationException("Stock is reserved."),
             "payment-recovery" => new Biogarden.BusinessLogic.Services.PaymentRecoveryException(),

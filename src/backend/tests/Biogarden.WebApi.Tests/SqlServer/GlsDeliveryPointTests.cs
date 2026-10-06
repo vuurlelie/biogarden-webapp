@@ -164,7 +164,6 @@ public sealed class GlsDeliveryPointTests : IAsyncLifetime
     public async Task DraftRestoresSelectionAndKeepsPersonalFieldsWhenPointBecomesUnavailable()
     {
         using var client = _app.Factory.CreateClient();
-        client.DefaultRequestHeaders.Add("X-Checkout-Request", "1");
         var cart = (await client.GetFromJsonAsync<CartDto>("/api/cart"))!;
         var path = $"/api/checkout-drafts/{cart.Id}";
         var point = Point();

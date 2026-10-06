@@ -194,7 +194,7 @@ public sealed class AuthServiceTests
         });
 
         Assert.Equal(
-            "A fiók még nincs megerősítve. Kérjük, ellenőrizd az email fiókodat.",
+            "Hibás email vagy jelszó.",
             result.ErrorMessage);
         Assert.False(result.Succeeded);
         _tokenService.Verify(

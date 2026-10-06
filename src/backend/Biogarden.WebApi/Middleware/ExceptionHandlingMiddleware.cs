@@ -50,8 +50,9 @@ public sealed class ExceptionHandlingMiddleware
         IErrorAlertService errorAlertService,
         Exception exception)
     {
+        var concurrencyFailure = ContainsConcurrencyFailure(exception);
         var transientDatabaseFailure = exception is not Biogarden.BusinessLogic.Services.PaymentRecoveryException
-            && exception is not Microsoft.EntityFrameworkCore.DbUpdateConcurrencyException
+            && !concurrencyFailure
             && IsTransientDatabaseFailure(exception);
         var (statusCode, title) = exception switch
         {
@@ -63,7 +64,8 @@ public sealed class ExceptionHandlingMiddleware
             KeyNotFoundException => (HttpStatusCode.NotFound, "Resource not found."),
             ArgumentException => (HttpStatusCode.BadRequest, "Validation failed."),
             UnauthorizedAccessException => (HttpStatusCode.Unauthorized, "Authentication failed."),
-            Microsoft.EntityFrameworkCore.DbUpdateConcurrencyException => (HttpStatusCode.Conflict, "Order data changed."),
+            _ when concurrencyFailure => (HttpStatusCode.Conflict, "Order data changed."),
+            _ when ContainsDatabaseFailure(exception) => (HttpStatusCode.InternalServerError, "Unexpected server error."),
             InvalidOperationException => (HttpStatusCode.Conflict, "Operation conflict."),
             _ => (HttpStatusCode.InternalServerError, "Unexpected server error.")
         };
@@ -81,7 +83,7 @@ public sealed class ExceptionHandlingMiddleware
                 ? "Az adatbázis átmenetileg nem érhető el. Ellenőrizd a művelet eredményét, mielőtt újra próbálkozol."
                 : statusCode == HttpStatusCode.InternalServerError
                 ? "Váratlan hiba történt. Kérjük, próbáld újra később."
-                : exception is Microsoft.EntityFrameworkCore.DbUpdateConcurrencyException
+                : concurrencyFailure
                     ? "Az adatok időközben megváltoztak. Frissítsd az oldalt, és próbáld újra."
                     : exception.Message,
             TraceId = context.TraceIdentifier,
@@ -95,6 +97,21 @@ public sealed class ExceptionHandlingMiddleware
 
         var json = JsonSerializer.Serialize(response, new JsonSerializerOptions(JsonSerializerDefaults.Web));
         await context.Response.WriteAsync(json);
+    }
+
+    private static bool ContainsConcurrencyFailure(Exception exception)
+    {
+        for (Exception? current = exception; current is not null; current = current.InnerException)
+            if (current is Microsoft.EntityFrameworkCore.DbUpdateConcurrencyException) return true;
+        return false;
+    }
+
+    private static bool ContainsDatabaseFailure(Exception exception)
+    {
+        for (Exception? current = exception; current is not null; current = current.InnerException)
+            if (current is Microsoft.EntityFrameworkCore.DbUpdateException or System.Data.Common.DbException)
+                return true;
+        return false;
     }
 
     private static bool IsTransientDatabaseFailure(Exception exception)

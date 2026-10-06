@@ -6,28 +6,18 @@ using Biogarden.BusinessLogic.Services;
 using Biogarden.WebApi.Constants;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.AspNetCore.RateLimiting;
 
 namespace Biogarden.WebApi.Controllers;
 
 [ApiController]
+[Biogarden.WebApi.Filters.BrowserSessionRequest(ProtectReads = true)]
 [Route("api/checkout-drafts")]
 [EnableRateLimiting(RateLimitPolicyNames.CartMutation)]
 [RequestSizeLimit(16384)]
 [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
 public sealed class CheckoutDraftsController(CheckoutDraftService drafts) : Controller
 {
-    // A required non-simple header prevents form-based CSRF for guest-cookie requests.
-    // Cross-origin scripts require the existing explicit-origin credentialed CORS policy.
-    public override void OnActionExecuting(ActionExecutingContext context)
-    {
-        if (Request.Headers["X-Checkout-Request"] != "1")
-            context.Result = BadRequest(new { message = "Érvénytelen pénztárkérés." });
-        else if (Request.Headers.ContainsKey("Authorization") && User.Identity?.IsAuthenticated != true)
-            context.Result = Unauthorized();
-    }
-
     private Guid? UserId => Guid.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var id) ? id : null;
     private string? GuestId => Guid.TryParse(Request.Cookies["biogarden_cart_id"], out var id) ? id.ToString() : null;
     private string Session => UserId.HasValue

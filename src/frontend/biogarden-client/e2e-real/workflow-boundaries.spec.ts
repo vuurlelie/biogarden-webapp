@@ -17,7 +17,7 @@ test("expired guest cart and private content stay unavailable through the real A
   // Availability is enforced at the real mutation endpoint even with a known product ID.
   const unavailable = await page.evaluate(async ({ api, id }) => {
     const response = await fetch(`${api}/api/cart/items`, { method: "POST", credentials: "include",
-      headers: { "Content-Type": "application/json" }, body: JSON.stringify({ productId: Number(id), quantity: 1 }) });
+      headers: { "Content-Type": "application/json", "X-Checkout-Request": "1" }, body: JSON.stringify({ productId: Number(id), quantity: 1 }) });
     return response.status;
   }, { api, id: process.env.E2E_UNAVAILABLE_ID! });
   expect(unavailable).toBe(409);

@@ -23,7 +23,6 @@ public sealed class CheckoutDraftTests : IAsyncLifetime
     private HttpClient Client()
     {
         var client = _app.Factory.CreateClient();
-        client.DefaultRequestHeaders.Add("X-Checkout-Request", "1");
         return client;
     }
     private static string Path(Guid cart) => $"/api/checkout-drafts/{cart}";

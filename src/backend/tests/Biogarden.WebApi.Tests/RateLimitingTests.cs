@@ -20,6 +20,98 @@ namespace Biogarden.WebApi.Tests;
 public sealed class RateLimitingTests
 {
     [Theory]
+    [InlineData("http://localhost:5173", true)]
+    [InlineData("https://untrusted.example", false)]
+    public async Task BrowserPreflight_AllowsOnlyConfiguredFrontend(string origin, bool allowed)
+    {
+        using var factory = new BiogardenWebApiFactory();
+        using var client = factory.CreateClient();
+        using var request = new HttpRequestMessage(HttpMethod.Options, "/api/cart/items");
+        request.Headers.Add("Origin", origin);
+        request.Headers.Add("Access-Control-Request-Method", "POST");
+        request.Headers.Add("Access-Control-Request-Headers", "x-checkout-request,content-type");
+        using var response = await client.SendAsync(request);
+        Assert.Equal(allowed, response.Headers.Contains("Access-Control-Allow-Origin"));
+        if (allowed) Assert.Equal(origin, Assert.Single(response.Headers.GetValues("Access-Control-Allow-Origin")));
+    }
+
+    [Theory]
+    [InlineData("/api/cart/items", "POST")]
+    [InlineData("/api/cart", "DELETE")]
+    [InlineData("/api/orders/11111111-1111-1111-1111-111111111111/sumup-checkout", "POST")]
+    public async Task CookieMutations_RequireBrowserHeader(string path, string method)
+    {
+        using var factory = CreateFactory(services =>
+        {
+            services.RemoveAll<ICartService>();
+            services.AddScoped<ICartService, SuccessfulCartService>();
+            services.RemoveAll<IOrderService>();
+            services.AddScoped<IOrderService, SuccessfulOrderService>();
+        });
+        using var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Remove("X-Checkout-Request");
+        using var request = new HttpRequestMessage(new HttpMethod(method), path);
+        if (path == "/api/cart/items") request.Content = CreateAddCartItemRequestContent();
+        using var response = await client.SendAsync(request);
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.True(response.Headers.CacheControl?.NoStore);
+    }
+
+    [Fact]
+    public async Task ProviderCallback_DoesNotRequireBrowserHeader()
+    {
+        using var factory = CreateFactory(services =>
+        {
+            services.RemoveAll<ISumUpCheckoutStatusService>();
+            services.AddScoped<ISumUpCheckoutStatusService, SuccessfulCallback>();
+        });
+        using var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Remove("X-Checkout-Request");
+        using var response = await client.PostAsync("/api/sumup/checkout-status", new StringContent("{}"));
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    private sealed class SuccessfulCallback : ISumUpCheckoutStatusService
+    {
+        public Task HandleAsync(string payload, CancellationToken cancellationToken = default) => Task.CompletedTask;
+    }
+
+    [Theory]
+    [InlineData(false, null, null, HttpStatusCode.BadRequest)]
+    [InlineData(true, "https://untrusted.example", null, HttpStatusCode.Forbidden)]
+    [InlineData(true, "http://localhost:5173", null, HttpStatusCode.OK)]
+    [InlineData(true, null, "invalid", HttpStatusCode.Unauthorized)]
+    public async Task GuestCart_RejectsUntrustedRequests(bool header, string? origin, string? token, HttpStatusCode expected)
+    {
+        using var factory = CreateFactory(services =>
+        {
+            services.RemoveAll<ICartService>();
+            services.AddScoped<ICartService, SuccessfulCartService>();
+        });
+        using var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Remove("X-Checkout-Request");
+        if (header) client.DefaultRequestHeaders.Add("X-Checkout-Request", "1");
+        if (origin is not null) client.DefaultRequestHeaders.Add("Origin", origin);
+        if (token is not null) client.DefaultRequestHeaders.Authorization = new("Bearer", token);
+        using var response = await client.GetAsync("/api/cart");
+        Assert.Equal(expected, response.StatusCode);
+        Assert.True(response.Headers.CacheControl?.NoStore);
+        if (expected != HttpStatusCode.OK) Assert.False(response.Headers.Contains("Set-Cookie"));
+    }
+
+    [Theory]
+    [InlineData("/api/auth/login")]
+    [InlineData("/api/orders")]
+    public async Task SensitiveErrors_AreNotCacheable(string path)
+    {
+        using var factory = new BiogardenWebApiFactory();
+        using var client = factory.CreateClient();
+        using var response = await client.PostAsJsonAsync(path, new { });
+        Assert.False(response.IsSuccessStatusCode);
+        Assert.True(response.Headers.CacheControl?.NoStore);
+    }
+
+    [Theory]
     [InlineData("https://localhost", "None", true)]
     [InlineData("http://localhost", "Lax", false)]
     public async Task GuestCartCookie_UsesCrossSitePolicyOnlyOverHttps(string baseUrl, string sameSite, bool secure)
@@ -194,6 +286,29 @@ public sealed class RateLimitingTests
         Assert.Equal("checkout-key-123", orderService.LastPlaceOrderDto?.IdempotencyKey);
     }
 
+    [Theory]
+    [InlineData(false, HttpStatusCode.Conflict)]
+    [InlineData(true, HttpStatusCode.InternalServerError)]
+    public async Task CartErrors_UseCentralMapping_WithoutExposingDatabaseDetails(bool databaseFailure, HttpStatusCode expected)
+    {
+        const string detail = "Internal database name and SQL details";
+        var failure = databaseFailure
+            ? new InvalidOperationException(detail, new Microsoft.EntityFrameworkCore.DbUpdateException(detail))
+            : new InvalidOperationException("Insufficient stock.");
+        using var factory = CreateFactory(services =>
+        {
+            services.RemoveAll<ICartService>();
+            services.AddSingleton<ICartService>(new SuccessfulCartService(failure));
+        });
+        using var client = factory.CreateClient();
+        using var response = await client.PostAsync("/api/cart/items", CreateAddCartItemRequestContent());
+        Assert.Equal(expected, response.StatusCode);
+        var error = (await response.Content.ReadFromJsonAsync<ApiErrorResponse>())!;
+        Assert.DoesNotContain(detail, error.Detail);
+        Assert.False(string.IsNullOrWhiteSpace(error.TraceId));
+        if (!databaseFailure) Assert.Equal("Insufficient stock.", error.Detail);
+    }
+
     private static WebApplicationFactory<Program> CreateFactory(
         Action<IServiceCollection> configureServices)
     {
@@ -332,7 +447,7 @@ public sealed class RateLimitingTests
         }
     }
 
-    private sealed class SuccessfulCartService : ICartService
+    private sealed class SuccessfulCartService(Exception? failure = null) : ICartService
     {
         public Task<CartDto> GetCartAsync(
             Guid? userId,
@@ -348,6 +463,7 @@ public sealed class RateLimitingTests
             AddCartItemDto addCartItemDto,
             CancellationToken cancellationToken = default)
         {
+            if (failure is not null) throw failure;
             return Task.FromResult(CreateCart());
         }
 
