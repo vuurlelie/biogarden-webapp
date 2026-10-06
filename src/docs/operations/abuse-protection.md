@@ -98,3 +98,15 @@ Review these limits after real traffic appears:
 - If SumUp callback delivery is retried aggressively, adjust only the payment policy.
 
 Do not loosen all limits globally just to solve one endpoint problem. Tune the smallest policy that matches the real issue.
+
+## Login failures
+
+Login retains the per-client rate limiter and additionally locks an Identity account for
+five minutes after five failed passwords. Attempts against the same normalized email are
+serialized with a transaction-owned SQL application lock, including across API instances.
+Successful confirmed-account login resets the counter. Missing, inactive, locked and
+unconfirmed accounts return the same authentication failure message. Existing manually
+applied account lockouts remain effective. No schema migration is required.
+
+Registration still reports an existing email address for account recovery usability; this
+is not a claim that all account-enumeration signals (including timing) are eliminated.

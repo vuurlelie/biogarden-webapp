@@ -144,6 +144,28 @@ public class AuthService : IAuthService
 
     public async Task<LoginResultDto> LoginAsync(LoginRequestDto loginRequestDto)
     {
+        if (_databaseContext is not DbContext database)
+            return await LoginCoreAsync(loginRequestDto);
+
+        // Serialize attempts across API instances before reading Identity's failure counter.
+        // The hash keeps email addresses out of SQL lock names.
+        var email = _userManager.NormalizeEmail(loginRequestDto.Email.Trim());
+        var resource = "Biogarden.Login:" + Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(
+            System.Text.Encoding.UTF8.GetBytes(email)));
+        await using var transaction = await database.Database.BeginTransactionAsync();
+        await database.Database.ExecuteSqlInterpolatedAsync($"""
+            DECLARE @result int;
+            EXEC @result = sys.sp_getapplock @Resource = {resource},
+                @LockMode = N'Exclusive', @LockOwner = N'Transaction', @LockTimeout = 5000;
+            IF @result < 0 THROW 51000, 'Login attempt lock unavailable.', 1;
+            """);
+        var result = await LoginCoreAsync(loginRequestDto);
+        await transaction.CommitAsync();
+        return result;
+    }
+
+    private async Task<LoginResultDto> LoginCoreAsync(LoginRequestDto loginRequestDto)
+    {
         var normalizedEmail = loginRequestDto.Email.Trim();
 
         var user = await _userManager.FindByEmailAsync(normalizedEmail);
@@ -158,7 +180,7 @@ public class AuthService : IAuthService
             || user.AnonymizedAtUtc is not null
             || (user.LockoutEnabled && user.LockoutEnd > DateTimeOffset.UtcNow))
         {
-            return LoginResultDto.Failure("Ez a fiók jelenleg nem aktív.");
+            return LoginResultDto.Failure("Hibás email vagy jelszó.");
         }
 
         var passwordValid = await _userManager.CheckPasswordAsync(
@@ -167,15 +189,24 @@ public class AuthService : IAuthService
 
         if (!passwordValid)
         {
+            if (user.LockoutEnabled)
+            {
+                var failure = await _userManager.AccessFailedAsync(user);
+                if (!failure.Succeeded) throw new InvalidOperationException("A bejelentkezés nem sikerült. Próbáld újra később.");
+            }
             return LoginResultDto.Failure("Hibás email vagy jelszó.");
         }
 
         if (!user.EmailConfirmed)
         {
-            return LoginResultDto.Failure(
-                "A fiók még nincs megerősítve. Kérjük, ellenőrizd az email fiókodat.");
+            return LoginResultDto.Failure("Hibás email vagy jelszó.");
         }
 
+        if (user.LockoutEnabled)
+        {
+            var reset = await _userManager.ResetAccessFailedCountAsync(user);
+            if (!reset.Succeeded) return LoginResultDto.Failure("Hibás email vagy jelszó.");
+        }
         var roles = await _userManager.GetRolesAsync(user);
         var token = await _tokenService.CreateTokenAsync(user);
 
