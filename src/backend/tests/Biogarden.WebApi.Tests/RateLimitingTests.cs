@@ -194,6 +194,29 @@ public sealed class RateLimitingTests
         Assert.Equal("checkout-key-123", orderService.LastPlaceOrderDto?.IdempotencyKey);
     }
 
+    [Theory]
+    [InlineData(false, HttpStatusCode.Conflict)]
+    [InlineData(true, HttpStatusCode.InternalServerError)]
+    public async Task CartErrors_UseCentralMapping_WithoutExposingDatabaseDetails(bool databaseFailure, HttpStatusCode expected)
+    {
+        const string detail = "Internal database name and SQL details";
+        var failure = databaseFailure
+            ? new InvalidOperationException(detail, new Microsoft.EntityFrameworkCore.DbUpdateException(detail))
+            : new InvalidOperationException("Insufficient stock.");
+        using var factory = CreateFactory(services =>
+        {
+            services.RemoveAll<ICartService>();
+            services.AddSingleton<ICartService>(new SuccessfulCartService(failure));
+        });
+        using var client = factory.CreateClient();
+        using var response = await client.PostAsync("/api/cart/items", CreateAddCartItemRequestContent());
+        Assert.Equal(expected, response.StatusCode);
+        var error = (await response.Content.ReadFromJsonAsync<ApiErrorResponse>())!;
+        Assert.DoesNotContain(detail, error.Detail);
+        Assert.False(string.IsNullOrWhiteSpace(error.TraceId));
+        if (!databaseFailure) Assert.Equal("Insufficient stock.", error.Detail);
+    }
+
     private static WebApplicationFactory<Program> CreateFactory(
         Action<IServiceCollection> configureServices)
     {
@@ -332,7 +355,7 @@ public sealed class RateLimitingTests
         }
     }
 
-    private sealed class SuccessfulCartService : ICartService
+    private sealed class SuccessfulCartService(Exception? failure = null) : ICartService
     {
         public Task<CartDto> GetCartAsync(
             Guid? userId,
@@ -348,6 +371,7 @@ public sealed class RateLimitingTests
             AddCartItemDto addCartItemDto,
             CancellationToken cancellationToken = default)
         {
+            if (failure is not null) throw failure;
             return Task.FromResult(CreateCart());
         }
 

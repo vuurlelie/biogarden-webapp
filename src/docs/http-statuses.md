@@ -42,3 +42,8 @@ an uncertain outcome; clients must use the existing checkout idempotency/recover
 reconciliation flows before repeating writes. Contact acceptance retains its bounded deadlock
 retry, and returns 503 when exhausted. Optimistic concurrency conflicts remain 409. Detailed
 exceptions remain in server logs with the response trace ID.
+
+Cart and public withdrawal actions use the central exception handler. Wrapped database
+failures must not be converted by controller catches into business conflicts or expose
+provider messages. Unknown database failures return a generic 500; known transient SQL
+errors return 503 and genuine optimistic concurrency conflicts return 409.

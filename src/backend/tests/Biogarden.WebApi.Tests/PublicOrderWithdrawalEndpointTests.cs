@@ -45,7 +45,7 @@ public sealed class PublicOrderWithdrawalEndpointTests
 
         Assert.NotNull(problem);
         Assert.Equal(StatusCodes.Status404NotFound, problem.Status);
-        Assert.Equal("A rendelés nem található.", problem.Title);
+        Assert.Equal("Resource not found.", problem.Title);
         Assert.Equal(
             "Nem találtunk ilyen rendelést ezzel az email címmel.",
             problem.Detail);

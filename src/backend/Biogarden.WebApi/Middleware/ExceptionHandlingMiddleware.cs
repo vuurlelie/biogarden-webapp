@@ -64,6 +64,7 @@ public sealed class ExceptionHandlingMiddleware
             ArgumentException => (HttpStatusCode.BadRequest, "Validation failed."),
             UnauthorizedAccessException => (HttpStatusCode.Unauthorized, "Authentication failed."),
             Microsoft.EntityFrameworkCore.DbUpdateConcurrencyException => (HttpStatusCode.Conflict, "Order data changed."),
+            _ when ContainsDatabaseFailure(exception) => (HttpStatusCode.InternalServerError, "Unexpected server error."),
             InvalidOperationException => (HttpStatusCode.Conflict, "Operation conflict."),
             _ => (HttpStatusCode.InternalServerError, "Unexpected server error.")
         };
@@ -95,6 +96,14 @@ public sealed class ExceptionHandlingMiddleware
 
         var json = JsonSerializer.Serialize(response, new JsonSerializerOptions(JsonSerializerDefaults.Web));
         await context.Response.WriteAsync(json);
+    }
+
+    private static bool ContainsDatabaseFailure(Exception exception)
+    {
+        for (Exception? current = exception; current is not null; current = current.InnerException)
+            if (current is Microsoft.EntityFrameworkCore.DbUpdateException or System.Data.Common.DbException)
+                return true;
+        return false;
     }
 
     private static bool IsTransientDatabaseFailure(Exception exception)

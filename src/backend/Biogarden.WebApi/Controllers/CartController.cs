@@ -48,33 +48,18 @@ public class CartController : ControllerBase
         [FromBody] AddCartItemDto addCartItemDto,
         CancellationToken cancellationToken)
     {
-        try
-        {
-            var userId = GetCurrentUserId();
-            var sessionId = GetOrCreateSessionId();
+        var userId = GetCurrentUserId();
+        var sessionId = GetOrCreateSessionId();
 
-            var cart = await _cartService.AddItemAsync(
-                userId,
-                sessionId,
-                addCartItemDto,
-                cancellationToken);
+        var cart = await _cartService.AddItemAsync(
+            userId,
+            sessionId,
+            addCartItemDto,
+            cancellationToken);
 
-            EnsureCartCookie(sessionId);
+        EnsureCartCookie(sessionId);
 
-            return Ok(cart);
-        }
-        catch (ArgumentException exception)
-        {
-            return BadRequest(new { message = exception.Message });
-        }
-        catch (InvalidOperationException exception)
-        {
-            return Conflict(new { message = exception.Message });
-        }
-        catch (KeyNotFoundException exception)
-        {
-            return NotFound(new { message = exception.Message });
-        }
+        return Ok(cart);
     }
 
     [HttpGet("products/{productId:int}/availability")]
@@ -84,16 +69,9 @@ public class CartController : ControllerBase
         int productId,
         CancellationToken cancellationToken)
     {
-        try
-        {
-            var availableQuantity = await _cartService.GetAvailableQuantityToAddAsync(
-                GetCurrentUserId(), GetSessionId(), productId, cancellationToken);
-            return Ok(new { availableQuantity });
-        }
-        catch (KeyNotFoundException exception)
-        {
-            return NotFound(new { message = exception.Message });
-        }
+        var availableQuantity = await _cartService.GetAvailableQuantityToAddAsync(
+            GetCurrentUserId(), GetSessionId(), productId, cancellationToken);
+        return Ok(new { availableQuantity });
     }
 
     [HttpPut("items/{cartItemId:guid}")]
@@ -107,34 +85,19 @@ public class CartController : ControllerBase
         [FromBody] UpdateCartItemQuantityDto updateCartItemQuantityDto,
         CancellationToken cancellationToken)
     {
-        try
-        {
-            var userId = GetCurrentUserId();
-            var sessionId = GetOrCreateSessionId();
+        var userId = GetCurrentUserId();
+        var sessionId = GetOrCreateSessionId();
 
-            var cart = await _cartService.UpdateItemQuantityAsync(
-                userId,
-                sessionId,
-                cartItemId,
-                updateCartItemQuantityDto,
-                cancellationToken);
+        var cart = await _cartService.UpdateItemQuantityAsync(
+            userId,
+            sessionId,
+            cartItemId,
+            updateCartItemQuantityDto,
+            cancellationToken);
 
-            EnsureCartCookie(sessionId);
+        EnsureCartCookie(sessionId);
 
-            return Ok(cart);
-        }
-        catch (ArgumentException exception)
-        {
-            return BadRequest(new { message = exception.Message });
-        }
-        catch (InvalidOperationException exception)
-        {
-            return Conflict(new { message = exception.Message });
-        }
-        catch (KeyNotFoundException exception)
-        {
-            return NotFound(new { message = exception.Message });
-        }
+        return Ok(cart);
     }
 
     [HttpDelete("items/{cartItemId:guid}")]
@@ -145,25 +108,18 @@ public class CartController : ControllerBase
         Guid cartItemId,
         CancellationToken cancellationToken)
     {
-        try
-        {
-            var userId = GetCurrentUserId();
-            var sessionId = GetOrCreateSessionId();
+        var userId = GetCurrentUserId();
+        var sessionId = GetOrCreateSessionId();
 
-            var cart = await _cartService.RemoveItemAsync(
-                userId,
-                sessionId,
-                cartItemId,
-                cancellationToken);
+        var cart = await _cartService.RemoveItemAsync(
+            userId,
+            sessionId,
+            cartItemId,
+            cancellationToken);
 
-            EnsureCartCookie(sessionId);
+        EnsureCartCookie(sessionId);
 
-            return Ok(cart);
-        }
-        catch (KeyNotFoundException exception)
-        {
-            return NotFound(new { message = exception.Message });
-        }
+        return Ok(cart);
     }
 
     [HttpDelete]
@@ -172,24 +128,17 @@ public class CartController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<CartDto>> ClearCart(CancellationToken cancellationToken)
     {
-        try
-        {
-            var userId = GetCurrentUserId();
-            var sessionId = GetOrCreateSessionId();
+        var userId = GetCurrentUserId();
+        var sessionId = GetOrCreateSessionId();
 
-            var cart = await _cartService.ClearCartAsync(
-                userId,
-                sessionId,
-                cancellationToken);
+        var cart = await _cartService.ClearCartAsync(
+            userId,
+            sessionId,
+            cancellationToken);
 
-            EnsureCartCookie(sessionId);
+        EnsureCartCookie(sessionId);
 
-            return Ok(cart);
-        }
-        catch (KeyNotFoundException exception)
-        {
-            return NotFound(new { message = exception.Message });
-        }
+        return Ok(cart);
     }
 
     [HttpGet("validate")]
@@ -219,48 +168,33 @@ public class CartController : ControllerBase
     public async Task<ActionResult<CartDto>> MergeGuestCartIntoUserCart(
         CancellationToken cancellationToken)
     {
-        try
+        var userId = GetCurrentUserId();
+
+        if (!userId.HasValue)
         {
-            var userId = GetCurrentUserId();
+            return Unauthorized(new { message = "A felhasználó nincs bejelentkezve." });
+        }
 
-            if (!userId.HasValue)
-            {
-                return Unauthorized(new { message = "A felhasználó nincs bejelentkezve." });
-            }
+        var guestSessionId = GetSessionId();
 
-            var guestSessionId = GetSessionId();
-
-            if (string.IsNullOrWhiteSpace(guestSessionId))
-            {
-                var userCart = await _cartService.GetCartAsync(
-                    userId,
-                    sessionId: null,
-                    cancellationToken);
-
-                return Ok(userCart);
-            }
-
-            var mergedCart = await _cartService.MergeGuestCartIntoUserCartAsync(
-                userId.Value,
-                guestSessionId,
+        if (string.IsNullOrWhiteSpace(guestSessionId))
+        {
+            var userCart = await _cartService.GetCartAsync(
+                userId,
+                sessionId: null,
                 cancellationToken);
 
-            EnsureCartCookie(guestSessionId);
+            return Ok(userCart);
+        }
 
-            return Ok(mergedCart);
-        }
-        catch (ArgumentException exception)
-        {
-            return BadRequest(new { message = exception.Message });
-        }
-        catch (InvalidOperationException exception)
-        {
-            return Conflict(new { message = exception.Message });
-        }
-        catch (KeyNotFoundException exception)
-        {
-            return NotFound(new { message = exception.Message });
-        }
+        var mergedCart = await _cartService.MergeGuestCartIntoUserCartAsync(
+            userId.Value,
+            guestSessionId,
+            cancellationToken);
+
+        EnsureCartCookie(guestSessionId);
+
+        return Ok(mergedCart);
     }
 
     [Authorize]
