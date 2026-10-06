@@ -130,6 +130,7 @@ test("admin delete confirmation traps focus and closes with Escape", async ({ pa
               unitAmountMeasure: 4,
               stockQuantity: 8,
               available: true,
+              inStock: true,
               deliveryAvailable: true,
             },
           ],

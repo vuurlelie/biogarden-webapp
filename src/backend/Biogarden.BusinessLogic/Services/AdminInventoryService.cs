@@ -77,7 +77,7 @@ public sealed class AdminInventoryService : IAdminInventoryService
         var reserved = await StockUpdatePolicy.ValidateAsync(_unitOfWork, product, changes.StockQuantity, cancellationToken);
 
         product.StockQuantity = changes.StockQuantity;
-        product.Available = changes.StockQuantity > 0 && changes.Available;
+        product.Available = changes.Available;
         _unitOfWork.ProductRepository.Update(product);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 

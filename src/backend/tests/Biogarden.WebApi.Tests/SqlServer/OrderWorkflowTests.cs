@@ -257,6 +257,69 @@ public sealed class OrderWorkflowTests : IAsyncLifetime
         Assert.Equal(3, (await check.Products.SingleAsync()).StockQuantity);
     }
 
+    [SqlServerTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task LastItemSaleAndCancellation_PreserveAdministrativeAvailability(bool disableBeforeCancellation)
+    {
+        var productId = await SeedProductAsync();
+        await using (var seed = _app.OpenDatabase())
+        {
+            await seed.Products.ExecuteUpdateAsync(setters => setters.SetProperty(x => x.StockQuantity, 1));
+        }
+        using var client = _app.Factory.CreateClient();
+        await AddToCartAsync(client, productId);
+        using var stranger = _app.Factory.CreateClient();
+        using var reserved = await stranger.PostAsJsonAsync("/api/cart/items", new AddCartItemDto { ProductId = productId, Quantity = 1 });
+        Assert.Equal(HttpStatusCode.Conflict, reserved.StatusCode);
+        using var placed = await client.PostAsJsonAsync("/api/orders", await Request().WithQuoteAsync(client));
+        Assert.Equal(HttpStatusCode.Created, placed.StatusCode);
+        var order = (await placed.Content.ReadFromJsonAsync<OrderDto>())!;
+        using (var scope = _app.Factory.Services.CreateScope())
+        {
+            var products = scope.ServiceProvider.GetRequiredService<Biogarden.BusinessLogic.Abstractions.IProductService>();
+            var details = (await products.GetDetailsAsync(productId))!;
+            Assert.True(details.Available);
+            Assert.False(details.InStock);
+            Assert.Empty((await products.GetPagedAsync(new() { AvailableOnly = true })).Items);
+            Assert.Equal(productId, Assert.Single((await products.GetPagedAsync(new() { UnavailableOnly = true })).Items).Id);
+        }
+        if (disableBeforeCancellation)
+        {
+            await using var database = _app.OpenDatabase();
+            await database.Products.ExecuteUpdateAsync(setters => setters.SetProperty(x => x.Available, false));
+        }
+        await ChangeStatusAsync(order.Id, OrderStatus.Cancelled);
+        await ChangeStatusAsync(order.Id, OrderStatus.Cancelled);
+        await using var check = _app.OpenDatabase();
+        var restored = await check.Products.SingleAsync();
+        Assert.Equal(1, restored.StockQuantity);
+        Assert.Equal(!disableBeforeCancellation, restored.Available);
+        using var after = await stranger.PostAsJsonAsync("/api/cart/items", new AddCartItemDto { ProductId = productId, Quantity = 1 });
+        Assert.Equal(disableBeforeCancellation ? HttpStatusCode.Conflict : HttpStatusCode.OK, after.StatusCode);
+    }
+
+    [SqlServerTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ZeroStockAdminSaveAndRestock_PreserveSalesSetting(bool enabled)
+    {
+        using var scope = _app.Factory.Services.CreateScope();
+        var products = scope.ServiceProvider.GetRequiredService<Biogarden.BusinessLogic.Abstractions.IProductService>();
+        var inventory = scope.ServiceProvider.GetRequiredService<Biogarden.BusinessLogic.Abstractions.IAdminInventoryService>();
+        var id = await products.CreateAsync(new() { Name = "Restock test", Price = 900, Available = enabled, StockQuantity = 0 });
+        var created = (await products.GetDetailsAsync(id))!;
+        Assert.Equal(enabled, created.Available);
+        Assert.False(created.InStock);
+        var empty = await inventory.UpdateAsync(id, new() { Version = created.Version, StockQuantity = 0, Available = enabled });
+        Assert.Equal(enabled, empty.Available);
+        await inventory.UpdateAsync(id, new() { Version = empty.Version, StockQuantity = 2, Available = enabled });
+        var restored = (await products.GetDetailsAsync(id))!;
+        Assert.Equal(enabled, restored.Available);
+        Assert.True(restored.InStock);
+        Assert.Equal(enabled ? 1 : 0, (await products.GetPagedAsync(new() { AvailableOnly = true })).TotalCount);
+    }
+
     private async Task<int> SeedProductAsync()
     {
         await using var database = _app.OpenDatabase();

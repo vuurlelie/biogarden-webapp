@@ -137,7 +137,6 @@ public sealed class ProductService : IProductService
         product.Name = product.Name.Trim();
         product.Description = NormalizeOptional(product.Description);
         product.Image = NormalizeOptional(product.Image);
-        if (product.StockQuantity == 0) product.Available = false;
     }
 
     private static void Normalize(ProductEditDto product)
@@ -145,7 +144,6 @@ public sealed class ProductService : IProductService
         product.Name = product.Name.Trim();
         product.Description = NormalizeOptional(product.Description);
         product.Image = product.Image?.Trim();
-        if (product.StockQuantity == 0) product.Available = false;
     }
 
     private static string? NormalizeOptional(string? value) =>

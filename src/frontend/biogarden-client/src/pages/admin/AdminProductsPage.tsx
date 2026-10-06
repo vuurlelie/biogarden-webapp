@@ -214,10 +214,10 @@ export default function AdminProductsPage() {
                 <img src={imageUrl(product.image)} alt="" className="h-full w-full object-cover" />
                 <span
                   className={`absolute left-3 top-3 rounded-full px-3 py-1 text-xs font-bold ${
-                    product.available ? "bg-site-green text-white" : "bg-white text-site-muted shadow"
+                    (product.available && product.inStock) ? "bg-site-green text-white" : "bg-white text-site-muted shadow"
                   }`}
                 >
-                  {product.available ? "Elérhető" : "Nem elérhető"}
+                  {(product.available && product.inStock) ? "Elérhető" : "Nem elérhető"}
                 </span>
               </div>
 

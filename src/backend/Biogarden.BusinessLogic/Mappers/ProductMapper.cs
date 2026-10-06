@@ -28,6 +28,7 @@ public static class ProductMapper
             UnitAmountMeasure = product.UnitAmountMeasure,
             StockQuantity = product.StockQuantity,
             Available = product.Available,
+            InStock = product.StockQuantity > 0,
             DeliveryAvailable = product.DeliveryAvailable
         };
 
@@ -83,6 +84,7 @@ public static class ProductMapper
             UnitAmount = product.UnitAmount,
             UnitAmountMeasure = product.UnitAmountMeasure,
             Available = product.Available,
+            InStock = product.StockQuantity > 0,
             DeliveryAvailable = product.DeliveryAvailable
         };
 }

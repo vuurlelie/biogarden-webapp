@@ -85,7 +85,7 @@ function InventoryCard({
   return (
     <article
       className={`overflow-hidden rounded-sm border bg-white shadow-sm ${
-        item.available ? "border-site-border" : "border-site-muted/40"
+        (item.available && item.availableQuantity > 0) ? "border-site-border" : "border-site-muted/40"
       }`}
     >
       <div className="grid gap-0 sm:grid-cols-[10rem_minmax(0,1fr)]">
@@ -93,15 +93,15 @@ function InventoryCard({
           <img
             src={imageUrl(item.image)}
             alt=""
-            className={`h-full w-full object-cover ${item.available ? "" : "opacity-65 grayscale-[35%]"}`}
+            className={`h-full w-full object-cover ${(item.available && item.availableQuantity > 0) ? "" : "opacity-65 grayscale-[35%]"}`}
           />
           <span
             className={`absolute left-2 top-2 inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-bold shadow-sm ${
-              item.available ? "bg-site-green text-white" : "bg-white text-site-danger"
+              (item.available && item.availableQuantity > 0) ? "bg-site-green text-white" : "bg-white text-site-danger"
             }`}
           >
-            <span aria-hidden="true">{item.available ? "✓" : "×"}</span>
-            {item.available ? "Rendelhető" : "Nem rendelhető"}
+            <span aria-hidden="true">{(item.available && item.availableQuantity > 0) ? "✓" : "×"}</span>
+            {(item.available && item.availableQuantity > 0) ? "Rendelhető" : "Nem rendelhető"}
           </span>
         </div>
 
@@ -145,7 +145,6 @@ function InventoryCard({
                   value={quantity}
                   onChange={(event) => {
                     setQuantity(event.target.value);
-                    if (Number(event.target.value) === 0) setAvailable(false);
                     if (quantityError) setQuantityError(null);
                   }}
                   aria-invalid={Boolean(quantityError)}
@@ -165,10 +164,9 @@ function InventoryCard({
                 <input
                   type="checkbox"
                   checked={available}
-                  disabled={Number(quantity) <= 0}
                   onChange={(event) => setAvailable(event.target.checked)}
                 />
-                Elérhető a vásárlóknak
+                Értékesítés engedélyezve (készlet esetén)
               </label>
 
               <div className="flex gap-2">

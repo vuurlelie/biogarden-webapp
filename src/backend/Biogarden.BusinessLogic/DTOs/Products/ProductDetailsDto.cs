@@ -25,7 +25,10 @@ public sealed class ProductDetailsDto
 
     public int StockQuantity { get; set; }
 
+    // Administrative sales setting; stock and live cart reservations are checked separately.
     public bool Available { get; set; }
+
+    public bool InStock { get; set; }
 
     public bool DeliveryAvailable { get; set; }
 }

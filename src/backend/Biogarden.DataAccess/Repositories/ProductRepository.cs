@@ -64,12 +64,12 @@ public sealed class ProductRepository : IProductRepository
 
         if (availableOnly)
         {
-            query = query.Where(product => product.Available);
+            query = query.Where(product => product.Available && product.StockQuantity > 0);
         }
 
         if (unavailableOnly)
         {
-            query = query.Where(product => !product.Available);
+            query = query.Where(product => !product.Available || product.StockQuantity <= 0);
         }
 
         if (deliveryOnly)

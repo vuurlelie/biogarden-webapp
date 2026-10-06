@@ -319,7 +319,7 @@ export default function AdminProductFormModal({ product, onClose, onSaved }: Pro
         unitAmount,
         unitAmountMeasure: unitAmount === null ? null : normalizePackageMeasure(form.unitAmountMeasure),
         stockQuantity,
-        available: stockQuantity > 0 && form.available,
+        available: form.available,
         deliveryAvailable: form.category === vegetableCategory ? false : form.deliveryAvailable,
       };
 
@@ -461,7 +461,6 @@ export default function AdminProductFormModal({ product, onClose, onSaved }: Pro
                 onChange={(event) => {
                   update("stockQuantity", event.target.value);
                   clearFieldError("stockQuantity");
-                  if (Number(event.target.value) === 0) update("available", false);
                 }}
                 aria-invalid={Boolean(fieldErrors.stockQuantity)}
                 aria-describedby={fieldErrors.stockQuantity ? getErrorId("stockQuantity") : undefined}
@@ -615,12 +614,11 @@ export default function AdminProductFormModal({ product, onClose, onSaved }: Pro
                 type="checkbox"
                 className="mt-1"
                 checked={form.available}
-                disabled={Number(form.stockQuantity) <= 0}
                 onChange={(event) => update("available", event.target.checked)}
               />
               <span>
                 <strong className="block text-site-heading">Elérhető</strong>
-                <span className="text-sm text-site-muted">Megjelenhet és kosárba tehető.</span>
+                <span className="text-sm text-site-muted">Készlet esetén kosárba tehető. Nulla készletnél a beállítás megmarad.</span>
               </span>
             </label>
 

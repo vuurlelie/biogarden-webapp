@@ -51,3 +51,21 @@ test("navigating to a related product clears the previous product's stock refres
   await expect(page.getByRole("alert")).toHaveCount(0);
   await expect(page.getByRole("status")).toHaveCount(0);
 });
+
+for (const state of [
+  { available: true, inStock: false, stockQuantity: 0, label: "sold out" },
+  { available: false, inStock: true, stockQuantity: 8, label: "disabled by admin" },
+]) {
+  test(`${state.label} products cannot be added from the catalogue or details`, async ({ page }) => {
+    await mockPublicShopApi(page);
+    const item = { ...product, ...state };
+    await page.route(url => url.origin === apiBaseUrl && url.pathname === "/api/products",
+      route => route.fulfill({ json: { items: [item], page: 1, pageSize: 60, totalCount: 1, totalPages: 1 } }));
+    await page.route(`${apiBaseUrl}/api/products/1`, route => route.fulfill({ json: { ...item, description: "Test" } }));
+    await page.goto("/termekek");
+    await expect(page.getByRole("button", { name: /Kosárba/ }).first()).toBeDisabled();
+    await page.goto("/termekek/1");
+    await expect(page.getByRole("button", { name: "Kosárba teszem", exact: true })).toBeDisabled();
+    await expect(page.getByText("Jelenleg nem elérhető", { exact: true })).toBeVisible();
+  });
+}

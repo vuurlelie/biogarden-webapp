@@ -48,3 +48,16 @@ No schema migration is required for this change. Deploy the tested API and revie
 SQL integration tests cover the exact retention boundary, ordering and batch limits, repeated execution, cascading item deletion, refreshed carts, cancellation, preservation of pending/paid orders and stock, and a real worker startup batch followed by shutdown. Reservation tests separately cover the injected expiry boundary and grouped query exclusions.
 
 Disabling cleanup prevents future deletions. An application rollback cannot restore already-deleted expired cart rows; recovery, if actually needed, uses the reviewed database backup procedure. Retained orders and their snapshots are unaffected.
+
+## Product availability and stock
+
+`Available` is the administrator's sales setting. Saving zero stock, selling the last unit,
+and cancelling an order do not change that setting. This preserves deliberate disabling
+and allows restocking to restore sales for an enabled product.
+
+Product list and detail responses also expose `inStock` (physical stock greater than zero).
+The storefront requires both flags; the available/unavailable product filters use the same
+rule. These are snapshots, not stock guarantees: the cart availability endpoint additionally
+accounts for live reservations and the current cart. Cart mutation and checkout remain the
+authoritative checks. No migration is required; previously disabled products remain disabled
+until an administrator enables them.

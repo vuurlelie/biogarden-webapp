@@ -190,7 +190,7 @@ export default function AdminDashboardPage() {
                   <div className="mt-5 space-y-3">
                     {dashboard.lowStockProducts.map((product) => (
                       <article key={product.id} className="flex items-center justify-between gap-4 rounded-sm border border-site-border p-4">
-                        <div className="min-w-0"><p className="truncate font-semibold text-site-heading">{product.name}</p><p className="mt-1 text-xs text-site-muted">{product.available ? "Elérhető" : "Nem elérhető"}</p></div>
+                        <div className="min-w-0"><p className="truncate font-semibold text-site-heading">{product.name}</p><p className="mt-1 text-xs text-site-muted">{(product.available && product.stockQuantity > 0) ? "Elérhető" : "Nem elérhető"}</p></div>
                         <span className={`shrink-0 text-lg font-bold ${product.stockQuantity === 0 ? "text-site-danger" : "text-site-heading"}`}>{product.stockQuantity} db</span>
                       </article>
                     ))}

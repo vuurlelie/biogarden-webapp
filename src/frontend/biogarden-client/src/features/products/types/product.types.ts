@@ -20,6 +20,7 @@ export type ProductListItem = {
   unitAmount: number | null;
   unitAmountMeasure: UnitOfMeasure | null;
   available: boolean;
+  inStock: boolean;
   deliveryAvailable: boolean;
 };
 
