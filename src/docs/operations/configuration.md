@@ -86,11 +86,12 @@ VITE_API_BASE_URL=https://your-api-domain.example
 
 The frontend has a browser Content Security Policy in `index.html`. When production domains are final, update the policy so `connect-src` and `img-src` allow only the real API/static asset origins and no unnecessary local origins remain.
 
-If the frontend host supports response headers, also configure:
-
-- `X-Content-Type-Options: nosniff`
-- `Referrer-Policy: strict-origin-when-cross-origin`
-- `X-Frame-Options: DENY` or a CSP `frame-ancestors 'none'` directive
+The frontend's IIS `web.config` sets `nosniff`, referrer and permissions policies, and
+`X-Frame-Options: DENY` plus the response CSP `frame-ancestors 'none'`. Vite development
+and preview servers use matching headers. The resource policy remains in `index.html`;
+both policies apply together. Framing protection cannot be supplied by a CSP meta tag.
+After deployment verify these headers on `/`, an SPA route, and generated article HTML;
+local browser tests do not prove that the hosting provider permits the IIS settings.
 
 ## Cart Maintenance
 

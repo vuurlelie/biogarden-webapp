@@ -2,6 +2,14 @@ import { defineConfig, loadEnv } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 
+const securityHeaders = {
+  "Content-Security-Policy": "frame-ancestors 'none'",
+  "X-Frame-Options": "DENY",
+  "X-Content-Type-Options": "nosniff",
+  "Referrer-Policy": "strict-origin-when-cross-origin",
+  "Permissions-Policy": "camera=(), microphone=(), geolocation=(self), payment=()",
+};
+
 const PRODUCTION_API_BASE_URL = "https://vuurlelie169-001-site1.jtempurl.com";
 
 export default defineConfig(({ mode }) => {
@@ -10,6 +18,8 @@ export default defineConfig(({ mode }) => {
     : loadEnv(mode, process.cwd(), "VITE_").VITE_API_BASE_URL;
 
   return {
+    server: { headers: securityHeaders },
+    preview: { headers: securityHeaders },
     define: {
       "import.meta.env.VITE_API_BASE_URL": JSON.stringify(apiBaseUrl),
     },
