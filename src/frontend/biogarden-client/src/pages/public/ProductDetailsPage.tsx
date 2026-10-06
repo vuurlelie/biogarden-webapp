@@ -170,7 +170,8 @@ export default function ProductDetailsPage() {
   const categoryLink = CATEGORY_LINKS[product.category];
   const categoryUrl = `${ROUTES.products}?category=${categoryLink.value}`;
   const packageLabel = getProductPackageLabel(product);
-  const lowStock = product.available && availableToAdd > 0 && availableToAdd <= 10;
+  const isAvailable = product.available && product.inStock;
+  const lowStock = isAvailable && availableToAdd > 0 && availableToAdd <= 10;
   const productStructuredData = {
     "@context": "https://schema.org",
     "@type": "Product",
@@ -189,7 +190,7 @@ export default function ProductDetailsPage() {
       url: `${SITE_URL}${ROUTES.products}/${product.id}`,
       priceCurrency: "HUF",
       price: product.price,
-      availability: product.available ? "https://schema.org/InStock" : "https://schema.org/OutOfStock",
+      availability: isAvailable ? "https://schema.org/InStock" : "https://schema.org/OutOfStock",
     },
   };
 
@@ -309,8 +310,8 @@ export default function ProductDetailsPage() {
             <dl className="mt-6 grid gap-3 rounded-sm bg-site-surface-soft p-4 text-sm sm:grid-cols-2">
               <div>
                 <dt className="font-bold text-site-heading">Elérhetőség</dt>
-                <dd className={product.available ? "text-site-green-dark" : "text-site-danger"}>
-                  {product.available ? "Jelenleg elérhető" : "Jelenleg nem elérhető"}
+                <dd className={isAvailable ? "text-site-green-dark" : "text-site-danger"}>
+                  {isAvailable ? "Jelenleg elérhető" : "Jelenleg nem elérhető"}
                 </dd>
               </div>
               <div>
@@ -350,7 +351,7 @@ export default function ProductDetailsPage() {
               <button
                 type="button"
                 onClick={() => void handleAddToCart()}
-                disabled={!product.available || availableToAdd === 0 || quantity < 1 || isAddingToCart || isRefreshingAvailability || availabilityRefreshFailed}
+                disabled={!isAvailable || availableToAdd === 0 || quantity < 1 || isAddingToCart || isRefreshingAvailability || availabilityRefreshFailed}
                 className="inline-flex rounded-sm bg-site-green px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-site-green-hover disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {isAddingToCart ? "Kosárba helyezés..." : "Kosárba teszem"}
@@ -363,7 +364,7 @@ export default function ProductDetailsPage() {
                 Vissza a termékekhez
               </Link>
             </div>
-            {product.available && availableToAdd === 0 && <p className="mt-3 text-sm font-semibold text-site-danger">A teljes készlet jelenleg más kosarakban van lefoglalva vagy már a kosaradban található.</p>}
+            {isAvailable && availableToAdd === 0 && <p className="mt-3 text-sm font-semibold text-site-danger">A teljes készlet jelenleg más kosarakban van lefoglalva vagy már a kosaradban található.</p>}
             {cartMessage && <p className="mt-3 text-sm font-semibold text-site-green-dark" role="status">{cartMessage}</p>}
             {availabilityRefreshFailed && (
               <div className="mt-3 text-sm text-site-danger">

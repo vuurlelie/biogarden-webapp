@@ -1,3 +1,8 @@
+using System.Data.Common;
+using Biogarden.DataAccess;
+using Microsoft.AspNetCore.TestHost;
+using Microsoft.Data.SqlClient;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using System.Net;
 using System.Net.Http.Json;
 using Biogarden.BusinessLogic.Constants;
@@ -118,6 +123,92 @@ public sealed class OrderWorkflowTests : IAsyncLifetime
         Assert.Empty(await database.OrderEmails.ToListAsync());
         Assert.Equal(3, (await database.Products.SingleAsync()).StockQuantity);
         Assert.False((await database.Carts.SingleAsync()).IsCheckedOut);
+    }
+
+    [SqlServerTheory]
+    [InlineData(-2)]
+    [InlineData(1222)]
+    public async Task QueueSqlTimeout_ReturnsSafe503_RollsBackAndAllowsIdempotentRecovery(int sqlError)
+    {
+        var productId = await SeedProductAsync();
+        await using (var database = _app.OpenDatabase())
+        {
+            await database.Database.ExecuteSqlRawAsync("CREATE TABLE dbo.OrderTimeoutProbe (Id int PRIMARY KEY, Value int NOT NULL); INSERT INTO dbo.OrderTimeoutProbe VALUES (1, 0);");
+        }
+        await using var blocker = _app.CreateConnection();
+        await blocker.OpenAsync();
+        await using var transaction = (SqlTransaction)await blocker.BeginTransactionAsync();
+        await using (var hold = new SqlCommand("UPDATE dbo.OrderTimeoutProbe SET Value = 1 WHERE Id = 1;", blocker, transaction))
+        {
+            await hold.ExecuteNonQueryAsync();
+        }
+        var timeout = new OrderQueueTimeout(sqlError);
+        using var api = _app.Factory.WithWebHostBuilder(builder => builder.ConfigureTestServices(services =>
+            services.AddDbContext<AppDbContext>(options => options.AddInterceptors(timeout))));
+        using var client = api.CreateClient();
+        await AddToCartAsync(client, productId);
+        var request = await Request().WithQuoteAsync(client);
+        using var failed = await client.PostAsJsonAsync("/api/orders", request);
+        Assert.Equal(HttpStatusCode.ServiceUnavailable, failed.StatusCode);
+        var error = (await failed.Content.ReadFromJsonAsync<Biogarden.WebApi.Contracts.ApiErrorResponse>())!;
+        Assert.Equal("Database temporarily unavailable.", error.Title);
+        Assert.Contains("átmenetileg", error.Detail);
+        Assert.DoesNotContain("OrderTimeoutProbe", error.Detail);
+        Assert.False(string.IsNullOrWhiteSpace(error.TraceId));
+        Assert.False(failed.Headers.Contains("Retry-After"));
+        Assert.Equal(sqlError, timeout.ObservedError);
+        Assert.Equal(1, timeout.Attempts);
+        await using var check = _app.OpenDatabase();
+        Assert.Equal(0, await check.Orders.CountAsync());
+        Assert.Equal(0, await check.OrderEmails.CountAsync());
+        Assert.Equal(3, (await check.Products.AsNoTracking().SingleAsync()).StockQuantity);
+        Assert.False((await check.Carts.AsNoTracking().SingleAsync()).IsCheckedOut);
+        await transaction.RollbackAsync();
+        timeout.Enabled = false;
+        using var recovered = await client.PostAsJsonAsync("/api/orders", request);
+        Assert.Equal(HttpStatusCode.Created, recovered.StatusCode);
+        var order = (await recovered.Content.ReadFromJsonAsync<OrderDto>())!;
+        using var repeated = await client.PostAsJsonAsync("/api/orders", request);
+        Assert.Equal(HttpStatusCode.OK, repeated.StatusCode);
+        Assert.Equal(order.Id, (await repeated.Content.ReadFromJsonAsync<OrderDto>())!.Id);
+        Assert.Equal(1, await check.Orders.CountAsync());
+        Assert.Equal(2, await check.OrderEmails.CountAsync());
+        Assert.Equal(2, (await check.Products.AsNoTracking().SingleAsync()).StockQuantity);
+        Assert.True((await check.Carts.AsNoTracking().SingleAsync()).IsCheckedOut);
+        Assert.Empty(_app.Sender.Sent);
+    }
+
+    private sealed class OrderQueueTimeout(int sqlError) : DbCommandInterceptor
+    {
+        public bool Enabled = true;
+        public int Attempts;
+        public int ObservedError;
+
+        public override async ValueTask<InterceptionResult<DbDataReader>> ReaderExecutingAsync(
+            DbCommand command, CommandEventData eventData, InterceptionResult<DbDataReader> result,
+            CancellationToken cancellationToken = default)
+        {
+            if (Enabled && command.CommandText.Contains("INSERT INTO [OrderEmails]", StringComparison.Ordinal))
+            {
+                Attempts++;
+                // Block inside the real checkout transaction, after the order and stock save.
+                // The separate holder owns only a test row; provider exceptions are not fabricated.
+                await using var probe = command.Connection!.CreateCommand();
+                probe.Transaction = command.Transaction;
+                probe.CommandTimeout = sqlError == -2 ? 1 : 10;
+                probe.CommandText = sqlError == 1222
+                    ? "SET LOCK_TIMEOUT 100; UPDATE dbo.OrderTimeoutProbe SET Value = 2 WHERE Id = 1;"
+                    : "UPDATE dbo.OrderTimeoutProbe SET Value = 2 WHERE Id = 1;";
+                try { await probe.ExecuteNonQueryAsync(cancellationToken); }
+                catch (SqlException exception)
+                {
+                    ObservedError = exception.Number;
+                    throw;
+                }
+                throw new InvalidOperationException("The test lock did not produce a timeout.");
+            }
+            return result;
+        }
     }
 
     [SqlServerFact]
@@ -255,6 +346,69 @@ public sealed class OrderWorkflowTests : IAsyncLifetime
         Assert.Equal(PaymentStatus.RefundPending, saved.PaymentStatus);
         Assert.False(saved.StockCommitted);
         Assert.Equal(3, (await check.Products.SingleAsync()).StockQuantity);
+    }
+
+    [SqlServerTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task LastItemSaleAndCancellation_PreserveAdministrativeAvailability(bool disableBeforeCancellation)
+    {
+        var productId = await SeedProductAsync();
+        await using (var seed = _app.OpenDatabase())
+        {
+            await seed.Products.ExecuteUpdateAsync(setters => setters.SetProperty(x => x.StockQuantity, 1));
+        }
+        using var client = _app.Factory.CreateClient();
+        await AddToCartAsync(client, productId);
+        using var stranger = _app.Factory.CreateClient();
+        using var reserved = await stranger.PostAsJsonAsync("/api/cart/items", new AddCartItemDto { ProductId = productId, Quantity = 1 });
+        Assert.Equal(HttpStatusCode.Conflict, reserved.StatusCode);
+        using var placed = await client.PostAsJsonAsync("/api/orders", await Request().WithQuoteAsync(client));
+        Assert.Equal(HttpStatusCode.Created, placed.StatusCode);
+        var order = (await placed.Content.ReadFromJsonAsync<OrderDto>())!;
+        using (var scope = _app.Factory.Services.CreateScope())
+        {
+            var products = scope.ServiceProvider.GetRequiredService<Biogarden.BusinessLogic.Abstractions.IProductService>();
+            var details = (await products.GetDetailsAsync(productId))!;
+            Assert.True(details.Available);
+            Assert.False(details.InStock);
+            Assert.Empty((await products.GetPagedAsync(new() { AvailableOnly = true })).Items);
+            Assert.Equal(productId, Assert.Single((await products.GetPagedAsync(new() { UnavailableOnly = true })).Items).Id);
+        }
+        if (disableBeforeCancellation)
+        {
+            await using var database = _app.OpenDatabase();
+            await database.Products.ExecuteUpdateAsync(setters => setters.SetProperty(x => x.Available, false));
+        }
+        await ChangeStatusAsync(order.Id, OrderStatus.Cancelled);
+        await ChangeStatusAsync(order.Id, OrderStatus.Cancelled);
+        await using var check = _app.OpenDatabase();
+        var restored = await check.Products.SingleAsync();
+        Assert.Equal(1, restored.StockQuantity);
+        Assert.Equal(!disableBeforeCancellation, restored.Available);
+        using var after = await stranger.PostAsJsonAsync("/api/cart/items", new AddCartItemDto { ProductId = productId, Quantity = 1 });
+        Assert.Equal(disableBeforeCancellation ? HttpStatusCode.Conflict : HttpStatusCode.OK, after.StatusCode);
+    }
+
+    [SqlServerTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ZeroStockAdminSaveAndRestock_PreserveSalesSetting(bool enabled)
+    {
+        using var scope = _app.Factory.Services.CreateScope();
+        var products = scope.ServiceProvider.GetRequiredService<Biogarden.BusinessLogic.Abstractions.IProductService>();
+        var inventory = scope.ServiceProvider.GetRequiredService<Biogarden.BusinessLogic.Abstractions.IAdminInventoryService>();
+        var id = await products.CreateAsync(new() { Name = "Restock test", Price = 900, Available = enabled, StockQuantity = 0 });
+        var created = (await products.GetDetailsAsync(id))!;
+        Assert.Equal(enabled, created.Available);
+        Assert.False(created.InStock);
+        var empty = await inventory.UpdateAsync(id, new() { Version = created.Version, StockQuantity = 0, Available = enabled });
+        Assert.Equal(enabled, empty.Available);
+        await inventory.UpdateAsync(id, new() { Version = empty.Version, StockQuantity = 2, Available = enabled });
+        var restored = (await products.GetDetailsAsync(id))!;
+        Assert.Equal(enabled, restored.Available);
+        Assert.True(restored.InStock);
+        Assert.Equal(enabled ? 1 : 0, (await products.GetPagedAsync(new() { AvailableOnly = true })).TotalCount);
     }
 
     private async Task<int> SeedProductAsync()

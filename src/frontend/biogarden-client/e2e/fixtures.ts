@@ -16,6 +16,7 @@ export const product = {
   unitAmount: 50,
   unitAmountMeasure: 4,
   available: true,
+  inStock: true,
   deliveryAvailable: true,
 };
 
@@ -29,6 +30,7 @@ const relatedProduct = {
   unitAmount: 40,
   unitAmountMeasure: 4,
   available: true,
+  inStock: true,
   deliveryAvailable: true,
 };
 
@@ -42,6 +44,7 @@ const pageTwoProduct = {
   unitAmount: 250,
   unitAmountMeasure: 3,
   available: true,
+  inStock: true,
   deliveryAvailable: false,
 };
 

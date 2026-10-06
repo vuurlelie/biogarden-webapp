@@ -15,6 +15,9 @@ public sealed class ExceptionHandlingTests
     [InlineData("unexpected", 500)]
     [InlineData("validation", 400)]
     [InlineData("concurrency", 409)]
+    [InlineData("business-conflict", 409)]
+    [InlineData("payment-recovery", 503)]
+    [InlineData("non-sql-timeout", 500)]
     public async Task Errors_ExposeOnlySafeDetails_AndRetainTraceId(string failure, int expectedStatus)
     {
         const string internalDetail = "Database internal-server/customer-table is unavailable";
@@ -22,6 +25,9 @@ public sealed class ExceptionHandlingTests
         {
             "validation" => new ArgumentException("Quantity must be positive."),
             "concurrency" => new DbUpdateConcurrencyException(internalDetail),
+            "business-conflict" => new InvalidOperationException("Stock is reserved."),
+            "payment-recovery" => new Biogarden.BusinessLogic.Services.PaymentRecoveryException(),
+            "non-sql-timeout" => new TimeoutException(internalDetail),
             _ => new IOException(internalDetail)
         };
         var context = new DefaultHttpContext { TraceIdentifier = "test-trace" };
@@ -41,9 +47,9 @@ public sealed class ExceptionHandlingTests
         Assert.Equal("test-trace", response.TraceId);
         Assert.Equal(expectedStatus, response.Status);
         Assert.DoesNotContain(internalDetail, response.Detail);
-        if (failure == "validation") Assert.Equal(exception.Message, response.Detail);
+        if (failure is "validation" or "business-conflict" or "payment-recovery") Assert.Equal(exception.Message, response.Detail);
         else Assert.False(string.IsNullOrWhiteSpace(response.Detail));
-        if (failure == "unexpected") Assert.Same(exception, Assert.Single(alerts.Items).Exception);
+        if (expectedStatus == 500) Assert.Same(exception, Assert.Single(alerts.Items).Exception);
         else Assert.Empty(alerts.Items);
     }
 

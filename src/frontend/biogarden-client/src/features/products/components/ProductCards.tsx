@@ -63,7 +63,7 @@ export default function ProductCards({ products }: ProductCardsProps) {
                 decoding="async"
               />
 
-              {!product.available && (
+              {(!product.available || !product.inStock) && (
                 <span className="absolute bottom-6 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-sm bg-white/95 px-4 py-2 text-xs font-bold uppercase tracking-wide text-site-text shadow-md">
                   Nem elérhető
                 </span>
@@ -114,7 +114,7 @@ export default function ProductCards({ products }: ProductCardsProps) {
                 <button
                   type="button"
                   onClick={() => void handleAddToCart(product.id)}
-                  disabled={!product.available || addingProductIds.has(product.id)}
+                  disabled={(!product.available || !product.inStock) || addingProductIds.has(product.id)}
                   className="inline-flex rounded-sm border border-transparent bg-site-green px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-site-green-hover disabled:cursor-not-allowed disabled:border-site-border disabled:bg-transparent disabled:text-site-muted disabled:hover:bg-transparent"
                 >
                   {addingProductIds.has(product.id) ? "Hozzáadás..." : "Kosárba"}
