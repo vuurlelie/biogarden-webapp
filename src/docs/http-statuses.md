@@ -33,5 +33,12 @@ Queued order notifications do not turn checkout into a `202` operation: the orde
 - `409`: a conflict with current state, including unavailable cart stock and concurrency conflicts.
 - `429`: rate limit exceeded; retain the retry guidance.
 - `500`: unexpected server failure, with safe client-facing details.
+- `503`: temporary database deadlock (SQL Server 1205), lock timeout (1222), or command timeout (-2), including wrapped provider errors. Details are localized and do not expose SQL or connection information. Existing delivery-directory and payment-recovery 503 responses keep their specific meaning.
 
 See [Request validation](validation.md) for the error body contract. The frontend checks `response.ok`, accepts all successful 2xx responses, and only parses bodies for operations that return data. External clients that previously required exactly 200 for creation or empty commands must adopt the updated statuses.
+
+Database errors do not trigger generic automatic retries. A command/commit timeout can have
+an uncertain outcome; clients must use the existing checkout idempotency/recovery and payment
+reconciliation flows before repeating writes. Contact acceptance retains its bounded deadlock
+retry, and returns 503 when exhausted. Optimistic concurrency conflicts remain 409. Detailed
+exceptions remain in server logs with the response trace ID.

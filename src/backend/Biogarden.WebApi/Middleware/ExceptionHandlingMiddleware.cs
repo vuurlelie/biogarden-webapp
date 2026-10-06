@@ -4,6 +4,7 @@ using Biogarden.BusinessLogic.Abstractions;
 using Biogarden.BusinessLogic.Models.Alerting;
 using Biogarden.WebApi.Contracts;
 using Microsoft.Extensions.Logging;
+using Microsoft.Data.SqlClient;
 
 namespace Biogarden.WebApi.Middleware;
 
@@ -49,12 +50,16 @@ public sealed class ExceptionHandlingMiddleware
         IErrorAlertService errorAlertService,
         Exception exception)
     {
+        var transientDatabaseFailure = exception is not Biogarden.BusinessLogic.Services.PaymentRecoveryException
+            && exception is not Microsoft.EntityFrameworkCore.DbUpdateConcurrencyException
+            && IsTransientDatabaseFailure(exception);
         var (statusCode, title) = exception switch
         {
             BadHttpRequestException { StatusCode: StatusCodes.Status413PayloadTooLarge }
                 => (HttpStatusCode.RequestEntityTooLarge, "Request body too large."),
             GlsDirectoryUnavailableException => (HttpStatusCode.ServiceUnavailable, "Delivery point directory unavailable."),
             Biogarden.BusinessLogic.Services.PaymentRecoveryException => (HttpStatusCode.ServiceUnavailable, "Payment reconciliation required."),
+            _ when transientDatabaseFailure => (HttpStatusCode.ServiceUnavailable, "Database temporarily unavailable."),
             KeyNotFoundException => (HttpStatusCode.NotFound, "Resource not found."),
             ArgumentException => (HttpStatusCode.BadRequest, "Validation failed."),
             UnauthorizedAccessException => (HttpStatusCode.Unauthorized, "Authentication failed."),
@@ -72,7 +77,9 @@ public sealed class ExceptionHandlingMiddleware
         {
             Title = title,
             Status = (int)statusCode,
-            Detail = statusCode == HttpStatusCode.InternalServerError
+            Detail = transientDatabaseFailure
+                ? "Az adatbázis átmenetileg nem érhető el. Ellenőrizd a művelet eredményét, mielőtt újra próbálkozol."
+                : statusCode == HttpStatusCode.InternalServerError
                 ? "Váratlan hiba történt. Kérjük, próbáld újra később."
                 : exception is Microsoft.EntityFrameworkCore.DbUpdateConcurrencyException
                     ? "Az adatok időközben megváltoztak. Frissítsd az oldalt, és próbáld újra."
@@ -88,6 +95,21 @@ public sealed class ExceptionHandlingMiddleware
 
         var json = JsonSerializer.Serialize(response, new JsonSerializerOptions(JsonSerializerDefaults.Web));
         await context.Response.WriteAsync(json);
+    }
+
+    private static bool IsTransientDatabaseFailure(Exception exception)
+    {
+        // EF and service layers can wrap the provider error. Do not replay a write here:
+        // a timeout during commit does not prove that the transaction was rolled back.
+        for (Exception? current = exception; current is not null; current = current.InnerException)
+        {
+            if (current is SqlException sql && sql.Errors.Cast<SqlError>()
+                .Any(error => error.Number is 1205 or 1222 or -2))
+            {
+                return true;
+            }
+        }
+        return false;
     }
 
     private void LogException(

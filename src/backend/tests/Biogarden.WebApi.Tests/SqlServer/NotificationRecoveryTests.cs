@@ -77,7 +77,7 @@ public sealed class NotificationRecoveryTests : IAsyncLifetime
 
     [SqlServerTheory]
     [InlineData(1, HttpStatusCode.Accepted, 2)]
-    [InlineData(4, HttpStatusCode.InternalServerError, 4)]
+    [InlineData(4, HttpStatusCode.ServiceUnavailable, 4)]
     public async Task ContactAcceptance_RetriesSqlDeadlockWithoutDuplicatingQueuedMessages(
         int failures, HttpStatusCode expectedStatus, int expectedAttempts)
     {
@@ -92,6 +92,14 @@ public sealed class NotificationRecoveryTests : IAsyncLifetime
         var request = Contact();
         var response = await client.PostAsJsonAsync("/api/contact", request);
         Assert.True(response.StatusCode == expectedStatus, await response.Content.ReadAsStringAsync());
+        if (expectedStatus == HttpStatusCode.ServiceUnavailable)
+        {
+            var error = (await response.Content.ReadFromJsonAsync<Biogarden.WebApi.Contracts.ApiErrorResponse>())!;
+            Assert.Equal("Database temporarily unavailable.", error.Title);
+            Assert.Contains("átmenetileg", error.Detail);
+            Assert.DoesNotContain("deadlock", error.Detail, StringComparison.OrdinalIgnoreCase);
+            Assert.False(string.IsNullOrWhiteSpace(error.TraceId));
+        }
         Assert.Equal(expectedAttempts, deadlock.InsertAttempts);
         await using var database = _app.OpenDatabase();
         Assert.Equal(expectedStatus == HttpStatusCode.Accepted ? 2 : 0, await database.NotificationEmails.CountAsync());
