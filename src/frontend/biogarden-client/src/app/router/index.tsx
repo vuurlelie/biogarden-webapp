@@ -62,6 +62,7 @@ export const router = createBrowserRouter([
     element: <MainLayout />,
     children: [
       { index: true, element: routeElement(<HomePage />) },
+      { path: "*", element: routeElement(<NotFoundPage />) },
       { path: ROUTES.about.slice(1), element: routeElement(<AboutPage />) },
       { path: ROUTES.privacyPolicy.slice(1), element: routeElement(<PrivacyPolicyPage />) },
       { path: ROUTES.terms.slice(1), element: routeElement(<TermsPage />) },
@@ -128,9 +129,4 @@ export const router = createBrowserRouter([
     element: routeElement(<AdminLoginPage />),
   },
 
-  {
-    path: "*",
-    element: <MainLayout />,
-    children: [{ index: true, element: routeElement(<NotFoundPage />) }],
-  },
 ]);

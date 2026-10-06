@@ -384,7 +384,7 @@ export default function ProductDetailsPage() {
             Kapcsolódó termékek
           </h2>
           <div className="mt-5">
-            <ProductCards products={relatedProducts} />
+            <ProductCards products={relatedProducts} headingLevel={3} />
           </div>
         </section>
       )}

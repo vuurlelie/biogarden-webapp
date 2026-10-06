@@ -14,21 +14,26 @@ import {
 
 type ProductCardsProps = {
   products: ProductListItem[];
+  headingLevel?: 2 | 3;
 };
 
-export default function ProductCards({ products }: ProductCardsProps) {
+export default function ProductCards({ products, headingLevel = 2 }: ProductCardsProps) {
+  const Heading = headingLevel === 3 ? "h3" : "h2";
   const { addItem } = useCart();
   const pendingProducts = useRef(new Set<number>());
   const [addingProductIds, setAddingProductIds] = useState<ReadonlySet<number>>(new Set());
+  const [announcement, setAnnouncement] = useState("");
   const [errors, setErrors] = useState<Record<number, string | undefined>>({});
 
   async function handleAddToCart(productId: number) {
     if (pendingProducts.current.has(productId)) return;
     pendingProducts.current.add(productId);
+    setAnnouncement("");
     setAddingProductIds(new Set(pendingProducts.current));
     setErrors(current => ({ ...current, [productId]: undefined }));
     try {
       await addItem(productId);
+      setAnnouncement(`${products.find(product => product.id === productId)?.name ?? "A termék"} bekerült a kosárba.`);
     } catch (error) {
       setErrors(current => ({ ...current, [productId]: getErrorMessage(error, "A terméket nem sikerült kosárba tenni.") }));
     } finally {
@@ -38,6 +43,8 @@ export default function ProductCards({ products }: ProductCardsProps) {
   }
 
   return (
+    <>
+    <p className="sr-only" aria-live="polite" aria-atomic="true">{announcement}</p>
     <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
       {products.map((product) => {
         const detailsUrl = ROUTES.productDetails.replace(
@@ -76,7 +83,7 @@ export default function ProductCards({ products }: ProductCardsProps) {
               </div>
 
               <div className="mt-2 min-w-0">
-                <h2 className="truncate text-lg font-bold text-site-heading">
+                <Heading className="truncate text-lg font-bold text-site-heading">
                   <Link
                     to={detailsUrl}
                     className="hover:text-site-green"
@@ -84,7 +91,7 @@ export default function ProductCards({ products }: ProductCardsProps) {
                   >
                     {product.name}
                   </Link>
-                </h2>
+                </Heading>
               </div>
 
               <div className="mt-3 flex items-baseline justify-between gap-3">
@@ -109,10 +116,11 @@ export default function ProductCards({ products }: ProductCardsProps) {
                   to={detailsUrl}
                   className="inline-flex rounded-sm border border-site-green-dark px-4 py-2 text-sm font-semibold text-site-green-dark transition-colors hover:bg-site-surface-soft"
                 >
-                  Részletek
+                  <span className="sr-only">{product.name}: </span>Részletek
                 </Link>
                 <button
                   type="button"
+                  aria-label={`${addingProductIds.has(product.id) ? "Hozzáadás..." : "Kosárba"}: ${product.name}`}
                   onClick={() => void handleAddToCart(product.id)}
                   disabled={(!product.available || !product.inStock) || addingProductIds.has(product.id)}
                   className="inline-flex rounded-sm border border-transparent bg-site-green px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-site-green-hover disabled:cursor-not-allowed disabled:border-site-border disabled:bg-transparent disabled:text-site-muted disabled:hover:bg-transparent"
@@ -126,5 +134,6 @@ export default function ProductCards({ products }: ProductCardsProps) {
         );
       })}
     </div>
+    </>
   );
 }

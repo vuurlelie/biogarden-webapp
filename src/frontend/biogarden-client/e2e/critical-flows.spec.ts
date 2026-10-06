@@ -38,10 +38,10 @@ test("public catalog pages request and render paged results", async ({ page }) =
 
   await page.goto("/termekek");
   await expect(page.getByRole("link", { name: "Teszt levendula tea" }).first()).toBeVisible();
-  await expect(page.getByRole("button", { name: "2" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "2", exact: true })).toBeVisible();
   await expect(productRequests.some((query) => query.includes("pageSize=12"))).toBe(true);
 
-  await page.getByRole("button", { name: "2" }).click();
+  await page.getByRole("button", { name: "2", exact: true }).click();
   await expect(page.getByRole("link", { name: "Masodik oldali szorp" }).first()).toBeVisible();
   await expect(productRequests.some((query) => query.includes("page=2"))).toBe(true);
 
@@ -49,7 +49,7 @@ test("public catalog pages request and render paged results", async ({ page }) =
   await expect(page.getByText("Elso teszt bejegyzes")).toBeVisible();
   await expect(postRequests.some((query) => query.includes("pageSize=4"))).toBe(true);
 
-  await page.getByRole("button", { name: "2" }).first().click();
+  await page.getByRole("button", { name: "2", exact: true }).first().click();
   await expect(page.getByText("Masodik oldali bejegyzes")).toBeVisible();
   await expect(page.getByRole("link", { name: "Elso teszt bejegyzes" }).first()).toBeVisible();
   await expect(page.getByRole("button", { name: /május|majus/ })).toBeVisible();

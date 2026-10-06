@@ -267,7 +267,7 @@ className="inline-flex items-center text-[0.95rem] lg:text-base uppercase tracki
             <NavLink
               to={ROUTES.cart}
               className={iconButtonClass}
-              aria-label="Kosár"
+              aria-label={`Kosár, ${cartItemCount} tétel`}
               title="Kosár"
             >
               <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24" fill="currentColor">
@@ -397,6 +397,7 @@ className="inline-flex items-center text-[0.95rem] lg:text-base uppercase tracki
             <div className="mt-3">
               <NavLink
                 to={ROUTES.cart}
+                aria-label={`Kosár, ${cartItemCount} tétel`}
                 onClick={closeMobile}
                 className="relative inline-flex w-full items-center justify-center gap-2 rounded-xl border border-site-border bg-white px-4 py-3 text-sm uppercase tracking-wide text-site-nav transition-colors hover:text-site-green-dark"
               >
