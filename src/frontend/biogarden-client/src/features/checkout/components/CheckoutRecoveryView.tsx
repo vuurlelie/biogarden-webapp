@@ -62,7 +62,7 @@ export function CheckoutRecoveryView({ orderId, checkoutKey, busy, error: initia
 
   const canPay = order && order.status !== CANCELLED && (order.paymentMethod === null || order.paymentMethod === PAYMENT.OnlineCard)
     && (order.paymentStatus === PENDING || order.paymentStatus === FAILED);
-  return <main className="mx-auto max-w-2xl px-4 py-16 text-center">
+  return <div className="mx-auto max-w-2xl px-4 py-16 text-center">
     <h1 ref={headingRef} tabIndex={-1} className="text-3xl font-bold text-site-heading">Rendelés és fizetés ellenőrzése</h1>
     <p className="mt-4">Ne küldj új rendelést ugyanazokra a termékekre. Itt a korábbi rendelés eredményét ellenőrizheted.</p>
     {busy || loading ? <p role="status" className="mt-4">Az eredmény ellenőrzése folyamatban...</p> : <>
@@ -81,5 +81,5 @@ export function CheckoutRecoveryView({ orderId, checkoutKey, busy, error: initia
         <a href="mailto:info@bakonykincse.hu" className="px-5 py-3 underline">Segítséget kérek</a>
       </div>
     </>}
-  </main>;
+  </div>;
 }

@@ -106,7 +106,7 @@ export const router = createBrowserRouter([
 
   {
     path: ROUTES.admin,
-    element: <AdminRoute />,
+    element: <><RouteMetadata /><AdminRoute /></>,
     children: [
       {
         element: <AdminLayout />,
@@ -130,6 +130,7 @@ export const router = createBrowserRouter([
 
   {
     path: "*",
-    element: routeElement(<NotFoundPage />),
+    element: <MainLayout />,
+    children: [{ index: true, element: routeElement(<NotFoundPage />) }],
   },
 ]);

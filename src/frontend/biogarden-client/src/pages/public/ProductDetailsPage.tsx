@@ -230,7 +230,7 @@ export default function ProductDetailsPage() {
   }
 
   return (
-    <main className="mx-auto max-w-6xl px-4 py-4 sm:py-6">
+    <div className="mx-auto max-w-6xl px-4 py-4 sm:py-6">
       <Seo
         title={product.name}
         description={
@@ -419,6 +419,6 @@ export default function ProductDetailsPage() {
           </div>
         </div>
       )}
-    </main>
+    </div>
   );
 }

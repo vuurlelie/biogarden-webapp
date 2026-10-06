@@ -110,7 +110,7 @@ const sections = [
 
 export default function TermsPage() {
   return (
-    <main className="bg-site-surface-soft px-4 py-10 sm:py-14">
+    <div className="bg-site-surface-soft px-4 py-10 sm:py-14">
       <Seo
         title="Általános Szerződési Feltételek"
         description="A Bakony Kincse Biokertészet rendelési, fizetési, átvételi, panaszkezelési és fogyasztói tájékoztatói."
@@ -149,6 +149,6 @@ export default function TermsPage() {
           ))}
         </div>
       </article>
-    </main>
+    </div>
   );
 }

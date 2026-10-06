@@ -106,7 +106,7 @@ export default function AdminLoginPage() {
   }
 
   return (
-    <main className="min-h-screen bg-site-surface-soft px-4 py-10 sm:py-14">
+    <main id="main-content" tabIndex={-1} className="min-h-screen bg-site-surface-soft px-4 py-10 sm:py-14">
       <section className="mx-auto w-full max-w-md rounded-sm border border-site-border bg-white p-6 shadow-lg sm:p-8">
         <div className="text-center">
           <p className="text-xs font-bold uppercase tracking-[0.16em] text-site-green-dark">

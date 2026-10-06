@@ -136,7 +136,7 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="bg-site-surface-soft px-4 pb-10 pt-6 sm:pb-14 sm:pt-8">
+    <div className="bg-site-surface-soft px-4 pb-10 pt-6 sm:pb-14 sm:pt-8">
       <section className="mx-auto w-full max-w-md rounded-sm border border-site-border bg-white p-6 shadow-lg sm:p-8">
         <div className="text-center">
           <p className="text-xs font-bold uppercase tracking-[0.16em] text-site-green-dark">
@@ -251,6 +251,6 @@ export default function LoginPage() {
           </div>
         )}
       </section>
-    </main>
+    </div>
   );
 }

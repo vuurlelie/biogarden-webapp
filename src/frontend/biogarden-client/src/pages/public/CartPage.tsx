@@ -181,7 +181,7 @@ export default function CartPage() {
   }
 
   return (
-    <main className="mx-auto w-full max-w-6xl px-4 py-6">
+    <div className="mx-auto w-full max-w-6xl px-4 py-6">
       <nav className="mb-5 flex items-center gap-2 text-sm text-site-text" aria-label="Morzsamenü">
         <Link to={ROUTES.home} className="font-bold text-site-green-dark hover:underline">Kezdőlap</Link>
         <span aria-hidden="true">/</span>
@@ -297,6 +297,6 @@ export default function CartPage() {
           </section>
         </div>
       )}
-    </main>
+    </div>
   );
 }

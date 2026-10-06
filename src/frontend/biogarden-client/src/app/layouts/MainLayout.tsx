@@ -1,3 +1,4 @@
+import SkipLink from "../../shared/components/layout/SkipLink";
 import { Outlet } from "react-router";
 import Navbar from "../../shared/components/layout/Navbar";
 import Footer from "../../shared/components/layout/Footer";
@@ -24,6 +25,7 @@ export default function MainLayout() {
 
   return (
     <div className="flex min-h-screen flex-col bg-white text-site-text">
+      <SkipLink />
       <ScrollToTop />
       <RouteAnalytics />
 
@@ -33,7 +35,7 @@ export default function MainLayout() {
         cartItemCount={cartItemCount}
       />
 
-      <main className="relative z-20 flex-1 shadow-[0_12px_30px_rgba(48,55,43,0.14)]">
+      <main id="main-content" tabIndex={-1} aria-label="Fő tartalom" className="relative z-20 flex-1 shadow-[0_12px_30px_rgba(48,55,43,0.14)]">
         <Outlet />
       </main>
 

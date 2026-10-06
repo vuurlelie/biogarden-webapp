@@ -17,7 +17,7 @@ export function CheckoutLoadingView({
 
 export function CheckoutEmptyCartView() {
   return (
-    <main className="mx-auto max-w-4xl px-4 py-12 text-center">
+    <div className="mx-auto max-w-4xl px-4 py-12 text-center">
       <h1 className="text-3xl font-bold">A kosár üres</h1>
       <Link
         to={ROUTES.products}
@@ -25,6 +25,6 @@ export function CheckoutEmptyCartView() {
       >
         Vissza a termékekhez
       </Link>
-    </main>
+    </div>
   );
 }

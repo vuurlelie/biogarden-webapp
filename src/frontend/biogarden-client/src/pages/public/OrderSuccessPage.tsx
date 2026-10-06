@@ -88,7 +88,7 @@ export default function OrderSuccessPage() {
   }, [orderId, sumUpCheckoutReference, track]);
 
   return (
-    <main className="mx-auto max-w-2xl px-4 py-16 text-center">
+    <div className="mx-auto max-w-2xl px-4 py-16 text-center">
       <h1 className="text-3xl font-bold text-site-heading">Köszönjük a rendelést!</h1>
 
       {order ? (
@@ -155,6 +155,6 @@ export default function OrderSuccessPage() {
       >
         Vissza a termékekhez
       </Link>
-    </main>
+    </div>
   );
 }
