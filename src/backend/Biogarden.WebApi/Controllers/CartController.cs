@@ -9,6 +9,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace Biogarden.WebApi.Controllers;
 
 [ApiController]
+[Biogarden.WebApi.Filters.BrowserSessionRequest(ProtectReads = true)]
 [Route("api/[controller]")]
 public class CartController : ControllerBase
 {

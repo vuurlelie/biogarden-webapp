@@ -129,3 +129,11 @@ Do not commit:
 - log files
 - `bin/`, `obj/`, `dist/`, `node_modules/`, or `artifacts/`
 - completed private UAT records, client feedback, and local-only work notes; public documentation templates may be tracked
+
+### Browser session requests and private responses
+
+The shared frontend HTTP client sends `X-Checkout-Request: 1` for cart, order and checkout-draft requests. The API requires it for cart/draft reads and writes, and for order mutations (including starting a payment). These cookie-owned operations reject an explicitly untrusted `Origin` using the configured frontend CORS allowlist. A present but invalid bearer token is rejected instead of falling back to a guest session. Requests without `Origin` still require the header; it is a browser CSRF safeguard, not authentication or a secret.
+
+The SumUp server-to-server callback does not require this header and retains its provider verification. Publish the frontend and API changes together; older frontend clients must reload. Verify the actual frontend origin is in `Frontend:AllowedOrigins` before deployment. Never allow arbitrary credentialed origins.
+
+Authentication, cart, order, profile, admin and checkout-draft API responses include `Cache-Control: no-store`, including errors. Public catalog and static image caching remain separate. This does not erase data already held in a running page or replace logout/session cleanup.

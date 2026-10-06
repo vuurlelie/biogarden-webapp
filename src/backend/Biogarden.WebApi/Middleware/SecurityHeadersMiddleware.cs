@@ -2,6 +2,9 @@ namespace Biogarden.WebApi.Middleware;
 
 public sealed class SecurityHeadersMiddleware
 {
+    private static readonly string[] SensitivePaths =
+        ["/api/auth", "/api/cart", "/api/orders", "/api/profile", "/api/admin", "/api/checkout-drafts"];
+
     private const string ContentSecurityPolicy =
         "default-src 'self'; " +
         "base-uri 'self'; " +
@@ -26,6 +29,11 @@ public sealed class SecurityHeadersMiddleware
         {
             var headers = context.Response.Headers;
 
+            if (SensitivePaths.Any(path => context.Request.Path.StartsWithSegments(path, StringComparison.OrdinalIgnoreCase)))
+            {
+                headers.CacheControl = "no-store";
+                headers.Pragma = "no-cache";
+            }
             headers.TryAdd("X-Content-Type-Options", "nosniff");
             headers.TryAdd("X-Frame-Options", "DENY");
             headers.TryAdd("Referrer-Policy", "strict-origin-when-cross-origin");

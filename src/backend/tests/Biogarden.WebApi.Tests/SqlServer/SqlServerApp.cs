@@ -86,6 +86,12 @@ public sealed class SqlServerApp : IAsyncLifetime
     public sealed class TestApi(string connection, TestEmailSender sender, QueueSaveFailure failure, ConcurrentSaveGate saveGate, TestGlsDirectory gls)
         : WebApplicationFactory<Program>
     {
+        protected override void ConfigureClient(HttpClient client)
+        {
+            base.ConfigureClient(client);
+            client.DefaultRequestHeaders.Add("X-Checkout-Request", "1");
+        }
+
         protected override void ConfigureWebHost(IWebHostBuilder builder)
         {
             builder.UseEnvironment("Testing");

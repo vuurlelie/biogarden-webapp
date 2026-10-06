@@ -10,6 +10,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace Biogarden.WebApi.Controllers;
 
 [ApiController]
+[Biogarden.WebApi.Filters.BrowserSessionRequest]
 [Authorize]
 [Route("api/[controller]")]
 public class OrdersController : ControllerBase

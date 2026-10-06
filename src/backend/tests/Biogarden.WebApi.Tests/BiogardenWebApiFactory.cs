@@ -13,6 +13,12 @@ public sealed class BiogardenWebApiFactory : WebApplicationFactory<Program>
     private const string TestJwtSecretKey =
         "TestJwtSecretKeyForWebApiIntegrationTests12345";
 
+    protected override void ConfigureClient(HttpClient client)
+    {
+        base.ConfigureClient(client);
+        client.DefaultRequestHeaders.Add("X-Checkout-Request", "1");
+    }
+
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         // Startup validates JWT settings before the app configuration callback runs.

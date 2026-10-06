@@ -91,6 +91,9 @@ export async function apiRequest(
   }: ApiRequestOptions,
 ): Promise<Response> {
   const headers = new Headers(requestHeaders);
+  if (/^\/api\/(cart|orders|checkout-drafts)(\/|$)/i.test(path)) {
+    headers.set("X-Checkout-Request", "1");
+  }
 
   if (authToken) headers.set("Authorization", `Bearer ${authToken}`);
   if (jsonBody !== undefined) headers.set("Content-Type", "application/json");
