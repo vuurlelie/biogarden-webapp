@@ -13,8 +13,14 @@ public sealed class ErrorAlertOptions
     public LogLevel MinimumLevel { get; init; } = LogLevel.Error;
     public int ThrottleWindowMinutes { get; init; } = 30;
 
+    public int SendTimeoutSeconds { get; init; } = 5;
+    public int FailureRetrySeconds { get; init; } = 60;
+
     public void ValidateForStartup()
     {
+        if (SendTimeoutSeconds is < 1 or > 30 || FailureRetrySeconds is < 1 or > 3600)
+            throw new InvalidOperationException("Error alert timeout must be 1-30 seconds and failure retry 1-3600 seconds.");
+
         if (ThrottleWindowMinutes <= 0)
         {
             throw new InvalidOperationException(

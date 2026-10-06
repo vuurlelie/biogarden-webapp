@@ -116,6 +116,43 @@ public sealed class ErrorAlertServiceTests
         Assert.Equal(2, sendCount);
     }
 
+    [Fact]
+    public async Task FailedSend_UsesShortCooldown_ThenAllowsAnotherAttempt()
+    {
+        _emailService.SetupSequence(x => x.SendAsync(It.IsAny<EmailMessage>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new IOException("SMTP unavailable")).Returns(Task.CompletedTask);
+        var service = CreateService(new ErrorAlertOptions { Enabled = true, FailureRetrySeconds = 60 });
+        await Assert.ThrowsAsync<IOException>(() => service.NotifyAsync(CreateAlert()));
+        await service.NotifyAsync(CreateAlert());
+        _emailService.Verify(x => x.SendAsync(It.IsAny<EmailMessage>(), It.IsAny<CancellationToken>()), Times.Once);
+        _timeProvider.Advance(TimeSpan.FromSeconds(61));
+        await service.NotifyAsync(CreateAlert());
+        _emailService.Verify(x => x.SendAsync(It.IsAny<EmailMessage>(), It.IsAny<CancellationToken>()), Times.Exactly(2));
+    }
+
+    [Fact]
+    public async Task InFlightSend_IsDeduplicated_AndBoundedEvenIfSenderIgnoresCancellation()
+    {
+        var pending = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        _emailService.Setup(x => x.SendAsync(It.IsAny<EmailMessage>(), It.IsAny<CancellationToken>())).Returns(pending.Task);
+        var service = CreateService(new ErrorAlertOptions { Enabled = true, SendTimeoutSeconds = 1 });
+        var first = service.NotifyAsync(CreateAlert());
+        await service.NotifyAsync(CreateAlert());
+        try { await Assert.ThrowsAnyAsync<OperationCanceledException>(() => first.WaitAsync(TimeSpan.FromSeconds(5))); }
+        finally { pending.TrySetResult(); }
+        _emailService.Verify(x => x.SendAsync(It.IsAny<EmailMessage>(), It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Theory]
+    [InlineData(0, 60)]
+    [InlineData(31, 60)]
+    [InlineData(5, 0)]
+    public void InvalidDeliveryLimits_AreRejectedAtStartup(int timeout, int retry)
+    {
+        Assert.Throws<InvalidOperationException>(() => new ErrorAlertOptions
+        { SendTimeoutSeconds = timeout, FailureRetrySeconds = retry }.ValidateForStartup());
+    }
+
     private ErrorAlertService CreateService(ErrorAlertOptions options)
     {
         return new ErrorAlertService(

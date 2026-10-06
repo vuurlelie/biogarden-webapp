@@ -36,19 +36,22 @@ public sealed class ErrorAlertService : IErrorAlertService
         }
 
         var throttleKey = $"{alert.Level}:{NormalizeKey(alert.AlertKey)}";
-        var throttleWindow = TimeSpan.FromMinutes(_options.ThrottleWindowMinutes);
+        if (!_throttleStore.TryAcquire(throttleKey, _timeProvider.GetUtcNow())) return;
 
-        if (!_throttleStore.TryAcquire(
-            throttleKey,
-            _timeProvider.GetUtcNow(),
-            throttleWindow))
+        var sent = false;
+        try
         {
-            return;
+            using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            timeout.CancelAfter(TimeSpan.FromSeconds(_options.SendTimeoutSeconds));
+            await _emailService.SendAsync(BuildEmailMessage(alert), timeout.Token).WaitAsync(timeout.Token);
+            sent = true;
         }
-
-        await _emailService.SendAsync(
-            BuildEmailMessage(alert),
-            cancellationToken);
+        finally
+        {
+            _throttleStore.Complete(throttleKey, _timeProvider.GetUtcNow(), sent
+                ? TimeSpan.FromMinutes(_options.ThrottleWindowMinutes)
+                : TimeSpan.FromSeconds(_options.FailureRetrySeconds));
+        }
     }
 
     private EmailMessage BuildEmailMessage(ErrorAlert alert)
