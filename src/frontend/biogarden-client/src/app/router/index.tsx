@@ -1,5 +1,6 @@
 import { lazy, Suspense, type ReactNode } from "react";
 import { createBrowserRouter } from "react-router";
+import RouteMetadata from "../../shared/seo/RouteMetadata";
 import { ROUTES } from "../../shared/constants/routes";
 
 import MainLayout from "../layouts/MainLayout";
@@ -52,7 +53,7 @@ const pageLoader = (
 );
 
 function routeElement(page: ReactNode) {
-  return <Suspense fallback={pageLoader}>{page}</Suspense>;
+  return <><RouteMetadata /><Suspense fallback={pageLoader}>{page}</Suspense></>;
 }
 
 export const router = createBrowserRouter([

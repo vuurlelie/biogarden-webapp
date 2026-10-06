@@ -20,6 +20,7 @@ export default defineConfig({
     cwd: ".",
     env: {
       VITE_API_BASE_URL: "http://localhost:5097",
+      VITE_INDEXING_ENABLED: "true",
     },
     reuseExistingServer: false,
     timeout: 120_000,

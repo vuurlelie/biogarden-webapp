@@ -1,7 +1,9 @@
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
+import { loadEnv } from "vite";
+const environment = { ...loadEnv(process.env.MODE ?? "production", process.cwd(), ""), ...process.env };
 
-const siteUrl = (process.env.VITE_SITE_URL ?? "https://bakonykincse.hu").replace(/\/$/, "");
+const siteUrl = (environment.VITE_SITE_URL ?? "https://bakonykincse.hu").replace(/\/$/, "");
 const sitemap = await readFile(resolve("dist", "sitemap.xml"), "utf8");
 const robots = await readFile(resolve("dist", "robots.txt"), "utf8");
 
@@ -37,3 +39,7 @@ if (!robots.includes("Disallow: /admin") || !robots.includes("Disallow: /fiokom"
 if (!robots.includes(`Sitemap: ${siteUrl}/sitemap.xml`)) {
   throw new Error("robots.txt must point to the sitemap URL.");
 }
+
+const index = await readFile(resolve("dist", "index.html"), "utf8");
+const expectedRobots = environment.VITE_INDEXING_ENABLED === "true" ? "index, follow" : "noindex, nofollow";
+if (!index.includes(`name="robots" content="${expectedRobots}"`)) throw new Error("Incorrect built indexing policy.");
