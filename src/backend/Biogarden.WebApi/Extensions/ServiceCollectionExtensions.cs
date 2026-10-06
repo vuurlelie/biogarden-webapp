@@ -215,7 +215,8 @@ public static class ServiceCollectionExtensions
         services
             .AddHealthChecks()
             .AddCheck("self", () => Microsoft.Extensions.Diagnostics.HealthChecks.HealthCheckResult.Healthy(), tags: ["live"])
-            .AddCheck<DatabaseHealthCheck>("database", tags: ["ready"]);
+            .AddCheck<DatabaseHealthCheck>("database", tags: ["ready"])
+            .AddCheck<OperationalHealthCheck>("operations", tags: ["operations"], timeout: TimeSpan.FromSeconds(10));
 
         return services;
     }
@@ -244,6 +245,8 @@ public static class ServiceCollectionExtensions
             configuration,
             EmailBrandingOptions.SectionName,
             options => options.ValidateForStartup());
+        services.AddValidatedOptions<OperationalMonitoringOptions>(configuration,
+            OperationalMonitoringOptions.SectionName, options => options.ValidateForStartup());
         services.AddValidatedOptions<ErrorAlertOptions>(
             configuration,
             ErrorAlertOptions.SectionName,

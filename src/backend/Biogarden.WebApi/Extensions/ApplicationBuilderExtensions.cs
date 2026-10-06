@@ -80,6 +80,11 @@ public static class ApplicationBuilderExtensions
             Predicate = registration => registration.Tags.Contains("ready")
         });
 
+        app.MapHealthChecks("/health/operations", new HealthCheckOptions
+        {
+            Predicate = registration => registration.Tags.Contains("operations")
+        });
+
         app.MapControllers();
 
         return app;
