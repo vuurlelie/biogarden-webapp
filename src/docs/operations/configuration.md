@@ -137,3 +137,15 @@ The shared frontend HTTP client sends `X-Checkout-Request: 1` for cart, order an
 The SumUp server-to-server callback does not require this header and retains its provider verification. Publish the frontend and API changes together; older frontend clients must reload. Verify the actual frontend origin is in `Frontend:AllowedOrigins` before deployment. Never allow arbitrary credentialed origins.
 
 Authentication, cart, order, profile, admin and checkout-draft API responses include `Cache-Control: no-store`, including errors. Public catalog and static image caching remain separate. This does not erase data already held in a running page or replace logout/session cleanup.
+
+### Frontend indexing policy
+
+Builds default to `noindex, nofollow` for UAT. Keep `VITE_INDEXING_ENABLED` unset or `false` when publishing test data. Set it to `true` only for an approved production release and rebuild. The policy is applied in the initial HTML, generated article previews and runtime metadata. Crawlers must be allowed to fetch the page to see `noindex`; this is not authentication or protection for private data.
+
+Cart, checkout, authentication, account, admin and unknown routes use non-indexable fallback metadata; public content supplies its own metadata. Set `VITE_SITE_URL` to the intended public origin and verify the deployed HTML and headers. A previously deployed server-level `X-Robots-Tag: noindex` must also be reviewed before enabling production indexing.
+
+### Accessibility verification before UAT
+
+Browser regression tests include automated axe checks for the home/about/article-list pages, catalogue, product details, cart, checkout, login and missing pages; keyboard skip navigation and modal focus; theme contrast; and catalogue/checkout overflow at 320, 375 and 768 pixels. `npm run verify:seo` also checks generated HTML indexing for both UAT and production policies using a local fixture API.
+
+Automated checks do not establish complete WCAG compliance. Before client UAT, manually walk the purchase flow with a keyboard and a screen reader, check zoom/reflow and visible focus, verify that cart additions are announced, and review tablet/desktop layouts with real product names and descriptions. Validate hosted social previews and canonical origins separately. Legal text and analytics-provider decisions still require client review.

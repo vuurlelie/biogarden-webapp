@@ -1,3 +1,4 @@
+import SkipLink from "../../shared/components/layout/SkipLink";
 import { NavLink, Outlet, useNavigate } from "react-router";
 import {
   clearAuthSession,
@@ -40,6 +41,7 @@ export default function AccountLayout() {
 
   return (
     <div className="flex min-h-screen flex-col bg-white text-site-text">
+      <SkipLink />
       <ScrollToTop />
       <RouteAnalytics />
       <Navbar
@@ -48,7 +50,7 @@ export default function AccountLayout() {
         cartItemCount={cart?.totalItemCount ?? 0}
       />
 
-      <main className="relative z-20 w-full flex-1 shadow-[0_12px_30px_rgba(48,55,43,0.14)]">
+      <main id="main-content" tabIndex={-1} aria-label="Fő tartalom" className="relative z-20 w-full flex-1 shadow-[0_12px_30px_rgba(48,55,43,0.14)]">
         <div className="mx-auto grid w-full max-w-7xl gap-6 px-4 py-6 sm:px-6 lg:grid-cols-[240px_minmax(0,1fr)] lg:px-8 lg:py-10">
         <aside className="min-w-0 self-start rounded-sm border border-site-border bg-white p-3 shadow-md lg:sticky lg:top-20">
           <div className="border-b border-site-border px-3 pb-4 pt-2">

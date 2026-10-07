@@ -76,6 +76,71 @@ public sealed class NotificationRecoveryTests : IAsyncLifetime
     }
 
     [SqlServerTheory]
+    [InlineData(false, HttpStatusCode.Accepted)]
+    [InlineData(true, HttpStatusCode.Conflict)]
+    public async Task ContactAcceptance_RecoversUniqueConflictAfterConcurrentInsert(
+        bool differentContent, HttpStatusCode expectedStatus)
+    {
+        var competingInsert = new CompetingContactInsert(_app, differentContent);
+        using var api = _app.Factory.WithWebHostBuilder(builder => builder.ConfigureTestServices(services =>
+            services.AddDbContext<AppDbContext>(options => options.AddInterceptors(competingInsert))));
+        using var client = api.CreateClient();
+        var request = Contact();
+
+        var response = await client.PostAsJsonAsync("/api/contact", request);
+
+        Assert.Equal(expectedStatus, response.StatusCode);
+        Assert.Equal(1, competingInsert.UniqueConflicts);
+        await using var database = _app.OpenDatabase();
+        var persisted = await database.NotificationEmails.AsNoTracking().ToListAsync();
+        Assert.Equal(2, persisted.Count);
+        Assert.Equal(competingInsert.WinnerIds.OrderBy(id => id), persisted.Select(email => email.Id).OrderBy(id => id));
+        Assert.All(persisted, email => Assert.Equal(request.SubmissionId, email.EventId));
+        Assert.Equal(2, persisted.Select(email => email.Kind).Distinct().Count());
+        Assert.Empty(_app.Sender.Sent);
+
+        // Later replays use the persisted winner without attempting another insert.
+        Assert.Equal(expectedStatus, (await client.PostAsJsonAsync("/api/contact", request)).StatusCode);
+        Assert.Equal(1, competingInsert.UniqueConflicts);
+        Assert.Equal(2, await database.NotificationEmails.CountAsync());
+    }
+
+    private sealed class CompetingContactInsert(SqlServerApp app, bool differentContent) : SaveChangesInterceptor
+    {
+        public List<Guid> WinnerIds { get; } = [];
+        public int UniqueConflicts { get; private set; }
+
+        public override async ValueTask<InterceptionResult<int>> SavingChangesAsync(
+            DbContextEventData eventData, InterceptionResult<int> result, CancellationToken cancellationToken = default)
+        {
+            var pending = eventData.Context!.ChangeTracker.Entries<NotificationEmail>()
+                .Where(entry => entry.State == EntityState.Added).ToList();
+            if (pending.Count == 0 || WinnerIds.Count != 0) return result;
+
+            // Commit the competing request after the replay read but before this insert.
+            // Separate IDs ensure SQL rejects the event/kind key, not the primary key.
+            await using var winner = app.OpenDatabase();
+            foreach (var entry in pending)
+            {
+                var email = (NotificationEmail)entry.CurrentValues.ToObject();
+                email.Id = Guid.NewGuid();
+                if (differentContent) email.RequestHash = new string('0', 64);
+                WinnerIds.Add(email.Id);
+                winner.NotificationEmails.Add(email);
+            }
+            await winner.SaveChangesAsync(cancellationToken);
+            return result;
+        }
+
+        public override Task SaveChangesFailedAsync(DbContextErrorEventData eventData, CancellationToken cancellationToken = default)
+        {
+            if (eventData.Exception is DbUpdateException { InnerException: SqlException { Number: 2601 or 2627 } })
+                UniqueConflicts++;
+            return Task.CompletedTask;
+        }
+    }
+
+    [SqlServerTheory]
     [InlineData(1, HttpStatusCode.Accepted, 2)]
     [InlineData(4, HttpStatusCode.ServiceUnavailable, 4)]
     public async Task ContactAcceptance_RetriesSqlDeadlockWithoutDuplicatingQueuedMessages(

@@ -13,6 +13,8 @@ export default function Carousel({
 }: CarouselProps) {
   const slides = useMemo(() => React.Children.toArray(children), [children]);
   const [current, setCurrent] = useState(0);
+  const [paused, setPaused] = useState(false);
+  const focusRef = useRef(false);
   const hoverRef = useRef(false);
 
   const previous = useCallback(() => {
@@ -24,23 +26,14 @@ export default function Carousel({
   }, [slides.length]);
 
   useEffect(() => {
-    if (!auto || slides.length <= 1) 
+    if (!auto || paused || slides.length <= 1)
       return;
 
     const id = setInterval(() => {
-      if (!hoverRef.current) next();
+      if (!hoverRef.current && !focusRef.current && !window.matchMedia("(prefers-reduced-motion: reduce)").matches) next();
     }, Math.max(2000, interval));
     return () => clearInterval(id);
-  }, [auto, next, interval, slides.length]);
-
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "ArrowLeft") previous();
-      if (e.key === "ArrowRight") next();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [previous, next]);
+  }, [auto, paused, next, interval, slides.length]);
 
   const startX = useRef<number | null>(null);
 
@@ -66,6 +59,14 @@ export default function Carousel({
       onMouseLeave={() => (hoverRef.current = false)}
       onTouchStart={onTouchStart}
       onTouchEnd={onTouchEnd}
+      role="region"
+      aria-label="Kertészeti képek"
+      onFocusCapture={() => { focusRef.current = true; }}
+      onBlurCapture={event => { if (!event.currentTarget.contains(event.relatedTarget)) focusRef.current = false; }}
+      onKeyDown={event => {
+        if (event.key === "ArrowLeft") { event.preventDefault(); previous(); }
+        if (event.key === "ArrowRight") { event.preventDefault(); next(); }
+      }}
       aria-roledescription="carousel"
     >
       <div
@@ -112,6 +113,10 @@ export default function Carousel({
         </button>
       </div>
 
+      {auto && <button type="button" onClick={() => setPaused(value => !value)}
+        aria-pressed={paused} className="absolute right-3 top-3 rounded bg-white px-3 py-2 text-sm text-site-heading">
+        {paused ? "Automatikus lejátszás folytatása" : "Automatikus lejátszás szüneteltetése"}
+      </button>}
       <div className="absolute bottom-3 left-0 right-0">
         <div className="flex items-center justify-center gap-2">
           {slides.map((_, i) => (

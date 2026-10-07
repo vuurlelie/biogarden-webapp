@@ -114,7 +114,8 @@ export default function PostsPage() {
   if (isLoading) {
     return (
       <div className="mx-auto max-w-6xl px-4 py-12">
-        <KnowledgeNavigation />
+        <h1 className="text-3xl font-bold text-site-heading">Tudástár</h1>
+      <KnowledgeNavigation />
         <div className="mt-8 rounded-2xl bg-white p-8 text-center shadow-lg">
           Bejegyzések betöltése...
         </div>
@@ -125,7 +126,8 @@ export default function PostsPage() {
   if (hasError) {
     return (
       <div className="mx-auto max-w-6xl px-4 py-12">
-        <KnowledgeNavigation />
+        <h1 className="text-3xl font-bold text-site-heading">Tudástár</h1>
+      <KnowledgeNavigation />
         <div className="mt-8 rounded-2xl bg-site-danger-soft p-8 text-center text-site-danger shadow-lg">
           Hiba történt a bejegyzések betöltése közben.
         </div>
@@ -139,6 +141,7 @@ export default function PostsPage() {
         title="Tudástár"
         description="Cikkek, gondolatok és hasznos tudnivalók a gyógynövényekről, természetes termékekről és a Bakony Kincse Biokertészet világából."
       />
+      <h1 className="text-3xl font-bold text-site-heading">Tudástár</h1>
       <KnowledgeNavigation />
 
       <div id="posts-top" className="mt-4 scroll-mt-20">

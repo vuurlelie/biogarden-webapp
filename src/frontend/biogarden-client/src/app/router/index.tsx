@@ -1,5 +1,6 @@
 import { lazy, Suspense, type ReactNode } from "react";
 import { createBrowserRouter } from "react-router";
+import RouteMetadata from "../../shared/seo/RouteMetadata";
 import { ROUTES } from "../../shared/constants/routes";
 
 import MainLayout from "../layouts/MainLayout";
@@ -52,7 +53,7 @@ const pageLoader = (
 );
 
 function routeElement(page: ReactNode) {
-  return <Suspense fallback={pageLoader}>{page}</Suspense>;
+  return <><RouteMetadata /><Suspense fallback={pageLoader}>{page}</Suspense></>;
 }
 
 export const router = createBrowserRouter([
@@ -61,6 +62,7 @@ export const router = createBrowserRouter([
     element: <MainLayout />,
     children: [
       { index: true, element: routeElement(<HomePage />) },
+      { path: "*", element: routeElement(<NotFoundPage />) },
       { path: ROUTES.about.slice(1), element: routeElement(<AboutPage />) },
       { path: ROUTES.privacyPolicy.slice(1), element: routeElement(<PrivacyPolicyPage />) },
       { path: ROUTES.terms.slice(1), element: routeElement(<TermsPage />) },
@@ -105,7 +107,7 @@ export const router = createBrowserRouter([
 
   {
     path: ROUTES.admin,
-    element: <AdminRoute />,
+    element: <><RouteMetadata /><AdminRoute /></>,
     children: [
       {
         element: <AdminLayout />,
@@ -127,8 +129,4 @@ export const router = createBrowserRouter([
     element: routeElement(<AdminLoginPage />),
   },
 
-  {
-    path: "*",
-    element: routeElement(<NotFoundPage />),
-  },
 ]);

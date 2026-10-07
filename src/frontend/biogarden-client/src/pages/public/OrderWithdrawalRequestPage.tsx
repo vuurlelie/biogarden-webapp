@@ -114,7 +114,7 @@ export default function OrderWithdrawalRequestPage() {
   }
 
   return (
-    <main className="bg-site-surface-soft px-4 pb-12 pt-8 sm:pb-16">
+    <div className="bg-site-surface-soft px-4 pb-12 pt-8 sm:pb-16">
       <Seo
         title="Elállási vagy fogyasztói kérés"
         description="Rendeléshez kapcsolódó elállási, panasz- vagy fogyasztói kérés rögzítése a Bakony Kincse Biokertészetnél."
@@ -220,6 +220,6 @@ export default function OrderWithdrawalRequestPage() {
           </button>
         </form>
       </section>
-    </main>
+    </div>
   );
 }

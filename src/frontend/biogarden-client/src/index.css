@@ -3,10 +3,10 @@
 @theme {
   --color-site-heading: #30372b;
   --color-site-text: #596253;
-  --color-site-muted: #747d6e;
+  --color-site-muted: #626b5d;
   --color-site-nav: #46503f;
-  --color-site-green: #6f8625;
-  --color-site-green-hover: #849e35;
+  --color-site-green: #566b1d;
+  --color-site-green-hover: #485d16;
   --color-site-green-dark: #566b1d;
   --color-site-surface: #fbfcf8;
   --color-site-surface-soft: #f2f5ea;
@@ -87,4 +87,30 @@ button:disabled,
 .rich-text-content li {
   margin: 0.25rem 0;
   padding-left: 0.25rem;
+}
+
+.skip-link {
+  position: fixed;
+  top: 0.5rem;
+  left: 0.5rem;
+  z-index: 300;
+  transform: translateY(-200%);
+  padding: 0.75rem 1rem;
+  background: white;
+  color: var(--color-site-heading);
+  border: 2px solid var(--color-site-green-dark);
+}
+.skip-link:focus { transform: translateY(0); }
+:where(a, button, input, select, textarea, [tabindex]):focus-visible {
+  outline: 3px solid var(--color-site-green-dark);
+  outline-offset: 3px;
+}
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

@@ -55,10 +55,10 @@ export default function CheckoutPage() {
   }
 
   if (cart?.items.length && !draftReady && draftStorage.error) {
-    return <main className="mx-auto max-w-2xl p-8">
+    return <div className="mx-auto max-w-2xl p-8">
       <p role="alert">{draftStorage.error}</p>
       <button type="button" onClick={draftStorage.load}>Piszkozat betöltése újra</button>
-    </main>;
+    </div>;
   }
 
   if (loading || cartLoading || (cart?.items.length && !draftReady)) {
@@ -70,7 +70,7 @@ export default function CheckoutPage() {
   }
 
   return (
-    <main className="mx-auto w-full max-w-6xl px-4 py-8">
+    <div className="mx-auto w-full max-w-6xl px-4 py-8">
       <h1 className="text-3xl font-bold text-site-heading">Pénztár</h1>
       <div className="my-4 text-sm text-site-muted">
         <p>A piszkozat legfeljebb 30 percig, a kosár lejártáig állítható vissza. A mentés nem hosszabbítja meg a készletfoglalást.</p>
@@ -398,6 +398,6 @@ export default function CheckoutPage() {
           termsAccepted={termsAccepted}
         />
       )}
-    </main>
+    </div>
   );
 }

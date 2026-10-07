@@ -38,6 +38,7 @@ export default function HomePage() {
         description="Bakony Kincse Biokertészet: természetes termékek, gyógynövények, teák, illóolajok és hidrolátumok Bakonyszentlászlóról."
         structuredData={organizationStructuredData}
       />
+      <h1 className="sr-only">Bakony Kincse Biokertészet</h1>
       {/* CAROUSEL */}
       <div className="w-full px-0 mt-2 sm:mt-3 shadow-lg">
         <Carousel auto interval={5000}>

@@ -17,7 +17,7 @@ const Card = ({
       <img src={img} alt={title} className="h-20 w-20" width={240} height={240} loading="lazy" />
     </div>
     <div className="px-6 pb-6 pt-4 flex flex-col h-full">
-      <h3 className="font-bold text-xl mb-3 text-center text-site-heading">{title}</h3>
+      <h2 className="font-bold text-xl mb-3 text-center text-site-heading">{title}</h2>
       <p className="text-site-text text-base text-justify px-1">{children}</p>
     </div>
   </article>

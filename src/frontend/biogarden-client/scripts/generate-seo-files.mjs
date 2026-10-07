@@ -232,6 +232,12 @@ async function writePostPreviewPages(posts) {
 }
 
 await mkdir(outputDirectory, { recursive: true });
+// Apply the same policy when generating previews separately from the Vite build.
+const indexPath = resolve(outputDirectory, "index.html");
+let index = await readFile(indexPath, "utf8");
+const robotsMeta = `<meta name="robots" content="${environment.VITE_INDEXING_ENABLED === "true" ? "index, follow" : "noindex, nofollow"}">`;
+index = index.replace(/<meta\s+name="robots"[^>]*>/gi, "").replace("</head>", `${robotsMeta}\n</head>`);
+await writeFile(indexPath, index, "utf8");
 
 const posts = await fetchPublicPosts();
 

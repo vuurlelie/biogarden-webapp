@@ -1,3 +1,4 @@
+import SkipLink from "../../shared/components/layout/SkipLink";
 import { useEffect, useState, type ReactNode } from "react";
 import { Link, NavLink, Outlet, useNavigate } from "react-router";
 import { clearAuthSession, getAuthSession } from "../../features/auth/utils/authStorage";
@@ -140,6 +141,7 @@ export default function AdminLayout() {
 
   return (
     <div className="min-h-screen bg-site-surface-soft text-site-text lg:flex">
+      <SkipLink />
       <ScrollToTop />
 
       <aside className="hidden h-screen w-72 shrink-0 flex-col bg-site-nav px-5 py-6 text-white lg:sticky lg:top-0 lg:flex">
@@ -211,7 +213,7 @@ export default function AdminLayout() {
           )}
         </header>
 
-        <main className="mx-auto w-full max-w-[100rem] p-4 sm:p-6 lg:p-8 xl:p-10">
+        <main id="main-content" tabIndex={-1} aria-label="Fő tartalom" className="mx-auto w-full max-w-[100rem] p-4 sm:p-6 lg:p-8 xl:p-10">
           <Outlet />
         </main>
       </div>

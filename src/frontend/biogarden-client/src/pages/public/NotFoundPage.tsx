@@ -1,3 +1,4 @@
+import Seo from "../../shared/seo/Seo";
 import { Link } from "react-router";
 
 type NotFoundPageProps = {
@@ -10,7 +11,8 @@ export default function NotFoundPage({
   return (
     <div className="min-h-screen flex items-center justify-center bg-site-surface-soft px-4">
       <div className="max-w-lg w-full bg-white rounded-2xl shadow-xl p-8 text-center">
-        <h1 className="text-7xl sm:text-8xl font-extrabold text-site-border">
+        <Seo title="Az oldal nem található" noIndex />
+        <h1 className="text-7xl sm:text-8xl font-extrabold text-site-muted">
           404
         </h1>
 

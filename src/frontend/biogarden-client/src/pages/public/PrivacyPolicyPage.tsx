@@ -102,7 +102,7 @@ const sections = [
 
 export default function PrivacyPolicyPage() {
   return (
-    <main className="bg-site-surface-soft px-4 py-10 sm:py-14">
+    <div className="bg-site-surface-soft px-4 py-10 sm:py-14">
       <Seo
         title="Adatkezelési tájékoztató"
         description="A Bakony Kincse Biokertészet adatkezelési tájékoztatója regisztrációhoz, rendeléshez, kapcsolattartáshoz és fogyasztói kérésekhez."
@@ -131,6 +131,6 @@ export default function PrivacyPolicyPage() {
           ))}
         </div>
       </article>
-    </main>
+    </div>
   );
 }

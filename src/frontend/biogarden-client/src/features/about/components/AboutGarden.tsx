@@ -18,9 +18,9 @@ export default function AboutGarden({ bemutatkozo }: { bemutatkozo: string }) {
 
       <section className="mt-10 mx-auto max-w-6xl px-4 sm:mt-12 md:mt-16 mb-2">
         <div className="sm:text-center lg:text-left">
-          <h2 className="my-6 text-2xl md:text-3xl font-bold text-site-heading">
+          <h1 className="my-6 text-2xl md:text-3xl font-bold text-site-heading">
             Bemutatkozás
-          </h2>
+          </h1>
 
           <p className="text-justify mb-4">
             A kis gyógynövényes gazdaságunk Győr-Moson-Sopron vármegye délkeleti csücskében, a Bakonyalja

@@ -58,7 +58,7 @@ export default function EmailConfirmationPage() {
   const isLoading = confirmationState === "loading";
 
   return (
-    <main className="bg-site-surface-soft px-4 py-10 sm:py-14">
+    <div className="bg-site-surface-soft px-4 py-10 sm:py-14">
       <section className="mx-auto w-full max-w-lg rounded-sm border border-site-border bg-white p-6 text-center shadow-lg sm:p-8">
         <p className="text-xs font-bold uppercase tracking-[0.16em] text-site-green-dark">
           Fiók aktiválása
@@ -91,6 +91,6 @@ export default function EmailConfirmationPage() {
           </Link>
         </div>
       </section>
-    </main>
+    </div>
   );
 }

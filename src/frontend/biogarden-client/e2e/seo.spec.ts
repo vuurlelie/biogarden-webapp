@@ -42,3 +42,17 @@ test("public pages expose route-specific metadata", async ({ page }) => {
     "product",
   );
 });
+
+test("private routes clear product metadata during client navigation", async ({ page }) => {
+  await mockPublicShopApi(page);
+  await page.goto("/termekek/1");
+  await expect(page.locator('meta[name="robots"]')).toHaveAttribute("content", "index, follow");
+  await page.getByRole("link", { name: /^Kosár/ }).first().click();
+  await expect(page).toHaveTitle("Kosár | Bakony Kincse Biokertészet");
+  await expect(page.locator('meta[name="robots"]')).toHaveAttribute("content", "noindex, nofollow");
+  await expect(page.locator("#biogarden-structured-data")).toHaveCount(0);
+  await expect(page.locator('meta[property="og:type"]')).toHaveAttribute("content", "website");
+  await page.goto("/does-not-exist");
+  await expect(page).toHaveTitle("Az oldal nem található | Bakony Kincse Biokertészet");
+  await expect(page.locator('meta[name="robots"]')).toHaveAttribute("content", "noindex, nofollow");
+});
