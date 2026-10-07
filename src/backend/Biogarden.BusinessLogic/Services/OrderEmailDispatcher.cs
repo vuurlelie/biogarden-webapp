@@ -1,3 +1,4 @@
+using System.Net.Mail;
 using Biogarden.BusinessLogic.Abstractions;
 using Biogarden.BusinessLogic.Models.Email;
 using Biogarden.DataAccess.Abstractions;
@@ -36,8 +37,9 @@ public sealed class OrderEmailDispatcher(
         catch (Exception exception)
         {
             // Avoid logging message bodies, recipient addresses, or SMTP exception details.
-            logger.LogWarning("Order email {EmailId} attempt {Attempt} failed ({ErrorType}); retry scheduled.",
-                email.Id, email.Attempts, exception.GetType().Name);
+            logger.LogWarning("Order email {EmailId} attempt {Attempt} failed ({ErrorType}, SMTP status {SmtpStatus}); retry scheduled.",
+                email.Id, email.Attempts, exception.GetType().Name,
+                exception is SmtpException smtpException ? smtpException.StatusCode.ToString() : "NotApplicable");
             var delay = TimeSpan.FromMinutes(Math.Min(60, Math.Pow(2, Math.Min(email.Attempts - 1, 6))));
             await repository.RetryAsync(email.Id, email.LeaseId!.Value,
                 timeProvider.GetUtcNow().UtcDateTime.Add(delay), token);

@@ -17,6 +17,7 @@ public sealed class OrderWithdrawalRequestConfiguration : IEntityTypeConfigurati
         requestBuilder.Property(request => request.Status)
             .HasConversion<byte>()
             .HasDefaultValue(OrderWithdrawalRequestStatus.Pending)
+            .HasSentinel(OrderWithdrawalRequestStatus.Pending)
             .IsRequired();
         requestBuilder.Property(request => request.RequestedAtUtc)
             .HasColumnType("datetime2")
