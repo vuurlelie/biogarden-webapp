@@ -23,6 +23,9 @@ test("isolated guests, login merge, lost checkout response and cancellation use 
     const merged = page.waitForResponse(response => response.url().includes("/api/cart/merge") && response.ok());
     await page.getByRole("button", { name: "Bejelentkezés", exact: true }).click();
     await merged;
+    const loginCookie = (await page.context().cookies(api)).find(value => value.name === "biogarden_session");
+    expect(loginCookie).toMatchObject({ httpOnly: true, secure: true, sameSite: "Lax" });
+    expect(await page.evaluate(() => localStorage.getItem("biogarden_auth"))).toBeNull();
     await page.goto("/penztar");
     await page.getByLabel(/Név/).fill("Test Customer");
     await page.getByLabel(/Email cím/).fill(process.env.E2E_CUSTOMER_EMAIL!);

@@ -10,6 +10,8 @@ Use this together with:
 
 ## Release Inputs
 
+For the browser-session release, apply `20261007065011_AddBrowserSessions` before starting the new API, and deploy the matching frontend in the same release. Configure the same-site HTTPS API domain, CORS and durable Data Protection key directory as described in [configuration](configuration.md#browser-authentication-sessions). Existing browser JWT logins are intentionally cleared; users sign in again. The new Data Protection application identity can also invalidate previously issued confirmation/reset links; request fresh emails when needed. Verify reload, cross-tab logout, idle expiry, active renewal, admin access, guest-cart merge and API restart persistence. Roll back frontend/API together; the added session table can remain during an application rollback.
+
 Admin pagination changes the list responses for `/api/admin/orders`, `/api/admin/users`, `/api/admin/inventory`, and `/api/admin/orders/withdrawal-requests` from arrays to `{ items, page, pageSize, totalCount, totalPages }`. Deploy the matching frontend and API together; an older frontend cannot read the new response shape. Roll back both packages together. There is no schema migration for this change. Verify page navigation, search/filter reset, handling/deletion on the last page, and order/inventory conflict reload after deployment.
 
 For the .NET 10 upgrade, confirm that the target SmarterASP.NET server has the ASP.NET Core 10 runtime and compatible IIS hosting support before uploading the API. Provider-wide support does not establish availability on the assigned server. Retain the previous API package and record its database compatibility for rollback.
