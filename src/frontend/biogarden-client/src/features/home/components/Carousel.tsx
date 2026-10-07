@@ -35,6 +35,7 @@ export default function Carousel({
     return () => clearInterval(id);
   }, [auto, paused, next, interval, slides.length]);
 
+  const playbackLabel = paused ? "Automatikus lejátszás folytatása" : "Automatikus lejátszás szüneteltetése";
   const startX = useRef<number | null>(null);
 
   const onTouchStart = (e: React.TouchEvent) => (startX.current = e.touches[0].clientX);
@@ -113,9 +114,20 @@ export default function Carousel({
         </button>
       </div>
 
-      {auto && <button type="button" onClick={() => setPaused(value => !value)}
-        aria-pressed={paused} className="absolute right-3 top-3 rounded bg-white px-3 py-2 text-sm text-site-heading">
-        {paused ? "Automatikus lejátszás folytatása" : "Automatikus lejátszás szüneteltetése"}
+      {auto && <button type="button" onClick={() => {
+        if (paused) {
+          // Explicit Play takes precedence over the hover/focus that activated this button.
+          hoverRef.current = false;
+          focusRef.current = false;
+        }
+        setPaused(!paused);
+      }}
+        aria-label={playbackLabel}
+        title={playbackLabel}
+        className="absolute right-3 top-3 flex h-11 w-11 items-center justify-center rounded-full bg-white/85 text-site-heading shadow hover:bg-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-site-heading">
+        <svg viewBox="0 0 24 24" className="h-5 w-5" fill="currentColor" aria-hidden="true" focusable="false">
+          {paused ? <path d="M8 5v14l11-7z" /> : <><rect x="6" y="5" width="4" height="14" rx="1" /><rect x="14" y="5" width="4" height="14" rx="1" /></>}
+        </svg>
       </button>}
       <div className="absolute bottom-3 left-0 right-0">
         <div className="flex items-center justify-center gap-2">

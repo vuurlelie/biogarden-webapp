@@ -43,14 +43,15 @@ test("carousel can be paused and respects reduced motion", async ({ page }) => {
   await page.goto("/");
   const carousel = page.getByRole("region", { name: "Kertészeti képek" });
   const track = carousel.locator("div[style]").first();
-  await carousel.getByRole("button", { name: "Automatikus lejátszás szüneteltetése" }).click();
+  const pause = carousel.getByRole("button", { name: "Automatikus lejátszás szüneteltetése" });
+  await pause.focus();
+  await pause.press("Enter");
   await page.evaluate(() => (document.activeElement as HTMLElement).blur());
   const initial = await track.getAttribute("style");
   await page.clock.fastForward(6000);
   await expect(track).toHaveAttribute("style", initial!);
   await carousel.getByRole("button", { name: "Automatikus lejátszás folytatása" }).click();
-  await page.evaluate(() => (document.activeElement as HTMLElement).blur());
-  await page.mouse.move(0, 0);
+  // Keep the pointer and keyboard focus on Play: explicit resume must still advance.
   await page.clock.fastForward(6000);
   await expect(track).not.toHaveAttribute("style", initial!);
   await page.emulateMedia({ reducedMotion: "reduce" });
