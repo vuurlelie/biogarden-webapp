@@ -240,6 +240,27 @@ namespace Biogarden.DataAccess.Migrations
                     b.ToTable("AspNetUsers", (string)null);
                 });
 
+            modelBuilder.Entity("Biogarden.DataAccess.Entities.BrowserSession", b =>
+                {
+                    b.Property<string>("KeyHash")
+                        .HasMaxLength(64)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(64)");
+
+                    b.Property<DateTime>("ExpiresAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<byte[]>("ProtectedTicket")
+                        .IsRequired()
+                        .HasColumnType("varbinary(max)");
+
+                    b.HasKey("KeyHash");
+
+                    b.HasIndex("ExpiresAtUtc");
+
+                    b.ToTable("BrowserSession");
+                });
+
             modelBuilder.Entity("Biogarden.DataAccess.Entities.Cart", b =>
                 {
                     b.Property<Guid>("Id")

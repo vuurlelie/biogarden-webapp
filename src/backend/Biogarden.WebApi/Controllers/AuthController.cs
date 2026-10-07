@@ -1,3 +1,9 @@
+using System.Security.Claims;
+using System.IdentityModel.Tokens.Jwt;
+using Biogarden.BusinessLogic.Constants;
+using Biogarden.WebApi.Authentication;
+using Microsoft.AspNetCore.Authentication;
+using Biogarden.WebApi.Filters;
 using Biogarden.BusinessLogic.Abstractions;
 using Biogarden.BusinessLogic.DTOs.Auth;
 using Biogarden.WebApi.Constants;
@@ -40,9 +46,12 @@ public class AuthController : ControllerBase
         return StatusCode(StatusCodes.Status201Created);
     }
 
+    [ProducesResponseType(typeof(BrowserSessionResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status401Unauthorized)]
     [HttpPost("login")]
+    [BrowserSessionRequest]
     [EnableRateLimiting(RateLimitPolicyNames.SensitiveAuth)]
-    public async Task<ActionResult<AuthResponseDto>> LoginAsync(
+    public async Task<IActionResult> LoginAsync(
         [FromBody] LoginRequestDto loginRequestDto)
     {
         var result = await _authService.LoginAsync(loginRequestDto);
@@ -58,7 +67,60 @@ public class AuthController : ControllerBase
             });
         }
 
-        return Ok(result.AuthResponse);
+        // The internal service token is never returned to browser clients.
+        var auth = result.AuthResponse!;
+        var issued = new JwtSecurityTokenHandler().ReadJwtToken(auth.Token);
+        var claims = new List<Claim>
+        {
+            new(ClaimTypes.NameIdentifier, auth.UserId.ToString()),
+            new(ClaimTypes.Email, auth.Email),
+            new(AuthClaimTypes.SecurityStamp, issued.Claims.Single(x => x.Type == AuthClaimTypes.SecurityStamp).Value),
+            new(BrowserAuthentication.SessionClaim, Guid.NewGuid().ToString("N"))
+        };
+        claims.AddRange(auth.Roles.Select(role => new Claim(ClaimTypes.Role, role)));
+        var principal = new ClaimsPrincipal(new ClaimsIdentity(claims, BrowserAuthentication.Scheme));
+        var clock = HttpContext.RequestServices.GetRequiredService<TimeProvider>();
+        var properties = new AuthenticationProperties
+        {
+            IsPersistent = true,
+            IssuedUtc = clock.GetUtcNow(),
+            ExpiresUtc = clock.GetUtcNow().Add(BrowserAuthentication.IdleLifetime)
+        };
+        await HttpContext.SignOutAsync(BrowserAuthentication.Scheme);
+        // This runtime caches the removed ticket-store key inside its original handler.
+        // A fresh framework handler issues a new key rather than renewing the revoked one.
+        var handler = HttpContext.RequestServices.GetRequiredService<Microsoft.AspNetCore.Authentication.Cookies.CookieAuthenticationHandler>();
+        await handler.InitializeAsync(new AuthenticationScheme(BrowserAuthentication.Scheme, null,
+            typeof(Microsoft.AspNetCore.Authentication.Cookies.CookieAuthenticationHandler)), HttpContext);
+        await handler.SignInAsync(principal, properties);
+        return Ok(BrowserAuthentication.Describe(principal, properties));
+    }
+
+    [ProducesResponseType(typeof(BrowserSessionResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [HttpGet("session")]
+    [BrowserSessionRequest(ProtectReads = true)]
+    [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
+    public async Task<IActionResult> Session()
+    {
+        var session = await HttpContext.AuthenticateAsync(BrowserAuthentication.Scheme);
+        return session.Succeeded ? Ok(BrowserAuthentication.Describe(session.Principal!, session.Properties!)) : NoContent();
+    }
+
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [HttpPost("logout")]
+    [BrowserSessionRequest]
+    public async Task<IActionResult> Logout()
+    {
+        var session = await HttpContext.AuthenticateAsync(BrowserAuthentication.Scheme);
+        if (session.Succeeded)
+        {
+            var id = Guid.Parse(session.Principal!.FindFirstValue(ClaimTypes.NameIdentifier)!);
+            await HttpContext.RequestServices.GetRequiredService<Biogarden.BusinessLogic.Services.CheckoutDraftService>()
+                .ClearSessionAsync(id, session.Principal.FindFirstValue(BrowserAuthentication.SessionClaim)!, HttpContext.RequestAborted);
+        }
+        await HttpContext.SignOutAsync(BrowserAuthentication.Scheme);
+        return NoContent();
     }
 
     [HttpPost("confirm-email")]
