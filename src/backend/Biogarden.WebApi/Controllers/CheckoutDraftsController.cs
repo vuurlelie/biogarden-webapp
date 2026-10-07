@@ -21,7 +21,7 @@ public sealed class CheckoutDraftsController(CheckoutDraftService drafts) : Cont
     private Guid? UserId => Guid.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var id) ? id : null;
     private string? GuestId => Guid.TryParse(Request.Cookies["biogarden_cart_id"], out var id) ? id.ToString() : null;
     private string Session => UserId.HasValue
-        ? Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(Request.Headers.Authorization.ToString())))
+        ? User.FindFirstValue(Biogarden.WebApi.Authentication.BrowserAuthentication.SessionClaim) ?? Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(Request.Headers.Authorization.ToString())))
         : "guest";
 
     [HttpGet("{cartId:guid}")]

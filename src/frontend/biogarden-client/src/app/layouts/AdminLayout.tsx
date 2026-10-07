@@ -1,7 +1,7 @@
 import SkipLink from "../../shared/components/layout/SkipLink";
 import { useEffect, useState, type ReactNode } from "react";
 import { Link, NavLink, Outlet, useNavigate } from "react-router";
-import { clearAuthSession, getAuthSession } from "../../features/auth/utils/authStorage";
+import { logout as endBrowserSession, getAuthSession } from "../../features/auth/utils/authStorage";
 import { ROUTES } from "../../shared/constants/routes";
 import ScrollToTop from "../router/ScrollToTop";
 
@@ -134,8 +134,13 @@ export default function AdminLayout() {
     };
   }, [mobileMenuOpen]);
 
-  function logout() {
-    clearAuthSession();
+  async function logout() {
+    try {
+      await endBrowserSession();
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : "A kijelentkezés nem sikerült.");
+      return;
+    }
     navigate(ROUTES.login, { replace: true });
   }
 

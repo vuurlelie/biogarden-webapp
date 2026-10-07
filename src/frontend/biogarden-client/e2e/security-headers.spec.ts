@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./test";
 import { readFileSync } from "node:fs";
 
 test("frontend HTML responses deny framing and retain the resource CSP", async ({ page }) => {

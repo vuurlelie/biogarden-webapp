@@ -84,6 +84,16 @@ Thumbs.db
 *.sqlite
 *.sqlite3
 
+# Database exports and backups can contain customer data.
+backups/
+database-backups/
+*.bak
+*.bacpac
+*.dump
+*.trn
+*.sql.gz
+*.sql.zip
+
 # ======================================================
 # FRONTEND (React + TS + Vite)
 # ======================================================
@@ -162,9 +172,24 @@ temp/
 # SECRETS / CONFIG
 # ======================================================
 
-# ASP.NET appsettings (fejlesztői környezetfájlok)
-**/appsettings.Development.json
-**/appsettings.*.Local.json
+# Environment-specific settings stay local; sanitized examples may be tracked.
+**/appsettings.*.json
+!**/appsettings.*.example.json
+
+# Private certificates, keys and hosting credentials.
+*.pfx
+*.p12
+*.pem
+*.key
+*.publishsettings
+id_rsa
+id_ed25519
+
+# Personal notes and completed client evidence belong outside public docs.
+private-notes/
+.private/
+/docs/private/
+/src/docs/private/
 
 # user secrets / custom secrets
 secrets.json

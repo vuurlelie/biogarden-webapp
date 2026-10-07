@@ -1,4 +1,4 @@
-import { expect, test, type Route } from "@playwright/test";
+import { expect, test, type Route } from "./test";
 import { apiBaseUrl, mockPublicShopApi, product } from "./fixtures";
 
 test("slow recommendations do not delay availability or purchasing", async ({ page }) => {

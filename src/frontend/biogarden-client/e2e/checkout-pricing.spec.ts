@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Page } from "./test";
 import { apiBaseUrl, checkoutQuote, mockCheckoutApi, mockSumUpReturnStatusApi, successfulOrder } from "./fixtures";
 
 async function paymentStep(page: Page) {

@@ -20,7 +20,7 @@ async function cartRequest(path = "", init: Partial<ApiRequestOptions> = {}): Pr
   return apiRequest(`/api/cart${path}`, {
     fallbackMessage: CART_FALLBACK_MESSAGE,
     ...init,
-    authToken: auth?.token,
+    authSessionId: auth?.sessionId,
     credentials: "include",
     onUnauthorized: clearAuthSession,
     toError: toCartError,

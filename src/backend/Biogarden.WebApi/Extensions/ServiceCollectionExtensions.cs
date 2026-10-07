@@ -1,3 +1,4 @@
+using Biogarden.WebApi.Authentication;
 using System.Text;
 using Biogarden.BusinessLogic.Abstractions;
 using Biogarden.BusinessLogic.Options;
@@ -27,6 +28,7 @@ public static class ServiceCollectionExtensions
         IConfiguration configuration)
     {
         services.AddWebApiCore();
+        services.AddBrowserSessions(configuration);
         services.AddForwardedHeaders();
         services.AddValidatedOptions(configuration);
         services.AddAppRateLimiting(configuration);
@@ -52,6 +54,7 @@ public static class ServiceCollectionExtensions
         }
         services.AddControllers(options =>
             {
+                options.Filters.Add<Biogarden.WebApi.Filters.BrowserCookieRequestFilter>();
                 options.Filters.Add<Biogarden.WebApi.Filters.ApiProblemResultFilter>();
                 options.Filters.Add<Biogarden.WebApi.Filters.RequestValidationFilter>();
                 options.SuppressImplicitRequiredAttributeForNonNullableReferenceTypes = true;
@@ -317,14 +320,17 @@ public static class ServiceCollectionExtensions
         services.AddAuthentication(options =>
         {
             options.DefaultAuthenticateScheme =
-                JwtBearerDefaults.AuthenticationScheme;
+                "SessionOrBearer";
 
             options.DefaultChallengeScheme =
-                JwtBearerDefaults.AuthenticationScheme;
+                "SessionOrBearer";
 
             options.DefaultScheme =
-                JwtBearerDefaults.AuthenticationScheme;
+                "SessionOrBearer";
         })
+        .AddPolicyScheme("SessionOrBearer", "Browser session or explicit API bearer", options =>
+            options.ForwardDefaultSelector = context => context.Request.Headers.Authorization.ToString().StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase)
+                ? JwtBearerDefaults.AuthenticationScheme : BrowserAuthentication.Scheme)
         .AddJwtBearer(options =>
         {
             options.Events = new JwtBearerEvents
@@ -471,7 +477,15 @@ public static class ServiceCollectionExtensions
     public static IServiceCollection AddSwaggerDocumentation(
         this IServiceCollection services)
     {
-        services.AddSwaggerGen();
+        services.AddSwaggerGen(options =>
+        {
+            options.SwaggerDoc("v1", new Microsoft.OpenApi.OpenApiInfo
+            {
+                Title = "Biogarden API",
+                Version = "v1",
+                Description = "Webshop and content management API. Browser login uses an HttpOnly cookie; credentials are not returned to JavaScript. Browser requests require X-Checkout-Request: 1. Swagger is available only in Development."
+            });
+        });
 
         return services;
     }

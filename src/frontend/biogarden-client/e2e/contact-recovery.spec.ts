@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./test";
 import { apiBaseUrl, mockPublicShopApi } from "./fixtures";
 
 test("contact retry reuses the submission ID and edited content gets a new ID", async ({ page }) => {

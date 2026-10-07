@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./test";
 import { mockPublicShopApi } from "./fixtures";
 
 test("small text theme combinations retain AA contrast", async ({ page }) => {

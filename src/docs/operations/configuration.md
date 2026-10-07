@@ -32,6 +32,7 @@ Non-secret operational settings should still be reviewed before release:
 | Setting | Production expectation |
 | --- | --- |
 | `AuthEmail__ClientBaseUrl` | Public website URL. |
+| `BrowserSessions__DataProtectionKeyPath` | Stable, private, writable directory outside deployed files. Preserve across releases; restrict access to the API identity. |
 | `EmailBranding__LogoUrl` | Public HTTPS logo URL. |
 | `SumUp__RedirectUrl` | Public success page URL containing `{CHECKOUT_REFERENCE}`. |
 | `SumUp__ReturnUrl` | Public API callback/status URL. |
@@ -132,7 +133,7 @@ Do not commit:
 
 ### Browser session requests and private responses
 
-The shared frontend HTTP client sends `X-Checkout-Request: 1` for cart, order and checkout-draft requests. The API requires it for cart/draft reads and writes, and for order mutations (including starting a payment). These cookie-owned operations reject an explicitly untrusted `Origin` using the configured frontend CORS allowlist. A present but invalid bearer token is rejected instead of falling back to a guest session. Requests without `Origin` still require the header; it is a browser CSRF safeguard, not authentication or a secret.
+The shared frontend HTTP client sends `X-Checkout-Request: 1` for API requests. Cookie-authenticated mutations, login and logout require this header and validate an explicitly supplied Origin against the frontend allowlist. The API requires it for cart/draft reads and writes, and for order mutations (including starting a payment). These cookie-owned operations reject an explicitly untrusted `Origin` using the configured frontend CORS allowlist. A present but invalid bearer token is rejected instead of falling back to a guest session. Requests without `Origin` still require the header; it is a browser CSRF safeguard, not authentication or a secret.
 
 The SumUp server-to-server callback does not require this header and retains its provider verification. Publish the frontend and API changes together; older frontend clients must reload. Verify the actual frontend origin is in `Frontend:AllowedOrigins` before deployment. Never allow arbitrary credentialed origins.
 
@@ -149,3 +150,16 @@ Cart, checkout, authentication, account, admin and unknown routes use non-indexa
 Browser regression tests include automated axe checks for the home/about/article-list pages, catalogue, product details, cart, checkout, login and missing pages; keyboard skip navigation and modal focus; theme contrast; and catalogue/checkout overflow at 320, 375 and 768 pixels. `npm run verify:seo` also checks generated HTML indexing for both UAT and production policies using a local fixture API.
 
 Automated checks do not establish complete WCAG compliance. Before client UAT, manually walk the purchase flow with a keyboard and a screen reader, check zoom/reflow and visible focus, verify that cart additions are announced, and review tablet/desktop layouts with real product names and descriptions. Validate hosted social previews and canonical origins separately. Legal text and analytics-provider decisions still require client review.
+
+
+## Browser authentication sessions
+
+The website uses a persistent HttpOnly, Secure, host-only `__Host-biogarden_session` cookie on the API in hosted environments (`biogarden_session` in Development/Testing). SameSite is Lax. Deploy the frontend at `https://raczkrisztina.dev` and API at `https://api.raczkrisztina.dev`, with valid HTTPS certificates for both and an exact frontend CORS allowlist. Cookies are not shared using a parent-domain attribute. A separate `jtempurl.com` API is not supported by this same-site login design. Local development may use HTTP localhost; use the same hostname for both origins.
+
+Login returns user information, a non-secret session ID and expiry, never a bearer token. The frontend keeps this information in memory and obtains it again from `GET /api/auth/session` after reload. Legacy browser token storage is removed. Explicit bearer authentication remains supported by the backend for existing internal/test consumers; the browser login endpoint no longer issues bearer credentials.
+
+Sessions expire after 60 minutes without renewal. Foreground pointer, keyboard or scroll activity requests renewal at most once per minute, and loading the website checks/renews an existing unexpired session. Passive session checks and background polling do not extend expiry. An expired session returns 204 from the session endpoint and the frontend becomes a guest without an expiry popup. Protected screens still require login. The independent 30-minute cart expiry is unchanged.
+
+`POST /api/auth/logout` removes the server ticket and clears the cookie; a copied cookie then fails. Account state, security stamp and roles are checked on authenticated requests. Session rows contain a hash of the opaque identifier and an encrypted ticket, expire independently of the browser cookie, and are cleaned in bounded batches at login. Delayed renewal cannot recreate a deleted session. Frontend requests carry a non-secret `X-Browser-Session` identity to reject requests from obsolete tabs; it is not an authentication credential.
+
+Data Protection encrypts both cookies and stored tickets. Set `BrowserSessions__DataProtectionKeyPath` before hosted deployment; the fallback `.private/data-protection-keys` under the API binary directory is suitable only for local development. This directory is excluded from Git and publication. Windows keys use DPAPI for the API process identity; preserve that identity/profile as well as the directory. On other systems protect the directory through filesystem permissions and the host's encrypted storage. Never place keys in `wwwroot`. Losing keys invalidates sessions and existing Identity email/reset tokens. Multiple API instances must share compatible key protection and the same key ring. Do not copy production keys into test environments.

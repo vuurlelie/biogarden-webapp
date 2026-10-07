@@ -38,6 +38,7 @@ export type AuthResponse = {
   userId: string;
   email: string;
   roles: string[];
-  token: string;
+  sessionId: string;
+  expiresAtUtc: string;
 };
 

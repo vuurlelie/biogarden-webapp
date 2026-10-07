@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Page } from "./test";
 import { apiBaseUrl, expectNoUnhandledApiCall, mockEmptyCartApi } from "./fixtures";
 
 type CapturedAnalyticsEvent = {

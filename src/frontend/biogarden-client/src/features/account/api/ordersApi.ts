@@ -65,14 +65,14 @@ export type CreateOrderRequest = {
 const ORDERS_FALLBACK_MESSAGE = "A művelet nem sikerült. Kérjük, próbáld újra.";
 export async function recoverCheckoutOrder(checkoutKey: string, signal?: AbortSignal): Promise<Order> {
   const response = await apiRequest(`/api/orders/checkout-recovery/${encodeURIComponent(checkoutKey)}`, {
-    signal, authToken: getAuthSession()?.token, credentials: "include", cache: "no-store",
+    signal, authSessionId: getAuthSession()?.sessionId, credentials: "include", cache: "no-store",
     fallbackMessage: "A rendelés eredményét most nem tudjuk ellenőrizni.",
   });
   return response.json() as Promise<Order>;
 }
 export async function getCheckoutOrder(orderId: string, signal?: AbortSignal): Promise<Order> {
   const response = await apiRequest(`/api/orders/${encodeURIComponent(orderId)}/receipt`, {
-    signal, authToken: getAuthSession()?.token, credentials: "include", cache: "no-store",
+    signal, authSessionId: getAuthSession()?.sessionId, credentials: "include", cache: "no-store",
     fallbackMessage: "A rendelés részletei ebben a munkamenetben nem érhetők el.",
   });
   return response.json() as Promise<Order>;
@@ -89,7 +89,7 @@ async function ordersRequest(path = "", init: Partial<ApiRequestOptions> = {}): 
   return apiRequest(`/api/orders${path}`, {
     fallbackMessage: ORDERS_FALLBACK_MESSAGE,
     ...init,
-    authToken: auth.token,
+    authSessionId: auth.sessionId,
     onUnauthorized: clearAuthSession,
     toError: toOrdersError,
   });
@@ -144,7 +144,7 @@ export async function createOrder(order: CreateOrderRequest): Promise<Order> {
   const auth = getAuthSession();
 
   const response = await apiRequest("/api/orders", {
-    authToken: auth?.token,
+    authSessionId: auth?.sessionId,
     fallbackMessage: ORDERS_FALLBACK_MESSAGE,
     method: "POST",
     credentials: "include",
@@ -160,7 +160,7 @@ export async function createSumUpCheckout(orderId: string): Promise<SumUpCheckou
   const auth = getAuthSession();
 
   const response = await apiRequest(`/api/orders/${encodeURIComponent(orderId)}/sumup-checkout`, {
-    authToken: auth?.token,
+    authSessionId: auth?.sessionId,
     fallbackMessage: ORDERS_FALLBACK_MESSAGE,
     method: "POST",
     credentials: "include",

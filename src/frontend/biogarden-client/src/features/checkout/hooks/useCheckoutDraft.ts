@@ -21,7 +21,7 @@ export function useCheckoutDraft(cartId: string | undefined) {
 
   useEffect(() => {
     const current = ++generation.current;
-    const token = getAuthSession()?.token;
+    const sessionId = getAuthSession()?.sessionId;
     let cancelled = false;
     setReady(false);
     setSaving(false);
@@ -30,10 +30,10 @@ export function useCheckoutDraft(cartId: string | undefined) {
     blocked.current = false;
     if (!cartId) return;
     void queue.current.then(() => {
-      if (cancelled || token !== getAuthSession()?.token) throw new DOMException("Session changed", "AbortError");
+      if (cancelled || sessionId !== getAuthSession()?.sessionId) throw new DOMException("Session changed", "AbortError");
       return readCheckoutDraft(cartId);
     }).then(result => {
-      if (cancelled || current !== generation.current || token !== getAuthSession()?.token) return;
+      if (cancelled || current !== generation.current || sessionId !== getAuthSession()?.sessionId) return;
       const fields = result.fields ?? { ...EMPTY_DRAFT };
       version.current = result.version;
       saved.current = JSON.stringify(fields);
@@ -50,8 +50,8 @@ export function useCheckoutDraft(cartId: string | undefined) {
     const json = JSON.stringify(draft);
     if (json === saved.current) return;
     const current = generation.current;
-    const token = getAuthSession()?.token;
-    const isCurrent = () => current === generation.current && token === getAuthSession()?.token;
+    const sessionId = getAuthSession()?.sessionId;
+    const isCurrent = () => current === generation.current && sessionId === getAuthSession()?.sessionId;
     const work = queue.current.then(async () => {
       if (!isCurrent() || paused.current || blocked.current || json === saved.current) return;
       setSaving(true);

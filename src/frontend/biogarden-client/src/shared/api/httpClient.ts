@@ -1,7 +1,7 @@
 import { clearAuthSession, getAuthSession } from "../../features/auth/utils/authStorage";
 
 export const TOO_MANY_REQUESTS_MESSAGE =
-  "Túl sok kérés érkezett. Kérjük, várj egy percet, majd próbáld újra.";
+  "TÃºl sok kÃ©rÃ©s Ã©rkezett. KÃ©rjÃ¼k, vÃ¡rj egy percet, majd prÃ³bÃ¡ld Ãºjra.";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
@@ -30,7 +30,7 @@ export class ApiRequestError extends Error {
 }
 
 export type ApiRequestOptions = Omit<RequestInit, "body"> & {
-  authToken?: string;
+  authSessionId?: string;
   body?: BodyInit | null;
   fallbackMessage: string;
   jsonBody?: unknown;
@@ -79,7 +79,7 @@ async function readApiError(response: Response, fallbackMessage: string): Promis
 export async function apiRequest(
   path: string,
   {
-    authToken,
+    authSessionId,
     body,
     fallbackMessage,
     headers: requestHeaders,
@@ -91,24 +91,24 @@ export async function apiRequest(
   }: ApiRequestOptions,
 ): Promise<Response> {
   const headers = new Headers(requestHeaders);
-  if (/^\/api\/(cart|orders|checkout-drafts)(\/|$)/i.test(path)) {
-    headers.set("X-Checkout-Request", "1");
-  }
+  headers.set("X-Checkout-Request", "1");
+  headers.set("X-Browser-Session", getAuthSession()?.sessionId ?? "guest");
 
-  if (authToken) headers.set("Authorization", `Bearer ${authToken}`);
+
   if (jsonBody !== undefined) headers.set("Content-Type", "application/json");
 
   const response = await fetch(buildApiUrl(path), {
     ...init,
+    credentials: "include",
     body: jsonBody !== undefined ? JSON.stringify(jsonBody) : body,
     headers,
   });
 
   // An old response must neither clear a newer login nor populate its screens.
-  if (authToken && getAuthSession()?.token !== authToken) {
+  if (authSessionId && getAuthSession()?.sessionId !== authSessionId) {
     throw new DOMException("The session changed while the request was running.", "AbortError");
   }
-  if (response.status === 401 && authToken) {
+  if (response.status === 401 && authSessionId) {
     (onUnauthorized ?? clearAuthSession)();
   }
 

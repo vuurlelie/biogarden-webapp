@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type MouseEvent } from "react";
 import { Link, NavLink, useLocation, useNavigate } from "react-router";
-import { clearAuthSession } from "../../../features/auth/utils/authStorage";
+import { logout as endBrowserSession } from "../../../features/auth/utils/authStorage";
 import logo from "../../../assets/images/logo.png";
 import bakonykincse from "../../../assets/images/bakonykincse.png";
 import { ROUTES } from "../../constants/routes";
@@ -68,8 +68,13 @@ export default function Navbar({
     setMobileAccountOpen(false);
   };
 
-  const logout = () => {
-    clearAuthSession();
+  const logout = async () => {
+    try {
+      await endBrowserSession();
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : "A kijelentkezés nem sikerült.");
+      return;
+    }
     closeMobile();
     navigate(ROUTES.home, { replace: true });
   };

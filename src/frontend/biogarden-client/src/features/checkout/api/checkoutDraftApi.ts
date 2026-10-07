@@ -30,7 +30,7 @@ function parseDraft(input: unknown): SavedCheckoutDraft {
 
 export async function readCheckoutDraft(cartId: string): Promise<SavedCheckoutDraft> {
   const response = await apiRequest(`/api/checkout-drafts/${encodeURIComponent(cartId)}`, {
-    authToken: getAuthSession()?.token, credentials: "include", cache: "no-store",
+    authSessionId: getAuthSession()?.sessionId, credentials: "include", cache: "no-store",
     headers: { "X-Checkout-Request": "1" }, fallbackMessage: "A pénztár piszkozatát nem sikerült betölteni.",
   });
   return parseDraft(await response.json() as SavedCheckoutDraft);
@@ -38,7 +38,7 @@ export async function readCheckoutDraft(cartId: string): Promise<SavedCheckoutDr
 
 export async function saveCheckoutDraft(cartId: string, version: string | null, fields: CheckoutDraft): Promise<SavedCheckoutDraft> {
   const response = await apiRequest(`/api/checkout-drafts/${encodeURIComponent(cartId)}`, {
-    method: "PUT", authToken: getAuthSession()?.token, credentials: "include",
+    method: "PUT", authSessionId: getAuthSession()?.sessionId, credentials: "include",
     headers: { "X-Checkout-Request": "1" }, jsonBody: { version, fields },
     fallbackMessage: "Az adatok mentése nem sikerült. Ne frissítsd az oldalt a mentésig.",
   });
@@ -47,7 +47,7 @@ export async function saveCheckoutDraft(cartId: string, version: string | null, 
 
 export async function deleteCheckoutDraft(cartId: string, version: string | null): Promise<void> {
   await apiRequest(`/api/checkout-drafts/${encodeURIComponent(cartId)}${version ? `?version=${encodeURIComponent(version)}` : ""}`, {
-    method: "DELETE", authToken: getAuthSession()?.token, credentials: "include",
+    method: "DELETE", authSessionId: getAuthSession()?.sessionId, credentials: "include",
     headers: { "X-Checkout-Request": "1" }, fallbackMessage: "A piszkozat törlése nem sikerült.",
   });
 }

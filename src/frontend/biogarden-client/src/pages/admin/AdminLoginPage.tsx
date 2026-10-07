@@ -85,6 +85,7 @@ export default function AdminLoginPage() {
     try {
       setIsSubmitting(true);
       const auth = await login({ email: email.trim(), password });
+      saveAuthSession(auth);
       const isAdmin = auth.roles.some((role) => role.toLowerCase() === "admin");
 
       if (!isAdmin) {
@@ -92,7 +93,6 @@ export default function AdminLoginPage() {
         return;
       }
 
-      saveAuthSession(auth);
       navigate(from, { replace: true });
     } catch (submitError) {
       setError(

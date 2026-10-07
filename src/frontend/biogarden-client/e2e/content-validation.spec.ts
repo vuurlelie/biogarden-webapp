@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./test";
 import { apiBaseUrl, mockEmptyCartApi, product, signInAsAdmin } from "./fixtures";
 
 test("article readers render the supported sanitized editor formatting", async ({ page }) => {
