@@ -22,6 +22,8 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- Environment-specific settings stay local; configure hosted values outside the package. -->
+    <Content Update="appsettings.*.json" CopyToPublishDirectory="Never" />
     <Content Remove="artifacts\**;email-previews\**;logs\**;.private\**" />
     <None Remove="artifacts\**;email-previews\**;logs\**;.private\**" />
   </ItemGroup>
