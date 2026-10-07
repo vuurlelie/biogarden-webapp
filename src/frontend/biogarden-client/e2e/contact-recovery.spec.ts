@@ -22,6 +22,6 @@ test("contact retry reuses the submission ID and edited content gets a new ID", 
   expect(requests[1].submissionId).toBe(requests[0].submissionId);
   await page.locator("#contact-message").fill("An updated question about the garden products.");
   await submit.click();
-  await expect(page.getByText("Köszönjük, rögzítettük az üzenetedet. Az emailes visszaigazolás később érkezhet.")).toBeVisible();
+  await expect(page.getByText("Köszönjük, rögzítettük az üzeneted! A visszaigazoló email megérkezése néhány percet igénybe vehet. Kérjük, ellenőrizd a Spam és a Promóciók mappát is.")).toBeVisible();
   expect(requests[2].submissionId).not.toBe(requests[0].submissionId);
 });
