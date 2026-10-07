@@ -102,6 +102,7 @@ public sealed class RateLimitingTests
     [Theory]
     [InlineData("/api/auth/login")]
     [InlineData("/api/orders")]
+    [InlineData("/api/addresses")]
     public async Task SensitiveErrors_AreNotCacheable(string path)
     {
         using var factory = new BiogardenWebApiFactory();
