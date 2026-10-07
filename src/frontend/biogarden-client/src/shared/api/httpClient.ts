@@ -1,7 +1,7 @@
 import { clearAuthSession, getAuthSession } from "../../features/auth/utils/authStorage";
 
 export const TOO_MANY_REQUESTS_MESSAGE =
-  "TÃºl sok kÃ©rÃ©s Ã©rkezett. KÃ©rjÃ¼k, vÃ¡rj egy percet, majd prÃ³bÃ¡ld Ãºjra.";
+  "Túl sok kérés érkezett. Kérjük, várj egy percet, majd próbáld újra.";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 

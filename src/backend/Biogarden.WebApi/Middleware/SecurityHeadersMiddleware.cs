@@ -3,7 +3,7 @@ namespace Biogarden.WebApi.Middleware;
 public sealed class SecurityHeadersMiddleware
 {
     private static readonly string[] SensitivePaths =
-        ["/api/auth", "/api/cart", "/api/orders", "/api/profile", "/api/admin", "/api/checkout-drafts"];
+        ["/api/auth", "/api/cart", "/api/orders", "/api/profile", "/api/admin", "/api/checkout-drafts", "/api/addresses"];
 
     private const string ContentSecurityPolicy =
         "default-src 'self'; " +

@@ -11,6 +11,7 @@ if (import.meta.hot) import.meta.hot.dispose(stopAuthSync);
 
 const root = ReactDOM.createRoot(document.getElementById("root")!);
 async function start() {
+  root.render(<main><p role="status">A webhely betöltése…</p></main>);
   try {
     await refreshAuthSession(true);
   } catch {

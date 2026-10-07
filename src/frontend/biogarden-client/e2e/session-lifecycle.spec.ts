@@ -133,3 +133,70 @@ test("foreground activity renews a memory-only session without reloading the car
   await page.reload();
   await expect(page.getByText(successfulOrder.orderNumber).first()).toBeVisible();
 });
+
+
+test("a stalled startup session check times out and can be retried", async ({ page }) => {
+  await page.clock.install();
+  await setup(page);
+  let checks = 0;
+  await page.route(`${apiBaseUrl}/api/auth/session`, () => { checks++; });
+  await page.goto("/bejelentkezes");
+  await expect(page.getByRole("status")).toHaveText("A webhely betöltése…");
+  await expect.poll(() => checks).toBe(1);
+  await page.clock.fastForward(10_001);
+  await expect(page.getByText("A webhely betöltése nem sikerült.")).toBeVisible();
+  await page.unroute(`${apiBaseUrl}/api/auth/session`);
+  await page.getByRole("button", { name: "Újrapróbálás" }).click();
+  await expect(page.getByText("A webhely betöltése nem sikerült.")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Bejelentkezés", exact: true })).toBeVisible();
+});
+
+test("failed expiry checks hide private data and retry only a bounded number of times", async ({ page }) => {
+  await page.clock.install();
+  await signInAsCustomer(page);
+  await setup(page);
+  await page.goto("/fiokom/rendeleseim");
+  await expect(page.getByText(successfulOrder.orderNumber).first()).toBeVisible();
+  let checks = 0;
+  await page.route(`${apiBaseUrl}/api/auth/session`, route => { checks++; return route.abort(); });
+  await page.clock.fastForward(3_600_001);
+  await expect(page.getByText(successfulOrder.orderNumber)).toHaveCount(0);
+  await expect(page).toHaveURL(/\/bejelentkezes$/);
+  await expect.poll(() => checks).toBe(1);
+  for (const [index, delay] of [5_000, 15_000, 30_000].entries()) {
+    await page.clock.fastForward(delay);
+    await expect.poll(() => checks).toBe(index + 2);
+  }
+  await page.clock.fastForward(120_000);
+  expect(checks).toBe(4);
+  // A network-restored event verifies passively, even after automatic retries are exhausted.
+  setMockSession(page.context(), null);
+  await page.unroute(`${apiBaseUrl}/api/auth/session`);
+  const response = page.waitForResponse(`${apiBaseUrl}/api/auth/session`);
+  await page.evaluate(() => window.dispatchEvent(new Event("online")));
+  expect((await response).request().headers()["x-session-activity"]).toBeUndefined();
+  await expect(page.getByText(successfulOrder.orderNumber)).toHaveCount(0);
+});
+
+test("session verification recovers after a transient expiry failure without renewing idle time", async ({ page }) => {
+  await page.clock.install();
+  await signInAsCustomer(page);
+  await setup(page);
+  await page.goto("/fiokom/rendeleseim");
+  await expect(page.getByText(successfulOrder.orderNumber).first()).toBeVisible();
+  let checks = 0;
+  await page.route(`${apiBaseUrl}/api/auth/session`, route => {
+    checks++;
+    return checks === 1 ? route.abort() : route.fallback();
+  });
+  // Another tab has renewed the actual server session, but this tab cannot initially verify it.
+  setMockSession(page.context(), { ...getMockSession(page.context())!, expiresAtUtc: new Date(Date.now() + 7_200_000).toISOString() });
+  await page.clock.fastForward(3_600_001);
+  await expect(page.getByText(successfulOrder.orderNumber)).toHaveCount(0);
+  const response = page.waitForResponse(`${apiBaseUrl}/api/auth/session`);
+  await page.clock.fastForward(5_000);
+  expect((await response).request().headers()["x-session-activity"]).toBeUndefined();
+  await expect(page.getByRole("button", { name: "Kijelentkezés", exact: true }).first()).toBeVisible();
+  await page.goto("/fiokom/rendeleseim");
+  await expect(page.getByText(successfulOrder.orderNumber).first()).toBeVisible();
+});
