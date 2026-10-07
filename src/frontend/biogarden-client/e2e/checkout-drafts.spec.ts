@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Page } from "./test";
 import { apiBaseUrl, mockCheckoutApi, signInAsCustomer, successfulOrder } from "./fixtures";
 
 const draftUrl = `${apiBaseUrl}/api/checkout-drafts/33333333-3333-3333-3333-333333333333`;

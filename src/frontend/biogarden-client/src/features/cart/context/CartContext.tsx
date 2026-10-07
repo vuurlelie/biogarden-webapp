@@ -26,8 +26,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   const run = useCallback((operation: (() => Promise<Cart>) | null) => {
     const generation = sessionGeneration.current;
-    const token = getAuthSession()?.token;
-    const isCurrent = () => mounted.current && generation === sessionGeneration.current && token === getAuthSession()?.token;
+    const sessionId = getAuthSession()?.sessionId;
+    const isCurrent = () => mounted.current && generation === sessionGeneration.current && sessionId === getAuthSession()?.sessionId;
     const assertCurrent = () => {
       if (!isCurrent()) throw new DOMException("A kosár munkamenete megváltozott.", "AbortError");
     };

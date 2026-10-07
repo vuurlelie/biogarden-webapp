@@ -1,7 +1,7 @@
 import SkipLink from "../../shared/components/layout/SkipLink";
 import { NavLink, Outlet, useNavigate } from "react-router";
 import {
-  clearAuthSession,
+  logout as endBrowserSession,
   getAuthSession,
 } from "../../features/auth/utils/authStorage";
 import Footer from "../../shared/components/layout/Footer";
@@ -34,8 +34,13 @@ export default function AccountLayout() {
   const auth = getAuthSession();
   const { cart } = useCart();
 
-  function handleLogout() {
-    clearAuthSession();
+  async function handleLogout() {
+    try {
+      await endBrowserSession();
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : "A kijelentkezés nem sikerült.");
+      return;
+    }
     navigate(ROUTES.home, { replace: true });
   }
 

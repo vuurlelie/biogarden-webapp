@@ -1,4 +1,4 @@
-import { expect, test, type Route } from "@playwright/test";
+import { expect, test, type Route } from "./test";
 import { apiBaseUrl, mockPublicShopApi } from "./fixtures";
 
 const cart = (count: number) => ({

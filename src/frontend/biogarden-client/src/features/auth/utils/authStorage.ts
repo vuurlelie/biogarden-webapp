@@ -2,116 +2,100 @@ import type { AuthResponse } from "../types/auth.types";
 
 export const AUTH_STORAGE_KEY = "biogarden_auth";
 export const AUTH_CHANGED_EVENT = "biogarden:auth-changed";
+let session: AuthResponse | null = null;
+let generation = 0;
+let pending: Promise<void> | null = null;
+const channel = typeof BroadcastChannel !== "undefined" ? new BroadcastChannel("biogarden-session") : null;
+
+export function parseAuthSession(value: string | null): AuthResponse | null {
+  try {
+    const data = JSON.parse(value ?? "null") as AuthResponse | null;
+    return data && typeof data.userId === "string" && typeof data.email === "string" &&
+      typeof data.sessionId === "string" && data.sessionId.length > 0 && Array.isArray(data.roles) &&
+      data.roles.every(role => typeof role === "string") && Number.isFinite(Date.parse(data.expiresAtUtc))
+      ? data : null;
+  } catch { return null; }
+}
+
+function update(auth: AuthResponse | null) {
+  const changed = session?.sessionId !== auth?.sessionId;
+  session = auth;
+  if (changed) {
+    generation++;
+    try {
+      sessionStorage.removeItem("biogarden_checkout_draft");
+      sessionStorage.removeItem("biogarden_checkout_idempotency_key");
+    } catch { /* Legacy cleanup is best effort. */ }
+  }
+  window.dispatchEvent(new Event(changed ? AUTH_CHANGED_EVENT : "biogarden:session-updated"));
+}
 
 export function saveAuthSession(auth: AuthResponse): void {
-  localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(auth));
-  window.dispatchEvent(new Event(AUTH_CHANGED_EVENT));
+  update(auth);
+  channel?.postMessage("changed");
 }
 
-export function clearAuthSession(): void {
-  if (localStorage.getItem(AUTH_STORAGE_KEY) === null) return;
-  localStorage.removeItem(AUTH_STORAGE_KEY);
-  window.dispatchEvent(new Event(AUTH_CHANGED_EVENT));
+// Used for expired/rejected sessions. Explicit logout is a separate server operation.
+export function clearAuthSession(): void { update(null); }
+export function getAuthSession(): AuthResponse | null { return session; }
+export function isAuthenticated(): boolean { return session !== null; }
+
+export async function refreshAuthSession(activity = false): Promise<void> {
+  if (pending) return pending;
+  const current = generation;
+  pending = (async () => {
+    const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/auth/session`, {
+      credentials: "include", cache: "no-store",
+      headers: { "X-Checkout-Request": "1", ...(activity ? { "X-Session-Activity": "1" } : {}) },
+    });
+    if (!response.ok) throw new Error("A munkamenet ellenőrzése nem sikerült.");
+    const next = response.status === 204 ? null : parseAuthSession(await response.text());
+    if (generation === current) update(next);
+  })().finally(() => { pending = null; });
+  return pending;
 }
 
-function tokenExpiresAt(token: string): number {
-  try {
-    const payloadPart = token.split(".")[1];
-    if (!payloadPart) return 0;
-
-    const normalizedPayload = payloadPart
-      .replace(/-/g, "+")
-      .replace(/_/g, "/")
-      .padEnd(Math.ceil(payloadPart.length / 4) * 4, "=");
-    const payload = JSON.parse(atob(normalizedPayload)) as { exp?: number };
-
-    return typeof payload.exp === "number" && Number.isFinite(payload.exp) ? payload.exp * 1000 : 0;
-  } catch {
-    return 0;
-  }
+export async function logout(): Promise<void> {
+  const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/auth/logout`, {
+    method: "POST", credentials: "include",
+    headers: { "X-Checkout-Request": "1", "X-Browser-Session": session?.sessionId ?? "guest" },
+  });
+  if (!response.ok) throw new Error("A kijelentkezés nem sikerült. Kérjük, próbáld újra.");
+  update(null);
+  channel?.postMessage("changed");
 }
 
-export function parseAuthSession(storedAuth: string | null): AuthResponse | null {
-  if (!storedAuth) return null;
-
-  try {
-    const auth = JSON.parse(storedAuth) as Partial<AuthResponse>;
-
-    if (
-      typeof auth.userId !== "string" ||
-      typeof auth.email !== "string" ||
-      typeof auth.token !== "string" ||
-      !Array.isArray(auth.roles) ||
-      !auth.roles.every((role) => typeof role === "string") ||
-      tokenExpiresAt(auth.token) <= Date.now()
-    ) {
-      return null;
-    }
-
-    return auth as AuthResponse;
-  } catch {
-    return null;
-  }
-}
-
-export function getAuthSession(): AuthResponse | null {
-  const stored = localStorage.getItem(AUTH_STORAGE_KEY);
-  const auth = parseAuthSession(stored);
-  if (stored && !auth) clearAuthSession();
-  return auth;
-}
-
-// Start once at the application boundary, rather than installing one timer per component.
 export function startAuthSessionSync(): () => void {
-  // One-time removal of personal drafts saved by older frontend versions.
   try {
+    localStorage.removeItem(AUTH_STORAGE_KEY);
     sessionStorage.removeItem("biogarden_checkout_draft");
     sessionStorage.removeItem("biogarden_checkout_idempotency_key");
-  } catch { /* Checkout no longer depends on browser storage availability. */ }
-  let previous = localStorage.getItem(AUTH_STORAGE_KEY);
+  } catch { /* Authentication no longer depends on web storage. */ }
   let timer: ReturnType<typeof setTimeout> | undefined;
-  const synchronize = () => {
-    const stored = localStorage.getItem(AUTH_STORAGE_KEY);
-    if (previous && stored !== previous) {
-      const formerSession = parseAuthSession(previous);
-      if (formerSession) {
-        // Best effort on logout/account switch; server expiry remains the fallback.
-        void fetch(`${import.meta.env.VITE_API_BASE_URL}/api/checkout-drafts/session`, {
-          method: "DELETE", keepalive: true, credentials: "include",
-          headers: { Authorization: `Bearer ${formerSession.token}`, "X-Checkout-Request": "1" },
-        }).catch(() => undefined);
-      }
-      try {
-        sessionStorage.removeItem("biogarden_checkout_draft");
-        sessionStorage.removeItem("biogarden_checkout_idempotency_key");
-      } catch { /* Legacy cleanup is not required for authentication. */ }
-    }
-    previous = stored;
+  let lastActivity = 0;
+  const verify = () => { void refreshAuthSession().catch(() => undefined); };
+  const schedule = () => {
     clearTimeout(timer);
-    const auth = parseAuthSession(stored);
-    if (stored && !auth) {
-      clearAuthSession();
-    } else if (auth) {
-      timer = setTimeout(synchronize, Math.min(tokenExpiresAt(auth.token) - Date.now(), 2_147_483_647));
-    }
+    if (session) timer = setTimeout(verify, Math.max(1000, Date.parse(session.expiresAtUtc) - Date.now()));
   };
-  const onStorage = (event: StorageEvent) => {
-    if (event.storageArea === localStorage && (event.key === AUTH_STORAGE_KEY || event.key === null)) {
-      window.dispatchEvent(new Event(AUTH_CHANGED_EVENT));
-    }
+  const activity = (event: Event) => {
+    if (!event.isTrusted || document.visibilityState !== "visible" || !session || Date.now() - lastActivity < 60_000) return;
+    lastActivity = Date.now();
+    void refreshAuthSession(true).catch(() => undefined);
   };
-  window.addEventListener("storage", onStorage);
-  window.addEventListener("focus", synchronize);
-  window.addEventListener(AUTH_CHANGED_EVENT, synchronize);
-  synchronize();
+  const events = ["pointerdown", "keydown", "scroll"];
+  for (const event of events) window.addEventListener(event, activity, { passive: true, capture: true });
+  window.addEventListener("focus", verify);
+  window.addEventListener(AUTH_CHANGED_EVENT, schedule);
+  window.addEventListener("biogarden:session-updated", schedule);
+  channel?.addEventListener("message", verify);
+  schedule();
   return () => {
     clearTimeout(timer);
-    window.removeEventListener("storage", onStorage);
-    window.removeEventListener("focus", synchronize);
-    window.removeEventListener(AUTH_CHANGED_EVENT, synchronize);
+    for (const event of events) window.removeEventListener(event, activity, true);
+    window.removeEventListener("focus", verify);
+    window.removeEventListener(AUTH_CHANGED_EVENT, schedule);
+    window.removeEventListener("biogarden:session-updated", schedule);
+    channel?.removeEventListener("message", verify);
   };
-}
-
-export function isAuthenticated(): boolean {
-  return getAuthSession() !== null;
 }

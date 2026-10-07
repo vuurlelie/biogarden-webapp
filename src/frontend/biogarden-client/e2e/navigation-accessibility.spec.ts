@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./test";
 import { mockPublicShopApi } from "./fixtures";
 
 test("skip link and route focus reach one main landmark", async ({ page }) => {

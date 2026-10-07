@@ -19,7 +19,7 @@ export function adminRequest(
   return apiRequest(`/api/admin${path}`, {
     fallbackMessage,
     ...init,
-    authToken: auth.token,
+    authSessionId: auth.sessionId,
     onUnauthorized: clearAuthSession,
   });
 }

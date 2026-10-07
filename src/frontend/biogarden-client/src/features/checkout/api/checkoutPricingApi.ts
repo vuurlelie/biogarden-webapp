@@ -22,7 +22,7 @@ export async function getCheckoutMethods(signal: AbortSignal): Promise<CheckoutM
 export async function getCheckoutQuote(cartId: string, fulfillmentMethod: FulfillmentMethod, paymentMethod: OrderPaymentMethod,
   glsDeliveryPointId: string | null, signal: AbortSignal): Promise<CheckoutQuote> {
   const response = await apiRequest("/api/orders/quote", { method: "POST", signal, credentials: "include", cache: "no-store",
-    authToken: getAuthSession()?.token, jsonBody: { fulfillmentMethod, paymentMethod, glsDeliveryPointId },
+    authSessionId: getAuthSession()?.sessionId, jsonBody: { fulfillmentMethod, paymentMethod, glsDeliveryPointId },
     fallbackMessage: "Az árak ellenőrzése nem sikerült. Próbáld újra." });
   const quote = await response.json() as CheckoutQuote;
   if (!quote || quote.cartId !== cartId || quote.fulfillmentMethod !== fulfillmentMethod || quote.paymentMethod !== paymentMethod

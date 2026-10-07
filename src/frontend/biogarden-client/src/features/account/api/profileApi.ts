@@ -40,7 +40,7 @@ async function profileRequest(
   return apiRequest(`/api/profile${path}`, {
     fallbackMessage: PROFILE_FALLBACK_MESSAGE,
     ...init,
-    authToken: auth.token,
+    authSessionId: auth.sessionId,
     onUnauthorized: clearAuthSession,
     toError: toProfileError,
   });

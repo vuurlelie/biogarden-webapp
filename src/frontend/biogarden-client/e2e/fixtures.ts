@@ -1,3 +1,4 @@
+import { setMockSession } from "./test";
 import type { Page, Route } from "@playwright/test";
 
 export const apiBaseUrl = "http://localhost:5097";
@@ -508,32 +509,16 @@ export async function mockAccountOrdersApi(page: Page) {
 }
 
 export async function signInAsCustomer(page: Page) {
-  await page.addInitScript(() => {
-    const tokenPayload = btoa(JSON.stringify({
-      exp: Math.floor(Date.now() / 1000) + 3600,
-    }));
-
-    localStorage.setItem("biogarden_auth", JSON.stringify({
-      userId: "44444444-4444-4444-4444-444444444444",
-      email: "customer@example.com",
-      roles: [],
-      token: `test.${tokenPayload}.token`,
-    }));
+  setMockSession(page.context(), {
+    userId: "44444444-4444-4444-4444-444444444444", email: "customer@example.com", roles: [],
+    sessionId: "customer-session", expiresAtUtc: new Date(Date.now() + 3_600_000).toISOString(),
   });
 }
 
 export async function signInAsAdmin(page: Page) {
-  await page.addInitScript(() => {
-    const tokenPayload = btoa(JSON.stringify({
-      exp: Math.floor(Date.now() / 1000) + 3600,
-    }));
-
-    localStorage.setItem("biogarden_auth", JSON.stringify({
-      userId: "22222222-2222-2222-2222-222222222222",
-      email: "admin@example.com",
-      roles: ["Admin"],
-      token: `test.${tokenPayload}.token`,
-    }));
+  setMockSession(page.context(), {
+    userId: "22222222-2222-2222-2222-222222222222", email: "admin@example.com", roles: ["Admin"],
+    sessionId: "admin-session", expiresAtUtc: new Date(Date.now() + 3_600_000).toISOString(),
   });
 }
 
@@ -599,5 +584,9 @@ function createPagedResult<T>(items: T[], page: number, pageSize: number, totalC
 }
 
 export async function expectNoUnhandledApiCall(route: Route) {
+  if (["/api/auth/session", "/api/auth/logout"].includes(new URL(route.request().url()).pathname)) {
+    await route.fallback();
+    return;
+  }
   throw new Error(`Unhandled API call: ${route.request().method()} ${route.request().url()}`);
 }

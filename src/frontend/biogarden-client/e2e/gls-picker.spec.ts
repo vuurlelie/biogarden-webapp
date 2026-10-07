@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Page } from "./test";
 import { apiBaseUrl, mockCheckoutApi } from "./fixtures";
 
 const widgetUrl = "https://map.gls-hungary.com/widget/gls-dpm.js";

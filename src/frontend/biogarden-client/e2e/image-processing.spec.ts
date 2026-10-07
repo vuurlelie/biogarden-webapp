@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./test";
 import { mockPublicShopApi } from "./fixtures";
 
 test("admin image processing crops without upscaling and rejects oversized sources before decoding", async ({ page }) => {

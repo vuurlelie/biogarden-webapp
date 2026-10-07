@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./test";
 import { mockCheckoutApi, mockEmptyCartApi } from "./fixtures";
 
 test("checkout returns to editable details and renders server field errors", async ({ page }) => {
