@@ -26,6 +26,7 @@ test("the real product page waits for the first guest cart before adding", async
   await page.route(`${apiBaseUrl}/api/cart/items`, route => { writes.push(route); });
   await page.goto("/termekek/1");
   await expect.poll(() => initial).toBeTruthy();
+  await page.getByRole("spinbutton").fill("1");
   await page.getByRole("button", { name: /Kosárba teszem/ }).click();
   await expect(page.getByRole("button", { name: "Kosárba helyezés...", exact: true })).toBeDisabled();
   expect(writes).toHaveLength(0);

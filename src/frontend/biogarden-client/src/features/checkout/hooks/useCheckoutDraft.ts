@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getAuthSession } from "../../auth/utils/authStorage";
-import { deleteCheckoutDraft, readCheckoutDraft, saveCheckoutDraft } from "../api/checkoutDraftApi";
+import { readCheckoutDraft, saveCheckoutDraft } from "../api/checkoutDraftApi";
 import { EMPTY_DRAFT } from "../utils/checkoutDraft";
 import type { CheckoutDraft } from "../types/checkout.types";
 import { getErrorMessage } from "../../../shared/utils/errorHandling";
@@ -40,7 +40,7 @@ export function useCheckoutDraft(cartId: string | undefined) {
       setDraft(fields);
       setReady(true);
     }).catch(caught => {
-      if (!cancelled) setError(getErrorMessage(caught, "A piszkozat betöltése nem sikerült."));
+      if (!cancelled) setError(getErrorMessage(caught, "A korábban megadott adatok betöltése nem sikerült."));
     });
     return () => { cancelled = true; generation.current = current + 1; clearTimeout(timer.current); };
   }, [cartId, reload]);
@@ -64,7 +64,7 @@ export function useCheckoutDraft(cartId: string | undefined) {
       } catch (caught) {
         if (isCurrent()) {
           blocked.current = true;
-          setError(getErrorMessage(caught, "A piszkozat mentése nem sikerült."));
+          setError(getErrorMessage(caught, "Az adatok mentése nem sikerült."));
         }
       } finally { if (isCurrent()) setSaving(false); }
     });
@@ -90,24 +90,10 @@ export function useCheckoutDraft(cartId: string | undefined) {
     await queue.current;
   }, []);
 
-  const discard = useCallback(async () => {
-    if (!cartId || !ready) return false;
-    await pause();
-    try {
-      await deleteCheckoutDraft(cartId, version.current);
-      version.current = null;
-      saved.current = JSON.stringify(EMPTY_DRAFT);
-      setDraft({ ...EMPTY_DRAFT });
-      setError("");
-      blocked.current = false;
-      return true;
-    } catch (caught) { setError(getErrorMessage(caught, "A piszkozat törlése nem sikerült.")); return false; }
-    finally { paused.current = false; }
-  }, [cartId, pause, ready]);
-
-  return { draft, setDraft, ready, error, saving, discard, pause,
+  return { draft, setDraft, ready, error, saving, pause,
     resume: () => { paused.current = false; },
     retry: () => { blocked.current = false; save(); },
+    flush: async () => { clearTimeout(timer.current); save(); await queue.current; return !blocked.current; },
     load: () => setReload(value => value + 1),
   };
 }

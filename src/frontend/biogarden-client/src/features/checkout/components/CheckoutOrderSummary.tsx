@@ -13,6 +13,7 @@ type CheckoutOrderSummaryProps = {
   pricingLoading: boolean;
   pricingError?: string;
   onRetryPricing: () => void;
+  onBack: () => void;
   method: FulfillmentMethod;
   paymentMethod: PaymentMethod | null;
   reviewButtonRef: RefObject<HTMLButtonElement | null>;
@@ -28,6 +29,7 @@ export function CheckoutOrderSummary({
   pricingLoading,
   pricingError,
   onRetryPricing,
+  onBack,
   method,
   paymentMethod,
   reviewButtonRef,
@@ -55,6 +57,11 @@ export function CheckoutOrderSummary({
         className="mt-5 w-full rounded-sm bg-site-green px-5 py-3 font-semibold text-white disabled:opacity-50"
       >
         {submitting ? "Ellenőrzés..." : step === "details" ? "Tovább a pénztárhoz" : "Rendelés áttekintése"}
+      </button>
+
+      <button type="button" onClick={onBack} disabled={submitting}
+        className="mt-3 w-full text-sm font-semibold text-site-green-dark underline disabled:opacity-50">
+        {step === "payment" ? "← Vissza az adatokhoz" : "← Vissza a kosárhoz"}
       </button>
 
       {step === "payment" && paymentMethod === null && (

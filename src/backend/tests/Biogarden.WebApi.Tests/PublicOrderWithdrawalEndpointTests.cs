@@ -15,8 +15,13 @@ namespace Biogarden.WebApi.Tests;
 
 public sealed class PublicOrderWithdrawalEndpointTests
 {
-    [Fact]
-    public async Task RequestWithdrawalByOrderLookup_ReturnsNotFoundProblem_WhenOrderEmailPairDoesNotMatch()
+    [Theory]
+    [InlineData("BK-20261008-00000000", HttpStatusCode.NotFound)]
+    [InlineData(" bk-20261008-a1b2c3d4 ", HttpStatusCode.NotFound)]
+    [InlineData("fake-order", HttpStatusCode.BadRequest)]
+    [InlineData("BK-20261008-ABCDEFGH", HttpStatusCode.BadRequest)]
+    [InlineData("BK-20261008-A1B2C3D", HttpStatusCode.BadRequest)]
+    public async Task RequestWithdrawalByOrderLookup_RejectsMalformedOrMismatchedOrders(string orderNumber, HttpStatusCode expected)
     {
         using var factory = new BiogardenWebApiFactory()
             .WithWebHostBuilder(builder =>
@@ -34,12 +39,19 @@ public sealed class PublicOrderWithdrawalEndpointTests
             "/api/orders/withdrawal-requests",
             new PublicOrderWithdrawalRequestDto
             {
-                OrderNumber = "BK-WRONG-0001",
+                OrderNumber = orderNumber,
                 CustomerEmail = "wrong@example.com",
                 Reason = "Szeretnék panaszt rögzíteni a rendeléssel kapcsolatban."
             });
 
-        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        Assert.Equal(expected, response.StatusCode);
+        if (expected == HttpStatusCode.BadRequest)
+        {
+            var json = await response.Content.ReadFromJsonAsync<System.Text.Json.JsonElement>();
+            Assert.True(json.GetProperty("errors").TryGetProperty("orderNumber", out var messages));
+            Assert.NotEmpty(messages.EnumerateArray());
+            return;
+        }
 
         var problem = await response.Content.ReadFromJsonAsync<ProblemDetails>();
 

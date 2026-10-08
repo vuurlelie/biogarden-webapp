@@ -22,9 +22,9 @@ const sections = [
   {
     title: "3. Regisztráció és vásárlói fiók",
     paragraphs: [
-      "A vásárlói fiók létrehozásához és használatához az email címet, a jelszó technikai azonosítóját, valamint a fiókhoz később megadott kapcsolattartási és címadatokat kezeljük.",
+      "A vásárlói fiók létrehozásához és használatához az email címet, a jelszó vissza nem fejthető ellenőrző értékét, valamint a fiókhoz később megadott kapcsolattartási és címadatokat kezeljük.",
       "Az adatkezelés célja a vásárlói fiók működtetése, a gyorsabb rendelésleadás, a rendelési előzmények megjelenítése, valamint a mentett számlázási és szállítási adatok kezelése.",
-      "A fiókadatokat a felhasználói fiók fennállásáig kezeljük. A felhasználó kérheti a fiók deaktiválását vagy törlését a Kapcsolat menüponton keresztül.",
+      "A fiókadatokat a felhasználói fiók fennállásáig kezeljük. A felhasználó a fiókbeállításokban kezdeményezheti a fiók deaktiválását vagy törlését, illetve a Kapcsolat menüponton keresztül is kérhet segítséget.",
     ],
   },
   {
@@ -48,7 +48,7 @@ const sections = [
   {
     title: "6. Kapcsolatfelvétel",
     paragraphs: [
-      "Emailben, telefonon vagy közösségi oldalon történő megkeresés esetén a megadott nevet, elérhetőséget és az üzenet tartalmát kezeljük.",
+      "A kapcsolatfelvételi űrlapon a nevet, email címet, az opcionálisan megadott telefonszámot és tárgyat, valamint az üzenet tartalmát kezeljük. Emailben, telefonon vagy közösségi oldalon történő megkeresés esetén a megadott elérhetőséget és az ügyintézéshez szükséges információkat kezeljük.",
       "Az adatkezelés célja a kérdés, kérés, panasz vagy egyéb ügyintézés megválaszolása. Az adatokat az ügy lezárásáig, illetve jogi igény esetén a szükséges elévülési ideig őrizzük meg.",
     ],
   },
@@ -63,31 +63,33 @@ const sections = [
   {
     title: "8. Fizetés",
     paragraphs: [
-      "A webshopban jelenleg a tesztelési folyamat részeként több fizetési mód jelenhet meg. Online bankkártyás fizetés bevezetése esetén a kártyaadatokat nem a webshop szervere kezeli, hanem a kiválasztott fizetési szolgáltató biztonságos rendszere.",
-      "A webshop a fizetés állapotát, a rendelés azonosítóját és a fizetéshez szükséges technikai információkat kezelheti a rendelés teljesítése és ellenőrzése érdekében.",
+      "Amennyiben az online bankkártyás fizetés elérhető, azt a SumUp fizetési oldalán lehet elvégezni. A bankkártya számát és biztonsági kódját nem a webshopban adod meg, és ezeket a webshop nem tárolja.",
+      "A webshop a fizetési szolgáltatónak a fizetés összegét, pénznemét és a fizetéshez kapcsolódó rendelési hivatkozást továbbítja. A rendelés teljesítése és a fizetés ellenőrzése érdekében tárolja a fizetés állapotát és a szolgáltató által visszaadott fizetési azonosítókat.",
     ],
   },
   {
     title: "9. Sütik és anonim látogatottsági analitika",
     paragraphs: [
-      "A weboldal működéséhez szükséges technikai adatokat és helyi böngészőtárhelyet a szolgáltatás biztonságos működtetéséhez használjuk.",
-      "Anonim látogatottsági analitikát kizárólag előzetes hozzájárulás alapján használunk. Az analitikai események célja annak megértése, hogy mely oldalak és rendelési lépések működnek jól, illetve hol érdemes javítani a felhasználói élményt.",
+      "A bejelentkezés és a vendégkosár azonosításához szükséges sütiket használunk. A bejelentkezési munkamenet 60 perc inaktivitás után lejár; aktív használat közben meghosszabbodik. A kosár a legutóbbi lekérésétől vagy módosításától számított 30 percig érvényes. A lejárat nem jelenti valamennyi tárolt adat azonnali fizikai törlését.",
+      "A pénztárban megadott kapcsolattartási, számlázási és szállítási adatokat a rendelés elküldése előtt is automatikusan mentjük a szerveren, hogy frissítés után folytatható legyen a kitöltés. A piszkozat legfeljebb az utolsó mentéstől számított 30 percig, illetve a kosár lejártáig érhető el. Kijelentkezéskor vagy a rendelés sikeres rögzítésekor a kapcsolódó piszkozatot töröljük; a lejárt piszkozatok törlését háttérfolyamat végzi. Ezeket a személyes adatokat nem mentjük a böngésző helyi tárhelyére.",
+      "Az adatvédelmi beállításokat a böngésző helyi tárhelyén őrizzük meg. A választás a beállítások módosításáig, a tárolt beállítás verziójának változásáig vagy a böngészőadatok törléséig marad meg.",
+      "A jelenlegi tesztváltozat nem továbbít analitikai eseményeket külső analitikai szolgáltatónak. A böngészőn belüli analitikai események csak az erre adott hozzájárulás után keletkeznek. Az analitikai események célja annak megértése, hogy mely oldalak és rendelési lépések működnek jól, illetve hol érdemes javítani a felhasználói élményt.",
       "Az analitikai események nem tartalmazhatnak nevet, email címet, telefonszámot, pontos címet, rendelésazonosítót vagy más közvetlen azonosításra alkalmas adatot.",
-      "A hozzájárulás bármikor módosítható vagy visszavonható az oldal alján található Adatvédelmi beállítások menüpontban.",
+      "A hozzájárulás bármikor módosítható vagy visszavonható az oldal alján található Adatvédelmi beállítások menüpontban. A láblécben megjelenő Google-térkép és a szállítási hely kiválasztásához betöltött GLS-térkép külső szolgáltatás: betöltésükkor a böngésző kapcsolatba lép az adott szolgáltatóval, amely így megismerheti például az IP-címet és a böngésző technikai adatait. Ezek a kapcsolatok nem az analitikai beállítás részei.",
     ],
   },
   {
     title: "10. Adattovábbítás és adatfeldolgozók",
     paragraphs: [
       "A rendelés teljesítéséhez szükséges adatokat továbbíthatjuk könyvelési, számlázási, tárhelyszolgáltatási, informatikai, futárszolgálati vagy fizetési szolgáltató partnerek részére.",
-      "Az adatfeldolgozók kizárólag az adatkezelő utasításai szerint, a szolgáltatás teljesítéséhez szükséges mértékben kezelhetik az adatokat.",
+      "Az adatfeldolgozók az adatkezelő utasításai szerint járnak el. Egyes partnerek saját szolgáltatásuk tekintetében önálló adatkezelők is lehetnek; a pontos szerepeket és az alkalmazandó tájékoztatókat a végleges szolgáltatói listában kell meghatározni.",
       "A végleges adatfeldolgozói lista a tárhely-, email-, fizetési, számlázási, szállítási és esetleges analitikai szolgáltatók kiválasztása után pontosítandó.",
     ],
   },
   {
     title: "11. Felhasználói jogok",
     paragraphs: [
-      "A felhasználó kérheti a róla kezelt személyes adatokhoz való hozzáférést, azok helyesbítését, törlését, korlátozását, valamint tiltakozhat bizonyos adatkezelések ellen.",
+      "A felhasználó kérheti a róla kezelt személyes adatokhoz való hozzáférést, azok helyesbítését, törlését, korlátozását, valamint tiltakozhat bizonyos adatkezelések ellen. A jogszabályi feltételek fennállásakor az adathordozhatósághoz való jog is megilleti. A hozzájárulás visszavonása nem érinti a visszavonás előtti adatkezelés jogszerűségét.",
       "A felhasználó jogosult panaszt tenni a Nemzeti Adatvédelmi és Információszabadság Hatóságnál, valamint bírósághoz fordulni, ha úgy véli, hogy személyes adatait jogsértően kezeljük.",
     ],
   },
@@ -115,7 +117,7 @@ export default function PrivacyPolicyPage() {
           Adatkezelési tájékoztató
         </h1>
         <p className="mt-3 text-sm text-site-muted">
-          Hatályos: jóváhagyás után kerül véglegesítésre. Verzió: {LEGAL_DOCUMENT_VERSIONS.privacyPolicy}
+          Hatályos: jóváhagyás után kerül véglegesítésre. Verzió: {LEGAL_DOCUMENT_VERSIONS.privacyPolicy.replace(/^privacy-/, "")}
         </p>
 
         <div className="mt-8 space-y-8 text-site-text">

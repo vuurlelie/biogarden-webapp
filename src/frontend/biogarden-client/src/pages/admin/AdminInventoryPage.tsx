@@ -154,7 +154,7 @@ function InventoryCard({
                   }`}
                 />
                 {quantityError && (
-                  <span id={quantityErrorId} role="alert" className="mt-1 block text-xs text-site-danger">
+                  <span id={quantityErrorId} role="alert" className="mt-1 block text-xs font-normal text-site-danger">
                     {quantityError}
                   </span>
                 )}

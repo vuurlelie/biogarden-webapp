@@ -81,6 +81,7 @@ test("customer can browse products, open details, and add an item to the cart", 
   await expect(page.getByRole("heading", { name: "Teszt levendula tea" })).toBeVisible();
   await expect(page.getByRole("heading", { name: /Kapcsolodo termekek|Kapcsolódó termékek/ })).toBeVisible();
 
+  await page.getByRole("spinbutton").fill("1");
   await page.getByRole("button", { name: /Kosarba teszem|Kosárba teszem/ }).click();
   await expect(page.getByRole("status")).toContainText(/bekerult a kosarba|bekerült a kosárba/);
 

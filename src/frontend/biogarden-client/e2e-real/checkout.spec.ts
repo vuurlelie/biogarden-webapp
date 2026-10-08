@@ -11,6 +11,7 @@ test("isolated guests, login merge, lost checkout response and cancellation use 
     await visitor.goto("https://localhost:4174/kosar");
     await expect(visitor.getByText(/A kosarad még üres/)).toBeVisible();
     await page.goto(`/termekek/${process.env.E2E_PRODUCT_ID}`);
+    await page.getByRole("spinbutton").fill("1");
     await page.getByRole("button", { name: /Kosárba teszem/ }).click();
     await expect(page.getByRole("status")).toContainText(/bekerült a kosárba/);
     const cookie = (await page.context().cookies(api)).find(value => value.name === "biogarden_cart_id");

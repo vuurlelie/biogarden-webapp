@@ -276,7 +276,7 @@ export default function AccountOrderDetailsPage() {
             }`}
           />
           {withdrawalValidationError && (
-            <span id="account-withdrawal-reason-error" className="mt-1 block text-sm text-site-danger">
+            <span id="account-withdrawal-reason-error" className="mt-1 block text-xs font-normal text-site-danger">
               {withdrawalValidationError}
             </span>
           )}

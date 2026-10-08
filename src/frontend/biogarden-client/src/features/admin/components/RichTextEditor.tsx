@@ -441,7 +441,7 @@ export default function RichTextEditor({
         <EditorContent editor={editor} />
       </div>
       {error && (
-        <p id={`${id}-error`} className="mt-1 text-xs font-semibold text-site-danger">
+        <p id={`${id}-error`} className="mt-1 text-xs font-normal text-site-danger">
           {error}
         </p>
       )}

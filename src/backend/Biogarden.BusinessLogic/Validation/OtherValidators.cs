@@ -63,6 +63,9 @@ public sealed class PublicOrderWithdrawalRequestDtoValidator : AbstractValidator
     {
         RuleFor(x => x.OrderNumber).NotEmpty().WithMessage("A mező megadása kötelező.");
         RuleFor(x => x.OrderNumber).MaximumLength(32).WithMessage("Legfeljebb 32 karakter adható meg.");
+        RuleFor(x => x.OrderNumber).Must(value => value is not null && value.Length <= 32 &&
+            System.Text.RegularExpressions.Regex.IsMatch(value.Trim().ToUpperInvariant(), @"\ABK-[0-9]{8}-[A-F0-9]{8}\z"))
+            .WithMessage("A rendelés azonosítója nem megfelelő formátumú. Példa: BK-20261008-A1B2C3D4.");
         RuleFor(x => x.CustomerEmail).Must(value => System.Net.Mail.MailAddress.TryCreate(value?.Trim(), out _)).WithMessage("Adj meg egy érvényes email címet.");
         RuleFor(x => x.CustomerEmail).MaximumLength(256).WithMessage("Legfeljebb 256 karakter adható meg.");
         RuleFor(x => x.Reason).Must(value => value is not null && value.Trim().Length >= 10 && value.Trim().Length <= 1000).WithMessage("Az indoklás 10–1000 karakter legyen.");

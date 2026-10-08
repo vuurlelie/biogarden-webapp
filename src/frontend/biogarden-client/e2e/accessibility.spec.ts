@@ -173,11 +173,47 @@ test("login validation focuses the first invalid field", async ({ page }) => {
   await expect(emailInput).toHaveAttribute("aria-invalid", "true");
 });
 
+test("password recovery uses a thin gray focus border and preserves error styling", async ({ page }) => {
+  await mockEmptyCartApi(page);
+  await page.goto("/elfelejtett-jelszo");
+  const input = page.getByLabel("Email cím", { exact: false });
+  const submit = page.getByRole("button", { name: "Jelszó-visszaállító link küldése" });
+  await submit.click();
+  await expect(input).toBeFocused();
+  await expect(input).toHaveAttribute("aria-invalid", "true");
+  const colors = await page.evaluate(() => {
+    const probe = document.createElement("span");
+    document.body.append(probe);
+    const resolve = (name: string) => {
+      probe.style.color = `var(${name})`;
+      return getComputedStyle(probe).color;
+    };
+    const result = { focus: resolve("--color-gray-600"), error: resolve("--color-site-danger"), background: resolve("--color-site-danger-soft") };
+    probe.remove();
+    return result;
+  });
+  await expect(input).toHaveCSS("border-color", colors.focus);
+  await expect(input).toHaveCSS("border-width", "1px");
+  await expect(input).toHaveCSS("outline-style", "none");
+  await expect(input).toHaveCSS("box-shadow", "none");
+  await expect(input).toHaveCSS("background-color", colors.background);
+  await input.press("Tab");
+  await expect(input).not.toBeFocused();
+  await expect(input).toHaveCSS("border-color", colors.error);
+  await expect(submit).toBeFocused();
+  await expect(submit).toHaveCSS("outline-style", "solid");
+});
+
 test("public request validation focuses the field that needs more detail", async ({ page }) => {
   await mockEmptyCartApi(page);
 
   await page.goto("/rendelessel-kapcsolatos-keres");
-  await page.getByLabel(/Rendeles azonositoja|Rendelés azonosítója/).fill("BK-2026-0001");
+  const orderNumberInput = page.getByLabel(/Rendeles azonositoja|Rendelés azonosítója/);
+  await orderNumberInput.fill("fake-order");
+  await page.getByRole("button", { name: /Keres elkuldese|Kérés elküldése/ }).click();
+  await expect(orderNumberInput).toBeFocused();
+  await expect(page.getByRole("alert")).toContainText("Ellenőrizd a rendelés azonosítóját");
+  await orderNumberInput.fill("BK-20261008-A1B2C3D4");
   await page.getByLabel(/email cim|email cím/i).fill("teszt@example.com");
   await page.getByLabel(/Keres leirasa|Kérés leírása/).fill("rovid");
   await page.getByRole("button", { name: /Keres elkuldese|Kérés elküldése/ }).click();
@@ -186,4 +222,14 @@ test("public request validation focuses the field that needs more detail", async
   await expect(page.getByRole("alert")).toContainText("10 karakter");
   await expect(reasonInput).toBeFocused();
   await expect(reasonInput).toHaveAttribute("aria-invalid", "true");
+  const focusColor = await page.evaluate(() => {
+    const probe = document.createElement("span");
+    probe.style.color = "var(--color-gray-600)";
+    document.body.append(probe);
+    const color = getComputedStyle(probe).color;
+    probe.remove();
+    return color;
+  });
+  await expect(reasonInput).toHaveCSS("border-color", focusColor);
+  await expect(page.locator("#withdrawal-reason-count > [aria-hidden]")).toHaveText("5 / 1000");
 });

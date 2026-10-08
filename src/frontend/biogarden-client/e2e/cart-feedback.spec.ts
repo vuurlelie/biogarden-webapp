@@ -6,6 +6,40 @@ const cart = (count: number) => ({
   expiresAtUtc: "2099-01-01T00:00:00Z", isCheckedOut: false,
 });
 
+test("quantity stays editable and invalid amounts never add an item", async ({ page }) => {
+  await mockPublicShopApi(page);
+  const amounts: number[] = [];
+  await page.route(`${apiBaseUrl}/api/cart/products/1/availability`, route => route.fulfill({ json: { availableQuantity: 25 } }));
+  await page.route(`${apiBaseUrl}/api/cart/items`, route => {
+    amounts.push(route.request().postDataJSON().quantity);
+    return route.fulfill({ json: cart(21) });
+  });
+  await page.goto("/termekek/1");
+  const input = page.getByRole("spinbutton");
+  const add = page.getByRole("button", { name: "Kosárba teszem", exact: true });
+  await expect(input).toHaveValue("");
+  await input.fill("1");
+  await input.press("Backspace");
+  await expect(input).toHaveValue("");
+  await add.click();
+  await expect(page.getByRole("alert")).toContainText("Add meg a rendelni kívánt mennyiséget");
+  await expect(input).toBeFocused();
+  for (const value of ["0", "-1", "1.5", "26"]) {
+    await input.fill(value);
+    await add.click();
+    await expect(input).toHaveValue(value);
+    await expect(input).toHaveAttribute("aria-invalid", "true");
+  }
+  expect(amounts).toEqual([]);
+  await input.fill("");
+  await input.pressSequentially("21");
+  await expect(input).toHaveValue("21");
+  await add.click();
+  await expect(page.getByRole("status")).toContainText("21");
+  expect(amounts).toEqual([21]);
+  await expect(input).toHaveValue("");
+});
+
 for (const firstFails of [false, true]) {
   test(`each card stays disabled until its own queued addition settles (first fails: ${firstFails})`, async ({ page }) => {
     await mockPublicShopApi(page);
@@ -68,6 +102,7 @@ test("a successful addition survives stock refresh failure and retry does not ad
   });
   await page.goto("/termekek/1");
   const add = page.getByRole("button", { name: "Kosárba teszem", exact: true });
+  await page.getByRole("spinbutton").fill("1");
   await add.click();
   await expect(page.getByRole("status")).toContainText("bekerült a kosárba");
   await expect(page.getByRole("alert")).toContainText("a fennmaradó készletet nem sikerült frissíteni");
@@ -92,6 +127,7 @@ test("a rejected addition does not claim success or refresh remaining stock", as
   await page.route(`${apiBaseUrl}/api/cart/items`, route => route.fulfill({ status: 409, json: { detail: "Nincs elegendő készlet." } }));
   await page.goto("/termekek/1");
   const add = page.getByRole("button", { name: "Kosárba teszem", exact: true });
+  await page.getByRole("spinbutton").fill("1");
   await add.click();
   await expect(page.getByRole("status")).toHaveText("Nincs elegendő készlet.");
   await expect(add).toBeEnabled();

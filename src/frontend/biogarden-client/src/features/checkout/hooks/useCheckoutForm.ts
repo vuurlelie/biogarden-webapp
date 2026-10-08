@@ -227,19 +227,10 @@ export function useCheckoutForm(cartId: string | undefined) {
     ));
   }
 
-  async function discard() {
-    if (!await draftStorage.discard()) return false;
-    setContactManual(true);
-    setBillingManual(true);
-    setDeliveryManual(true);
-    setFieldErrors({});
-    return true;
-  }
-
   return { draftStorage, draft, setDraft, draftReady, method, authenticated, addresses,
     contactManual, billingManual, deliveryManual, loading: authenticated && !profile && loading,
     error, setError, fieldErrors, setFieldErrors,
     effectiveCustomerType, billingAddress, deliveryAddress, setMethod, update, fieldClass, clearFieldErrors,
     handleBillingAddressChange, handleDeliveryAddressChange, handleAccountContactChange,
-    handleAccountBillingChange, handleAccountDeliveryChange, discard };
+    handleAccountBillingChange, handleAccountDeliveryChange };
 }

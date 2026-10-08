@@ -12,9 +12,9 @@ type AdminLoginField = "email" | "password";
 type AdminLoginFieldErrors = Partial<Record<AdminLoginField, string>>;
 
 const inputClassName =
-  "mt-2 block w-full rounded-sm border border-site-border bg-white px-3 py-2.5 text-site-heading outline-none transition focus:border-site-green focus:ring-2 focus:ring-site-green/20";
+  "mt-2 block w-full rounded-sm border border-site-border bg-white px-3 py-2.5 text-site-heading outline-none transition focus:border-gray-600";
 const invalidInputClassName =
-  "mt-2 block w-full rounded-sm border border-site-danger bg-site-danger-soft px-3 py-2.5 text-site-heading outline-none transition focus:border-site-danger focus:ring-2 focus:ring-site-danger/20";
+  "mt-2 block w-full rounded-sm border border-site-danger bg-site-danger-soft px-3 py-2.5 text-site-heading outline-none transition focus:border-gray-600";
 
 export default function AdminLoginPage() {
   const navigate = useNavigate();
@@ -59,7 +59,7 @@ export default function AdminLoginPage() {
     if (!fieldError) return null;
 
     return (
-      <p id={getErrorId(field)} className="mt-1.5 text-sm text-site-danger" role="alert">
+      <p id={getErrorId(field)} className="mt-1.5 text-xs font-normal text-site-danger" role="alert">
         {fieldError}
       </p>
     );

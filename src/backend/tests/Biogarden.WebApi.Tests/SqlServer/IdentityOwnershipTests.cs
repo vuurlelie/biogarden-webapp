@@ -84,6 +84,15 @@ public sealed class IdentityOwnershipTests : IAsyncLifetime
         Assert.Equal(OrderStatus.Pending, (await db.Orders.SingleAsync()).Status);
         Assert.Equal(9, (await db.Products.SingleAsync()).StockQuantity);
         Assert.Empty(await db.OrderWithdrawalRequests.ToListAsync());
+        var queuedEmails = await db.NotificationEmails.CountAsync();
+        Assert.Equal(HttpStatusCode.NotFound, (await stranger.PostAsJsonAsync("/api/orders/withdrawal-requests", new
+        {
+            orderNumber = "BK-19000101-00000000",
+            customerEmail = order.CustomerEmail,
+            reason = "Please cancel this nonexistent order."
+        })).StatusCode);
+        Assert.Empty(await db.OrderWithdrawalRequests.ToListAsync());
+        Assert.Equal(queuedEmails, await db.NotificationEmails.CountAsync());
         Assert.Empty(await db.PaymentAttempts.ToListAsync());
     }
 

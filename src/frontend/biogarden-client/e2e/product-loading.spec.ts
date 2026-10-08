@@ -13,6 +13,7 @@ test("slow recommendations do not delay availability or purchasing", async ({ pa
   await expect.poll(() => recommendations).toBeTruthy();
   await expect(page.getByRole("button", { name: "Kosárba teszem", exact: true })).toBeEnabled();
   expect(availabilityReads).toBe(1);
+  await page.getByRole("spinbutton").fill("1");
   await page.getByRole("button", { name: "Kosárba teszem", exact: true }).click();
   await expect(page.getByRole("status")).toContainText("bekerült a kosárba");
   await recommendations!.fulfill({ json: {
@@ -27,6 +28,7 @@ test("failed recommendations leave the product available for purchase", async ({
     route => route.fulfill({ status: 503, json: { detail: "Átmeneti hiba." } }));
   await page.goto("/termekek/1");
   await expect(page.getByRole("heading", { name: product.name, exact: true })).toBeVisible();
+  await page.getByRole("spinbutton").fill("1");
   await page.getByRole("button", { name: "Kosárba teszem", exact: true }).click();
   await expect(page.getByRole("status")).toContainText("bekerült a kosárba");
   await expect(page.getByRole("heading", { name: "Kapcsolódó termékek", exact: true })).toHaveCount(0);
@@ -43,6 +45,7 @@ test("navigating to a related product clears the previous product's stock refres
   } }));
   await page.route(`${apiBaseUrl}/api/cart/products/2/availability`, route => route.fulfill({ json: { availableQuantity: 8 } }));
   await page.goto("/termekek/1");
+  await page.getByRole("spinbutton").fill("1");
   await page.getByRole("button", { name: "Kosárba teszem", exact: true }).click();
   await expect(page.getByRole("alert")).toContainText("a fennmaradó készletet nem sikerült frissíteni");
   await page.getByRole("heading", { name: "Teszt kakukkfu tea", exact: true }).getByRole("link").click();

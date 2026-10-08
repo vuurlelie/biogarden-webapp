@@ -35,16 +35,29 @@ test("refresh restores server draft without saving personal fields in browser st
   expect(storage).not.toContain("biogarden_checkout_draft");
 });
 
-test("discard removes the server draft and refresh does not restore it", async ({ page }) => {
+test("back navigation preserves personal details without draft controls", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 700 });
   await mockCheckoutApi(page);
   await page.goto("/penztar");
-  const saved = page.waitForResponse(response => response.url() === draftUrl && response.request().method() === "PUT");
   await details(page);
-  await saved;
-  await page.getByRole("button", { name: "Piszkozat törlése" }).click();
-  await expect(page.getByLabel(/^Név/)).toHaveValue("");
-  await page.reload();
-  await expect(page.getByLabel(/^Név/)).toHaveValue("");
+  await expect(page.getByRole("button", { name: "Piszkozat törlése" })).toHaveCount(0);
+  await page.getByRole("button", { name: "Tovább a pénztárhoz" }).scrollIntoViewIfNeeded();
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(0);
+  await page.getByRole("button", { name: "Tovább a pénztárhoz" }).click();
+  await expect(page.getByRole("heading", { name: "Pénztár", exact: true })).toBeFocused();
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0);
+  await page.getByRole("button", { name: "← Vissza az adatokhoz" }).click();
+  await expect(page.getByRole("heading", { name: "Pénztár", exact: true })).toBeFocused();
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0);
+  await expect(page.getByLabel(/^Név/)).toHaveValue("Piszkozat Teszt");
+  await expect(page.getByLabel(/^Email cím/)).toHaveValue("draft@example.com");
+  await page.getByLabel(/^Név/).fill("Javított név");
+  await page.getByRole("button", { name: "← Vissza a kosárhoz" }).click();
+  await expect(page).toHaveURL(/\/kosar$/);
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0);
+  await page.goto("/penztar");
+  await expect(page.getByLabel(/^Név/)).toHaveValue("Javított név");
+  await expect(page.getByLabel(/^Email cím/)).toHaveValue("draft@example.com");
 });
 
 test("restored customer edits are not presented as current profile values", async ({ page }) => {
@@ -63,9 +76,6 @@ test("restored customer edits are not presented as current profile values", asyn
   await page.reload();
   await expect(page.getByLabel(/^Név/)).toHaveValue("Piszkozat Teszt");
   await expect(page.getByLabel("Fiókban mentett személyes adatok betöltése")).not.toBeChecked();
-  await page.getByRole("button", { name: "Piszkozat törlése" }).click();
-  await expect(page.getByLabel(/^Név/)).toHaveValue("");
-  await expect(page.getByLabel("Fiókban mentett személyes adatok betöltése")).not.toBeChecked();
 });
 
 test("stale save preserves local edits until the customer loads the saved version", async ({ page }) => {
@@ -83,7 +93,7 @@ test("stale save preserves local edits until the customer loads the saved versio
   await page.getByLabel(/^Név/).fill("Megőrzött módosítás");
   await expect(page.getByLabel(/^Név/)).toHaveValue("Megőrzött módosítás");
   expect(writes).toBe(1);
-  await page.getByRole("button", { name: /Mentett változat betöltése/ }).click();
+  await page.getByRole("button", { name: /Mentett adatok betöltése/ }).click();
   await expect(page.getByLabel(/^Név/)).toHaveValue("");
 });
 
@@ -114,7 +124,7 @@ test("malformed restored fields are rejected and loading can be retried", async 
   await page.goto("/penztar");
   await expect(page.getByRole("alert")).toContainText("sérültek");
   malformed = false;
-  await page.getByRole("button", { name: "Piszkozat betöltése újra" }).click();
+  await page.getByRole("button", { name: "Adatok betöltése újra" }).click();
   await expect(page.getByLabel(/^Név/)).toHaveValue("");
 });
 

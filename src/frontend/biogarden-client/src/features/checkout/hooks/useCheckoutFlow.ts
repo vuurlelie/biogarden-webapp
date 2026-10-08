@@ -134,14 +134,6 @@ export function useCheckoutFlow({ form, cartState, pricing, gls, paymentMethod, 
     }
   }
 
-  async function discardDraft() {
-    if (!await form.discard()) return;
-    setTermsAccepted(false);
-    setPrivacyAccepted(false);
-    setFieldErrors({});
-    setStep("details");
-  }
-
   async function placeOrder() {
     if (submitting) return;
     if (!quote) { setShowReview(false); setError("Az árösszesítés megváltozott. Tekintsd át újra a rendelést."); return; }
@@ -229,5 +221,5 @@ export function useCheckoutFlow({ form, cartState, pricing, gls, paymentMethod, 
 
   return { submitting, showReview, setShowReview, termsAccepted, setTermsAccepted,
     privacyAccepted, setPrivacyAccepted, step, setStep, reviewModalRef, reviewButtonRef,
-    cancelledSumUpOrderId, checkoutKey, submit, discardDraft, placeOrder };
+    cancelledSumUpOrderId, checkoutKey, submit, placeOrder };
 }

@@ -1,16 +1,20 @@
 import { useRef, useState, type FormEvent } from "react";
-import { requestPublicOrderWithdrawal } from "../../features/account/api/ordersApi";
+import { OrdersApiError, requestPublicOrderWithdrawal } from "../../features/account/api/ordersApi";
 import { useAnalytics } from "../../features/analytics/context/AnalyticsContextCore";
 import Seo from "../../shared/seo/Seo";
 import { getErrorMessage } from "../../shared/utils/errorHandling";
+
+const MIN_REASON_LENGTH = 10;
+const MAX_REASON_LENGTH = 1000;
+const ORDER_NUMBER_PATTERN = /^BK-[0-9]{8}-[A-F0-9]{8}$/i;
 
 type WithdrawalField = "orderNumber" | "customerEmail" | "reason";
 type WithdrawalFieldErrors = Partial<Record<WithdrawalField, string>>;
 
 const fieldClassName =
-  "mt-2 block w-full rounded-sm border border-site-border bg-white px-3 py-2.5 text-site-heading outline-none transition focus:border-site-green focus:ring-2 focus:ring-site-green/20";
+  "mt-2 block w-full rounded-sm border border-site-border bg-white px-3 py-2.5 text-site-heading outline-none transition focus:border-gray-600";
 const invalidFieldClassName =
-  "mt-2 block w-full rounded-sm border border-site-danger bg-site-danger-soft px-3 py-2.5 text-site-heading outline-none transition focus:border-site-danger focus:ring-2 focus:ring-site-danger/20";
+  "mt-2 block w-full rounded-sm border border-site-danger bg-site-danger-soft px-3 py-2.5 text-site-heading outline-none transition focus:border-gray-600";
 
 export default function OrderWithdrawalRequestPage() {
   const [orderNumber, setOrderNumber] = useState("");
@@ -37,6 +41,7 @@ export default function OrderWithdrawalRequestPage() {
   }
 
   function clearFieldError(field: WithdrawalField) {
+    setMessage("");
     setFieldErrors((currentErrors) => {
       if (!currentErrors[field]) return currentErrors;
       const nextErrors = { ...currentErrors };
@@ -53,13 +58,13 @@ export default function OrderWithdrawalRequestPage() {
     return fieldErrors[field] ? invalidFieldClassName : fieldClassName;
   }
 
-  function renderFieldError(field: WithdrawalField) {
+  function renderFieldError(field: WithdrawalField, className = "mt-1.5") {
     const fieldError = fieldErrors[field];
 
     if (!fieldError) return null;
 
     return (
-      <p id={getErrorId(field)} className="mt-1.5 text-sm text-site-danger" role="alert">
+      <p id={getErrorId(field)} className={`${className} text-xs font-normal text-site-danger`} role="alert">
         {fieldError}
       </p>
     );
@@ -76,38 +81,43 @@ export default function OrderWithdrawalRequestPage() {
       return;
     }
 
+    if (!ORDER_NUMBER_PATTERN.test(orderNumber.trim())) {
+      markInvalid("orderNumber", "Ellenőrizd a rendelés azonosítóját. Példa: BK-20261008-A1B2C3D4. A pontos azonosítót a visszaigazoló emailben találod.");
+      return;
+    }
+
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customerEmail.trim())) {
       markInvalid("customerEmail", "Adj meg egy érvényes email címet.");
       return;
     }
 
-    if (reason.trim().length < 10) {
-      markInvalid("reason", "Írd le legalább 10 karakterben a kérésedet.");
+    if (reason.trim().length < MIN_REASON_LENGTH) {
+      markInvalid("reason", `Kérjük, írj legalább ${MIN_REASON_LENGTH} karaktert. Az elején és a végén lévő szóközök nem számítanak bele.`);
       return;
     }
 
     try {
       setIsSubmitting(true);
       await requestPublicOrderWithdrawal({
-        orderNumber,
-        customerEmail,
-        reason,
+        orderNumber: orderNumber.trim().toUpperCase(),
+        customerEmail: customerEmail.trim(),
+        reason: reason.trim(),
       });
       track("withdrawal_request_submitted", { source: "public_form" });
       setReason("");
       setFieldErrors({});
-      setMessage("A kérésedet rögzítettük, és emailben is visszaigazoltuk.");
+      setMessage("A kérésedet rögzítettük! A visszaigazoló email megérkezése néhány percet igénybe vehet. Kérjük, ellenőrizd a Spam és a Promóciók mappát is.");
     } catch (submitError) {
       const errorMessage = getErrorMessage(
         submitError,
         "A kérés elküldése nem sikerült. Kérjük, ellenőrizd az adatokat és próbáld újra.",
       );
-      setFieldErrors({
-        orderNumber: errorMessage,
-        customerEmail: errorMessage,
-      });
-      setError("");
-      orderNumberInputRef.current?.focus();
+      if (submitError instanceof OrdersApiError && submitError.status === 404) {
+        setFieldErrors({ orderNumber: errorMessage, customerEmail: errorMessage });
+        orderNumberInputRef.current?.focus();
+      } else {
+        setError(errorMessage);
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -157,7 +167,10 @@ export default function OrderWithdrawalRequestPage() {
                 setOrderNumber(event.target.value);
                 clearFieldError("orderNumber");
               }}
-              placeholder="BK-..."
+              placeholder="BK-20261008-A1B2C3D4"
+              maxLength={32}
+              autoCapitalize="characters"
+              spellCheck={false}
               className={getFieldClassName("orderNumber")}
               aria-invalid={Boolean(fieldErrors.orderNumber)}
               aria-describedby={fieldErrors.orderNumber ? getErrorId("orderNumber") : undefined}
@@ -200,15 +213,21 @@ export default function OrderWithdrawalRequestPage() {
                 setReason(event.target.value);
                 clearFieldError("reason");
               }}
-              maxLength={1000}
+              minLength={MIN_REASON_LENGTH}
+              maxLength={MAX_REASON_LENGTH}
               rows={5}
               className={getFieldClassName("reason")}
               aria-invalid={Boolean(fieldErrors.reason)}
-              aria-describedby={fieldErrors.reason ? getErrorId("reason") : undefined}
+              aria-describedby={`withdrawal-reason-count${fieldErrors.reason ? ` ${getErrorId("reason")}` : ""}`}
               required
             />
-            {renderFieldError("reason")}
-            <p className="mt-1 text-xs text-site-muted">Legfeljebb 1000 karakter.</p>
+            <div className="mt-1 flex items-baseline justify-between gap-4 text-sm text-site-muted">
+              {renderFieldError("reason", "min-w-0 flex-1")}
+              <span id="withdrawal-reason-count" className="ml-auto whitespace-nowrap tabular-nums">
+                <span aria-hidden="true">{reason.trim().length} / {MAX_REASON_LENGTH}</span>
+                <span className="sr-only">{reason.trim().length} karakter a megengedett {MAX_REASON_LENGTH} karakterből, a kezdő és záró szóközök nélkül.</span>
+              </span>
+            </div>
           </div>
 
           <button

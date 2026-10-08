@@ -54,12 +54,34 @@ test("password recovery screens expose invalid and failed request states", async
   await expect(page.getByRole("alert")).toContainText("A levélküldés átmenetileg nem elérhető.");
 });
 
+test("public order request rejects a nonexistent order without showing success", async ({ page }) => {
+  await mockEmptyCartApi(page);
+  await page.route(`${apiBaseUrl}/api/orders/withdrawal-requests`, async (route) => {
+    await route.fulfill({
+      status: 404,
+      json: { detail: "Nem találtunk ilyen rendelést ezzel az email címmel." },
+    });
+  });
+  await page.goto("/rendelessel-kapcsolatos-keres");
+  const orderNumber = page.getByLabel("Rendelés azonosítója", { exact: false });
+  const reason = page.getByLabel("Kérés leírása", { exact: false });
+  await orderNumber.fill("BK-19000101-00000000");
+  await page.getByLabel(/email cím/i).fill("teszt@example.com");
+  await reason.fill("Szeretnék elállási kérelmet rögzíteni.");
+  await page.getByRole("button", { name: "Kérés elküldése" }).click();
+  await expect(orderNumber).toBeFocused();
+  await expect(orderNumber).toHaveAttribute("aria-invalid", "true");
+  await expect(page.getByRole("alert").first()).toContainText("Nem találtunk ilyen rendelést");
+  await expect(page.getByRole("status")).toHaveCount(0);
+  await expect(reason).toHaveValue("Szeretnék elállási kérelmet rögzíteni.");
+});
+
 test("public order request form confirms successful submission", async ({ page }) => {
   await mockEmptyCartApi(page);
   await page.route(`${apiBaseUrl}/api/orders/withdrawal-requests`, async (route) => {
     expect(route.request().method()).toBe("POST");
     expect(await route.request().postDataJSON()).toMatchObject({
-      orderNumber: "BK-20260722-TEST",
+      orderNumber: "BK-20260722-A1B2C3D4",
       customerEmail: "teszt@example.com",
       reason: "Szeretnék elállási kérelmet rögzíteni.",
     });
@@ -79,10 +101,14 @@ test("public order request form confirms successful submission", async ({ page }
   });
 
   await page.goto("/rendelessel-kapcsolatos-keres");
-  await page.getByLabel(/Rendeles azonositója|Rendelés azonosítója/).fill("BK-20260722-TEST");
+  await page.getByLabel(/Rendeles azonositója|Rendelés azonosítója/).fill("BK-20260722-A1B2C3D4");
   await page.getByLabel(/email cim|email cím/i).fill("teszt@example.com");
   await page.getByLabel(/Keres leirasa|Kérés leírása/).fill("Szeretnék elállási kérelmet rögzíteni.");
   await page.getByRole("button", { name: /Keres elkuldese|Kérés elküldése/ }).click();
 
   await expect(page.getByRole("status")).toContainText("A kérésedet rögzítettük");
+  await page.getByLabel("Rendelés azonosítója", { exact: false }).fill("BK-20260730-C4D1Afg2");
+  await expect(page.getByRole("status")).toHaveCount(0);
+  await page.getByRole("button", { name: "Kérés elküldése" }).click();
+  await expect(page.getByRole("alert")).toContainText("Ellenőrizd a rendelés azonosítóját");
 });

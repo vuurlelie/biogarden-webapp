@@ -59,7 +59,7 @@ export default function AccountProfilePage() {
     if (!fieldErrors[field]) return null;
 
     return (
-      <p id={getErrorId(field)} className="mt-1 text-xs font-semibold text-site-danger">
+      <p id={getErrorId(field)} className="mt-1 text-xs font-normal text-site-danger">
         {fieldErrors[field]}
       </p>
     );

@@ -84,7 +84,7 @@ export default function ContactForm({
     if (!fieldError) return null;
 
     return (
-      <p id={getErrorId(field)} className={`${className} text-sm text-site-danger`} role="alert">
+      <p id={getErrorId(field)} className={`${className} text-xs font-normal text-site-danger`} role="alert">
         {fieldError}
       </p>
     );

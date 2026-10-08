@@ -62,7 +62,7 @@ export default function ResetPasswordPage() {
     if (!fieldError) return null;
 
     return (
-      <p id={getErrorId(field)} className="mt-1.5 text-sm text-site-danger" role="alert">
+      <p id={getErrorId(field)} className="mt-1.5 text-xs font-normal text-site-danger" role="alert">
         {fieldError}
       </p>
     );
