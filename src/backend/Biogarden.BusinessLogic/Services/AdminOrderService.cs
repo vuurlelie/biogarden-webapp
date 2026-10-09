@@ -93,7 +93,8 @@ public sealed class AdminOrderService : IAdminOrderService
         var byOrder = messages.ToLookup(message => message.OrderId);
         var items = orderIds.Select(id => new AdminOrderRequestThreadDto
         {
-            OrderId = id, Messages = byOrder[id].ToList()
+            OrderId = id,
+            Messages = byOrder[id].ToList()
         }).ToList();
         return new(items, page, filter.NormalizedPageSize, count);
     }

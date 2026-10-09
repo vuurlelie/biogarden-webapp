@@ -94,8 +94,11 @@ public sealed class RealBrowserJourneyTests : IAsyncLifetime
         var output = process.StandardOutput.ReadToEndAsync();
         var error = process.StandardError.ReadToEndAsync();
         try { await process.WaitForExitAsync().WaitAsync(TimeSpan.FromMinutes(3)); }
-        catch { if (!process.HasExited)
-            process.Kill(entireProcessTree: true); await process.WaitForExitAsync(); throw; }
+        catch
+        {
+            if (!process.HasExited)
+                process.Kill(entireProcessTree: true); await process.WaitForExitAsync(); throw;
+        }
         Assert.True(process.ExitCode == 0, (await output) + (await error));
         await using var check = _app.OpenDatabase();
         var order = await check.Orders.Include(candidateOrder => candidateOrder.Items).SingleAsync();

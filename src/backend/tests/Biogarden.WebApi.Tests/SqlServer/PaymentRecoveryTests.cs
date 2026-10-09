@@ -298,7 +298,7 @@ public sealed class PaymentRecoveryTests : IAsyncLifetime
             using var response = await client.PostAsync("/api/sumup/checkout-status", new StringContent(payload, System.Text.Encoding.UTF8, "application/json"));
             Assert.Equal(System.Net.HttpStatusCode.BadRequest, response.StatusCode);
         }
-        using var oversized = await client.PostAsync("/api/sumup/checkout-status", new StringContent(new string ('x', 17000)));
+        using var oversized = await client.PostAsync("/api/sumup/checkout-status", new StringContent(new string('x', 17000)));
         Assert.Equal(System.Net.HttpStatusCode.RequestEntityTooLarge, oversized.StatusCode);
         Assert.Equal(0, _provider.Gets);
     }
@@ -316,7 +316,7 @@ public sealed class PaymentRecoveryTests : IAsyncLifetime
         if (legacyMissingTransaction)
         {
             await using var legacy = _app.OpenDatabase();
-            await legacy.Orders.ExecuteUpdateAsync(set => set.SetProperty(candidateOrder => candidateOrder.SumUpTransactionId, (string? )null));
+            await legacy.Orders.ExecuteUpdateAsync(set => set.SetProperty(candidateOrder => candidateOrder.SumUpTransactionId, (string?)null));
         }
         _provider.Checkouts[0] = _provider.Checkouts[0] with { Status = "PAID", TransactionCode = "paid-1" };
         await Assert.ThrowsAsync<PaymentRecoveryException>(() => NotifyAsync());

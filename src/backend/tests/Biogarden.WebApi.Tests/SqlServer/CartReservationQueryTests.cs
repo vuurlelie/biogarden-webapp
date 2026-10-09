@@ -33,8 +33,8 @@ public sealed class CartReservationQueryTests : IAsyncLifetime
         await database.SaveChangesAsync();
         var repository = new CartRepository(database, _clock);
 
-        Assert.Equal(active, await repository.GetActiveBySessionIdAsync(guest.SessionId!)is not null);
-        Assert.Equal(active, await repository.GetActiveByUserIdAsync(user.Id)is not null);
+        Assert.Equal(active, await repository.GetActiveBySessionIdAsync(guest.SessionId!) is not null);
+        Assert.Equal(active, await repository.GetActiveByUserIdAsync(user.Id) is not null);
         Assert.Equal(active ? 5 : 0, await repository.GetActiveReservedQuantityForProductAsync(product.Id));
         var grouped = await repository.GetActiveReservedQuantitiesAsync([product.Id]);
         Assert.Equal(active ? 5 : 0, grouped.GetValueOrDefault(product.Id));

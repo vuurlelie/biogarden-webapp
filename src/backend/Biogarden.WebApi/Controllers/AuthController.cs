@@ -123,9 +123,12 @@ public class AuthController : ControllerBase
                 .TransferCartToGuestAsync(id, guestId, HttpContext.RequestAborted);
             Response.Cookies.Append("biogarden_cart_id", guestId, new CookieOptions
             {
-                HttpOnly = true, Secure = Request.IsHttps,
+                HttpOnly = true,
+                Secure = Request.IsHttps,
                 SameSite = Request.IsHttps ? SameSiteMode.None : SameSiteMode.Lax,
-                Path = "/", Expires = DateTimeOffset.UtcNow.AddMinutes(30), IsEssential = true
+                Path = "/",
+                Expires = DateTimeOffset.UtcNow.AddMinutes(30),
+                IsEssential = true
             });
         }
         await HttpContext.SignOutAsync(BrowserAuthentication.Scheme);

@@ -136,7 +136,7 @@ public sealed class AdminPaginationTests : IAsyncLifetime
         var request = Assert.Single(Assert.Single(last.Items).Messages);
         Assert.Equal(13, last.TotalCount);
         var handleUrl = $"/api/admin/orders/withdrawal-requests/{request.Id}/handled";
-        Assert.Equal(HttpStatusCode.BadRequest, (await client.PutAsJsonAsync(handleUrl, new { adminResponse = new string ('x', 1001) })).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await client.PutAsJsonAsync(handleUrl, new { adminResponse = new string('x', 1001) })).StatusCode);
         (await client.PutAsJsonAsync(handleUrl, new { adminResponse = "  A kérésedet teljesítettük.  " })).EnsureSuccessStatusCode();
         var orderDetails = await client.GetFromJsonAsync<OrderDto>($"/api/admin/orders/{request.OrderId}");
         Assert.Equal("A kérésedet teljesítettük.", orderDetails!.WithdrawalRequests.Single(withdrawalRequest => withdrawalRequest.Id == request.Id).AdminResponse);

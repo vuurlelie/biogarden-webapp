@@ -7,23 +7,23 @@ namespace Biogarden.WebApi.Contracts;
 public static class ApiProblems
 {
     public static ApiErrorResponse Create(HttpContext context, int status, string? detail = null, IDictionary<string, string[]>? errors = null) => new()
+    {
+        Status = status,
+        Title = status switch
         {
-            Status = status,
-            Title = status switch
-            {
-                400 => "Hibás adatok.",
-                401 => "Bejelentkezés szükséges.",
-                403 => "Nincs jogosultság a művelethez.",
-                404 => "A kért adat nem található.",
-                409 => "A művelet ütközik az aktuális állapottal.",
-                429 => "Túl sok kérés.",
-                _ => "A művelet nem sikerült."
-            },
-            Detail = detail,
-            TraceId = context.TraceIdentifier,
-            Instance = context.Request.Path,
-            Errors = errors
-        };
+            400 => "Hibás adatok.",
+            401 => "Bejelentkezés szükséges.",
+            403 => "Nincs jogosultság a művelethez.",
+            404 => "A kért adat nem található.",
+            409 => "A művelet ütközik az aktuális állapottal.",
+            429 => "Túl sok kérés.",
+            _ => "A művelet nem sikerült."
+        },
+        Detail = detail,
+        TraceId = context.TraceIdentifier,
+        Instance = context.Request.Path,
+        Errors = errors
+    };
 
     public static ObjectResult Result(ApiErrorResponse problem)
     {

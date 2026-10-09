@@ -74,10 +74,10 @@ public sealed class CheckoutDraftService(IAppDbContext database, IUnitOfWork uni
         => database.Carts.Where(cart => cart.UserId == userId && cart.CheckoutDraftSession == session)
             .ExecuteUpdateAsync(
                 update => update
-                                .SetProperty(cart => cart.CheckoutDraftJson, (string? )null)
-                                .SetProperty(cart => cart.CheckoutDraftSession, (string? )null)
-                                .SetProperty(cart => cart.CheckoutDraftVersion, (Guid? )null)
-                                .SetProperty(cart => cart.CheckoutDraftExpiresAtUtc, (DateTime? )null),
+                                .SetProperty(cart => cart.CheckoutDraftJson, (string?)null)
+                                .SetProperty(cart => cart.CheckoutDraftSession, (string?)null)
+                                .SetProperty(cart => cart.CheckoutDraftVersion, (Guid?)null)
+                                .SetProperty(cart => cart.CheckoutDraftExpiresAtUtc, (DateTime?)null),
                 cancellationToken
             );
 
@@ -89,10 +89,10 @@ public sealed class CheckoutDraftService(IAppDbContext database, IUnitOfWork uni
             .OrderBy(cart => cart.CheckoutDraftExpiresAtUtc).Take(200)
             .ExecuteUpdateAsync(
                 update => update
-                                .SetProperty(cart => cart.CheckoutDraftJson, (string? )null)
-                                .SetProperty(cart => cart.CheckoutDraftSession, (string? )null)
-                                .SetProperty(cart => cart.CheckoutDraftVersion, (Guid? )null)
-                                .SetProperty(cart => cart.CheckoutDraftExpiresAtUtc, (DateTime? )null),
+                                .SetProperty(cart => cart.CheckoutDraftJson, (string?)null)
+                                .SetProperty(cart => cart.CheckoutDraftSession, (string?)null)
+                                .SetProperty(cart => cart.CheckoutDraftVersion, (Guid?)null)
+                                .SetProperty(cart => cart.CheckoutDraftExpiresAtUtc, (DateTime?)null),
                 cancellationToken
             );
     }

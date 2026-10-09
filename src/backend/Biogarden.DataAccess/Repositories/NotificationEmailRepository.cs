@@ -80,10 +80,10 @@ public sealed class NotificationEmailRepository(IAppDbContext database) : INotif
         => database.NotificationEmails.Where(notificationEmail => notificationEmail.Id == id && notificationEmail.LeaseId == leaseId).ExecuteUpdateAsync(
             updateSettersBuilder => updateSettersBuilder
                         .SetProperty(notificationEmail => notificationEmail.CompletedAtUtc, now).SetProperty(notificationEmail => notificationEmail.Outcome, outcome)
-                        .SetProperty(notificationEmail => notificationEmail.LeaseId, (Guid? )null).SetProperty(notificationEmail => notificationEmail.LeaseUntilUtc, (DateTime? )null)
+                        .SetProperty(notificationEmail => notificationEmail.LeaseId, (Guid?)null).SetProperty(notificationEmail => notificationEmail.LeaseUntilUtc, (DateTime?)null)
                         .SetProperty(notificationEmail => notificationEmail.Recipient, string.Empty).SetProperty(notificationEmail => notificationEmail.Subject, string.Empty)
-                        .SetProperty(notificationEmail => notificationEmail.HtmlBody, (string? )null).SetProperty(notificationEmail => notificationEmail.PlainTextBody, (string? )null)
-                        .SetProperty(notificationEmail => notificationEmail.SecurityStamp, (string? )null).SetProperty(notificationEmail => notificationEmail.UserId, (Guid? )null),
+                        .SetProperty(notificationEmail => notificationEmail.HtmlBody, (string?)null).SetProperty(notificationEmail => notificationEmail.PlainTextBody, (string?)null)
+                        .SetProperty(notificationEmail => notificationEmail.SecurityStamp, (string?)null).SetProperty(notificationEmail => notificationEmail.UserId, (Guid?)null),
             token
         );
 
@@ -91,7 +91,7 @@ public sealed class NotificationEmailRepository(IAppDbContext database) : INotif
         => database.NotificationEmails.Where(notificationEmail => notificationEmail.Id == id && notificationEmail.LeaseId == leaseId).ExecuteUpdateAsync(
             updateSettersBuilder => updateSettersBuilder
                         .SetProperty(notificationEmail => notificationEmail.NextAttemptAtUtc, nextAttempt)
-                        .SetProperty(notificationEmail => notificationEmail.LeaseId, (Guid? )null).SetProperty(notificationEmail => notificationEmail.LeaseUntilUtc, (DateTime? )null),
+                        .SetProperty(notificationEmail => notificationEmail.LeaseId, (Guid?)null).SetProperty(notificationEmail => notificationEmail.LeaseUntilUtc, (DateTime?)null),
             token
         );
 
@@ -102,10 +102,10 @@ public sealed class NotificationEmailRepository(IAppDbContext database) : INotif
         return database.NotificationEmails.Where(notificationEmail => ids.Contains(notificationEmail.Id)).ExecuteUpdateAsync(
             updateSettersBuilder => updateSettersBuilder
                         .SetProperty(notificationEmail => notificationEmail.CompletedAtUtc, now).SetProperty(notificationEmail => notificationEmail.Outcome, "expired")
-                        .SetProperty(notificationEmail => notificationEmail.LeaseId, (Guid? )null).SetProperty(notificationEmail => notificationEmail.LeaseUntilUtc, (DateTime? )null)
+                        .SetProperty(notificationEmail => notificationEmail.LeaseId, (Guid?)null).SetProperty(notificationEmail => notificationEmail.LeaseUntilUtc, (DateTime?)null)
                         .SetProperty(notificationEmail => notificationEmail.Recipient, string.Empty).SetProperty(notificationEmail => notificationEmail.Subject, string.Empty)
-                        .SetProperty(notificationEmail => notificationEmail.HtmlBody, (string? )null).SetProperty(notificationEmail => notificationEmail.PlainTextBody, (string? )null)
-                        .SetProperty(notificationEmail => notificationEmail.SecurityStamp, (string? )null).SetProperty(notificationEmail => notificationEmail.UserId, (Guid? )null),
+                        .SetProperty(notificationEmail => notificationEmail.HtmlBody, (string?)null).SetProperty(notificationEmail => notificationEmail.PlainTextBody, (string?)null)
+                        .SetProperty(notificationEmail => notificationEmail.SecurityStamp, (string?)null).SetProperty(notificationEmail => notificationEmail.UserId, (Guid?)null),
             token
         );
     }

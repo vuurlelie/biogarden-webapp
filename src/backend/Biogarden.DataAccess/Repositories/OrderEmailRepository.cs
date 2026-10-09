@@ -39,12 +39,12 @@ public sealed class OrderEmailRepository(IAppDbContext database) : IOrderEmailRe
             .ExecuteUpdateAsync(
                 setters => setters
                                 .SetProperty(orderEmail => orderEmail.SentAtUtc, now)
-                                .SetProperty(orderEmail => orderEmail.LeaseId, (Guid? )null)
-                                .SetProperty(orderEmail => orderEmail.LeaseUntilUtc, (DateTime? )null)
+                                .SetProperty(orderEmail => orderEmail.LeaseId, (Guid?)null)
+                                .SetProperty(orderEmail => orderEmail.LeaseUntilUtc, (DateTime?)null)
                                 .SetProperty(orderEmail => orderEmail.Recipient, string.Empty)
                                 .SetProperty(orderEmail => orderEmail.Subject, string.Empty)
-                                .SetProperty(orderEmail => orderEmail.HtmlBody, (string? )null)
-                                .SetProperty(orderEmail => orderEmail.PlainTextBody, (string? )null),
+                                .SetProperty(orderEmail => orderEmail.HtmlBody, (string?)null)
+                                .SetProperty(orderEmail => orderEmail.PlainTextBody, (string?)null),
                 token
             );
     }
@@ -55,8 +55,8 @@ public sealed class OrderEmailRepository(IAppDbContext database) : IOrderEmailRe
             .ExecuteUpdateAsync(
                 setters => setters
                                 .SetProperty(orderEmail => orderEmail.NextAttemptAtUtc, nextAttempt)
-                                .SetProperty(orderEmail => orderEmail.LeaseId, (Guid? )null)
-                                .SetProperty(orderEmail => orderEmail.LeaseUntilUtc, (DateTime? )null),
+                                .SetProperty(orderEmail => orderEmail.LeaseId, (Guid?)null)
+                                .SetProperty(orderEmail => orderEmail.LeaseUntilUtc, (DateTime?)null),
                 token
             );
     }

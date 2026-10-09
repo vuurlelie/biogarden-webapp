@@ -45,7 +45,7 @@ public sealed class AdminDashboardService : IAdminDashboardService
             .CountAsync(post => !post.Draft, cancellationToken);
         var activeOrderValue = await _databaseContext.Orders
             .Where(order => order.Status != OrderStatus.Cancelled)
-            .SumAsync(order => (decimal? )order.TotalPrice, cancellationToken);
+            .SumAsync(order => (decimal?)order.TotalPrice, cancellationToken);
         var userCount = await _userManager.Users.CountAsync(cancellationToken);
 
         var recentOrders = await _databaseContext.Orders

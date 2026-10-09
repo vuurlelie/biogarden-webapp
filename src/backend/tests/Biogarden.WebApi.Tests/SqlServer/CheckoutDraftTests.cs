@@ -75,7 +75,7 @@ public sealed class CheckoutDraftTests : IAsyncLifetime
         client.DefaultRequestHeaders.Add("X-Checkout-Request", "1");
         Assert.Equal(HttpStatusCode.BadRequest, (await client.PutAsJsonAsync(Path(cart.Id), new { fields = new { customerName = 123 } })).StatusCode);
         Assert.Equal(HttpStatusCode.BadRequest, (await client.PutAsJsonAsync(Path(cart.Id), new { fields = new { password = "forbidden" } })).StatusCode);
-        Assert.Equal(HttpStatusCode.BadRequest, (await client.PutAsJsonAsync(Path(cart.Id), Request(name: new string ('x', 201)))).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await client.PutAsJsonAsync(Path(cart.Id), Request(name: new string('x', 201)))).StatusCode);
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", "invalid");
         Assert.Equal(HttpStatusCode.Unauthorized, (await client.GetAsync(Path(cart.Id))).StatusCode);
     }
@@ -224,8 +224,10 @@ public sealed class CheckoutDraftTests : IAsyncLifetime
             await Login();
         var request = new PlaceOrderDto
         {
-            IdempotencyKey = cart.Id.ToString("N"), CustomerName = "My checkout",
-            CustomerEmail = "draft@example.com", CustomerPhone = "+36301234567",
+            IdempotencyKey = cart.Id.ToString("N"),
+            CustomerName = "My checkout",
+            CustomerEmail = "draft@example.com",
+            CustomerPhone = "+36301234567",
             AcceptedTermsVersion = LegalDocumentVersions.CurrentTermsVersion,
             AcceptedPrivacyPolicyVersion = LegalDocumentVersions.CurrentPrivacyPolicyVersion
         };
@@ -234,7 +236,7 @@ public sealed class CheckoutDraftTests : IAsyncLifetime
         Assert.Equal(HttpStatusCode.Created, placed.StatusCode);
         await using var verify = _app.OpenDatabase();
         var order = await verify.Orders.SingleAsync();
-        Assert.Equal(finishSignedIn ? userId : (Guid? )null, order.UserId);
+        Assert.Equal(finishSignedIn ? userId : (Guid?)null, order.UserId);
         Assert.Equal(2, (await verify.Products.SingleAsync()).StockQuantity);
     }
 

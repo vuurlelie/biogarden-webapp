@@ -67,7 +67,7 @@ public sealed class GlsDeliveryPointDirectoryTests
     [Fact]
     public async Task OversizedAndDuplicateResponsesAreRejected()
     {
-        using var oversized = Directory(new Handler(new string (' ', 2048)), new Clock(), 1024);
+        using var oversized = Directory(new Handler(new string(' ', 2048)), new Clock(), 1024);
         await Assert.ThrowsAsync<GlsDirectoryUnavailableException>(() => oversized.ResolveAsync("x", FulfillmentMethod.ParcelLocker));
         using var duplicate = Directory(new Handler(Feed.Replace("shop-1", "locker-1")), new Clock());
         await Assert.ThrowsAsync<GlsDirectoryUnavailableException>(() => duplicate.ResolveAsync("locker-1", FulfillmentMethod.ParcelLocker));

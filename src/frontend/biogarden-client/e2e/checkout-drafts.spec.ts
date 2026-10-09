@@ -51,6 +51,8 @@ test("back navigation preserves personal details without draft controls", async 
   await page.setViewportSize({ width: 390, height: 700 });
   await mockCheckoutApi(page);
   await page.goto("/penztar");
+  await page.getByRole("button", { name: "Csak szükséges", exact: true }).click();
+  await expect(page.getByRole("region", { name: "Adatvédelmi beállítások" })).not.toBeVisible();
   await details(page);
   await expect(page.getByRole(
     "button",
