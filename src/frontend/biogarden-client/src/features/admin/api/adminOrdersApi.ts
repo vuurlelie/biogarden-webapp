@@ -17,6 +17,8 @@ export type AdminOrderWithdrawalRequest = {
   handledAtUtc: string | null;
 };
 
+export type AdminOrderRequestThread = { orderId: string; messages: AdminOrderWithdrawalRequest[] };
+
 export async function getAdminOrders(query: AdminListQuery, signal?: AbortSignal): Promise<PagedResult<Order>> {
   const response = await adminRequest(`/orders${adminListQuery(query)}`, {
     signal,
@@ -39,12 +41,12 @@ export async function updateAdminOrder(
   return response.json() as Promise<Order>;
 }
 
-export async function getAdminOrderWithdrawalRequests(query: AdminListQuery, signal?: AbortSignal): Promise<PagedResult<AdminOrderWithdrawalRequest>> {
+export async function getAdminOrderWithdrawalRequests(query: AdminListQuery, signal?: AbortSignal): Promise<PagedResult<AdminOrderRequestThread>> {
   const response = await adminRequest(`/orders/withdrawal-requests${adminListQuery(query)}`, {
     fallbackMessage: "Az elállási vagy fogyasztói kérések betöltése nem sikerült.",
     signal,
   });
-  return response.json() as Promise<PagedResult<AdminOrderWithdrawalRequest>>;
+  return response.json() as Promise<PagedResult<AdminOrderRequestThread>>;
 }
 
 export async function markAdminOrderWithdrawalRequestHandled(id: number): Promise<AdminOrderWithdrawalRequest> {

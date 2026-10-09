@@ -1025,6 +1025,8 @@ public sealed class OrderServiceTests
         _orders
             .Setup(x => x.GetByIdWithItemsAsync(order.Id, It.IsAny<CancellationToken>()))
             .ReturnsAsync(order);
+        _orders.Setup(x => x.CountPendingWithdrawalRequestsForUpdateAsync(order.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(0);
         _orders
             .Setup(x => x.AddWithdrawalRequestAsync(It.IsAny<OrderWithdrawalRequest>(), It.IsAny<CancellationToken>()))
             .Callback<OrderWithdrawalRequest, CancellationToken>((request, _) =>
@@ -1086,6 +1088,8 @@ public sealed class OrderServiceTests
                 "guest@example.com",
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(order);
+        _orders.Setup(x => x.CountPendingWithdrawalRequestsForUpdateAsync(order.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(0);
         _orders
             .Setup(x => x.AddWithdrawalRequestAsync(It.IsAny<OrderWithdrawalRequest>(), It.IsAny<CancellationToken>()))
             .Callback<OrderWithdrawalRequest, CancellationToken>((request, _) =>

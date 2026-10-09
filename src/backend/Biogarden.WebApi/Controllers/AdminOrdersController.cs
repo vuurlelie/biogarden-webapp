@@ -27,7 +27,7 @@ public sealed class AdminOrdersController : ControllerBase
     }
 
     [HttpGet("withdrawal-requests")]
-    public async Task<ActionResult<PagedResultDto<AdminOrderWithdrawalRequestDto>>> GetWithdrawalRequests([FromQuery] AdminWithdrawalListQuery query, CancellationToken token)
+    public async Task<ActionResult<PagedResultDto<AdminOrderRequestThreadDto>>> GetWithdrawalRequests([FromQuery] AdminWithdrawalListQuery query, CancellationToken token)
     {
         return Ok(await _service.GetWithdrawalRequestsAsync(query, token));
     }

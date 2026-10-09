@@ -1,3 +1,4 @@
+using Biogarden.BusinessLogic.DTOs.Common;
 using System.Net;
 using System.Net.Http.Json;
 using System.Text;
@@ -625,11 +626,11 @@ public sealed class RateLimitingTests
             });
         }
 
-        public Task<List<OrderDto>> GetMyOrdersAsync(
-            Guid userId,
+        public Task<PagedResultDto<OrderDto>> GetMyOrdersAsync(
+            Guid userId, CustomerOrderListQuery query,
             CancellationToken cancellationToken = default)
         {
-            return Task.FromResult(new List<OrderDto> { CreateOrder() });
+            return Task.FromResult(new PagedResultDto<OrderDto>(new List<OrderDto> { CreateOrder() }, 1, query.PageSize, 1));
         }
 
         public Task<OrderDto> GetOrderByIdAsync(

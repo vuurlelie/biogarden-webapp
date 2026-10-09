@@ -499,8 +499,8 @@ export async function mockAccountOrdersApi(page: Page) {
     await route.fallback();
   });
 
-  await page.route(`${apiBaseUrl}/api/orders`, async (route) => {
-    await route.fulfill({ json: [accountOrder] });
+  await page.route(url => url.origin === apiBaseUrl && url.pathname === "/api/orders", async (route) => {
+    await route.fulfill({ json: { items: [accountOrder], page: 1, pageSize: 10, totalCount: 1, totalPages: 1 } });
   });
 
   await page.route(`${apiBaseUrl}/api/orders/${accountOrder.id}`, async (route) => {

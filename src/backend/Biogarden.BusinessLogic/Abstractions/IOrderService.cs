@@ -1,3 +1,4 @@
+using Biogarden.BusinessLogic.DTOs.Common;
 using Biogarden.BusinessLogic.DTOs.Orders;
 using Biogarden.BusinessLogic.DTOs.Payments;
 
@@ -50,8 +51,8 @@ public interface IOrderService
         PublicOrderWithdrawalRequestDto dto,
         CancellationToken cancellationToken = default);
 
-    Task<List<OrderDto>> GetMyOrdersAsync(
-        Guid userId,
+    Task<PagedResultDto<OrderDto>> GetMyOrdersAsync(
+        Guid userId, CustomerOrderListQuery query,
         CancellationToken cancellationToken = default);
 
     Task<OrderDto> GetOrderByIdAsync(

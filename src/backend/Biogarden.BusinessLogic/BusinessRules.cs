@@ -2,6 +2,8 @@ namespace Biogarden.BusinessLogic;
 
 public static class BusinessRules
 {
+    public const int MaximumPendingOrderRequests = 3;
+
     public const int PostTitleMaxLength = 200;
     public const int PostImageMaxLength = 1000;
     public const int PostArticleMaxLength = 10000;

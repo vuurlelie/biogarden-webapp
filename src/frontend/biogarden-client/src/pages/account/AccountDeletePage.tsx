@@ -48,8 +48,8 @@ export default function AccountDeletePage() {
 
     async function loadOrderHistoryState() {
       try {
-        const orders = await getOrders();
-        if (!shouldIgnoreResult) setHasOrderHistory(orders.length > 0);
+        const orders = await getOrders({ view: "all", pageSize: 1 });
+        if (!shouldIgnoreResult) setHasOrderHistory(orders.totalCount > 0);
       } catch {
         if (!shouldIgnoreResult) setHasOrderHistory(null);
       }
@@ -135,7 +135,7 @@ export default function AccountDeletePage() {
             {hasOrderHistory === null
               ? "A kérés elküldése előtt ellenőrizzük a rendelési előzményeket."
               : hasOrderHistory
-                ? "A mentett fiókadataidat anonimizáljuk, a korábbi rendelések jogilag megőrzendő adatai pedig megmaradnak."
+                ? "A fiókodba mentett személyes adataidat anonimizáljuk. A korábbi rendeléseidhez tartozó rendelési és számlázási adatokat azonban megőrizzük a könyvelési és jogi kötelezettségek teljesítéséhez, valamint az esetleges reklamációk kezeléséhez. Ezek között személyes adatok is lehetnek, például a számlázási neved és címed."
                 : "Mivel nincs rendelési előzményed, a fiókodat és a mentett személyes adataidat töröljük."}
           </p>
           <div className="mt-auto pt-8">

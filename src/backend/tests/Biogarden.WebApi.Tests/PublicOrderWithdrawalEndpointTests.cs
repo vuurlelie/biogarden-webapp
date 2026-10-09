@@ -1,3 +1,4 @@
+using Biogarden.BusinessLogic.DTOs.Common;
 using System.Net;
 using System.Net.Http.Json;
 using Biogarden.BusinessLogic.Abstractions;
@@ -120,8 +121,8 @@ public sealed class PublicOrderWithdrawalEndpointTests
             throw new KeyNotFoundException(
                 "Nem találtunk ilyen rendelést ezzel az email címmel.");
 
-        public Task<List<OrderDto>> GetMyOrdersAsync(
-            Guid userId,
+        public Task<PagedResultDto<OrderDto>> GetMyOrdersAsync(
+            Guid userId, CustomerOrderListQuery query,
             CancellationToken cancellationToken = default) =>
             throw new NotSupportedException();
 

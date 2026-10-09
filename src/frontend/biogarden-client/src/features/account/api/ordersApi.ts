@@ -1,3 +1,4 @@
+import type { PagedResult } from "../../../shared/types/pagination";
 import {
   clearAuthSession,
   getAuthSession,
@@ -95,9 +96,12 @@ async function ordersRequest(path = "", init: Partial<ApiRequestOptions> = {}): 
   });
 }
 
-export async function getOrders(): Promise<Order[]> {
-  const response = await ordersRequest();
-  return response.json() as Promise<Order[]>;
+export async function getOrders(query: { view?: string; page?: number; search?: string; year?: string; pageSize?: number } = {}): Promise<PagedResult<Order>> {
+  const params = new URLSearchParams({ view: query.view ?? "recent", page: String(query.page ?? 1), pageSize: String(query.pageSize ?? 10) });
+  if (query.search?.trim()) params.set("search", query.search.trim());
+  if (query.year) params.set("year", query.year);
+  const response = await ordersRequest(`?${params}`);
+  return response.json() as Promise<PagedResult<Order>>;
 }
 
 export async function getOrderById(orderId: string): Promise<Order> {

@@ -489,6 +489,60 @@ public sealed class OrderWorkflowTests : IAsyncLifetime
         Assert.Empty(_app.Sender.Sent);
     }
 
+    [SqlServerFact]
+    public async Task WithdrawalFollowUps_AllowThreePendingAcrossConcurrentSubmissions_AndReopenAfterHandling()
+    {
+        await PlaceOrderAsync();
+        await using var check = _app.OpenDatabase();
+        var order = await check.Orders.AsNoTracking().SingleAsync();
+        async Task<bool> Send(int number)
+        {
+            using var scope = _app.Factory.Services.CreateScope();
+            var service = scope.ServiceProvider.GetRequiredService<Biogarden.BusinessLogic.Abstractions.IOrderService>();
+            try
+            {
+                await service.RequestWithdrawalByOrderLookupAsync(new PublicOrderWithdrawalRequestDto
+                {
+                    OrderNumber = order.OrderNumber,
+                    CustomerEmail = order.CustomerEmail,
+                    Reason = $"Follow-up message number {number}."
+                });
+                return true;
+            }
+            catch (InvalidOperationException exception) when (exception.Message.Contains("feldolgozásra váró üzenet"))
+            {
+                return false;
+            }
+        }
+        var results = await Task.WhenAll(Enumerable.Range(1, 6).Select(Send));
+        Assert.Equal(3, results.Count(result => result));
+        Assert.Equal(3, await check.OrderWithdrawalRequests.CountAsync());
+        Assert.Equal(6, await check.OrderEmails.CountAsync(email => email.Kind.StartsWith("withdrawal-")));
+        var handled = await check.OrderWithdrawalRequests.FirstAsync();
+        handled.Status = OrderWithdrawalRequestStatus.Handled;
+        handled.HandledAtUtc = DateTime.UtcNow;
+        await check.SaveChangesAsync();
+        Assert.True(await Send(7));
+        Assert.Equal(3, await check.OrderWithdrawalRequests.CountAsync(request => request.Status == OrderWithdrawalRequestStatus.Pending));
+        Assert.Equal(8, await check.OrderEmails.CountAsync(email => email.Kind.StartsWith("withdrawal-")));
+    }
+
+    [SqlServerFact]
+    public async Task CompletionTimestampIsRecordedOnce()
+    {
+        await PlaceOrderAsync();
+        await using var db = _app.OpenDatabase();
+        var order = await db.Orders.AsNoTracking().SingleAsync();
+        Assert.Null(order.CompletedAtUtc);
+        var before = DateTime.UtcNow;
+        await ChangeStatusAsync(order.Id, OrderStatus.Completed);
+        var completed = await db.Orders.AsNoTracking().SingleAsync();
+        Assert.NotNull(completed.CompletedAtUtc);
+        Assert.InRange(completed.CompletedAtUtc.Value, before, DateTime.UtcNow);
+        await ChangeStatusAsync(order.Id, OrderStatus.Completed);
+        Assert.Equal(completed.CompletedAtUtc, (await db.Orders.AsNoTracking().SingleAsync()).CompletedAtUtc);
+    }
+
     private async Task ChangeStatusAsync(Guid orderId, OrderStatus status)
     {
         using var scope = _app.Factory.Services.CreateScope();

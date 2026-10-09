@@ -53,6 +53,7 @@ public class Order
     public Cart? Cart { get; set; }
 
     public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;
+    public DateTime? CompletedAtUtc { get; set; }
     public DateTime? ConfirmedAtUtc { get; set; }
     public DateTime? CancelledAtUtc { get; set; }
     public DateTime? DeletedAtUtc { get; set; }

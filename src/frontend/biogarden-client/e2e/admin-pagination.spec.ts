@@ -16,7 +16,7 @@ const lists = [
   { path: "orders", page: "/admin/rendelesek", row: (label: string) => ({ ...successfulOrder, orderNumber: label }) },
   { path: "users", page: "/admin/fiok", row: (label: string) => ({ ...user, lastName: label }) },
   { path: "inventory", page: "/admin/raktarkeszlet", row: (label: string) => ({ ...product, productId: 1, name: label, stockQuantity: 8, reservedQuantity: 0, availableQuantity: 8 }) },
-  { path: "orders/withdrawal-requests", page: "/admin/elallasi-keresek", row: (label: string) => ({ ...withdrawal, orderNumber: label }) },
+  { path: "orders/withdrawal-requests", page: "/admin/elallasi-keresek", row: (label: string) => ({ orderId: withdrawal.orderId, messages: [{ ...withdrawal, orderNumber: label }] }) },
 ];
 
 test.beforeEach(async ({ page }) => {
@@ -72,7 +72,7 @@ test("handling the last request on a page uses the server's adjusted page", asyn
   let handled = false;
   await page.route(url => url.pathname === "/api/admin/orders/withdrawal-requests", route => {
     const current = handled ? 1 : Number(new URL(route.request().url()).searchParams.get("page"));
-    return route.fulfill({ json: { items: [{ ...withdrawal, id: current, orderNumber: `Request ${current}` }],
+    return route.fulfill({ json: { items: [{ orderId: withdrawal.orderId, messages: [{ ...withdrawal, id: current, orderNumber: `Request ${current}` }] }],
       page: current, pageSize: 12, totalCount: handled ? 12 : 13, totalPages: handled ? 1 : 2 } });
   });
   await page.route(`${apiBaseUrl}/api/admin/orders/withdrawal-requests/2/handled`, route => {
@@ -86,4 +86,28 @@ test("handling the last request on a page uses the server's adjusted page", asyn
   await expect(page.getByRole("heading", { name: "Request 1", exact: true })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Request 2", exact: true })).toHaveCount(0);
   await expect(page.getByRole("navigation", { name: "Lapozás" })).toHaveCount(0);
+});
+
+ test("admin sees pending follow-ups and handled history together for an order", async ({ page }) => {
+  let handled = false;
+  const messages = () => [
+    { ...withdrawal, id: 1, orderNumber: "Conversation", reason: "Original handled request", status: 2, handledAtUtc: "2026-01-02T00:00:00Z" },
+    { ...withdrawal, id: 2, orderNumber: "Conversation", reason: "Customer follow-up", status: handled ? 2 : 1 },
+    { ...withdrawal, id: 3, orderNumber: "Conversation", reason: "More information", status: 1 },
+  ];
+  await page.route(url => url.pathname === "/api/admin/orders/withdrawal-requests", route => route.fulfill({ json: {
+    items: [{ orderId: withdrawal.orderId, messages: messages() }], page: 1, pageSize: 12, totalCount: 1, totalPages: 1,
+  } }));
+  await page.route(`${apiBaseUrl}/api/admin/orders/withdrawal-requests/2/handled`, route => {
+    handled = true;
+    return route.fulfill({ json: messages()[1] });
+  });
+  await page.goto("/admin/elallasi-keresek");
+  const conversation = page.getByRole("article");
+  await expect(conversation).toHaveCount(1);
+  await expect(conversation.getByRole("listitem")).toHaveCount(3);
+  await expect(conversation.getByText("Original handled request", { exact: true })).toBeVisible();
+  await conversation.getByRole("listitem").filter({ hasText: "Customer follow-up" }).getByRole("button", { name: "Feldolgozva", exact: true }).click();
+  await expect(conversation.getByRole("button", { name: "Feldolgozva", exact: true })).toHaveCount(1);
+  await expect(conversation.getByRole("listitem")).toHaveCount(3);
 });

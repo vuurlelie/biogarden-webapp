@@ -242,6 +242,31 @@ test("customer can view account order history and details", async ({ page }) => 
   await expect(page.getByRole("cell", { name: successfulOrder.items[0].productName })).toBeVisible();
 });
 
+test("customers can send three pending messages and see their follow-ups", async ({ page }) => {
+  await signInAsCustomer(page);
+  await mockAccountOrdersApi(page);
+  let writes = 0;
+  await page.route(`http://localhost:5097/api/orders/${successfulOrder.id}/withdrawal-requests`, async route => {
+    writes++;
+    await route.fulfill({ status: 201, json: {
+      id: writes, orderId: successfulOrder.id, reason: route.request().postDataJSON().reason,
+      status: 1, requestedAtUtc: "2026-10-08T10:00:00Z", handledAtUtc: null,
+    } });
+  });
+  await page.goto(`/fiokom/rendeleseim/${successfulOrder.id}`);
+  const reason = page.getByLabel("Kérés leírása", { exact: true });
+  for (let index = 1; index <= 3; index++) {
+    await expect(reason).toBeEnabled();
+    const message = `További kérdésem van: ${index}.`;
+    await reason.fill(message);
+    await page.getByRole("button", { name: "Kérés elküldése", exact: true }).click();
+    await expect(page.getByText(message, { exact: true })).toBeVisible();
+  }
+  await expect(reason).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Üzenetküldési korlát elérve" })).toBeDisabled();
+  expect(writes).toBe(3);
+});
+
 test("admin can review an order and update its status", async ({ page }) => {
   await signInAsAdmin(page);
   await mockAdminOrdersApi(page);

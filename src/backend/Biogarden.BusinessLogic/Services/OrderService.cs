@@ -1,3 +1,4 @@
+using Biogarden.BusinessLogic.DTOs.Common;
 using Biogarden.BusinessLogic.Abstractions;
 using Biogarden.BusinessLogic.DTOs.Orders;
 using Biogarden.BusinessLogic.DTOs.Payments;
@@ -674,11 +675,6 @@ public class OrderService : IOrderService
         string reasonValue,
         CancellationToken cancellationToken)
     {
-        if (order.WithdrawalRequests.Any(request => request.Status == OrderWithdrawalRequestStatus.Pending))
-        {
-            throw new InvalidOperationException("Ehhez a rendeléshez már van folyamatban lévő elállási vagy fogyasztói kérés.");
-        }
-
         var reason = NormalizeRequired(reasonValue, "Az elállási vagy fogyasztói kérés leírása", 10, 1000);
         var request = new OrderWithdrawalRequest
         {
@@ -693,6 +689,9 @@ public class OrderService : IOrderService
 
         return await _unitOfWork.ExecuteInTransactionAsync(async token =>
         {
+            var pendingCount = await _unitOfWork.OrderRepository.CountPendingWithdrawalRequestsForUpdateAsync(order.Id, token);
+            if (pendingCount >= BusinessRules.MaximumPendingOrderRequests)
+                throw new InvalidOperationException($"Ehhez a rendeléshez már {BusinessRules.MaximumPendingOrderRequests} feldolgozásra váró üzenet tartozik. Újabb üzenetet a korábbiak feldolgozása után küldhetsz.");
             await _unitOfWork.OrderRepository.AddWithdrawalRequestAsync(request, token);
             await _unitOfWork.SaveChangesAsync(token);
 
@@ -711,20 +710,13 @@ public class OrderService : IOrderService
         }, cancellationToken);
     }
 
-    public async Task<List<OrderDto>> GetMyOrdersAsync(
-        Guid userId,
+    public async Task<PagedResultDto<OrderDto>> GetMyOrdersAsync(
+        Guid userId, CustomerOrderListQuery query,
         CancellationToken cancellationToken = default)
     {
-        var orders = await _unitOfWork.OrderRepository.GetByUserIdAsync(
-            userId,
-            cancellationToken);
-
-        var visibleFromUtc = GetUtcNow().AddDays(-7);
-
-        return orders
-            .Where(order => IsVisibleInUserHistory(order, visibleFromUtc))
-            .Select(order => order.ToDto())
-            .ToList();
+        var result = await _unitOfWork.OrderRepository.GetByUserIdAsync(userId, query.View, query.Search,
+            query.Year, query.Page, query.PageSize, GetUtcNow(), cancellationToken);
+        return new(result.Items.Select(order => order.ToDto()).ToList(), result.Page, query.PageSize, result.TotalCount);
     }
 
     public async Task<OrderDto> GetOrderByIdAsync(
@@ -736,8 +728,7 @@ public class OrderService : IOrderService
             orderId,
             cancellationToken);
 
-        if (order is null || order.UserId != userId ||
-            !IsVisibleInUserHistory(order, GetUtcNow().AddDays(-7)))
+        if (order is null || order.UserId != userId)
         {
             throw new KeyNotFoundException("Order not found.");
         }
@@ -769,17 +760,6 @@ public class OrderService : IOrderService
             PaymentStatus = order.PaymentStatus,
             ConfirmedAtUtc = order.ConfirmedAtUtc
         };
-    }
-
-    private static bool IsVisibleInUserHistory(Order order, DateTime visibleFromUtc)
-    {
-        if (order.Status != OrderStatus.Cancelled)
-        {
-            return true;
-        }
-
-        var deletedAtUtc = order.DeletedAtUtc ?? order.CancelledAtUtc;
-        return deletedAtUtc.HasValue && deletedAtUtc.Value >= visibleFromUtc;
     }
 
     private static void EnsureCanAccessOrder(Order order, Guid? userId, string? sessionId)

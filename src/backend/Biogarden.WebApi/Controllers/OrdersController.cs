@@ -1,3 +1,4 @@
+using Biogarden.BusinessLogic.DTOs.Common;
 using System.Security.Claims;
 using Biogarden.BusinessLogic.Abstractions;
 using Biogarden.BusinessLogic.DTOs.Orders;
@@ -143,14 +144,15 @@ public class OrdersController : ControllerBase
     }
 
     [HttpGet]
-    [ProducesResponseType(typeof(List<OrderDto>), StatusCodes.Status200OK)]
-    public async Task<ActionResult<List<OrderDto>>> GetMyOrders(
+    [ProducesResponseType(typeof(PagedResultDto<OrderDto>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<PagedResultDto<OrderDto>>> GetMyOrders(
+        [FromQuery] CustomerOrderListQuery query,
         CancellationToken cancellationToken)
     {
         var userId = GetCurrentUserId();
 
         var orders = await _orderService.GetMyOrdersAsync(
-            userId,
+            userId, query,
             cancellationToken);
 
         return Ok(orders);

@@ -50,12 +50,12 @@ test("expiry removes private screens without waiting for another API call", asyn
 test("a current session's 401 logs out but 403 preserves the session", async ({ page }) => {
   await signInAsCustomer(page);
   await setup(page);
-  await page.route(`${apiBaseUrl}/api/orders`, route => route.fulfill({ status: 403 }));
+  await page.route(url => url.origin === apiBaseUrl && url.pathname === "/api/orders", route => route.fulfill({ status: 403 }));
   await page.goto("/fiokom/rendeleseim");
   await expect(page.getByRole("alert")).toHaveText("A művelet nem sikerült. Kérjük, próbáld újra.");
   await expect(page).toHaveURL(/\/fiokom\/rendeleseim$/);
   expect(await page.evaluate(key => localStorage.getItem(key), authKey)).toBeNull();
-  await page.route(`${apiBaseUrl}/api/orders`, route => route.fulfill({ status: 401 }));
+  await page.route(url => url.origin === apiBaseUrl && url.pathname === "/api/orders", route => route.fulfill({ status: 401 }));
   await page.reload();
   await expect(page).toHaveURL(/\/bejelentkezes$/);
   expect(await page.evaluate(key => localStorage.getItem(key), authKey)).toBeNull();
@@ -66,12 +66,12 @@ test("a delayed 401 from an old login cannot clear the replacement session", asy
   await setup(page);
   const oldRequests: Route[] = [];
   let acceptNewSession = false;
-  await page.route(`${apiBaseUrl}/api/orders`, async route => {
+  await page.route(url => url.origin === apiBaseUrl && url.pathname === "/api/orders", async route => {
     if (!acceptNewSession) {
       oldRequests.push(route);
       return;
     }
-    await route.fulfill({ json: [{ ...successfulOrder, orderNumber: "NEW-SESSION-ORDER" }] });
+    await route.fulfill({ json: { items: [{ ...successfulOrder, orderNumber: "NEW-SESSION-ORDER" }], page: 1, pageSize: 10, totalCount: 1, totalPages: 1 } });
   });
   await page.goto("/fiokom/rendeleseim");
   await expect.poll(() => oldRequests.length).toBeGreaterThan(0);

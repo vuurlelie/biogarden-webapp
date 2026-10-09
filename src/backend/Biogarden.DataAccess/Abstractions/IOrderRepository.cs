@@ -27,9 +27,11 @@ public interface IOrderRepository
         string sumUpTransactionId,
         CancellationToken cancellationToken = default);
 
-    Task<List<Order>> GetByUserIdAsync(Guid userId, CancellationToken cancellationToken = default);
+    Task<(List<Order> Items, int TotalCount, int Page)> GetByUserIdAsync(Guid userId, string view, string? search, int? year, int page, int pageSize, DateTime now, CancellationToken cancellationToken = default);
 
     Task AddAsync(Order order, CancellationToken cancellationToken = default);
+
+    Task<int> CountPendingWithdrawalRequestsForUpdateAsync(Guid orderId, CancellationToken cancellationToken = default);
 
     Task AddWithdrawalRequestAsync(
         OrderWithdrawalRequest request,

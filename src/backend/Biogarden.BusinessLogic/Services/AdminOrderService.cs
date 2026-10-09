@@ -53,20 +53,26 @@ public sealed class AdminOrderService : IAdminOrderService
         return order?.ToDto();
     }
 
-    public async Task<PagedResultDto<AdminOrderWithdrawalRequestDto>> GetWithdrawalRequestsAsync(AdminWithdrawalListQuery filter, CancellationToken cancellationToken = default)
+    public async Task<PagedResultDto<AdminOrderRequestThreadDto>> GetWithdrawalRequestsAsync(AdminWithdrawalListQuery filter, CancellationToken cancellationToken = default)
     {
         var query = _databaseContext.OrderWithdrawalRequests.AsNoTracking();
         var search = filter.Search?.Trim();
         if (!string.IsNullOrEmpty(search)) query = query.Where(x => x.CustomerName.Contains(search) || x.CustomerEmail.Contains(search) || x.Reason.Contains(search) || (x.Order != null && x.Order.OrderNumber.Contains(search)));
         if (filter.Status.HasValue) query = query.Where(x => x.Status == filter.Status);
-        var count = await query.CountAsync(cancellationToken);
+        var groups = query.GroupBy(request => request.OrderId).Select(group => new
+        {
+            OrderId = group.Key,
+            Latest = group.Max(request => request.RequestedAtUtc)
+        });
+        var count = await groups.CountAsync(cancellationToken);
         var page = AdminPaging.Page(filter, count);
-        var items = await query
-            .Include(request => request.Order)
-            .OrderBy(request => request.Status)
-            .ThenByDescending(request => request.RequestedAtUtc)
-            .ThenBy(request => request.Id)
+        var orderIds = await groups.OrderByDescending(group => group.Latest).ThenBy(group => group.OrderId)
             .Skip((page - 1) * filter.NormalizedPageSize).Take(filter.NormalizedPageSize)
+            .Select(group => group.OrderId).ToListAsync(cancellationToken);
+        // Filters select conversations; include their complete history for context.
+        var messages = await _databaseContext.OrderWithdrawalRequests.AsNoTracking()
+            .Where(request => orderIds.Contains(request.OrderId))
+            .OrderBy(request => request.RequestedAtUtc).ThenBy(request => request.Id)
             .Select(request => new AdminOrderWithdrawalRequestDto
             {
                 Id = request.Id,
@@ -82,6 +88,11 @@ public sealed class AdminOrderService : IAdminOrderService
                 HandledAtUtc = request.HandledAtUtc
             })
             .ToListAsync(cancellationToken);
+        var byOrder = messages.ToLookup(message => message.OrderId);
+        var items = orderIds.Select(id => new AdminOrderRequestThreadDto
+        {
+            OrderId = id, Messages = byOrder[id].ToList()
+        }).ToList();
         return new(items, page, filter.NormalizedPageSize, count);
     }
 
@@ -157,6 +168,8 @@ public sealed class AdminOrderService : IAdminOrderService
 
         if (order.Status == OrderStatus.Pending && changes.Status >= OrderStatus.Confirmed && changes.Status != OrderStatus.Cancelled)
             order.ConfirmedAtUtc = DateTime.UtcNow;
+        if (order.Status != OrderStatus.Completed && changes.Status == OrderStatus.Completed)
+            order.CompletedAtUtc = DateTime.UtcNow;
         order.Status = changes.Status;
         order.PaymentStatus = nextPayment;
         var updatedOrder = order.ToDto();

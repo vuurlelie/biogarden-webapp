@@ -78,7 +78,7 @@ public sealed class IdentityOwnershipTests : IAsyncLifetime
         Assert.Equal(HttpStatusCode.NotFound, (await stranger.PostAsJsonAsync($"/api/orders/{order.Id}/cancel", new { reason = "Unauthorized request" })).StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, (await stranger.PostAsJsonAsync($"/api/orders/{order.Id}/withdrawal-requests", new { reason = "Unauthorized request" })).StatusCode);
         Assert.Equal(HttpStatusCode.Unauthorized, (await guest.PostAsJsonAsync($"/api/orders/{order.Id}/cancel", new { })).StatusCode);
-        Assert.Empty((await stranger.GetFromJsonAsync<List<OrderDto>>("/api/orders"))!);
+        Assert.Empty((await stranger.GetFromJsonAsync<Biogarden.BusinessLogic.DTOs.Common.PagedResultDto<OrderDto>>("/api/orders"))!.Items);
         await using var db = _app.OpenDatabase();
         Assert.Single(await db.Orders.ToListAsync());
         Assert.Equal(OrderStatus.Pending, (await db.Orders.SingleAsync()).Status);
