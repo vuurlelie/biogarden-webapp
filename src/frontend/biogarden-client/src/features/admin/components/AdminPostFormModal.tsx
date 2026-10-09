@@ -1,3 +1,4 @@
+import { budapestDateTimeInput, budapestInputToUtc } from "../../../shared/utils/dateTime";
 import { normalizeImage, MAX_IMAGE_UPLOAD_BYTES } from "../../../shared/utils/normalizeImage";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import type { Post, PostCategory } from "../../posts/types/post.types";
@@ -39,12 +40,6 @@ type Props = {
   onSaved: (message: string) => void;
 };
 
-function formatDateTimeLocal(value: string | null | undefined): string {
-  const date = value ? new Date(value) : new Date();
-  const offset = date.getTimezoneOffset();
-  const local = new Date(date.getTime() - offset * 60_000);
-  return local.toISOString().slice(0, 16);
-}
 
 function initialState(post: Post | null): FormState {
   if (!post) {
@@ -53,7 +48,7 @@ function initialState(post: Post | null): FormState {
       category: 0,
       article: "",
       image: "",
-      publishedAt: formatDateTimeLocal(null),
+      publishedAt: budapestDateTimeInput(null),
       draft: true,
     };
   }
@@ -63,7 +58,7 @@ function initialState(post: Post | null): FormState {
     category: post.category,
     article: post.article,
     image: post.image,
-    publishedAt: formatDateTimeLocal(post.publishedAt),
+    publishedAt: budapestDateTimeInput(post.publishedAt),
     draft: post.draft,
   };
 }
@@ -194,8 +189,8 @@ export default function AdminPostFormModal({ post, onClose, onSaved }: Props) {
       return;
     }
 
-    if (!form.publishedAt || Number.isNaN(new Date(form.publishedAt).getTime())) {
-      markInvalid("publishedAt", "Adj meg érvényes megjelenési dátumot.");
+    if (!form.publishedAt || !budapestInputToUtc(form.publishedAt)) {
+      markInvalid("publishedAt", "Adj meg érvényes budapesti időpontot. Óraátállításkor válassz egy nem ismétlődő, létező időpontot.");
       return;
     }
 
@@ -215,7 +210,7 @@ export default function AdminPostFormModal({ post, onClose, onSaved }: Props) {
         category: form.category,
         article: form.article.trim(),
         image: uploadedImage ?? (post ? form.image.trim() : form.image.trim() || null),
-        publishedAt: new Date(form.publishedAt).toISOString(),
+        publishedAt: budapestInputToUtc(form.publishedAt)!,
         draft: form.draft,
       };
 
@@ -305,7 +300,7 @@ export default function AdminPostFormModal({ post, onClose, onSaved }: Props) {
                 </label>
 
                 <label className="text-sm font-semibold">
-                  Megjelenés dátuma <span className="text-site-danger">*</span>
+                  Megjelenés dátuma (budapesti idő) <span className="text-site-danger">*</span>
                   <input
                     ref={publishedAtInputRef}
                     className={getInputClassName("publishedAt")}

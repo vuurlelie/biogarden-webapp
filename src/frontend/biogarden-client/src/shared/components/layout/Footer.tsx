@@ -1,3 +1,4 @@
+import { SITE_TIME_ZONE } from "../../utils/dateTime";
 import { lazy, Suspense, useRef, useState, type MouseEvent, type ReactNode } from "react";
 import { NavLink, useLocation } from "react-router";
 import { ROUTES } from "../../constants/routes";
@@ -176,7 +177,7 @@ export default function Footer() {
       </footer>
 
       <div id="footer-credits" className="border-t border-site-border bg-site-green-dark p-4 text-center text-white/90 shadow-md">
-        <div>©{new Date().getFullYear()} Bakony Kincse Biokertészet - Minden jog fenntartva.</div>
+        <div>©{new Intl.DateTimeFormat("en", { timeZone: SITE_TIME_ZONE, year: "numeric" }).format(new Date())} Bakony Kincse Biokertészet - Minden jog fenntartva.</div>
         <div className="text-sm">
           Készítette:{" "}
           <a

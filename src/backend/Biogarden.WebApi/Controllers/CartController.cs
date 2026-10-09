@@ -191,7 +191,8 @@ public class CartController : ControllerBase
         var mergedCart = await _cartService.MergeGuestCartIntoUserCartAsync(
             userId.Value,
             guestSessionId,
-            cancellationToken);
+            cancellationToken,
+            User.FindFirstValue(Biogarden.WebApi.Authentication.BrowserAuthentication.SessionClaim));
 
         EnsureCartCookie(guestSessionId);
 

@@ -98,7 +98,7 @@ export default function CheckoutPage() {
         </div>
       )}
 
-      <form onSubmit={submit} inert={submitting || leaving} className="mt-7 grid items-start gap-7 lg:grid-cols-[minmax(0,1fr)_22rem]">
+      <form onSubmit={submit} noValidate inert={submitting || leaving} className="mt-7 grid items-start gap-7 lg:grid-cols-[minmax(0,1fr)_22rem]">
         <div className={`order-1 space-y-6 ${step === "payment" ? "hidden" : ""}`}>
           {!authenticated && (
             <fieldset className="rounded-sm border border-site-border bg-white p-6 shadow-md">
@@ -158,7 +158,11 @@ export default function CheckoutPage() {
           {!authenticated && (
             <p className="rounded-sm bg-site-surface-soft p-4 text-sm">
               Felhasználói fiókból történő rendeléshez jelentkezz be itt:{" "}
-              <Link to={ROUTES.login} state={{ from: ROUTES.checkout }} className="font-semibold underline">
+              <Link to={ROUTES.login} state={{ from: ROUTES.checkout }} onClick={async event => {
+                if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+                event.preventDefault();
+                if (await draftStorage.flush()) navigate(ROUTES.login, { state: { from: ROUTES.checkout } });
+              }} className="font-semibold underline">
                 Bejelentkezés
               </Link>
             </p>
@@ -215,7 +219,7 @@ export default function CheckoutPage() {
                   disabled={!addresses?.billingAddress}
                   onChange={(event) => handleAccountBillingChange(event.target.checked)}
                 />
-                Fiókban mentett számlázási cím használata
+                Fiókban mentett számlázási cím betöltése
               </label>
             )}
             {authenticated && !addresses?.billingAddress && (
@@ -233,7 +237,6 @@ export default function CheckoutPage() {
                   {label} <span className="text-site-danger">*</span>
                   <input
                     value={draft[key]}
-                    disabled={!billingManual}
                     onChange={(event) => update(key, event.target.value)}
                     autoComplete={autoComplete}
                     aria-invalid={Boolean(fieldErrors[key])}
@@ -250,7 +253,6 @@ export default function CheckoutPage() {
                 idPrefix="checkout-billing"
                 value={billingAddress}
                 onChange={handleBillingAddressChange}
-                disabled={!billingManual}
                 required
                 autoCompleteScope="billing"
                 invalidFields={{
@@ -304,7 +306,7 @@ export default function CheckoutPage() {
                     disabled={!addresses?.shippingAddress}
                     onChange={(event) => handleAccountDeliveryChange(event.target.checked)}
                   />
-                  Fiókban mentett szállítási cím használata
+                  Fiókban mentett szállítási cím betöltése
                 </label>
               )}
               {authenticated && !addresses?.shippingAddress && (
@@ -317,7 +319,6 @@ export default function CheckoutPage() {
                 idPrefix="checkout-delivery"
                 value={deliveryAddress}
                 onChange={handleDeliveryAddressChange}
-                disabled={!deliveryManual}
                 required
                 autoCompleteScope="shipping"
                 invalidFields={{

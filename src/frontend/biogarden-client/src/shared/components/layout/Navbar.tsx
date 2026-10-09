@@ -1,3 +1,4 @@
+import { prepareSessionTransition } from "../../../features/auth/utils/sessionTransition";
 import { useEffect, useMemo, useState, type MouseEvent } from "react";
 import { Link, NavLink, useLocation, useNavigate } from "react-router";
 import { logout as endBrowserSession } from "../../../features/auth/utils/authStorage";
@@ -68,6 +69,18 @@ export default function Navbar({
     setMobileAccountOpen(false);
   };
 
+  const goLogin = async (event: React.MouseEvent<HTMLAnchorElement>) => {
+    if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+    event.preventDefault();
+    try {
+      await prepareSessionTransition();
+      closeMobile();
+      navigate(ROUTES.login, { state: { from: window.location.pathname } });
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : "Az adatok mentése nem sikerült.");
+    }
+  };
+
   const logout = async () => {
     try {
       await endBrowserSession();
@@ -76,7 +89,7 @@ export default function Navbar({
       return;
     }
     closeMobile();
-    navigate(ROUTES.home, { replace: true });
+    if (window.location.pathname !== ROUTES.checkout) navigate(ROUTES.home, { replace: true });
   };
 
   const goContact = () => {
@@ -251,6 +264,7 @@ className="inline-flex items-center text-[0.95rem] lg:text-base uppercase tracki
               <>
                 <NavLink
                   to={ROUTES.login}
+                  onClick={goLogin}
                   className={desktopActionLinkClass}
                   aria-label="Belépés"
                   title="Belépés"
@@ -364,7 +378,7 @@ className="inline-flex items-center text-[0.95rem] lg:text-base uppercase tracki
                 <>
                   <NavLink
                     to={ROUTES.login}
-                    onClick={closeMobile}
+                    onClick={goLogin}
                     className="inline-flex items-center justify-center rounded-xl border border-site-border bg-white px-4 py-3 text-sm uppercase tracking-wide text-site-nav transition-colors hover:text-site-green-dark"
                   >
                     Belépés

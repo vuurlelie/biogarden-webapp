@@ -160,6 +160,7 @@ export function useCheckoutFlow({ form, cartState, pricing, gls, paymentMethod, 
     setSubmitting(true);
     setError("");
 
+    let navigationStarted = false;
     let orderCreated = false;
     let requestStarted = false;
     let submissionKey: string | null = null;
@@ -187,10 +188,12 @@ export function useCheckoutFlow({ form, cartState, pricing, gls, paymentMethod, 
         setSearchParams({ sumup: "cancelled", orderId: order.id }, { replace: true });
         const checkout = await createSumUpCheckout(order.id);
         window.location.assign(checkout.url);
+        navigationStarted = true;
         return;
       }
 
-        navigate(ROUTES.orderSuccess, { replace: true, state: { order } });
+      navigate(ROUTES.orderSuccess, { replace: true, state: { order } });
+      navigationStarted = true;
       void refresh().catch(() => undefined);
     } catch (submitError) {
       const rejected = [400, 401, 403, 404, 409, 422, 429].some(status => hasErrorStatus(submitError, status));
@@ -215,7 +218,9 @@ export function useCheckoutFlow({ form, cartState, pricing, gls, paymentMethod, 
       }
       setError(getErrorMessage(submitError, "A rendelést nem sikerült elküldeni."));
     } finally {
-      setSubmitting(false);
+      // Navigation may commit after this promise settles. Keep recovery unmounted
+      // once a successful order is being handed off to its destination.
+      if (!navigationStarted) setSubmitting(false);
     }
   }
 

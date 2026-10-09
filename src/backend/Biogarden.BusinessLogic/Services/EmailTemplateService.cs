@@ -11,6 +11,12 @@ namespace Biogarden.BusinessLogic.Services;
 
 public sealed class EmailTemplateService : IEmailTemplateService
 {
+    private static readonly TimeZoneInfo BudapestTimeZone = TimeZoneInfo.FindSystemTimeZoneById("Europe/Budapest");
+
+    private static string FormatBudapestTime(DateTime value) =>
+        TimeZoneInfo.ConvertTimeFromUtc(DateTime.SpecifyKind(value, DateTimeKind.Utc), BudapestTimeZone)
+            .ToString("yyyy. MM. dd. HH:mm", System.Globalization.CultureInfo.InvariantCulture);
+
     private readonly EmailBrandingOptions _brandingOptions;
 
     public EmailTemplateService(IOptions<EmailBrandingOptions> brandingOptions)
@@ -762,7 +768,7 @@ public sealed class EmailTemplateService : IEmailTemplateService
                 ("Rendelésszám", order.OrderNumber),
                 ("Vevő", request.CustomerName),
                 ("Email", request.CustomerEmail),
-                ("Kérés ideje", $"{request.RequestedAtUtc:yyyy. MM. dd. HH:mm}"),
+                ("Kérés ideje", $"{FormatBudapestTime(request.RequestedAtUtc)}"),
                 ("Üzenet", request.Reason)
             ]));
 
@@ -774,7 +780,7 @@ public sealed class EmailTemplateService : IEmailTemplateService
             BuildHtmlDetailsTable(
             [
                 ("Rendelésszám", order.OrderNumber),
-                ("Kérés ideje", $"{request.RequestedAtUtc:yyyy. MM. dd. HH:mm}"),
+                ("Kérés ideje", $"{FormatBudapestTime(request.RequestedAtUtc)}"),
                 ("Megadott üzenet", request.Reason)
             ]));
 
@@ -1065,7 +1071,7 @@ public sealed class EmailTemplateService : IEmailTemplateService
         $"Rendelésszám: {order.OrderNumber}",
         $"Vevő: {request.CustomerName}",
         $"Email: {request.CustomerEmail}",
-        $"Kérés ideje: {request.RequestedAtUtc:yyyy. MM. dd. HH:mm}",
+        $"Kérés ideje: {FormatBudapestTime(request.RequestedAtUtc)}",
         $"Üzenet: {request.Reason}"
     ];
 

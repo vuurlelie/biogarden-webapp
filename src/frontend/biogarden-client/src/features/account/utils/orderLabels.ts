@@ -1,3 +1,4 @@
+import { SITE_TIME_ZONE, parseApiDate } from "../../../shared/utils/dateTime";
 import type {
   OrderStatus,
   PaymentStatus,
@@ -27,7 +28,7 @@ const PRICE_FORMATTER = new Intl.NumberFormat("hu-HU", {
   maximumFractionDigits: 0,
 });
 
-const DATE_FORMATTER = new Intl.DateTimeFormat("hu-HU", {
+const DATE_FORMATTER = new Intl.DateTimeFormat("hu-HU", { timeZone: SITE_TIME_ZONE,
   year: "numeric",
   month: "long",
   day: "numeric",
@@ -48,7 +49,7 @@ export function formatOrderPrice(price: number): string {
 }
 
 export function formatOrderDate(date: string): string {
-  return DATE_FORMATTER.format(new Date(date));
+  return DATE_FORMATTER.format(parseApiDate(date));
 }
 
 export function getOrderStatusClass(status: OrderStatus): string {

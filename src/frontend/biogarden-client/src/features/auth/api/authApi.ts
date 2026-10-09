@@ -1,3 +1,4 @@
+import { prepareSessionTransition } from "../utils/sessionTransition";
 import type {
   AuthResponse,
   ConfirmEmailRequest,
@@ -23,6 +24,7 @@ const AUTH_FALLBACK_MESSAGE = "A művelet nem sikerült. Kérjük, próbáld új
 const toAuthError = (message: string, status: number) => new AuthApiError(message, status);
 
 export async function login(request: LoginRequest): Promise<AuthResponse> {
+  await prepareSessionTransition();
   const response = await apiRequest("/api/auth/login", {
     fallbackMessage: AUTH_FALLBACK_MESSAGE,
     method: "POST",

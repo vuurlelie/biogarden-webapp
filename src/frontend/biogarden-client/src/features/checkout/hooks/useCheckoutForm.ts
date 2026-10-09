@@ -5,7 +5,7 @@ import type { UserAddresses } from "../../account/types/address.types";
 import type { UserProfile } from "../../account/types/profile.types";
 import { getAuthSession } from "../../auth/utils/authStorage";
 import { useCheckoutDraft } from "./useCheckoutDraft";
-import { isGlsMethod } from "../constants/fulfillment";
+import { FULFILLMENT, isGlsMethod } from "../constants/fulfillment";
 import type { CheckoutDraftTextField, CheckoutFieldErrors, FulfillmentMethod } from "../types/checkout.types";
 import { billingAddressDraft, buildCustomerName, deliveryAddressDraft, emptyBillingDraft, emptyCustomerDraft, emptyDeliveryDraft } from "../utils/checkoutDraft";
 import { isCheckoutFieldValid } from "../utils/checkoutValidation";
@@ -105,7 +105,9 @@ export function useCheckoutForm(cartId: string | undefined) {
 
   function setMethod(next: FulfillmentMethod) {
     setDraft(current => ({ ...current, fulfillmentMethod: next, glsDeliveryPointId: null,
-      ...(isGlsMethod(next) ? emptyDeliveryDraft() : {}) }));
+      ...(isGlsMethod(next) ? emptyDeliveryDraft()
+        : next === FULFILLMENT.HomeDelivery && !deliveryManual && addresses?.shippingAddress
+          ? deliveryAddressDraft(addresses.shippingAddress) : {}) }));
     setFieldErrors({});
   }
 
@@ -134,6 +136,7 @@ export function useCheckoutForm(cartId: string | undefined) {
   }
 
   function handleBillingAddressChange(address: AddressFormData) {
+    setBillingManual(true);
     clearFieldErrors(["postalCode", "city", "street", "houseNumber", "billingAddress"]);
     setDraft((current) => ({
       ...current,
@@ -149,6 +152,7 @@ export function useCheckoutForm(cartId: string | undefined) {
   }
 
   function handleDeliveryAddressChange(address: AddressFormData) {
+    setDeliveryManual(true);
     clearFieldErrors([
       "deliveryPostalCode",
       "deliveryCity",

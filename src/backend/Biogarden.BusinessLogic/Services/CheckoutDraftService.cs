@@ -88,6 +88,22 @@ public sealed class CheckoutDraftService(IAppDbContext database, IUnitOfWork uni
                 .SetProperty(cart => cart.CheckoutDraftExpiresAtUtc, (DateTime?)null), ct);
     }
 
+    public async Task TransferCartToGuestAsync(Guid userId, string guestId, CancellationToken ct)
+    {
+        await using var ownerLock = await unitOfWork.CartRepository.AcquireOwnerLockAsync(userId, null, ct);
+        await unitOfWork.ExecuteInTransactionAsync(async token =>
+        {
+            var cart = await unitOfWork.CartRepository.GetActiveByUserIdAsync(userId, token);
+            if (cart is null) return false;
+            // Logout preserves items, never personal checkout data on a shared device.
+            cart.ClearCheckoutDraft();
+            cart.UserId = null;
+            cart.SessionId = guestId;
+            await unitOfWork.SaveChangesAsync(token);
+            return true;
+        }, ct);
+    }
+
     private async Task<Cart> FindOwnedCartAsync(Guid cartId, Guid? userId, string? guestId, CancellationToken ct)
     {
         var now = clock.GetUtcNow().UtcDateTime;

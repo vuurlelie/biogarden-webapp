@@ -28,6 +28,12 @@ public class AppDbContext
     public DbSet<PaymentProviderEvent> PaymentProviderEvents => Set<PaymentProviderEvent>();
     public DbSet<OrderWithdrawalRequest> OrderWithdrawalRequests => Set<OrderWithdrawalRequest>();
 
+    protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
+    {
+        base.ConfigureConventions(configurationBuilder);
+        configurationBuilder.Properties<DateTime>().HaveConversion<UtcDateTimeConverter>();
+    }
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);

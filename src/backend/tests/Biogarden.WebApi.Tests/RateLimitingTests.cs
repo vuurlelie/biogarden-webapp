@@ -508,7 +508,7 @@ public sealed class RateLimitingTests
         public Task<CartDto> MergeGuestCartIntoUserCartAsync(
             Guid userId,
             string guestSessionId,
-            CancellationToken cancellationToken = default)
+            CancellationToken cancellationToken = default, string? browserSession = null)
         {
             return Task.FromResult(CreateCart());
         }

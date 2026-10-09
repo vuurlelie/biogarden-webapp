@@ -42,7 +42,7 @@ public interface ICartService
     Task<CartDto> MergeGuestCartIntoUserCartAsync(
         Guid userId,
         string guestSessionId,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken = default, string? browserSession = null);
 
     Task<CartValidationResultDto> ValidateCartForCheckoutAsync(
         Guid? userId,

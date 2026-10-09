@@ -1,3 +1,4 @@
+import { SITE_TIME_ZONE, parseApiDate } from "../../../shared/utils/dateTime";
 import { managedImage } from "../../../shared/utils/managedImage";
 import parse from "html-react-parser";
 import type { PostDetails } from "../types/post.types";
@@ -35,7 +36,7 @@ export default function PostDetailsContent({
       <div className="mx-auto max-w-6xl px-4">
         <div className="mb-4 text-center">
           <p className="text-sm font-bold text-site-green-dark md:text-base">
-            {new Date(post.publishedAt).toLocaleString("hu-HU", {
+            {parseApiDate(post.publishedAt).toLocaleString("hu-HU", { timeZone: SITE_TIME_ZONE,
               dateStyle: "short",
               timeStyle: "short",
             })}

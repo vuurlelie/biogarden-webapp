@@ -375,7 +375,7 @@ public sealed class EmailTemplateServiceTests
         Assert.Contains($"Rendelésszám: {order.OrderNumber}", message.PlainTextBody);
         Assert.Contains($"Vevő: {request.CustomerName}", message.PlainTextBody);
         Assert.Contains($"Email: {request.CustomerEmail}", message.PlainTextBody);
-        Assert.Contains("Kérés ideje: 2026. 07. 24. 09:30", message.PlainTextBody);
+        Assert.Contains("Kérés ideje: 2026. 07. 24. 11:30", message.PlainTextBody);
         Assert.Contains($"Üzenet: {request.Reason}", message.PlainTextBody);
         Assert.Contains("https://bakonykincse.hu/admin", message.PlainTextBody);
         Assert.Contains("href=\"https://bakonykincse.hu/admin\"", message.HtmlBody);

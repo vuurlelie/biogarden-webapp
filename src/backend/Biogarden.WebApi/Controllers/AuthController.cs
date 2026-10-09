@@ -116,8 +116,15 @@ public class AuthController : ControllerBase
         if (session.Succeeded)
         {
             var id = Guid.Parse(session.Principal!.FindFirstValue(ClaimTypes.NameIdentifier)!);
+            var guestId = Guid.NewGuid().ToString();
             await HttpContext.RequestServices.GetRequiredService<Biogarden.BusinessLogic.Services.CheckoutDraftService>()
-                .ClearSessionAsync(id, session.Principal.FindFirstValue(BrowserAuthentication.SessionClaim)!, HttpContext.RequestAborted);
+                .TransferCartToGuestAsync(id, guestId, HttpContext.RequestAborted);
+            Response.Cookies.Append("biogarden_cart_id", guestId, new CookieOptions
+            {
+                HttpOnly = true, Secure = Request.IsHttps,
+                SameSite = Request.IsHttps ? SameSiteMode.None : SameSiteMode.Lax,
+                Path = "/", Expires = DateTimeOffset.UtcNow.AddMinutes(30), IsEssential = true
+            });
         }
         await HttpContext.SignOutAsync(BrowserAuthentication.Scheme);
         return NoContent();

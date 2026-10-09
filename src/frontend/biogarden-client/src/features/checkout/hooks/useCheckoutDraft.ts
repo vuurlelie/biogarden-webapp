@@ -1,3 +1,4 @@
+import { registerCheckoutFlush } from "../../auth/utils/sessionTransition";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getAuthSession } from "../../auth/utils/authStorage";
 import { readCheckoutDraft, saveCheckoutDraft } from "../api/checkoutDraftApi";
@@ -89,6 +90,17 @@ export function useCheckoutDraft(cartId: string | undefined) {
     clearTimeout(timer.current);
     await queue.current;
   }, []);
+
+  const latestFlush = useRef<() => Promise<boolean>>(async () => true);
+  useEffect(() => {
+    latestFlush.current = async () => {
+      clearTimeout(timer.current);
+      save();
+      await queue.current;
+      return !blocked.current;
+    };
+  }, [save]);
+  useEffect(() => registerCheckoutFlush(() => latestFlush.current()), []);
 
   return { draft, setDraft, ready, error, saving, pause,
     resume: () => { paused.current = false; },

@@ -1,3 +1,4 @@
+import { parseApiDate } from "../../shared/utils/dateTime";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router";
 import { useCart } from "../../features/cart/context/useCart";
@@ -138,7 +139,7 @@ export default function CartPage() {
   }, [cart, track]);
 
   const remainingMilliseconds = useMemo(
-    () => Math.max(0, new Date(cart?.expiresAtUtc ?? 0).getTime() - now),
+    () => Math.max(0, (cart?.expiresAtUtc ? parseApiDate(cart.expiresAtUtc).getTime() : 0) - now),
     [cart?.expiresAtUtc, now],
   );
 

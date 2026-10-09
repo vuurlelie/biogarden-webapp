@@ -1,3 +1,4 @@
+import { SITE_TIME_ZONE, parseApiDate } from "../../shared/utils/dateTime";
 import AdminPagination from "../../shared/components/admin/AdminPagination";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
@@ -15,7 +16,7 @@ import AdminPageHeader from "../../shared/components/admin/AdminPageHeader";
 import { ROUTES } from "../../shared/constants/routes";
 import { getErrorMessage, isAbortError } from "../../shared/utils/errorHandling";
 
-const DATE = new Intl.DateTimeFormat("hu-HU", {
+const DATE = new Intl.DateTimeFormat("hu-HU", { timeZone: SITE_TIME_ZONE,
   year: "numeric",
   month: "short",
   day: "numeric",
@@ -165,7 +166,7 @@ export default function AdminWithdrawalRequestsPage() {
                 {thread.messages.map(request => <li key={request.id} className="rounded-sm border border-site-border p-4">
                   <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
                     <div>
-                      <time dateTime={request.requestedAtUtc}>{DATE.format(new Date(request.requestedAtUtc))}</time>
+                      <time dateTime={request.requestedAtUtc}>{DATE.format(parseApiDate(request.requestedAtUtc))}</time>
                       <span className="ml-3 font-semibold">{requestStatusLabels[request.status]}</span>
                     </div>
                     {request.status === 1 && <button type="button" onClick={() => void markHandled(request)}
@@ -174,7 +175,7 @@ export default function AdminWithdrawalRequestsPage() {
                     </button>}
                   </div>
                   <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-site-text">{request.reason}</p>
-                  {request.handledAtUtc && <p className="mt-2 text-xs text-site-muted">Feldolgozva: {DATE.format(new Date(request.handledAtUtc))}</p>}
+                  {request.handledAtUtc && <p className="mt-2 text-xs text-site-muted">Feldolgozva: {DATE.format(parseApiDate(request.handledAtUtc))}</p>}
                 </li>)}
               </ol>
             </article>;

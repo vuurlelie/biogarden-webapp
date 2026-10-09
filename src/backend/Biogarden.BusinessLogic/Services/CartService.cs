@@ -37,14 +37,14 @@ public class CartService : ICartService
     public Task<CartDto> ClearCartAsync(Guid? userId, string? sessionId, CancellationToken cancellationToken = default)
         => WithOwnerLockAsync(userId, sessionId, () => ClearCartCoreAsync(userId, sessionId, cancellationToken), cancellationToken);
 
-    public Task<CartDto> MergeGuestCartIntoUserCartAsync(Guid userId, string guestSessionId, CancellationToken cancellationToken = default)
+    public Task<CartDto> MergeGuestCartIntoUserCartAsync(Guid userId, string guestSessionId, CancellationToken cancellationToken = default, string? browserSession = null)
     {
         if (string.IsNullOrWhiteSpace(guestSessionId)) throw new ArgumentException("A guest session azonosító nem lehet üres.");
         // Every merge locks the destination user first, then its guest source. Other
         // operations own only one lock, so competing merges cannot form a lock cycle.
         return WithOwnerLockAsync(userId, null,
             () => WithOwnerLockAsync(null, guestSessionId,
-                () => MergeGuestCartIntoUserCartCoreAsync(userId, guestSessionId, cancellationToken), cancellationToken), cancellationToken);
+                () => MergeGuestCartIntoUserCartCoreAsync(userId, guestSessionId, cancellationToken, browserSession), cancellationToken), cancellationToken);
     }
 
     private async Task<CartDto> WithOwnerLockAsync(Guid? userId, string? sessionId, Func<Task<CartDto>> operation, CancellationToken cancellationToken)
@@ -270,7 +270,7 @@ public class CartService : ICartService
     private async Task<CartDto> MergeGuestCartIntoUserCartCoreAsync(
         Guid userId,
         string guestSessionId,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default, string? browserSession = null)
     {
         if (string.IsNullOrWhiteSpace(guestSessionId))
         {
@@ -339,7 +339,17 @@ public class CartService : ICartService
 
         guestCart.IsCheckedOut = true;
         guestCart.CheckedOutAtUtc = now;
-        // Login merges items, never another session's personal checkout details.
+        // Carry only the guest draft proven by this browser's guest cookie into
+        // the new authenticated session. Never expose a different account session's draft.
+        if (browserSession is not null && guestCart.CheckoutDraftSession == "guest"
+            && guestCart.CheckoutDraftExpiresAtUtc > now && guestCart.CheckoutDraftJson is not null)
+        {
+            userCart.CheckoutDraftJson = guestCart.CheckoutDraftJson;
+            userCart.CheckoutDraftSession = browserSession;
+            userCart.CheckoutDraftVersion = Guid.NewGuid();
+            userCart.CheckoutDraftExpiresAtUtc = guestCart.CheckoutDraftExpiresAtUtc < userCart.ExpiresAtUtc
+                ? guestCart.CheckoutDraftExpiresAtUtc : userCart.ExpiresAtUtc;
+        }
         guestCart.ClearCheckoutDraft();
 
         await _unitOfWork.SaveChangesAsync(cancellationToken);

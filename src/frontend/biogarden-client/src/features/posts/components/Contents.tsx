@@ -1,3 +1,4 @@
+import { SITE_TIME_ZONE, parseApiDate } from "../../../shared/utils/dateTime";
 import { useMemo, useState } from "react";
 import { NavLink } from "react-router";
 import type { Post } from "../types/post.types";
@@ -11,9 +12,9 @@ function groupPostsByYearAndMonth(posts: Post[]) {
   const grouped: Record<string, Record<string, Post[]>> = {};
 
   posts.forEach((post) => {
-    const date = new Date(post.publishedAt);
-    const year = date.getFullYear().toString();
-    const month = date.toLocaleString("hu-HU", { month: "long" });
+    const date = parseApiDate(post.publishedAt);
+    const year = new Intl.DateTimeFormat("hu-HU", { timeZone: SITE_TIME_ZONE, year: "numeric" }).format(date).replace(/\D/g, "");
+    const month = date.toLocaleString("hu-HU", { timeZone: SITE_TIME_ZONE, month: "long" });
 
     if (!grouped[year]) grouped[year] = {};
     if (!grouped[year][month]) grouped[year][month] = [];

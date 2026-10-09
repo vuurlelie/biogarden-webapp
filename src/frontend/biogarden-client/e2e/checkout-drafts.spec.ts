@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "./test";
+import { expect, test, setMockSession, type Page } from "./test";
 import { apiBaseUrl, mockCheckoutApi, signInAsCustomer, successfulOrder } from "./fixtures";
 
 const draftUrl = `${apiBaseUrl}/api/checkout-drafts/33333333-3333-3333-3333-333333333333`;
@@ -149,6 +149,10 @@ test("payment startup failure and refresh retry the existing order", async ({ pa
 
 test("cart refresh failure cannot turn a created pickup order into a checkout error", async ({ page }) => {
   let ordered = false;
+  let recoveryRequests = 0;
+  page.on("request", request => {
+    if (request.url().includes("/api/orders/checkout-recovery/")) recoveryRequests++;
+  });
   await mockCheckoutApi(page, false, () => { ordered = true; });
   await page.route(`${apiBaseUrl}/api/cart`, route => ordered
     ? route.fulfill({ status: 503 }) : route.fallback());
@@ -156,6 +160,7 @@ test("cart refresh failure cannot turn a created pickup order into a checkout er
   await submitOrder(page);
   await expect(page).toHaveURL(/\/rendeles-sikeres$/);
   await expect(page.getByText(successfulOrder.orderNumber)).toBeVisible();
+  expect(recoveryRequests).toBe(0);
 });
 
 test("lost order response survives refresh and recovers without posting another order", async ({ page }) => {
@@ -221,4 +226,76 @@ test("unavailable owning session offers status checking without payment or resub
   await expect(page.getByRole("alert")).toContainText("ebben a munkamenetben");
   await expect(page.getByRole("button", { name: "Fizetés újrapróbálása" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Állapot ellenőrzése" })).toBeVisible();
+});
+
+
+test("saved shipping address reloads after GLS and stays editable without changing the profile", async ({ page }) => {
+  await signInAsCustomer(page);
+  await mockCheckoutApi(page);
+  const shippingAddress = { postalCode: "8200", city: "Veszprém", street: "Teszt utca", houseNumber: "25", building: "", floor: "", door: "", doorbell: "" };
+  let profileWrites = 0;
+  await page.route(`${apiBaseUrl}/api/profile`, route => route.fulfill({ json: {
+    firstName: "Elek", lastName: "Teszt", email: "profile@example.com", phoneNumber: "+36301234567", customerType: 0, printedInvoiceRequested: false,
+  } }));
+  await page.route(`${apiBaseUrl}/api/profile/addresses`, route => {
+    if (route.request().method() !== "GET") profileWrites++;
+    return route.fulfill({ json: { billingAddress: null, shippingAddress } });
+  });
+  await page.goto("/penztar");
+  await expect(page.getByLabel(/^Név/)).toHaveValue("Teszt Elek");
+  await page.getByRole("radio", { name: "Házhoz szállítás", exact: true }).check();
+  const savedAddress = page.getByLabel("Fiókban mentett szállítási cím betöltése");
+  const house = page.locator("#checkout-delivery-house-number");
+  await expect(savedAddress).toBeChecked();
+  await expect(house).toHaveValue("25");
+  await page.getByRole("radio", { name: "GLS Csomagautomata", exact: true }).check();
+  await page.getByRole("radio", { name: "Házhoz szállítás", exact: true }).check();
+  await expect(savedAddress).toBeChecked();
+  await expect(house).toHaveValue("25");
+  await house.fill("");
+  await page.getByRole("button", { name: "Tovább a pénztárhoz" }).click();
+  await expect(house).toHaveAttribute("aria-invalid", "true");
+  await expect(page.getByText("A házszám megadása kötelező.", { exact: true })).toBeVisible();
+  await house.fill("27");
+  await page.getByRole("button", { name: "Tovább a pénztárhoz" }).click();
+  await page.getByLabel(/Online bankkártyás/).check();
+  await page.getByRole("button", { name: "Rendelés áttekintése" }).click();
+  await page.getByLabel(/Általános Szerződési Feltételek/).check();
+  await page.getByLabel(/Adatkezelési Tájékoztatót/).check();
+  const sent = page.waitForRequest(request => request.url() === `${apiBaseUrl}/api/orders` && request.method() === "POST");
+  await page.getByRole("button", { name: "Tovább a fizetéshez" }).click();
+  const payload = (await sent).postDataJSON();
+  expect(payload.deliveryHouseNumber).toBe("27");
+  expect(payload.deliveryAddressId).toBeNull();
+  expect(profileWrites).toBe(0);
+});
+
+
+
+test("explicit logout removes personal checkout fields and keeps checkout available", async ({ page }) => {
+  await signInAsCustomer(page);
+  await mockCheckoutApi(page);
+  await page.route(`${apiBaseUrl}/api/profile`, route => route.fulfill({ json: {
+    firstName: "Elek", lastName: "Teszt", email: "profile@example.com", phoneNumber: "+36301234567", customerType: 0, printedInvoiceRequested: false,
+  } }));
+  await page.route(`${apiBaseUrl}/api/profile/addresses`, route => route.fulfill({ json: { billingAddress: null, shippingAddress: null } }));
+  await page.goto("/penztar");
+  await expect(page.getByLabel(/^Név/)).toHaveValue("Teszt Elek");
+  let loggedOut = false;
+  await page.route(`${apiBaseUrl}/api/auth/logout`, route => {
+    loggedOut = true;
+    setMockSession(page.context(), null);
+    return route.fulfill({ status: 204 });
+  });
+  await page.route(draftUrl, route => loggedOut && route.request().method() === "GET"
+    ? route.fulfill({ json: { fields: null, version: null, expiresAtUtc: null } }) : route.fallback());
+  await page.getByLabel(/^Név/).fill("Most módosított név");
+  await page.evaluate(async () => {
+    const path = "/src/features/auth/utils/authStorage.ts";
+    await (await import(/* @vite-ignore */ path)).logout();
+  });
+  await expect(page.getByLabel(/^Név/)).toHaveValue("");
+  await expect(page.getByLabel(/^Email cím/)).toHaveValue("");
+  await expect(page.getByLabel(/^Telefonszám/)).toHaveValue("");
+  await expect(page.getByText("Felhasználói fiókból történő rendeléshez jelentkezz be itt:")).toBeVisible();
 });

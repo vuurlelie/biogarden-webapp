@@ -1,3 +1,4 @@
+import { SITE_TIME_ZONE, parseApiDate } from "../../shared/utils/dateTime";
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
 import {
   deleteAdminPost,
@@ -24,13 +25,13 @@ function imageUrl(path: string): string {
 }
 
 function formatDate(value: string): string {
-  return new Intl.DateTimeFormat("hu-HU", {
+  return new Intl.DateTimeFormat("hu-HU", { timeZone: SITE_TIME_ZONE,
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
     hour: "2-digit",
     minute: "2-digit",
-  }).format(new Date(value));
+  }).format(parseApiDate(value));
 }
 
 function excerpt(article: string): string {

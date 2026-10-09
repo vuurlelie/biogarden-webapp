@@ -1,3 +1,4 @@
+import { SITE_TIME_ZONE, parseApiDate } from "../../shared/utils/dateTime";
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { Link } from "react-router";
 import { getAdminDashboard } from "../../features/admin/api/dashboardApi";
@@ -7,7 +8,7 @@ import { ROUTES } from "../../shared/constants/routes";
 import { getErrorMessage, isAbortError } from "../../shared/utils/errorHandling";
 
 const PRICE = new Intl.NumberFormat("hu-HU", { style: "currency", currency: "HUF", maximumFractionDigits: 0 });
-const DATE = new Intl.DateTimeFormat("hu-HU", { year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+const DATE = new Intl.DateTimeFormat("hu-HU", { timeZone: SITE_TIME_ZONE, year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
 
 const statusLabels: Record<number, string> = {
   0: "Függőben",
@@ -153,7 +154,7 @@ export default function AdminDashboardPage() {
                       <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
                         <div><dt className="text-xs text-site-muted">Átvétel</dt><dd className="mt-1 font-semibold text-site-text">{fulfillmentLabels[order.fulfillmentMethod] ?? "Ismeretlen"}</dd></div>
                         <div><dt className="text-xs text-site-muted">Termékek</dt><dd className="mt-1 font-semibold text-site-text">{order.itemCount} db</dd></div>
-                        <div><dt className="text-xs text-site-muted">Érkezett</dt><dd className="mt-1 text-site-text">{DATE.format(new Date(order.createdAtUtc))}</dd></div>
+                        <div><dt className="text-xs text-site-muted">Érkezett</dt><dd className="mt-1 text-site-text">{DATE.format(parseApiDate(order.createdAtUtc))}</dd></div>
                         <div><dt className="text-xs text-site-muted">Összeg</dt><dd className="mt-1 font-bold text-site-heading">{PRICE.format(order.totalPrice)}</dd></div>
                       </dl>
                     </article>
@@ -174,7 +175,7 @@ export default function AdminDashboardPage() {
                       <article key={request.id} className="rounded-sm border border-site-danger/25 p-4">
                         <p className="font-semibold text-site-heading">{request.orderNumber}</p>
                         <p className="mt-1 text-sm text-site-muted">{request.customerName}</p>
-                        <p className="mt-2 text-xs text-site-muted">{DATE.format(new Date(request.requestedAtUtc))}</p>
+                        <p className="mt-2 text-xs text-site-muted">{DATE.format(parseApiDate(request.requestedAtUtc))}</p>
                       </article>
                     ))}
                   </div>
