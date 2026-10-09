@@ -8,13 +8,9 @@ public interface IProductService
 {
     Task<IReadOnlyList<ProductListItemDto>> GetAllAsync(CancellationToken cancellationToken = default);
 
-    Task<PagedResultDto<ProductListItemDto>> GetPagedAsync(
-        ProductListQueryDto query,
-        CancellationToken cancellationToken = default);
+    Task<PagedResultDto<ProductListItemDto>> GetPagedAsync(ProductListQueryDto query, CancellationToken cancellationToken = default);
 
-    Task<PagedResultDto<ProductDetailsDto>> GetPagedDetailsAsync(
-        ProductListQueryDto query,
-        CancellationToken cancellationToken = default);
+    Task<PagedResultDto<ProductDetailsDto>> GetPagedDetailsAsync(ProductListQueryDto query, CancellationToken cancellationToken = default);
 
     Task<IReadOnlyList<ProductDetailsDto>> GetAllDetailsAsync(CancellationToken cancellationToken = default);
 

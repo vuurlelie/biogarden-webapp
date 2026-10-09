@@ -20,13 +20,9 @@ public interface IEmailTemplateService
 
     EmailMessage BuildAccountAnonymizedMessage(string recipientEmail);
 
-    EmailMessage BuildContactBusinessNotificationMessage(
-        string recipientEmail,
-        ContactMessageRequestDto request);
+    EmailMessage BuildContactBusinessNotificationMessage(string recipientEmail, ContactMessageRequestDto request);
 
-    EmailMessage BuildContactVisitorConfirmationMessage(
-        string recipientEmail,
-        ContactMessageRequestDto request);
+    EmailMessage BuildContactVisitorConfirmationMessage(string recipientEmail, ContactMessageRequestDto request);
 
     EmailMessage BuildOrderConfirmationMessage(string recipientEmail, OrderDto order);
 
@@ -34,13 +30,7 @@ public interface IEmailTemplateService
 
     EmailMessage BuildOrderStatusChangedMessage(string recipientEmail, OrderDto order);
 
-    EmailMessage BuildOrderWithdrawalBusinessNotificationMessage(
-        string recipientEmail,
-        OrderDto order,
-        OrderWithdrawalRequestDto request);
+    EmailMessage BuildOrderWithdrawalBusinessNotificationMessage(string recipientEmail, OrderDto order, OrderWithdrawalRequestDto request);
 
-    EmailMessage BuildOrderWithdrawalCustomerConfirmationMessage(
-        string recipientEmail,
-        OrderDto order,
-        OrderWithdrawalRequestDto request);
+    EmailMessage BuildOrderWithdrawalCustomerConfirmationMessage(string recipientEmail, OrderDto order, OrderWithdrawalRequestDto request);
 }

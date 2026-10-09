@@ -35,7 +35,12 @@ function OrderYearFilter({ year, onApply }: { year: string; onApply: (value: str
     <label htmlFor="order-year" className="block text-sm font-semibold">Rendelés éve</label>
     <input id="order-year" type="number" min={2000} max={9998} placeholder="Minden év" value={value}
       onChange={event => { setValue(event.target.value); setError(""); }} onBlur={apply}
-      onKeyDown={event => { if (event.key === "Enter") { event.preventDefault(); apply(); } }}
+      onKeyDown={event => {
+        if (event.key === "Enter") {
+          event.preventDefault();
+          apply();
+        }
+      }}
       aria-invalid={Boolean(error)} aria-describedby={error ? "order-year-error" : undefined}
       className={orderFilterInputClassName} />
     {error && <p id="order-year-error" role="alert" className="mt-1 text-xs font-normal text-site-danger">{error}</p>}
@@ -51,40 +56,56 @@ export default function AccountOrdersPage() {
   const year = params.get("year") ?? "";
   const [totalPages, setTotalPages] = useState(1);
   function changeFilter(key: string, value: string) {
-    setParams(current => { const next = new URLSearchParams(current); if (value) next.set(key, value); else next.delete(key); next.delete("page"); return next; });
+    setParams(current => {
+      const next = new URLSearchParams(current);
+      if (value)
+        next.set(key, value); else
+        next.delete(key);
+      next.delete("page");
+      return next;
+    });
   }
   const handleAccountError = useAccountErrorHandler();
   const [orders, setOrders] = useState<Order[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
 
-  useEffect(() => {
-    let shouldIgnoreResult = false;
+  useEffect(
+    () => {
+      let shouldIgnoreResult = false;
 
-    async function loadOrders() {
-      try {
-        setIsLoading(true);
-        setError("");
-        const loadedOrders = await getOrders({ view, page, search, year });
-        if (!shouldIgnoreResult) {
-          setOrders(loadedOrders.items);
-          setTotalPages(loadedOrders.totalPages);
-          if (loadedOrders.page !== page) setParams(current => { const next = new URLSearchParams(current); next.set("page", String(loadedOrders.page)); return next; }, { replace: true });
+      async function loadOrders() {
+        try {
+          setIsLoading(true);
+          setError("");
+          const loadedOrders = await getOrders({ view, page, search, year });
+          if (!shouldIgnoreResult) {
+            setOrders(loadedOrders.items);
+            setTotalPages(loadedOrders.totalPages);
+            if (loadedOrders.page !== page)
+              setParams(
+                current => { const next = new URLSearchParams(current); next.set("page", String(loadedOrders.page)); return next; },
+                { replace: true }
+              );
+          }
+        } catch (loadError) {
+          if (shouldIgnoreResult)
+            return;
+          setError(handleAccountError(loadError, "A rendelések betöltése nem sikerült.") ?? "");
+        } finally {
+          if (!shouldIgnoreResult)
+            setIsLoading(false);
         }
-      } catch (loadError) {
-        if (shouldIgnoreResult) return;
-        setError(handleAccountError(loadError, "A rendelések betöltése nem sikerült.") ?? "");
-      } finally {
-        if (!shouldIgnoreResult) setIsLoading(false);
       }
-    }
 
-    const timer = window.setTimeout(() => void loadOrders(), search ? 250 : 0);
-    return () => {
-      shouldIgnoreResult = true;
-      window.clearTimeout(timer);
-    };
-  }, [handleAccountError, view, page, search, year, setParams]);
+      const timer = window.setTimeout(() => void loadOrders(), search ? 250 : 0);
+      return () => {
+        shouldIgnoreResult = true;
+        window.clearTimeout(timer);
+      };
+    },
+    [handleAccountError, view, page, search, year, setParams]
+  );
 
 
   return (

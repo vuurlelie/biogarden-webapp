@@ -15,10 +15,12 @@ export function createStoredConsent(preferences: ConsentPreferences): StoredCons
 export function loadStoredConsent(): StoredConsentPreferences | null {
   try {
     const raw = window.localStorage.getItem(CONSENT_STORAGE_KEY);
-    if (!raw) return null;
+    if (!raw)
+      return null;
 
     const parsed = JSON.parse(raw) as Partial<StoredConsentPreferences>;
-    if (parsed.version !== CONSENT_VERSION || parsed.necessary !== true) return null;
+    if (parsed.version !== CONSENT_VERSION || parsed.necessary !== true)
+      return null;
 
     return {
       necessary: true,

@@ -26,11 +26,7 @@ public sealed class ErrorAlertServiceTests
 
         await service.NotifyAsync(CreateAlert());
 
-        _emailService.Verify(
-            service => service.SendAsync(
-                It.IsAny<EmailMessage>(),
-                It.IsAny<CancellationToken>()),
-            Times.Never);
+        _emailService.Verify(service => service.SendAsync(It.IsAny<EmailMessage>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]
@@ -45,11 +41,7 @@ public sealed class ErrorAlertServiceTests
 
         await service.NotifyAsync(CreateAlert(level: LogLevel.Error));
 
-        _emailService.Verify(
-            service => service.SendAsync(
-                It.IsAny<EmailMessage>(),
-                It.IsAny<CancellationToken>()),
-            Times.Never);
+        _emailService.Verify(service => service.SendAsync(It.IsAny<EmailMessage>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]
@@ -57,9 +49,7 @@ public sealed class ErrorAlertServiceTests
     {
         EmailMessage? sentMessage = null;
         _emailService
-            .Setup(service => service.SendAsync(
-                It.IsAny<EmailMessage>(),
-                It.IsAny<CancellationToken>()))
+            .Setup(service => service.SendAsync(It.IsAny<EmailMessage>(), It.IsAny<CancellationToken>()))
             .Callback<EmailMessage, CancellationToken>(
                 (message, _) => sentMessage = message)
             .Returns(Task.CompletedTask);
@@ -72,16 +62,11 @@ public sealed class ErrorAlertServiceTests
             MinimumLevel = LogLevel.Warning
         });
 
-        await service.NotifyAsync(CreateAlert(
-            level: LogLevel.Error,
-            detail: "The checkout request failed.",
-            exception: new InvalidOperationException("SumUp error.")));
+        await service.NotifyAsync(CreateAlert(level: LogLevel.Error, detail: "The checkout request failed.", exception: new InvalidOperationException("SumUp error.")));
 
         Assert.NotNull(sentMessage);
         Assert.Equal("owner@example.com", sentMessage.To);
-        Assert.Equal(
-            "[Biogarden Test] Error: Payment failed",
-            sentMessage.Subject);
+        Assert.Equal("[Biogarden Test] Error: Payment failed", sentMessage.Subject);
         Assert.Contains("Severity: Error", sentMessage.PlainTextBody);
         Assert.Contains("Source: Checkout", sentMessage.PlainTextBody);
         Assert.Contains("Alert key: sumup.checkout.create", sentMessage.PlainTextBody);
@@ -94,9 +79,7 @@ public sealed class ErrorAlertServiceTests
     {
         var sendCount = 0;
         _emailService
-            .Setup(service => service.SendAsync(
-                It.IsAny<EmailMessage>(),
-                It.IsAny<CancellationToken>()))
+            .Setup(service => service.SendAsync(It.IsAny<EmailMessage>(), It.IsAny<CancellationToken>()))
             .Callback(() => sendCount++)
             .Returns(Task.CompletedTask);
 
@@ -119,28 +102,28 @@ public sealed class ErrorAlertServiceTests
     [Fact]
     public async Task FailedSend_UsesShortCooldown_ThenAllowsAnotherAttempt()
     {
-        _emailService.SetupSequence(x => x.SendAsync(It.IsAny<EmailMessage>(), It.IsAny<CancellationToken>()))
+        _emailService.SetupSequence(emailService => emailService.SendAsync(It.IsAny<EmailMessage>(), It.IsAny<CancellationToken>()))
             .ThrowsAsync(new IOException("SMTP unavailable")).Returns(Task.CompletedTask);
         var service = CreateService(new ErrorAlertOptions { Enabled = true, FailureRetrySeconds = 60 });
         await Assert.ThrowsAsync<IOException>(() => service.NotifyAsync(CreateAlert()));
         await service.NotifyAsync(CreateAlert());
-        _emailService.Verify(x => x.SendAsync(It.IsAny<EmailMessage>(), It.IsAny<CancellationToken>()), Times.Once);
+        _emailService.Verify(emailService => emailService.SendAsync(It.IsAny<EmailMessage>(), It.IsAny<CancellationToken>()), Times.Once);
         _timeProvider.Advance(TimeSpan.FromSeconds(61));
         await service.NotifyAsync(CreateAlert());
-        _emailService.Verify(x => x.SendAsync(It.IsAny<EmailMessage>(), It.IsAny<CancellationToken>()), Times.Exactly(2));
+        _emailService.Verify(emailService => emailService.SendAsync(It.IsAny<EmailMessage>(), It.IsAny<CancellationToken>()), Times.Exactly(2));
     }
 
     [Fact]
     public async Task InFlightSend_IsDeduplicated_AndBoundedEvenIfSenderIgnoresCancellation()
     {
         var pending = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        _emailService.Setup(x => x.SendAsync(It.IsAny<EmailMessage>(), It.IsAny<CancellationToken>())).Returns(pending.Task);
+        _emailService.Setup(emailService => emailService.SendAsync(It.IsAny<EmailMessage>(), It.IsAny<CancellationToken>())).Returns(pending.Task);
         var service = CreateService(new ErrorAlertOptions { Enabled = true, SendTimeoutSeconds = 1 });
         var first = service.NotifyAsync(CreateAlert());
         await service.NotifyAsync(CreateAlert());
         try { await Assert.ThrowsAnyAsync<OperationCanceledException>(() => first.WaitAsync(TimeSpan.FromSeconds(5))); }
         finally { pending.TrySetResult(); }
-        _emailService.Verify(x => x.SendAsync(It.IsAny<EmailMessage>(), It.IsAny<CancellationToken>()), Times.Once);
+        _emailService.Verify(emailService => emailService.SendAsync(It.IsAny<EmailMessage>(), It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Theory]
@@ -155,17 +138,10 @@ public sealed class ErrorAlertServiceTests
 
     private ErrorAlertService CreateService(ErrorAlertOptions options)
     {
-        return new ErrorAlertService(
-            Options.Create(options),
-            _emailService.Object,
-            new ErrorAlertThrottleStore(),
-            _timeProvider);
+        return new ErrorAlertService(Options.Create(options), _emailService.Object, new ErrorAlertThrottleStore(), _timeProvider);
     }
 
-    private static ErrorAlert CreateAlert(
-        LogLevel level = LogLevel.Error,
-        string? detail = null,
-        Exception? exception = null)
+    private static ErrorAlert CreateAlert(LogLevel level = LogLevel.Error, string? detail = null, Exception? exception = null)
     {
         return new ErrorAlert
         {

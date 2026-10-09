@@ -9,9 +9,10 @@ public sealed class ErrorAlertThrottleStore
     {
         lock (_gate)
         {
-            foreach (var expired in _nextAttemptByKey.Where(x => x.Value.HasValue && x.Value <= now).Select(x => x.Key).ToArray())
+            foreach (var expired in _nextAttemptByKey.Where(throttleEntry => throttleEntry.Value.HasValue && throttleEntry.Value <= now).Select(throttleEntry => throttleEntry.Key).ToArray())
                 _nextAttemptByKey.Remove(expired);
-            if (_nextAttemptByKey.ContainsKey(key)) return false;
+            if (_nextAttemptByKey.ContainsKey(key))
+                return false;
             _nextAttemptByKey[key] = null; // In flight: another request must not send the same alert.
             return true;
         }

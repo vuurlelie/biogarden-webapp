@@ -24,9 +24,15 @@ test("small text theme combinations retain AA contrast", async ({ page }) => {
 test("back-to-top changes colour only while overlapping the dark footer", async ({ page }) => {
   await mockPublicShopApi(page);
   await page.goto("/");
-  await page.getByRole("button", { name: "Csak szükséges", exact: true }).click();
+  await page.getByRole(
+    "button",
+    { name: "Csak szükséges", exact: true }
+  ).click();
   await page.addStyleTag({ content: "html { scroll-behavior: auto !important; }" });
-  const button = page.getByRole("button", { name: "Vissza az oldal tetejére" });
+  const button = page.getByRole(
+    "button",
+    { name: "Vissza az oldal tetejére" }
+  );
   await page.evaluate(() => window.scrollTo(0, 200));
   await expect(button).toBeVisible();
   await expect(button).toHaveCSS("background-color", "rgb(86, 107, 29)");

@@ -75,7 +75,8 @@ export default function ForgotPasswordPage() {
               value={email}
               onChange={(event) => {
                 setEmail(event.target.value);
-                if (emailError) setEmailError("");
+                if (emailError)
+                  setEmailError("");
               }}
               className={`mt-2 block w-full rounded-sm border px-3 py-2.5 text-site-heading outline-none transition ${
                 emailError

@@ -35,45 +35,50 @@ export default function ProductsPage() {
     ? categoryParam
     : "all";
 
-  useEffect(() => {
-    const loadId = latestLoadId.current + 1;
-    latestLoadId.current = loadId;
-    const isStaleLoad = () => latestLoadId.current !== loadId;
+  useEffect(
+    () => {
+      const loadId = latestLoadId.current + 1;
+      latestLoadId.current = loadId;
+      const isStaleLoad = () => latestLoadId.current !== loadId;
 
-    async function loadProducts() {
-      try {
-        setIsLoading(true);
-        setHasError(false);
-        const result = await getProductPage(
-          {
-            page: currentPage,
-            pageSize: PRODUCTS_PER_PAGE,
-            category: selectedCategory,
-            sort: sortOrder,
-            availableOnly,
-            deliveryOnly,
-          },
-        );
+      async function loadProducts() {
+        try {
+          setIsLoading(true);
+          setHasError(false);
+          const result = await getProductPage(
+            {
+              page: currentPage,
+              pageSize: PRODUCTS_PER_PAGE,
+              category: selectedCategory,
+              sort: sortOrder,
+              availableOnly,
+              deliveryOnly,
+            },
+          );
 
-        if (isStaleLoad()) return;
+          if (isStaleLoad())
+            return;
 
-        setProducts(result.items);
-        setTotalCount(result.totalCount);
-        setTotalPages(result.totalPages);
-      } catch (error) {
-        if (isStaleLoad()) return;
+          setProducts(result.items);
+          setTotalCount(result.totalCount);
+          setTotalPages(result.totalPages);
+        } catch (error) {
+          if (isStaleLoad())
+            return;
 
-        console.error(error);
-        setHasError(true);
-      } finally {
-        if (!isStaleLoad()) {
-          setIsLoading(false);
+          console.error(error);
+          setHasError(true);
+        } finally {
+          if (!isStaleLoad()) {
+            setIsLoading(false);
+          }
         }
       }
-    }
 
-    void loadProducts();
-  }, [selectedCategory, sortOrder, availableOnly, deliveryOnly, currentPage]);
+      void loadProducts();
+    },
+    [selectedCategory, sortOrder, availableOnly, deliveryOnly, currentPage]
+  );
 
   function resetToFirstPage() {
     setCurrentPage(1);
@@ -120,10 +125,7 @@ export default function ProductsPage() {
   const firstVisibleItem = totalCount === 0
     ? 0
     : (currentPage - 1) * PRODUCTS_PER_PAGE + 1;
-  const lastVisibleItem = Math.min(
-    currentPage * PRODUCTS_PER_PAGE,
-    totalCount,
-  );
+  const lastVisibleItem = Math.min(currentPage * PRODUCTS_PER_PAGE, totalCount);
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-4">

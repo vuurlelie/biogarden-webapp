@@ -17,30 +17,31 @@ public sealed class DatabaseTicketStore(IServiceScopeFactory scopes, IDataProtec
     public async Task<string> StoreAsync(AuthenticationTicket ticket)
     {
         using var scope = scopes.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var databaseContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         var now = clock.GetUtcNow().UtcDateTime;
-        var expired = db.Set<BrowserSession>().Where(x => x.ExpiresAtUtc <= now)
-            .OrderBy(x => x.ExpiresAtUtc).Take(100).Select(x => x.KeyHash);
-        await db.Set<BrowserSession>().Where(x => expired.Contains(x.KeyHash)).ExecuteDeleteAsync();
+        var expired = databaseContext.Set<BrowserSession>().Where(browserSession => browserSession.ExpiresAtUtc <= now)
+            .OrderBy(browserSession => browserSession.ExpiresAtUtc).Take(100).Select(browserSession => browserSession.KeyHash);
+        await databaseContext.Set<BrowserSession>().Where(browserSession => expired.Contains(browserSession.KeyHash)).ExecuteDeleteAsync();
         var key = Convert.ToHexString(RandomNumberGenerator.GetBytes(32));
-        db.Add(new BrowserSession
+        databaseContext.Add(new BrowserSession
         {
             KeyHash = Hash(key),
             ProtectedTicket = _protector.Protect(TicketSerializer.Default.Serialize(ticket)),
             ExpiresAtUtc = ticket.Properties.ExpiresUtc!.Value.UtcDateTime
         });
-        await db.SaveChangesAsync();
+        await databaseContext.SaveChangesAsync();
         return key;
     }
 
     public async Task<AuthenticationTicket?> RetrieveAsync(string key)
     {
         using var scope = scopes.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var databaseContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         var hash = Hash(key);
         var now = clock.GetUtcNow().UtcDateTime;
-        var stored = await db.Set<BrowserSession>().AsNoTracking().SingleOrDefaultAsync(x => x.KeyHash == hash && x.ExpiresAtUtc > now);
-        if (stored is null) return null;
+        var stored = await databaseContext.Set<BrowserSession>().AsNoTracking().SingleOrDefaultAsync(browserSession => browserSession.KeyHash == hash && browserSession.ExpiresAtUtc > now);
+        if (stored is null)
+            return null;
         try { return TicketSerializer.Default.Deserialize(_protector.Unprotect(stored.ProtectedTicket)); }
         catch (CryptographicException) { await RemoveAsync(key); return null; }
     }
@@ -48,21 +49,21 @@ public sealed class DatabaseTicketStore(IServiceScopeFactory scopes, IDataProtec
     public async Task RenewAsync(string key, AuthenticationTicket ticket)
     {
         using var scope = scopes.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var databaseContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         var hash = Hash(key);
         var now = clock.GetUtcNow().UtcDateTime;
         var expires = ticket.Properties.ExpiresUtc!.Value.UtcDateTime;
         var payload = _protector.Protect(TicketSerializer.Default.Serialize(ticket));
         // Never resurrect a logged-out/expired session or shorten a newer concurrent renewal.
-        await db.Set<BrowserSession>().Where(x => x.KeyHash == hash && x.ExpiresAtUtc > now && x.ExpiresAtUtc < expires)
-            .ExecuteUpdateAsync(s => s.SetProperty(x => x.ProtectedTicket, payload).SetProperty(x => x.ExpiresAtUtc, expires));
+        await databaseContext.Set<BrowserSession>().Where(browserSession => browserSession.KeyHash == hash && browserSession.ExpiresAtUtc > now && browserSession.ExpiresAtUtc < expires)
+            .ExecuteUpdateAsync(updateSettersBuilder => updateSettersBuilder.SetProperty(browserSession => browserSession.ProtectedTicket, payload).SetProperty(browserSession => browserSession.ExpiresAtUtc, expires));
     }
 
     public async Task RemoveAsync(string key)
     {
         using var scope = scopes.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var databaseContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         var hash = Hash(key);
-        await db.Set<BrowserSession>().Where(x => x.KeyHash == hash).ExecuteDeleteAsync();
+        await databaseContext.Set<BrowserSession>().Where(browserSession => browserSession.KeyHash == hash).ExecuteDeleteAsync();
     }
 }

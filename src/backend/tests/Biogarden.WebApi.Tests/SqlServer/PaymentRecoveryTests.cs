@@ -27,7 +27,7 @@ public sealed class PaymentRecoveryTests : IAsyncLifetime
     public async Task InitializeAsync()
     {
         await _app.InitializeAsync();
-        _api = _app.Factory.WithWebHostBuilder(builder => builder.ConfigureTestServices(services =>
+        _api = _app.Factory.WithWebHostBuilder(webHostBuilder => webHostBuilder.ConfigureTestServices(services =>
         {
             services.RemoveAll<IOptions<SumUpOptions>>();
             services.AddSingleton(Microsoft.Extensions.Options.Options.Create(new SumUpOptions { Enabled = true, MerchantCode = "merchant", ApiKey = "fake" }));
@@ -35,7 +35,7 @@ public sealed class PaymentRecoveryTests : IAsyncLifetime
             services.AddSingleton<ISumUpCheckoutClient>(_provider);
             services.AddDbContext<AppDbContext>(options => options.AddInterceptors(_failure));
         }));
-        await using var db = _app.OpenDatabase();
+        await using var databaseContext = _app.OpenDatabase();
         var cart = new Cart { Id = Guid.NewGuid(), SessionId = "guest", IsCheckedOut = true };
         var product = new Product { Name = "Payment tea", Price = 900, Available = true, StockQuantity = 2 };
         var order = new Order
@@ -57,14 +57,15 @@ public sealed class PaymentRecoveryTests : IAsyncLifetime
             UnitPrice = 900,
             LineTotal = 900
         });
-        db.Orders.Add(order);
-        await db.SaveChangesAsync();
+        databaseContext.Orders.Add(order);
+        await databaseContext.SaveChangesAsync();
         _orderId = order.Id;
     }
 
     public async Task DisposeAsync()
     {
-        if (_api is not null) await _api.DisposeAsync();
+        if (_api is not null)
+            await _api.DisposeAsync();
         await _app.DisposeAsync();
     }
 
@@ -87,8 +88,8 @@ public sealed class PaymentRecoveryTests : IAsyncLifetime
         Assert.Equal(ids[0], ids[1]);
         Assert.Equal(ids[0], await StartAsync());
         Assert.Equal(1, _provider.Creates);
-        await using var db = _app.OpenDatabase();
-        Assert.Single(await db.PaymentAttempts.ToListAsync());
+        await using var databaseContext = _app.OpenDatabase();
+        Assert.Single(await databaseContext.PaymentAttempts.ToListAsync());
     }
 
     [SqlServerTheory]
@@ -99,10 +100,10 @@ public sealed class PaymentRecoveryTests : IAsyncLifetime
         _provider.LoseResponse = lostResponse;
         _failure.Enabled = !lostResponse;
         await Assert.ThrowsAnyAsync<Exception>(() => StartAsync());
-        await using (var db = _app.OpenDatabase())
+        await using (var databaseContext = _app.OpenDatabase())
         {
-            Assert.Null((await db.PaymentAttempts.SingleAsync()).CheckoutId);
-            Assert.Null((await db.Orders.SingleAsync()).SumUpCheckoutId);
+            Assert.Null((await databaseContext.PaymentAttempts.SingleAsync()).CheckoutId);
+            Assert.Null((await databaseContext.Orders.SingleAsync()).SumUpCheckoutId);
         }
         Assert.Equal("checkout-1", await StartAsync());
         Assert.Equal(1, _provider.Creates);
@@ -125,11 +126,11 @@ public sealed class PaymentRecoveryTests : IAsyncLifetime
         Assert.Equal("checkout-1", await StartAsync());
         _provider.Checkouts[0] = _provider.Checkouts[0] with { Status = "EXPIRED" };
         Assert.Equal("checkout-2", await StartAsync());
-        await using var db = _app.OpenDatabase();
-        var attempts = await db.PaymentAttempts.ToListAsync();
+        await using var databaseContext = _app.OpenDatabase();
+        var attempts = await databaseContext.PaymentAttempts.ToListAsync();
         Assert.Equal(2, attempts.Count);
-        Assert.Contains(attempts, x => x.CheckoutId == "checkout-1" && x.Status == "EXPIRED");
-        Assert.Contains(attempts, x => x.CheckoutId == "checkout-2");
+        Assert.Contains(attempts, paymentAttempt => paymentAttempt.CheckoutId == "checkout-1" && paymentAttempt.Status == "EXPIRED");
+        Assert.Contains(attempts, paymentAttempt => paymentAttempt.CheckoutId == "checkout-2");
     }
 
     [SqlServerFact]
@@ -137,16 +138,16 @@ public sealed class PaymentRecoveryTests : IAsyncLifetime
     {
         await Assert.ThrowsAsync<KeyNotFoundException>(() => StartAsync("stranger"));
         Assert.Equal(0, _provider.Creates);
-        await using var db = _app.OpenDatabase();
-        Assert.Empty(await db.PaymentAttempts.ToListAsync());
+        await using var databaseContext = _app.OpenDatabase();
+        Assert.Empty(await databaseContext.PaymentAttempts.ToListAsync());
     }
 
     [SqlServerFact]
     public async Task RecoveryBySubmissionKeyRequiresOwningSessionAndHasNoCheckoutSideEffects()
     {
         var key = Guid.NewGuid().ToString("N");
-        await using (var db = _app.OpenDatabase())
-            await db.Orders.ExecuteUpdateAsync(set => set.SetProperty(x => x.IdempotencyKey, key));
+        await using (var databaseContext = _app.OpenDatabase())
+            await databaseContext.Orders.ExecuteUpdateAsync(set => set.SetProperty(order => order.IdempotencyKey, key));
         using var owner = _api.CreateClient();
         owner.DefaultRequestHeaders.Add("Cookie", "biogarden_cart_id=guest");
         using var response = await owner.GetAsync($"/api/orders/checkout-recovery/{key}");
@@ -172,20 +173,19 @@ public sealed class PaymentRecoveryTests : IAsyncLifetime
         public bool Enabled { get; set; }
         public bool FailPaidOrder { get; set; }
         public bool FailProcessedEvent { get; set; }
-        public override ValueTask<InterceptionResult<int>> SavingChangesAsync(DbContextEventData data,
-            InterceptionResult<int> result, CancellationToken cancellationToken = default)
+        public override ValueTask<InterceptionResult<int>> SavingChangesAsync(DbContextEventData data, InterceptionResult<int> result, CancellationToken cancellationToken = default)
         {
-            if (FailPaidOrder && data.Context!.ChangeTracker.Entries<Order>().Any(x => x.State == EntityState.Modified && x.Entity.PaymentStatus == PaymentStatus.Paid))
+            if (FailPaidOrder && data.Context!.ChangeTracker.Entries<Order>().Any(entityEntry => entityEntry.State == EntityState.Modified && entityEntry.Entity.PaymentStatus == PaymentStatus.Paid))
             {
                 FailPaidOrder = false;
                 throw new InvalidOperationException("Simulated paid order save failure");
             }
-            if (FailProcessedEvent && data.Context!.ChangeTracker.Entries<PaymentProviderEvent>().Any(x => x.Entity.ProcessedAtUtc.HasValue))
+            if (FailProcessedEvent && data.Context!.ChangeTracker.Entries<PaymentProviderEvent>().Any(entityEntry => entityEntry.Entity.ProcessedAtUtc.HasValue))
             {
                 FailProcessedEvent = false;
                 throw new InvalidOperationException("Simulated processed event save failure");
             }
-            if (Enabled && data.Context!.ChangeTracker.Entries<PaymentAttempt>().Any(x => x.Entity.CheckoutId is not null))
+            if (Enabled && data.Context!.ChangeTracker.Entries<PaymentAttempt>().Any(entityEntry => entityEntry.Entity.CheckoutId is not null))
             {
                 Enabled = false;
                 throw new InvalidOperationException("Simulated payment binding failure");
@@ -208,10 +208,10 @@ public sealed class PaymentRecoveryTests : IAsyncLifetime
         await Assert.ThrowsAsync<PaymentRecoveryException>(() => StartAsync());
         _provider.Checkouts[0] = _provider.Checkouts[0] with { Status = "PAID", TransactionCode = "paid-1" };
         await NotifyAsync();
-        await using var db = _app.OpenDatabase();
-        Assert.Equal(PaymentStatus.Paid, (await db.Orders.SingleAsync()).PaymentStatus);
-        Assert.Equal("checkout-1", (await db.PaymentAttempts.SingleAsync()).CheckoutId);
-        Assert.NotNull((await db.PaymentProviderEvents.SingleAsync()).ProcessedAtUtc);
+        await using var databaseContext = _app.OpenDatabase();
+        Assert.Equal(PaymentStatus.Paid, (await databaseContext.Orders.SingleAsync()).PaymentStatus);
+        Assert.Equal("checkout-1", (await databaseContext.PaymentAttempts.SingleAsync()).CheckoutId);
+        Assert.NotNull((await databaseContext.PaymentProviderEvents.SingleAsync()).ProcessedAtUtc);
     }
 
     [SqlServerFact]
@@ -225,11 +225,11 @@ public sealed class PaymentRecoveryTests : IAsyncLifetime
         try { await _app.SaveGate.WaitForBothAsync(); }
         finally { _app.SaveGate.Release(); }
         await Task.WhenAll(first, second);
-        await using var db = _app.OpenDatabase();
-        var paymentEvent = Assert.Single(await db.PaymentProviderEvents.ToListAsync());
+        await using var databaseContext = _app.OpenDatabase();
+        var paymentEvent = Assert.Single(await databaseContext.PaymentProviderEvents.ToListAsync());
         Assert.NotNull(paymentEvent.ProcessedAtUtc);
         Assert.Null(paymentEvent.ProcessingError);
-        Assert.Equal(PaymentStatus.Paid, (await db.Orders.SingleAsync()).PaymentStatus);
+        Assert.Equal(PaymentStatus.Paid, (await databaseContext.Orders.SingleAsync()).PaymentStatus);
     }
 
     [SqlServerTheory]
@@ -242,10 +242,10 @@ public sealed class PaymentRecoveryTests : IAsyncLifetime
         _failure.FailPaidOrder = failOrder;
         _failure.FailProcessedEvent = !failOrder;
         await Assert.ThrowsAsync<InvalidOperationException>(() => NotifyAsync());
-        await using (var db = _app.OpenDatabase())
+        await using (var databaseContext = _app.OpenDatabase())
         {
-            Assert.Equal(failOrder ? PaymentStatus.Pending : PaymentStatus.Paid, (await db.Orders.SingleAsync()).PaymentStatus);
-            var paymentEvent = await db.PaymentProviderEvents.SingleAsync();
+            Assert.Equal(failOrder ? PaymentStatus.Pending : PaymentStatus.Paid, (await databaseContext.Orders.SingleAsync()).PaymentStatus);
+            var paymentEvent = await databaseContext.PaymentProviderEvents.SingleAsync();
             Assert.Null(paymentEvent.ProcessedAtUtc);
             Assert.NotNull(paymentEvent.ProcessingFailedAtUtc);
         }
@@ -264,8 +264,8 @@ public sealed class PaymentRecoveryTests : IAsyncLifetime
         _provider.Checkouts[0] = _provider.Checkouts[0] with { Status = "EXPIRED" };
         await StartAsync();
         await NotifyAsync();
-        await using (var db = _app.OpenDatabase())
-            Assert.Equal(PaymentStatus.Pending, (await db.Orders.SingleAsync()).PaymentStatus);
+        await using (var databaseContext = _app.OpenDatabase())
+            Assert.Equal(PaymentStatus.Pending, (await databaseContext.Orders.SingleAsync()).PaymentStatus);
         _provider.Checkouts[1] = _provider.Checkouts[1] with { Status = "PAID", TransactionCode = "paid-2" };
         await NotifyAsync("checkout-2");
         _provider.Checkouts[0] = _provider.Checkouts[0] with { Status = "FAILED", TransactionCode = "failed-1" };
@@ -283,10 +283,10 @@ public sealed class PaymentRecoveryTests : IAsyncLifetime
         await Assert.ThrowsAsync<PaymentRecoveryException>(() => StartAsync());
         _provider.Checkouts[0] = _provider.Checkouts[0] with { Status = "PAID", TransactionCode = "paid-1", MerchantCode = "other" };
         await Assert.ThrowsAsync<PaymentRecoveryException>(() => NotifyAsync());
-        await using var db = _app.OpenDatabase();
-        Assert.Equal(PaymentStatus.Pending, (await db.Orders.SingleAsync()).PaymentStatus);
-        Assert.Null((await db.PaymentAttempts.SingleAsync()).CheckoutId);
-        Assert.Null((await db.PaymentProviderEvents.SingleAsync()).ProcessedAtUtc);
+        await using var databaseContext = _app.OpenDatabase();
+        Assert.Equal(PaymentStatus.Pending, (await databaseContext.Orders.SingleAsync()).PaymentStatus);
+        Assert.Null((await databaseContext.PaymentAttempts.SingleAsync()).CheckoutId);
+        Assert.Null((await databaseContext.PaymentProviderEvents.SingleAsync()).ProcessedAtUtc);
     }
 
     [SqlServerFact]
@@ -298,7 +298,7 @@ public sealed class PaymentRecoveryTests : IAsyncLifetime
             using var response = await client.PostAsync("/api/sumup/checkout-status", new StringContent(payload, System.Text.Encoding.UTF8, "application/json"));
             Assert.Equal(System.Net.HttpStatusCode.BadRequest, response.StatusCode);
         }
-        using var oversized = await client.PostAsync("/api/sumup/checkout-status", new StringContent(new string('x', 17000)));
+        using var oversized = await client.PostAsync("/api/sumup/checkout-status", new StringContent(new string ('x', 17000)));
         Assert.Equal(System.Net.HttpStatusCode.RequestEntityTooLarge, oversized.StatusCode);
         Assert.Equal(0, _provider.Gets);
     }
@@ -316,23 +316,23 @@ public sealed class PaymentRecoveryTests : IAsyncLifetime
         if (legacyMissingTransaction)
         {
             await using var legacy = _app.OpenDatabase();
-            await legacy.Orders.ExecuteUpdateAsync(set => set.SetProperty(x => x.SumUpTransactionId, (string?)null));
+            await legacy.Orders.ExecuteUpdateAsync(set => set.SetProperty(candidateOrder => candidateOrder.SumUpTransactionId, (string? )null));
         }
         _provider.Checkouts[0] = _provider.Checkouts[0] with { Status = "PAID", TransactionCode = "paid-1" };
         await Assert.ThrowsAsync<PaymentRecoveryException>(() => NotifyAsync());
-        await using var db = _app.OpenDatabase();
-        var order = await db.Orders.SingleAsync();
+        await using var databaseContext = _app.OpenDatabase();
+        var order = await databaseContext.Orders.SingleAsync();
         Assert.Equal(legacyMissingTransaction ? null : "paid-2", order.SumUpTransactionId);
         Assert.Equal("checkout-2", order.SumUpCheckoutId);
-        Assert.NotNull((await db.PaymentProviderEvents.SingleAsync(x => x.CheckoutId == "checkout-1")).ProcessingFailedAtUtc);
+        Assert.NotNull((await databaseContext.PaymentProviderEvents.SingleAsync(paymentProviderEvent => paymentProviderEvent.CheckoutId == "checkout-1")).ProcessingFailedAtUtc);
     }
 
     [SqlServerFact]
     public async Task PaidCallbackAfterCancellationPreservesReleasedStockAndRequiresRefund()
     {
         await StartAsync();
-        await using (var db = _app.OpenDatabase())
-            await db.Orders.ExecuteUpdateAsync(set => set.SetProperty(x => x.Status, OrderStatus.Cancelled));
+        await using (var databaseContext = _app.OpenDatabase())
+            await databaseContext.Orders.ExecuteUpdateAsync(set => set.SetProperty(candidateOrder => candidateOrder.Status, OrderStatus.Cancelled));
         _provider.Checkouts[0] = _provider.Checkouts[0] with { Status = "PAID", TransactionCode = "paid-1" };
         await NotifyAsync();
         await using var verified = _app.OpenDatabase();
@@ -349,9 +349,9 @@ public sealed class PaymentRecoveryTests : IAsyncLifetime
         _provider.Checkouts[0] = _provider.Checkouts[0] with { Status = "PAID", TransactionCode = null };
         await Assert.ThrowsAsync<PaymentRecoveryException>(() => StartAsync());
         await Assert.ThrowsAsync<PaymentRecoveryException>(() => NotifyAsync());
-        await using var db = _app.OpenDatabase();
-        Assert.Equal(PaymentStatus.Pending, (await db.Orders.SingleAsync()).PaymentStatus);
-        Assert.Null((await db.PaymentProviderEvents.SingleAsync()).ProcessedAtUtc);
+        await using var databaseContext = _app.OpenDatabase();
+        Assert.Equal(PaymentStatus.Pending, (await databaseContext.Orders.SingleAsync()).PaymentStatus);
+        Assert.Null((await databaseContext.PaymentProviderEvents.SingleAsync()).ProcessedAtUtc);
         Assert.Equal(1, _provider.Creates);
     }
 
@@ -363,9 +363,9 @@ public sealed class PaymentRecoveryTests : IAsyncLifetime
         await NotifyAsync();
         await StartAsync();
         await NotifyAsync();
-        await using var db = _app.OpenDatabase();
-        Assert.Equal(PaymentStatus.Failed, (await db.Orders.SingleAsync()).PaymentStatus);
-        Assert.Single(await db.PaymentProviderEvents.ToListAsync());
+        await using var databaseContext = _app.OpenDatabase();
+        Assert.Equal(PaymentStatus.Failed, (await databaseContext.Orders.SingleAsync()).PaymentStatus);
+        Assert.Single(await databaseContext.PaymentProviderEvents.ToListAsync());
         Assert.Equal(1, _provider.Creates);
     }
 
@@ -377,8 +377,8 @@ public sealed class PaymentRecoveryTests : IAsyncLifetime
         await _provider.Entered.Task.WaitAsync(TimeSpan.FromSeconds(15));
         try
         {
-            await using var db = _app.OpenDatabase();
-            await db.Orders.ExecuteUpdateAsync(set => set.SetProperty(x => x.Status, OrderStatus.Cancelled));
+            await using var databaseContext = _app.OpenDatabase();
+            await databaseContext.Orders.ExecuteUpdateAsync(set => set.SetProperty(candidateOrder => candidateOrder.Status, OrderStatus.Cancelled));
         }
         finally { _provider.Release.TrySetResult(); }
         await Assert.ThrowsAsync<DbUpdateConcurrencyException>(() => start);
@@ -399,8 +399,8 @@ public sealed class PaymentRecoveryTests : IAsyncLifetime
         await StartAsync();
         _provider.Checkouts[0] = _provider.Checkouts[0] with { Status = "PAID", TransactionCode = "paid-1" };
         await Task.WhenAll(NotifyAsync(), Assert.ThrowsAsync<InvalidOperationException>(() => StartAsync()));
-        await using var db = _app.OpenDatabase();
-        Assert.Equal(PaymentStatus.Paid, (await db.Orders.SingleAsync()).PaymentStatus);
+        await using var databaseContext = _app.OpenDatabase();
+        Assert.Equal(PaymentStatus.Paid, (await databaseContext.Orders.SingleAsync()).PaymentStatus);
         Assert.Equal(1, _provider.Creates);
     }
 
@@ -409,8 +409,8 @@ public sealed class PaymentRecoveryTests : IAsyncLifetime
     [InlineData(900, "EUR")]
     public async Task InvalidLocalPaymentDataDoesNotCreateAnUncertainProviderIntent(int total, string currency)
     {
-        await using (var db = _app.OpenDatabase())
-            await db.Orders.ExecuteUpdateAsync(set => set.SetProperty(x => x.TotalPrice, total).SetProperty(x => x.Currency, currency));
+        await using (var databaseContext = _app.OpenDatabase())
+            await databaseContext.Orders.ExecuteUpdateAsync(set => set.SetProperty(order => order.TotalPrice, total).SetProperty(order => order.Currency, currency));
         await Assert.ThrowsAsync<InvalidOperationException>(() => StartAsync());
         await using var verified = _app.OpenDatabase();
         Assert.Empty(await verified.PaymentAttempts.ToListAsync());
@@ -430,23 +430,36 @@ public sealed class PaymentRecoveryTests : IAsyncLifetime
         public async Task<SumUpCheckoutResult> CreateAsync(SumUpCreateCheckoutRequest request, string key, Uri url, CancellationToken token = default)
         {
             Creates++;
-            var result = new SumUpCheckoutResult($"checkout-{Creates}", "PENDING", "https://checkout.sumup.com/test", null,
-                request.Amount, request.Currency, request.CheckoutReference, request.MerchantCode);
+            var result = new SumUpCheckoutResult(
+                $"checkout-{Creates}",
+                "PENDING",
+                "https://checkout.sumup.com/test",
+                null,
+                request.Amount,
+                request.Currency,
+                request.CheckoutReference,
+                request.MerchantCode
+            );
             Checkouts.Add(result);
             Entered.TrySetResult();
-            if (BlockCreate) await Release.Task.WaitAsync(token);
-            if (LoseResponse) { LoseResponse = false; throw new HttpRequestException("Simulated lost response"); }
+            if (BlockCreate)
+                await Release.Task.WaitAsync(token);
+            if (LoseResponse)
+            {
+                LoseResponse = false;
+                throw new HttpRequestException("Simulated lost response");
+            }
             return result;
         }
         public Task<SumUpCheckoutResult> GetAsync(string id, string key, Uri url, CancellationToken token = default)
         {
             Gets++;
-            return Task.FromResult(Checkouts.Single(x => x.CheckoutId == id));
+            return Task.FromResult(Checkouts.Single(checkoutResult => checkoutResult.CheckoutId == id));
         }
         public Task<IReadOnlyList<SumUpCheckoutResult>> FindAsync(string reference, string key, Uri url, CancellationToken token = default)
         {
             Lookups++;
-            return Task.FromResult<IReadOnlyList<SumUpCheckoutResult>>(Checkouts.Where(x => x.CheckoutReference == reference).ToArray());
+            return Task.FromResult<IReadOnlyList<SumUpCheckoutResult>>(Checkouts.Where(checkoutResult => checkoutResult.CheckoutReference == reference).ToArray());
         }
     }
 }

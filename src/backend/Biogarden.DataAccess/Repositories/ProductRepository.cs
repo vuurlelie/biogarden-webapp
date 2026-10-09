@@ -18,11 +18,7 @@ public sealed class ProductRepository : IProductRepository
     public async Task<Product?> GetByIdAsync(int productId, CancellationToken cancellationToken = default)
     {
         return await _databaseContext.Products
-            .SingleOrDefaultAsync(
-                product =>
-                    product.Id == productId &&
-                    product.RecordStatus == RecordStatus.Active,
-                cancellationToken);
+            .SingleOrDefaultAsync(product => product.Id == productId && product.RecordStatus == RecordStatus.Active, cancellationToken);
     }
 
     public async Task<IReadOnlyList<Product>> GetAllAsync(CancellationToken cancellationToken = default)
@@ -45,7 +41,8 @@ public sealed class ProductRepository : IProductRepository
         string sort,
         int page,
         int pageSize,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default
+    )
     {
         var query = _databaseContext.Products
             .AsNoTracking()

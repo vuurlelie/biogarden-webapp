@@ -74,7 +74,7 @@ public class AuthController : ControllerBase
         {
             new(ClaimTypes.NameIdentifier, auth.UserId.ToString()),
             new(ClaimTypes.Email, auth.Email),
-            new(AuthClaimTypes.SecurityStamp, issued.Claims.Single(x => x.Type == AuthClaimTypes.SecurityStamp).Value),
+            new(AuthClaimTypes.SecurityStamp, issued.Claims.Single(claim => claim.Type == AuthClaimTypes.SecurityStamp).Value),
             new(BrowserAuthentication.SessionClaim, Guid.NewGuid().ToString("N"))
         };
         claims.AddRange(auth.Roles.Select(role => new Claim(ClaimTypes.Role, role)));
@@ -90,8 +90,10 @@ public class AuthController : ControllerBase
         // This runtime caches the removed ticket-store key inside its original handler.
         // A fresh framework handler issues a new key rather than renewing the revoked one.
         var handler = HttpContext.RequestServices.GetRequiredService<Microsoft.AspNetCore.Authentication.Cookies.CookieAuthenticationHandler>();
-        await handler.InitializeAsync(new AuthenticationScheme(BrowserAuthentication.Scheme, null,
-            typeof(Microsoft.AspNetCore.Authentication.Cookies.CookieAuthenticationHandler)), HttpContext);
+        await handler.InitializeAsync(
+            new AuthenticationScheme(BrowserAuthentication.Scheme, null, typeof(Microsoft.AspNetCore.Authentication.Cookies.CookieAuthenticationHandler)),
+            HttpContext
+        );
         await handler.SignInAsync(principal, properties);
         return Ok(BrowserAuthentication.Describe(principal, properties));
     }

@@ -16,9 +16,7 @@ public sealed class AdminDashboardService : IAdminDashboardService
     private readonly IAppDbContext _databaseContext;
     private readonly UserManager<ApplicationUser> _userManager;
 
-    public AdminDashboardService(
-        IAppDbContext databaseContext,
-        UserManager<ApplicationUser> userManager)
+    public AdminDashboardService(IAppDbContext databaseContext, UserManager<ApplicationUser> userManager)
     {
         _databaseContext = databaseContext;
         _userManager = userManager;
@@ -47,7 +45,7 @@ public sealed class AdminDashboardService : IAdminDashboardService
             .CountAsync(post => !post.Draft, cancellationToken);
         var activeOrderValue = await _databaseContext.Orders
             .Where(order => order.Status != OrderStatus.Cancelled)
-            .SumAsync(order => (decimal?)order.TotalPrice, cancellationToken);
+            .SumAsync(order => (decimal? )order.TotalPrice, cancellationToken);
         var userCount = await _userManager.Users.CountAsync(cancellationToken);
 
         var recentOrders = await _databaseContext.Orders

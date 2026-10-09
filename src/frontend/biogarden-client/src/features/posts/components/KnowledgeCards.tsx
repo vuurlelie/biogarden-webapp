@@ -71,10 +71,13 @@ export default function KnowledgeCards({ posts }: KnowledgeCardsProps) {
                       Volf Gábor
                     </span>
                     , Közzététel:{" "}
-                    {parseApiDate(post.publishedAt).toLocaleString("hu-HU", { timeZone: SITE_TIME_ZONE,
-                      dateStyle: "short",
-                      timeStyle: "short",
-                    })}
+                    {parseApiDate(post.publishedAt).toLocaleString(
+                      "hu-HU",
+                      { timeZone: SITE_TIME_ZONE,
+                        dateStyle: "short",
+                        timeStyle: "short",
+                      }
+                    )}
                   </div>
 
                   <div className="pb-5 text-justify text-site-text">

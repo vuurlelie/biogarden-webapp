@@ -34,9 +34,6 @@ export function isProductCategoryFilter(
   return PRODUCT_CATEGORY_OPTIONS.some((option) => option.value === value);
 }
 
-export function matchesProductCategory(
-  category: ProductCategory,
-  filter: ProductCategoryFilter,
-): boolean {
+export function matchesProductCategory(category: ProductCategory, filter: ProductCategoryFilter): boolean {
   return filter === "all" || CATEGORY_GROUPS[filter].includes(category);
 }

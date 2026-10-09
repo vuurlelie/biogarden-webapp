@@ -2,14 +2,12 @@ using Biogarden.BusinessLogic.Services;
 
 namespace Biogarden.WebApi.Services;
 
-public sealed class OrderEmailWorker(
-    IServiceScopeFactory scopeFactory,
-    IConfiguration configuration,
-    ILogger<OrderEmailWorker> logger) : BackgroundService
+public sealed class OrderEmailWorker(IServiceScopeFactory scopeFactory, IConfiguration configuration, ILogger<OrderEmailWorker> logger) : BackgroundService
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        if (!configuration.GetValue("OrderEmailOutbox:Enabled", true)) return;
+        if (!configuration.GetValue("OrderEmailOutbox:Enabled", true))
+            return;
 
         while (!stoppingToken.IsCancellationRequested)
         {
@@ -17,7 +15,8 @@ public sealed class OrderEmailWorker(
             {
                 using var scope = scopeFactory.CreateScope();
                 var dispatcher = scope.ServiceProvider.GetRequiredService<OrderEmailDispatcher>();
-                if (await dispatcher.DispatchNextAsync(stoppingToken)) continue;
+                if (await dispatcher.DispatchNextAsync(stoppingToken))
+                    continue;
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
             {

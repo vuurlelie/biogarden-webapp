@@ -34,16 +34,16 @@ public sealed class IdentityOwnershipTests : IAsyncLifetime
         _app.SaveGate.EntityType = typeof(ApplicationUser);
         using var first = _app.Factory.CreateClient();
         using var second = _app.Factory.CreateClient();
-        var a = first.PostAsJsonAsync("/api/auth/register", new { email = "race@example.com", password = "Password123!", confirmPassword = "Password123!" });
-        var b = second.PostAsJsonAsync("/api/auth/register", new { email = "RACE@example.com", password = "Password123!", confirmPassword = "Password123!" });
+        var firstRegistrationTask = first.PostAsJsonAsync("/api/auth/register", new { email = "race@example.com", password = "Password123!", confirmPassword = "Password123!" });
+        var secondRegistrationTask = second.PostAsJsonAsync("/api/auth/register", new { email = "RACE@example.com", password = "Password123!", confirmPassword = "Password123!" });
         try { await _app.SaveGate.WaitForBothAsync(); }
         finally { _app.SaveGate.Release(); }
-        var responses = await Task.WhenAll(a, b);
-        Assert.Single(responses, r => r.StatusCode == HttpStatusCode.Created);
-        Assert.Single(responses, r => r.StatusCode == HttpStatusCode.BadRequest);
-        await using var db = _app.OpenDatabase();
-        Assert.Single(await db.Users.ToListAsync());
-        Assert.Single(await db.NotificationEmails.ToListAsync());
+        var responses = await Task.WhenAll(firstRegistrationTask, secondRegistrationTask);
+        Assert.Single(responses, response => response.StatusCode == HttpStatusCode.Created);
+        Assert.Single(responses, response => response.StatusCode == HttpStatusCode.BadRequest);
+        await using var databaseContext = _app.OpenDatabase();
+        Assert.Single(await databaseContext.Users.ToListAsync());
+        Assert.Single(await databaseContext.NotificationEmails.ToListAsync());
     }
 
     [SqlServerFact]
@@ -76,24 +76,33 @@ public sealed class IdentityOwnershipTests : IAsyncLifetime
         }
         Assert.Equal(HttpStatusCode.NotFound, (await stranger.GetAsync($"/api/orders/{order.Id}")).StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, (await stranger.PostAsJsonAsync($"/api/orders/{order.Id}/cancel", new { reason = "Unauthorized request" })).StatusCode);
-        Assert.Equal(HttpStatusCode.NotFound, (await stranger.PostAsJsonAsync($"/api/orders/{order.Id}/withdrawal-requests", new { reason = "Unauthorized request" })).StatusCode);
+        Assert.Equal(
+            HttpStatusCode.NotFound,
+            (await stranger.PostAsJsonAsync($"/api/orders/{order.Id}/withdrawal-requests", new { reason = "Unauthorized request" })).StatusCode
+        );
         Assert.Equal(HttpStatusCode.Unauthorized, (await guest.PostAsJsonAsync($"/api/orders/{order.Id}/cancel", new { })).StatusCode);
         Assert.Empty((await stranger.GetFromJsonAsync<Biogarden.BusinessLogic.DTOs.Common.PagedResultDto<OrderDto>>("/api/orders"))!.Items);
-        await using var db = _app.OpenDatabase();
-        Assert.Single(await db.Orders.ToListAsync());
-        Assert.Equal(OrderStatus.Pending, (await db.Orders.SingleAsync()).Status);
-        Assert.Equal(9, (await db.Products.SingleAsync()).StockQuantity);
-        Assert.Empty(await db.OrderWithdrawalRequests.ToListAsync());
-        var queuedEmails = await db.NotificationEmails.CountAsync();
-        Assert.Equal(HttpStatusCode.NotFound, (await stranger.PostAsJsonAsync("/api/orders/withdrawal-requests", new
-        {
-            orderNumber = "BK-19000101-00000000",
-            customerEmail = order.CustomerEmail,
-            reason = "Please cancel this nonexistent order."
-        })).StatusCode);
-        Assert.Empty(await db.OrderWithdrawalRequests.ToListAsync());
-        Assert.Equal(queuedEmails, await db.NotificationEmails.CountAsync());
-        Assert.Empty(await db.PaymentAttempts.ToListAsync());
+        await using var databaseContext = _app.OpenDatabase();
+        Assert.Single(await databaseContext.Orders.ToListAsync());
+        Assert.Equal(OrderStatus.Pending, (await databaseContext.Orders.SingleAsync()).Status);
+        Assert.Equal(9, (await databaseContext.Products.SingleAsync()).StockQuantity);
+        Assert.Empty(await databaseContext.OrderWithdrawalRequests.ToListAsync());
+        var queuedEmails = await databaseContext.NotificationEmails.CountAsync();
+        Assert.Equal(
+            HttpStatusCode.NotFound,
+            (await stranger.PostAsJsonAsync(
+                        "/api/orders/withdrawal-requests",
+                        new
+                        {
+                            orderNumber = "BK-19000101-00000000",
+                            customerEmail = order.CustomerEmail,
+                            reason = "Please cancel this nonexistent order."
+                        }
+                    )).StatusCode
+        );
+        Assert.Empty(await databaseContext.OrderWithdrawalRequests.ToListAsync());
+        Assert.Equal(queuedEmails, await databaseContext.NotificationEmails.CountAsync());
+        Assert.Empty(await databaseContext.PaymentAttempts.ToListAsync());
     }
 
     [SqlServerFact]
@@ -101,11 +110,17 @@ public sealed class IdentityOwnershipTests : IAsyncLifetime
     {
         using var owner = await Client(await CreateUser());
         using var stranger = await Client(await CreateUser());
-        Assert.Equal(HttpStatusCode.NoContent, (await owner.PutAsJsonAsync("/api/profile/addresses", new
-        {
-            shippingAddress = new { postalCode = "1111", city = "Budapest", street = "Test street", houseNumber = "10" },
-            useShippingAsBilling = true
-        })).StatusCode);
+        Assert.Equal(
+            HttpStatusCode.NoContent,
+            (await owner.PutAsJsonAsync(
+                        "/api/profile/addresses",
+                        new
+                        {
+                            shippingAddress = new { postalCode = "1111", city = "Budapest", street = "Test street", houseNumber = "10" },
+                            useShippingAsBilling = true
+                        }
+                    )).StatusCode
+        );
         var addresses = (await owner.GetFromJsonAsync<UserAddressesDto>("/api/profile/addresses"))!;
         Assert.Null((await stranger.GetFromJsonAsync<UserAddressesDto>("/api/profile/addresses"))!.ShippingAddress);
         await Add(stranger, await Product());
@@ -114,9 +129,9 @@ public sealed class IdentityOwnershipTests : IAsyncLifetime
         request.DeliveryAddressId = addresses.ShippingAddress!.Id;
         await request.WithQuoteAsync(stranger);
         Assert.Equal(HttpStatusCode.Conflict, (await stranger.PostAsJsonAsync("/api/orders", request)).StatusCode);
-        await using var db = _app.OpenDatabase();
-        Assert.Empty(await db.Orders.ToListAsync());
-        Assert.Equal(10, (await db.Products.SingleAsync()).StockQuantity);
+        await using var databaseContext = _app.OpenDatabase();
+        Assert.Empty(await databaseContext.Orders.ToListAsync());
+        Assert.Equal(10, (await databaseContext.Products.SingleAsync()).StockQuantity);
         Assert.Equal("Test street", (await owner.GetFromJsonAsync<UserAddressesDto>("/api/profile/addresses"))!.ShippingAddress!.Street);
     }
 
@@ -133,15 +148,13 @@ public sealed class IdentityOwnershipTests : IAsyncLifetime
         using var status = await stranger.GetAsync($"/api/orders/{order.Id}/payment-status?sumUpCheckoutReference={order.Id:N}");
         Assert.Equal(HttpStatusCode.OK, status.StatusCode);
         var json = await status.Content.ReadFromJsonAsync<System.Text.Json.JsonElement>();
-        Assert.Equal(new[] { "confirmedAtUtc", "orderId", "orderNumber", "paymentStatus", "status" }, json.EnumerateObject().Select(x => x.Name).Order().ToArray());
-        Assert.Equal(HttpStatusCode.NotFound, (await stranger.PostAsJsonAsync("/api/orders/withdrawal-requests", new
-        {
-            orderNumber = order.OrderNumber,
-            customerEmail = "wrong@example.com",
-            reason = "Please cancel the order."
-        })).StatusCode);
-        await using var db = _app.OpenDatabase();
-        Assert.Empty(await db.OrderWithdrawalRequests.ToListAsync());
+        Assert.Equal(new[] { "confirmedAtUtc", "orderId", "orderNumber", "paymentStatus", "status" }, json.EnumerateObject().Select(jsonProperty => jsonProperty.Name).Order().ToArray());
+        Assert.Equal(
+            HttpStatusCode.NotFound,
+            (await stranger.PostAsJsonAsync("/api/orders/withdrawal-requests", new { orderNumber = order.OrderNumber, customerEmail = "wrong@example.com", reason = "Please cancel the order." })).StatusCode
+        );
+        await using var databaseContext = _app.OpenDatabase();
+        Assert.Empty(await databaseContext.OrderWithdrawalRequests.ToListAsync());
     }
 
     [SqlServerFact]
@@ -157,9 +170,9 @@ public sealed class IdentityOwnershipTests : IAsyncLifetime
         Assert.Equal(HttpStatusCode.BadRequest, (await client.PostAsJsonAsync("/api/auth/reset-password", Reset(other.Id))).StatusCode);
         Assert.Equal(HttpStatusCode.NoContent, (await client.PostAsJsonAsync("/api/auth/reset-password", Reset(user.Id))).StatusCode);
         Assert.Equal(HttpStatusCode.BadRequest, (await client.PostAsJsonAsync("/api/auth/reset-password", Reset(user.Id))).StatusCode);
-        await using var db = _app.OpenDatabase();
-        Assert.Single(await db.NotificationEmails.ToListAsync());
-        var unchanged = await db.Users.SingleAsync(x => x.Id == other.Id);
+        await using var databaseContext = _app.OpenDatabase();
+        Assert.Single(await databaseContext.NotificationEmails.ToListAsync());
+        var unchanged = await databaseContext.Users.SingleAsync(candidateUser => candidateUser.Id == other.Id);
         Assert.Equal(other.SecurityStamp, unchanged.SecurityStamp);
         Assert.Equal(other.PasswordHash, unchanged.PasswordHash);
     }
@@ -169,37 +182,43 @@ public sealed class IdentityOwnershipTests : IAsyncLifetime
     {
         var user = await CreateUser();
         // Exercise the real Identity provider's expiry path without sleeping or replacing validation.
-        await using var expired = _app.Factory.WithWebHostBuilder(builder => builder.ConfigureTestServices(services =>
+        await using var expired = _app.Factory.WithWebHostBuilder(webHostBuilder => webHostBuilder.ConfigureTestServices(services =>
             services.Configure<DataProtectionTokenProviderOptions>(options => options.TokenLifespan = TimeSpan.FromSeconds(-1))));
         using var scope = expired.Services.CreateScope();
         var users = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
         var token = await users.GeneratePasswordResetTokenAsync(user);
         using var expiredClient = expired.CreateClient();
-        Assert.Equal(HttpStatusCode.BadRequest, (await expiredClient.PostAsJsonAsync("/api/auth/reset-password", new
-        {
-            userId = user.Id,
-            token,
-            password = "NewPassword123!",
-            confirmPassword = "NewPassword123!"
-        })).StatusCode);
+        Assert.Equal(
+            HttpStatusCode.BadRequest,
+            (await expiredClient.PostAsJsonAsync("/api/auth/reset-password", new { userId = user.Id, token, password = "NewPassword123!", confirmPassword = "NewPassword123!" })).StatusCode
+        );
         var confirmationUser = await CreateUser(confirmed: false);
         var confirmation = await users.GenerateEmailConfirmationTokenAsync(confirmationUser);
-        Assert.Equal(HttpStatusCode.BadRequest, (await expiredClient.PostAsJsonAsync("/api/auth/confirm-email", new { userId = confirmationUser.Id, token = confirmation })).StatusCode);
+        Assert.Equal(
+            HttpStatusCode.BadRequest,
+            (await expiredClient.PostAsJsonAsync("/api/auth/confirm-email", new { userId = confirmationUser.Id, token = confirmation })).StatusCode
+        );
         var jwt = await scope.ServiceProvider.GetRequiredService<ITokenService>().CreateTokenAsync(user);
         var handler = new JwtSecurityTokenHandler();
         var original = handler.ReadJwtToken(jwt);
         var settings = scope.ServiceProvider.GetRequiredService<IOptions<JwtSettings>>().Value;
-        var oldJwt = handler.WriteToken(new JwtSecurityToken(settings.Issuer, settings.Audience, original.Claims,
-            DateTime.UtcNow.AddHours(-2), DateTime.UtcNow.AddHours(-1), new SigningCredentials(new SymmetricSecurityKey(Encoding.UTF8.GetBytes(settings.SecretKey)), SecurityAlgorithms.HmacSha256)));
+        var oldJwt = handler.WriteToken(new JwtSecurityToken(
+            settings.Issuer,
+            settings.Audience,
+            original.Claims,
+            DateTime.UtcNow.AddHours(-2),
+            DateTime.UtcNow.AddHours(-1),
+            new SigningCredentials(new SymmetricSecurityKey(Encoding.UTF8.GetBytes(settings.SecretKey)), SecurityAlgorithms.HmacSha256)
+        ));
         foreach (var invalid in new[] { oldJwt, jwt[..jwt.LastIndexOf('.')] + ".invalid-signature" })
         {
             expiredClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", invalid);
             Assert.Equal(HttpStatusCode.Unauthorized, (await expiredClient.GetAsync("/api/profile")).StatusCode);
         }
-        await using var db = _app.OpenDatabase();
-        Assert.Equal(user.PasswordHash, (await db.Users.SingleAsync(x => x.Id == user.Id)).PasswordHash);
-        Assert.False((await db.Users.SingleAsync(x => x.Id == confirmationUser.Id)).EmailConfirmed);
-        Assert.Empty(await db.NotificationEmails.ToListAsync());
+        await using var databaseContext = _app.OpenDatabase();
+        Assert.Equal(user.PasswordHash, (await databaseContext.Users.SingleAsync(candidateUser => candidateUser.Id == user.Id)).PasswordHash);
+        Assert.False((await databaseContext.Users.SingleAsync(candidateUser => candidateUser.Id == confirmationUser.Id)).EmailConfirmed);
+        Assert.Empty(await databaseContext.NotificationEmails.ToListAsync());
     }
 
     private async Task<ApplicationUser> CreateUser(bool confirmed = true)
@@ -220,10 +239,10 @@ public sealed class IdentityOwnershipTests : IAsyncLifetime
     }
     private async Task<int> Product()
     {
-        await using var db = _app.OpenDatabase();
+        await using var databaseContext = _app.OpenDatabase();
         var product = new Product { Name = "Ownership test product", Available = true, DeliveryAvailable = true, Price = 900m, StockQuantity = 10 };
-        db.Products.Add(product);
-        await db.SaveChangesAsync();
+        databaseContext.Products.Add(product);
+        await databaseContext.SaveChangesAsync();
         return product.Id;
     }
     private static async Task<CartDto> Add(HttpClient client, int productId)

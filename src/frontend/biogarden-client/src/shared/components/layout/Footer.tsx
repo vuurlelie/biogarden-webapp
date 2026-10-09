@@ -14,14 +14,18 @@ export default function Footer() {
   const [isContactModalOpen, setIsContactModalOpen] = useState(false);
   const contactModalRef = useRef<HTMLDivElement | null>(null);
 
-  useModalFocus(contactModalRef, {
-    isOpen: isContactModalOpen,
-    onClose: () => setIsContactModalOpen(false),
-  });
+  useModalFocus(
+    contactModalRef,
+    {
+      isOpen: isContactModalOpen,
+      onClose: () => setIsContactModalOpen(false),
+    }
+  );
 
   function scrollToTopOnCurrentPage(targetPath: string) {
     return (event: MouseEvent<HTMLAnchorElement>) => {
-      if (pathname !== targetPath) return;
+      if (pathname !== targetPath)
+        return;
 
       event.preventDefault();
       window.scrollTo({ top: 0, behavior: "smooth" });
@@ -177,7 +181,10 @@ export default function Footer() {
       </footer>
 
       <div id="footer-credits" className="border-t border-site-border bg-site-green-dark p-4 text-center text-white/90 shadow-md">
-        <div>©{new Intl.DateTimeFormat("en", { timeZone: SITE_TIME_ZONE, year: "numeric" }).format(new Date())} Bakony Kincse Biokertészet - Minden jog fenntartva.</div>
+        <div>©{new Intl.DateTimeFormat(
+          "en",
+          { timeZone: SITE_TIME_ZONE, year: "numeric" }
+        ).format(new Date())} Bakony Kincse Biokertészet - Minden jog fenntartva.</div>
         <div className="text-sm">
           Készítette:{" "}
           <a

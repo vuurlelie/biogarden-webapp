@@ -16,9 +16,7 @@ public class JwtTokenService : ITokenService
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly JwtSettings _jwtSettings;
 
-    public JwtTokenService(
-        UserManager<ApplicationUser> userManager,
-        IOptions<JwtSettings> jwtOptions)
+    public JwtTokenService(UserManager<ApplicationUser> userManager, IOptions<JwtSettings> jwtOptions)
     {
         _userManager = userManager;
         _jwtSettings = jwtOptions.Value;
@@ -45,16 +43,15 @@ public class JwtTokenService : ITokenService
         var securityKey = new SymmetricSecurityKey(
             Encoding.UTF8.GetBytes(_jwtSettings.SecretKey));
 
-        var credentials = new SigningCredentials(
-            securityKey,
-            SecurityAlgorithms.HmacSha256);
+        var credentials = new SigningCredentials(securityKey, SecurityAlgorithms.HmacSha256);
 
         var token = new JwtSecurityToken(
             issuer: _jwtSettings.Issuer,
             audience: _jwtSettings.Audience,
             claims: claims,
             expires: DateTime.UtcNow.AddMinutes(_jwtSettings.ExpirationMinutes),
-            signingCredentials: credentials);
+            signingCredentials: credentials
+        );
 
         return new JwtSecurityTokenHandler().WriteToken(token);
     }

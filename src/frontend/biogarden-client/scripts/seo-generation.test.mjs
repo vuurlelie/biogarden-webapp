@@ -33,7 +33,10 @@ for (const enabled of [false, true]) {
     } finally {
       await new Promise(resolve => server.close(resolve));
       assert.equal(dirname(directory), tmpdir());
-      await rm(directory, { recursive: true, force: true });
+      await rm(
+        directory,
+        { recursive: true, force: true }
+      );
     }
   });
 }

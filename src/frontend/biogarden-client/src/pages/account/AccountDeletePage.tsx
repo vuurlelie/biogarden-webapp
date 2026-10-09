@@ -43,23 +43,28 @@ export default function AccountDeletePage() {
   const [confirmationAction, setConfirmationAction] = useState<ConfirmationAction | null>(null);
   const [hasOrderHistory, setHasOrderHistory] = useState<boolean | null>(null);
 
-  useEffect(() => {
-    let shouldIgnoreResult = false;
+  useEffect(
+    () => {
+      let shouldIgnoreResult = false;
 
-    async function loadOrderHistoryState() {
-      try {
-        const orders = await getOrders({ view: "all", pageSize: 1 });
-        if (!shouldIgnoreResult) setHasOrderHistory(orders.totalCount > 0);
-      } catch {
-        if (!shouldIgnoreResult) setHasOrderHistory(null);
+      async function loadOrderHistoryState() {
+        try {
+          const orders = await getOrders({ view: "all", pageSize: 1 });
+          if (!shouldIgnoreResult)
+            setHasOrderHistory(orders.totalCount > 0);
+        } catch {
+          if (!shouldIgnoreResult)
+            setHasOrderHistory(null);
+        }
       }
-    }
 
-    void loadOrderHistoryState();
-    return () => {
-      shouldIgnoreResult = true;
-    };
-  }, []);
+      void loadOrderHistoryState();
+      return () => {
+        shouldIgnoreResult = true;
+      };
+    },
+    []
+  );
 
   async function submit(type: AccountLifecycleRequestType, action: ConfirmationAction) {
     setSaving(action);
@@ -75,7 +80,13 @@ export default function AccountDeletePage() {
       setMessage(result.message);
       if (result.sessionEnded) {
         clearAuthSession();
-        window.setTimeout(() => navigate(ROUTES.home, { replace: true }), 1800);
+        window.setTimeout(
+          () => navigate(
+            ROUTES.home,
+            { replace: true }
+          ),
+          1800
+        );
       }
     } catch (submitError) {
       const message = handleAccountError(submitError, "A kérelem elküldése nem sikerült.");
@@ -180,10 +191,7 @@ export default function AccountDeletePage() {
                 type="button"
                 className={confirmationCopy[confirmationAction].buttonClassName}
                 onClick={() =>
-                  void submit(
-                    confirmationAction === "deactivation" ? 1 : 2,
-                    confirmationAction,
-                  )
+                  void submit(confirmationAction === "deactivation" ? 1 : 2, confirmationAction)
                 }
               >
                 {confirmationCopy[confirmationAction].confirmLabel}

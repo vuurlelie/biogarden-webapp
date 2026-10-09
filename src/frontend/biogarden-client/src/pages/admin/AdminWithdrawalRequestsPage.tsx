@@ -16,13 +16,16 @@ import AdminPageHeader from "../../shared/components/admin/AdminPageHeader";
 import { ROUTES } from "../../shared/constants/routes";
 import { getErrorMessage, isAbortError } from "../../shared/utils/errorHandling";
 
-const DATE = new Intl.DateTimeFormat("hu-HU", { timeZone: SITE_TIME_ZONE,
-  year: "numeric",
-  month: "short",
-  day: "numeric",
-  hour: "2-digit",
-  minute: "2-digit",
-});
+const DATE = new Intl.DateTimeFormat(
+  "hu-HU",
+  { timeZone: SITE_TIME_ZONE,
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }
+);
 
 type RequestStatusFilter = "all" | "pending" | "handled";
 
@@ -47,11 +50,16 @@ export default function AdminWithdrawalRequestsPage() {
     : params.get("status") === "handled" ? "handled" : "pending";
   const search = params.get("search") ?? "";
   function setFilter(key: string, value: string) {
-    setParams(current => {
-      const next = new URLSearchParams(current);
-      if (value) next.set(key, value); else next.delete(key);
-      return next;
-    }, { replace: true });
+    setParams(
+      current => {
+        const next = new URLSearchParams(current);
+        if (value)
+          next.set(key, value); else
+          next.delete(key);
+        return next;
+      },
+      { replace: true }
+    );
     setPage(1);
   }
   const [page, setPage] = useState(1);
@@ -62,42 +70,60 @@ export default function AdminWithdrawalRequestsPage() {
   const requestId = useRef(0);
   const mounted = useRef(true);
 
-  const load = useCallback(async (signal?: AbortSignal, background = false) => {
-    if (!mounted.current) return;
-    const id = ++requestId.current;
-    if (!background) setLoading(true);
-    setError(null);
+  const load = useCallback(
+    async (signal?: AbortSignal, background = false) => {
+      if (!mounted.current)
+        return;
+      const id = ++requestId.current;
+      if (!background)
+        setLoading(true);
+      setError(null);
 
-    try {
-      const result = await getAdminOrderWithdrawalRequests({ page, pageSize: PAGE_SIZE, search, status: status === "all" ? undefined : status === "pending" ? 1 : 2 }, signal);
-      if (!mounted.current || signal?.aborted || id !== requestId.current) return;
-      setRequests(result.items);
-      setTotalPages(result.totalPages);
-      if (result.page !== page) setPage(result.page);
-    } catch (loadError) {
-      if (mounted.current && !signal?.aborted && id === requestId.current && !isAbortError(loadError)) {
-        setError(getErrorMessage(loadError, "Az elállási vagy fogyasztói kérések betöltése nem sikerült."));
+      try {
+        const result = await getAdminOrderWithdrawalRequests(
+          { page, pageSize: PAGE_SIZE, search, status: status === "all" ? undefined : status === "pending" ? 1 : 2 },
+          signal
+        );
+        if (!mounted.current || signal?.aborted || id !== requestId.current)
+          return;
+        setRequests(result.items);
+        setTotalPages(result.totalPages);
+        if (result.page !== page)
+          setPage(result.page);
+      } catch (loadError) {
+        if (mounted.current && !signal?.aborted && id === requestId.current && !isAbortError(loadError)) {
+          setError(getErrorMessage(loadError, "Az elállási vagy fogyasztói kérések betöltése nem sikerült."));
+        }
+      } finally {
+        if (mounted.current && !signal?.aborted && id === requestId.current)
+          setLoading(false);
       }
-    } finally {
-      if (mounted.current && !signal?.aborted && id === requestId.current) setLoading(false);
-    }
-  }, [page, search, status]);
+    },
+    [page, search, status]
+  );
 
   const latestLoad = useRef(load);
-  useEffect(() => {
-    latestLoad.current = load;
-    mounted.current = true;
-    ++requestId.current;
-    const controller = new AbortController();
-    const timer = window.setTimeout(() => void load(controller.signal), search.trim() ? 250 : 0);
-    return () => { mounted.current = false; window.clearTimeout(timer); controller.abort(); };
-  }, [load, search]);
+  useEffect(
+    () => {
+      latestLoad.current = load;
+      mounted.current = true;
+      ++requestId.current;
+      const controller = new AbortController();
+      const timer = window.setTimeout(() => void load(controller.signal), search.trim() ? 250 : 0);
+      return () => { mounted.current = false; window.clearTimeout(timer); controller.abort(); };
+    },
+    [load, search]
+  );
 
-  useEffect(() => {
-    if (!message) return;
-    const timer = window.setTimeout(() => setMessage(null), 3500);
-    return () => clearTimeout(timer);
-  }, [message]);
+  useEffect(
+    () => {
+      if (!message)
+        return;
+      const timer = window.setTimeout(() => setMessage(null), 3500);
+      return () => clearTimeout(timer);
+    },
+    [message]
+  );
 
   const current = page;
   const filtered = requests;

@@ -6,12 +6,18 @@ import { getErrorMessage, hasErrorStatus } from "../../../shared/utils/errorHand
 export function useAccountErrorHandler() {
   const navigate = useNavigate();
 
-  return useCallback((error: unknown, fallbackMessage: string): string | null => {
-    if (hasErrorStatus(error, 401)) {
-      navigate(ROUTES.login, { replace: true });
-      return null;
-    }
+  return useCallback(
+    (error: unknown, fallbackMessage: string): string | null => {
+      if (hasErrorStatus(error, 401)) {
+        navigate(
+          ROUTES.login,
+          { replace: true }
+        );
+        return null;
+      }
 
-    return getErrorMessage(error, fallbackMessage);
-  }, [navigate]);
+      return getErrorMessage(error, fallbackMessage);
+    },
+    [navigate]
+  );
 }

@@ -9,13 +9,15 @@ namespace Biogarden.WebApi.Authentication;
 
 public static class SessionAuthentication
 {
-    public static async Task<bool> IsCurrentAsync(
-        ClaimsPrincipal principal, IServiceProvider services, CancellationToken cancellationToken)
+    public static async Task<bool> IsCurrentAsync(ClaimsPrincipal principal, IServiceProvider services, CancellationToken cancellationToken)
     {
         var stamp = principal.FindFirstValue(AuthClaimTypes.SecurityStamp);
+
         if (string.IsNullOrWhiteSpace(stamp) ||
             !Guid.TryParse(principal.FindFirstValue(ClaimTypes.NameIdentifier), out var userId))
+        {
             return false;
+        }
 
         var users = services.GetRequiredService<UserManager<ApplicationUser>>();
         // Do not reuse an entity tracked earlier in this request: account state may have changed.
@@ -28,7 +30,8 @@ public static class SessionAuthentication
             && user.EmailConfirmed
             && !(user.LockoutEnabled && user.LockoutEnd > DateTimeOffset.UtcNow)
             && string.Equals(stamp, user.SecurityStamp, StringComparison.Ordinal);
-        if (!active) return false;
+        if (!active)
+            return false;
 
         // Also reject tokens whose roles were changed outside the admin UI.
         var currentRoles = await users.GetRolesAsync(user!);

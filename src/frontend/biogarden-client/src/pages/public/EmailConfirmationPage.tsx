@@ -20,39 +20,42 @@ export default function EmailConfirmationPage() {
       : "A megerősítő link hiányos vagy érvénytelen.",
   );
 
-  useEffect(() => {
-    if (!hasRequiredParams || !userId || !token) {
-      return;
-    }
-
-    if (hasSubmittedRef.current) {
-      return;
-    }
-    hasSubmittedRef.current = true;
-
-    const confirmationUserId = userId;
-    const confirmationToken = token;
-
-    async function submitConfirmation() {
-      try {
-        await confirmEmail({
-          userId: confirmationUserId,
-          token: confirmationToken,
-        });
-        setConfirmationState("success");
-        setMessage("Sikeresen megerősítetted az email címedet. Most már bejelentkezhetsz.");
-      } catch (error) {
-        setConfirmationState("error");
-        setMessage(
-          error instanceof Error
-            ? error.message
-            : "Az email cím megerősítése nem sikerült.",
-        );
+  useEffect(
+    () => {
+      if (!hasRequiredParams || !userId || !token) {
+        return;
       }
-    }
 
-    submitConfirmation();
-  }, [hasRequiredParams, token, userId]);
+      if (hasSubmittedRef.current) {
+        return;
+      }
+      hasSubmittedRef.current = true;
+
+      const confirmationUserId = userId;
+      const confirmationToken = token;
+
+      async function submitConfirmation() {
+        try {
+          await confirmEmail({
+            userId: confirmationUserId,
+            token: confirmationToken,
+          });
+          setConfirmationState("success");
+          setMessage("Sikeresen megerősítetted az email címedet. Most már bejelentkezhetsz.");
+        } catch (error) {
+          setConfirmationState("error");
+          setMessage(
+            error instanceof Error
+              ? error.message
+              : "Az email cím megerősítése nem sikerült.",
+          );
+        }
+      }
+
+      submitConfirmation();
+    },
+    [hasRequiredParams, token, userId]
+  );
 
   const isSuccess = confirmationState === "success";
   const isLoading = confirmationState === "loading";

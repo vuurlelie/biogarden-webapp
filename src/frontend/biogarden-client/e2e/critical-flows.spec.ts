@@ -24,34 +24,55 @@ test("public catalog pages request and render paged results", async ({ page }) =
   const productRequests: string[] = [];
   const postRequests: string[] = [];
 
-  page.on("request", (request) => {
-    const url = new URL(request.url());
+  page.on(
+    "request",
+    (request) => {
+      const url = new URL(request.url());
 
-    if (url.origin === "http://localhost:5097" && url.pathname === "/api/products") {
-      productRequests.push(url.search);
-    }
+      if (url.origin === "http://localhost:5097" && url.pathname === "/api/products") {
+        productRequests.push(url.search);
+      }
 
-    if (url.origin === "http://localhost:5097" && url.pathname === "/api/posts") {
-      postRequests.push(url.search);
+      if (url.origin === "http://localhost:5097" && url.pathname === "/api/posts") {
+        postRequests.push(url.search);
+      }
     }
-  });
+  );
 
   await page.goto("/termekek");
-  await expect(page.getByRole("link", { name: "Teszt levendula tea" }).first()).toBeVisible();
-  await expect(page.getByRole("button", { name: "2", exact: true })).toBeVisible();
+  await expect(page.getByRole(
+    "link",
+    { name: "Teszt levendula tea" }
+  ).first()).toBeVisible();
+  await expect(page.getByRole(
+    "button",
+    { name: "2", exact: true }
+  )).toBeVisible();
   await expect(productRequests.some((query) => query.includes("pageSize=12"))).toBe(true);
 
-  await page.getByRole("button", { name: "2", exact: true }).click();
-  await expect(page.getByRole("link", { name: "Masodik oldali szorp" }).first()).toBeVisible();
+  await page.getByRole(
+    "button",
+    { name: "2", exact: true }
+  ).click();
+  await expect(page.getByRole(
+    "link",
+    { name: "Masodik oldali szorp" }
+  ).first()).toBeVisible();
   await expect(productRequests.some((query) => query.includes("page=2"))).toBe(true);
 
   await page.goto("/tudastar");
   await expect(page.getByText("Elso teszt bejegyzes")).toBeVisible();
   await expect(postRequests.some((query) => query.includes("pageSize=4"))).toBe(true);
 
-  await page.getByRole("button", { name: "2", exact: true }).first().click();
+  await page.getByRole(
+    "button",
+    { name: "2", exact: true }
+  ).first().click();
   await expect(page.getByText("Masodik oldali bejegyzes")).toBeVisible();
-  await expect(page.getByRole("link", { name: "Elso teszt bejegyzes" }).first()).toBeVisible();
+  await expect(page.getByRole(
+    "link",
+    { name: "Elso teszt bejegyzes" }
+  ).first()).toBeVisible();
   await expect(page.getByRole("button", { name: /május|majus/ })).toBeVisible();
   await expect(postRequests.some((query) => query.includes("page=2"))).toBe(true);
 });
@@ -78,7 +99,10 @@ test("customer can browse products, open details, and add an item to the cart", 
   await page.getByRole("link", { name: /Teszt levendula tea/ }).first().click();
 
   await expect(page).toHaveURL(/\/termekek\/1$/);
-  await expect(page.getByRole("heading", { name: "Teszt levendula tea" })).toBeVisible();
+  await expect(page.getByRole(
+    "heading",
+    { name: "Teszt levendula tea" }
+  )).toBeVisible();
   await expect(page.getByRole("heading", { name: /Kapcsolodo termekek|Kapcsolódó termékek/ })).toBeVisible();
 
   await page.getByRole("spinbutton").fill("1");
@@ -114,9 +138,13 @@ test("guest checkout can create a pay-at-pickup order", async ({ page }) => {
 
 test("private guest checkout sends receipt-only billing payload", async ({ page }) => {
   let submittedOrder: Record<string, unknown> | undefined;
-  await mockCheckoutApi(page, false, (payload) => {
-    submittedOrder = payload;
-  });
+  await mockCheckoutApi(
+    page,
+    false,
+    (payload) => {
+      submittedOrder = payload;
+    }
+  );
 
   await page.goto("/penztar");
   await page.getByLabel(/Nev|Név/).fill("Teszt Elek");
@@ -150,9 +178,13 @@ test("private guest checkout sends receipt-only billing payload", async ({ page 
 
 test("company guest checkout sends invoice billing payload", async ({ page }) => {
   let submittedOrder: Record<string, unknown> | undefined;
-  await mockCheckoutApi(page, false, (payload) => {
-    submittedOrder = payload;
-  });
+  await mockCheckoutApi(
+    page,
+    false,
+    (payload) => {
+      submittedOrder = payload;
+    }
+  );
 
   await page.goto("/penztar");
   await page.getByLabel(/Ceg|Cég/).check();
@@ -218,10 +250,7 @@ test("failed SumUp return shows retry link", async ({ page }) => {
   );
 
   await expect(page.getByText(/nem siker/)).toBeVisible();
-  await expect(page.getByRole("link", { name: /Fizet/ })).toHaveAttribute(
-    "href",
-    `/penztar?sumup=cancelled&orderId=${successfulOrder.id}`,
-  );
+  await expect(page.getByRole("link", { name: /Fizet/ })).toHaveAttribute("href", `/penztar?sumup=cancelled&orderId=${successfulOrder.id}`);
 });
 
 test("customer can view account order history and details", async ({ page }) => {
@@ -237,35 +266,59 @@ test("customer can view account order history and details", async ({ page }) => 
   await page.getByRole("link", { name: /Reszletek|Részletek/ }).click();
 
   await expect(page).toHaveURL(new RegExp(`/fiokom/rendeleseim/${successfulOrder.id}$`));
-  await expect(page.getByRole("heading", { name: successfulOrder.orderNumber })).toBeVisible();
+  await expect(page.getByRole(
+    "heading",
+    { name: successfulOrder.orderNumber }
+  )).toBeVisible();
   await expect(page.getByText(/papiralapu nyugtat|papíralapú nyugtát/)).toBeVisible();
-  await expect(page.getByRole("cell", { name: successfulOrder.items[0].productName })).toBeVisible();
+  await expect(page.getByRole(
+    "cell",
+    { name: successfulOrder.items[0].productName }
+  )).toBeVisible();
 });
 
-test("customers can send three pending messages and see their follow-ups", async ({ page }) => {
-  await signInAsCustomer(page);
-  await mockAccountOrdersApi(page);
-  let writes = 0;
-  await page.route(`http://localhost:5097/api/orders/${successfulOrder.id}/withdrawal-requests`, async route => {
-    writes++;
-    await route.fulfill({ status: 201, json: {
-      id: writes, orderId: successfulOrder.id, reason: route.request().postDataJSON().reason,
-      status: 1, requestedAtUtc: "2026-10-08T10:00:00Z", handledAtUtc: null,
-    } });
-  });
-  await page.goto(`/fiokom/rendeleseim/${successfulOrder.id}`);
-  const reason = page.getByLabel("Kérés leírása", { exact: true });
-  for (let index = 1; index <= 3; index++) {
-    await expect(reason).toBeEnabled();
-    const message = `További kérdésem van: ${index}.`;
-    await reason.fill(message);
-    await page.getByRole("button", { name: "Kérés elküldése", exact: true }).click();
-    await expect(page.getByText(message, { exact: true })).toBeVisible();
+test(
+  "customers can send three pending messages and see their follow-ups",
+  async ({ page }) => {
+    await signInAsCustomer(page);
+    await mockAccountOrdersApi(page);
+    let writes = 0;
+    await page.route(
+      `http://localhost:5097/api/orders/${successfulOrder.id}/withdrawal-requests`,
+      async route => {
+        writes++;
+        await route.fulfill({ status: 201, json: {
+          id: writes, orderId: successfulOrder.id, reason: route.request().postDataJSON().reason,
+          status: 1, requestedAtUtc: "2026-10-08T10:00:00Z", handledAtUtc: null,
+        } });
+      }
+    );
+    await page.goto(`/fiokom/rendeleseim/${successfulOrder.id}`);
+    const reason = page.getByLabel(
+      "Kérés leírása",
+      { exact: true }
+    );
+    for (let index = 1; index <= 3; index++) {
+      await expect(reason).toBeEnabled();
+      const message = `További kérdésem van: ${index}.`;
+      await reason.fill(message);
+      await page.getByRole(
+        "button",
+        { name: "Kérés elküldése", exact: true }
+      ).click();
+      await expect(page.getByText(
+        message,
+        { exact: true }
+      )).toBeVisible();
+    }
+    await expect(reason).toBeDisabled();
+    await expect(page.getByRole(
+      "button",
+      { name: "Üzenetküldési korlát elérve" }
+    )).toBeDisabled();
+    expect(writes).toBe(3);
   }
-  await expect(reason).toBeDisabled();
-  await expect(page.getByRole("button", { name: "Üzenetküldési korlát elérve" })).toBeDisabled();
-  expect(writes).toBe(3);
-});
+);
 
 test("admin can review an order and update its status", async ({ page }) => {
   await signInAsAdmin(page);

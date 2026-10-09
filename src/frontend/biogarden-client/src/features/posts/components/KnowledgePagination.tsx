@@ -11,9 +11,13 @@ export default function KnowledgePagination({
   onPageChange,
   className = "mt-8",
 }: KnowledgePaginationProps) {
-  if (totalPages <= 1) return null;
+  if (totalPages <= 1)
+    return null;
 
-  const pages = Array.from({ length: totalPages }, (_, index) => index + 1);
+  const pages = Array.from(
+    { length: totalPages },
+    (_, index) => index + 1
+  );
 
   function changePage(page: number) {
     onPageChange(page);

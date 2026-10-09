@@ -16,7 +16,8 @@ public sealed class ApiProblemResultFilter : IAlwaysRunResultFilter
             StatusCodeResult result => result.StatusCode,
             _ => null
         };
-        if (status is null or < 400 or >= 500) return;
+        if (status is null or < 400 or >= 500)
+            return;
 
         var value = (context.Result as ObjectResult)?.Value;
         var problem = value as ApiErrorResponse;
@@ -37,7 +38,8 @@ public sealed class ApiProblemResultFilter : IAlwaysRunResultFilter
             if (value is ProblemDetails existing)
             {
                 problem.Title = existing.Title ?? problem.Title;
-                if (existing is ValidationProblemDetails validation) problem.Errors = validation.Errors;
+                if (existing is ValidationProblemDetails validation)
+                    problem.Errors = validation.Errors;
             }
         }
         problem.TraceId = context.HttpContext.TraceIdentifier;

@@ -100,8 +100,7 @@ public sealed class CartCleanupTests : IAsyncLifetime
         using var cancellation = new CancellationTokenSource();
         cancellation.Cancel();
         var repository = new CartRepository(database, _clock);
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => repository.DeleteExpiredBatchAsync(
-            _clock.GetUtcNow().UtcDateTime.AddDays(-7), 10, cancellation.Token));
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => repository.DeleteExpiredBatchAsync(_clock.GetUtcNow().UtcDateTime.AddDays(-7), 10, cancellation.Token));
         Assert.Equal(1, await database.Carts.CountAsync());
         Assert.Equal(1, await RunAsync(10));
     }
@@ -156,8 +155,7 @@ public sealed class CartCleanupTests : IAsyncLifetime
         public TaskCompletionSource<string> FirstEntry { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
         public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
         public bool IsEnabled(LogLevel logLevel) => true;
-        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception,
-            Func<TState, Exception?, string> formatter) => FirstEntry.TrySetResult(formatter(state, exception));
+        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter) => FirstEntry.TrySetResult(formatter(state, exception));
     }
 
     private async Task<int> RunAsync(int batchSize)

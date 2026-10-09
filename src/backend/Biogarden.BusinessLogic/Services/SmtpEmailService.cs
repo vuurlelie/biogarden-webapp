@@ -15,17 +15,13 @@ public sealed class SmtpEmailService : IEmailService
     private readonly EmailOptions _options;
     private readonly ILogger<SmtpEmailService> _logger;
 
-    public SmtpEmailService(
-        IOptions<EmailOptions> options,
-        ILogger<SmtpEmailService> logger)
+    public SmtpEmailService(IOptions<EmailOptions> options, ILogger<SmtpEmailService> logger)
     {
         _options = options.Value;
         _logger = logger;
     }
 
-    public async Task SendAsync(
-        EmailMessage message,
-        CancellationToken cancellationToken = default)
+    public async Task SendAsync(EmailMessage message, CancellationToken cancellationToken = default)
     {
         ValidateMessage(message);
 
@@ -33,10 +29,7 @@ public sealed class SmtpEmailService : IEmailService
         {
             await WriteDisabledDeliveryPreviewAsync(message, cancellationToken);
 
-            _logger.LogInformation(
-                "Email sending is disabled. Saved preview for email to {Recipient} with subject {Subject}.",
-                message.To,
-                message.Subject);
+            _logger.LogInformation("Email sending is disabled. Saved preview for email to {Recipient} with subject {Subject}.", message.To, message.Subject);
 
             return;
         }
@@ -69,16 +62,10 @@ public sealed class SmtpEmailService : IEmailService
             && !string.IsNullOrWhiteSpace(message.HtmlBody))
         {
             mailMessage.AlternateViews.Add(
-                AlternateView.CreateAlternateViewFromString(
-                    message.PlainTextBody,
-                    contentEncoding: null,
-                    "text/plain"));
+                AlternateView.CreateAlternateViewFromString(message.PlainTextBody, contentEncoding: null, "text/plain"));
 
             mailMessage.AlternateViews.Add(
-                AlternateView.CreateAlternateViewFromString(
-                    message.HtmlBody,
-                    contentEncoding: null,
-                    "text/html"));
+                AlternateView.CreateAlternateViewFromString(message.HtmlBody, contentEncoding: null, "text/html"));
         }
 
         return mailMessage;
@@ -94,17 +81,13 @@ public sealed class SmtpEmailService : IEmailService
 
         if (!string.IsNullOrWhiteSpace(_options.Username))
         {
-            smtpClient.Credentials = new NetworkCredential(
-                _options.Username,
-                _options.Password);
+            smtpClient.Credentials = new NetworkCredential(_options.Username, _options.Password);
         }
 
         return smtpClient;
     }
 
-    private async Task WriteDisabledDeliveryPreviewAsync(
-        EmailMessage message,
-        CancellationToken cancellationToken)
+    private async Task WriteDisabledDeliveryPreviewAsync(EmailMessage message, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(_options.DisabledDeliveryPreviewDirectory))
         {
@@ -121,35 +104,19 @@ public sealed class SmtpEmailService : IEmailService
         if (!string.IsNullOrWhiteSpace(message.HtmlBody))
         {
             var htmlPath = Path.Combine(previewDirectory, $"{baseFileName}.html");
-            await File.WriteAllTextAsync(
-                htmlPath,
-                message.HtmlBody,
-                Encoding.UTF8,
-                cancellationToken);
+            await File.WriteAllTextAsync(htmlPath, message.HtmlBody, Encoding.UTF8, cancellationToken);
 
             var latestHtmlPath = Path.Combine(previewDirectory, "latest.html");
-            await File.WriteAllTextAsync(
-                latestHtmlPath,
-                message.HtmlBody,
-                Encoding.UTF8,
-                cancellationToken);
+            await File.WriteAllTextAsync(latestHtmlPath, message.HtmlBody, Encoding.UTF8, cancellationToken);
         }
 
         if (!string.IsNullOrWhiteSpace(message.PlainTextBody))
         {
             var textPath = Path.Combine(previewDirectory, $"{baseFileName}.txt");
-            await File.WriteAllTextAsync(
-                textPath,
-                message.PlainTextBody,
-                Encoding.UTF8,
-                cancellationToken);
+            await File.WriteAllTextAsync(textPath, message.PlainTextBody, Encoding.UTF8, cancellationToken);
 
             var latestTextPath = Path.Combine(previewDirectory, "latest.txt");
-            await File.WriteAllTextAsync(
-                latestTextPath,
-                message.PlainTextBody,
-                Encoding.UTF8,
-                cancellationToken);
+            await File.WriteAllTextAsync(latestTextPath, message.PlainTextBody, Encoding.UTF8, cancellationToken);
         }
     }
 
@@ -163,24 +130,18 @@ public sealed class SmtpEmailService : IEmailService
     {
         if (!MailAddress.TryCreate(message.To, out _))
         {
-            throw new ArgumentException(
-                "A címzett email címe nem érvényes.",
-                nameof(message));
+            throw new ArgumentException("A címzett email címe nem érvényes.", nameof(message));
         }
 
         if (string.IsNullOrWhiteSpace(message.Subject))
         {
-            throw new ArgumentException(
-                "Az email tárgya kötelező.",
-                nameof(message));
+            throw new ArgumentException("Az email tárgya kötelező.", nameof(message));
         }
 
         if (string.IsNullOrWhiteSpace(message.PlainTextBody)
             && string.IsNullOrWhiteSpace(message.HtmlBody))
         {
-            throw new ArgumentException(
-                "Az email tartalma kötelező.",
-                nameof(message));
+            throw new ArgumentException("Az email tartalma kötelező.", nameof(message));
         }
     }
 }

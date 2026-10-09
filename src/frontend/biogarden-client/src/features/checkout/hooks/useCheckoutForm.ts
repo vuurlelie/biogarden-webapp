@@ -50,14 +50,17 @@ export function useCheckoutForm(cartId: string | undefined) {
     doorbell: draft.deliveryDoorbell,
   };
   useEffect(() => {
-    if (!authenticated || profile) return;
-    if (!draftReady) return;
+    if (!authenticated || profile)
+      return;
+    if (!draftReady)
+      return;
 
     let ignore = false;
 
     void Promise.all([getAddresses(), getProfile()])
       .then(([loadedAddresses, loadedProfile]) => {
-        if (ignore) return;
+        if (ignore)
+          return;
 
         setAddresses(loadedAddresses);
         setProfile(loadedProfile);
@@ -88,14 +91,18 @@ export function useCheckoutForm(cartId: string | undefined) {
       .catch((loadError) => {
         if (!ignore) {
           if (hasErrorStatus(loadError, 401)) {
-            navigate(ROUTES.login, { replace: true });
+            navigate(
+              ROUTES.login,
+              { replace: true }
+            );
             return;
           }
           setError(getErrorMessage(loadError, "A fiókadatok betöltése nem sikerült."));
         }
       })
       .finally(() => {
-        if (!ignore) setLoading(false);
+        if (!ignore)
+          setLoading(false);
       });
 
     return () => {
@@ -118,7 +125,8 @@ export function useCheckoutForm(cartId: string | undefined) {
 
   function fieldClass(field: CheckoutDraftTextField): string {
     const base = "mt-2 block w-full rounded-sm border px-3 py-2.5 disabled:cursor-default";
-    if (fieldErrors[field]) return `${base} border-site-danger bg-white`;
+    if (fieldErrors[field])
+      return `${base} border-site-danger bg-white`;
 
     return isCheckoutFieldValid(field, draft)
       ? `${base} border-site-green bg-site-surface-soft`

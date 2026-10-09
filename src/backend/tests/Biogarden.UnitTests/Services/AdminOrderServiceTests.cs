@@ -57,27 +57,19 @@ public sealed class AdminOrderServiceTests
 
         _databaseContext.SetupGet(context => context.Orders).Returns(orders.Object);
         var emails = new Mock<IOrderEmailRepository>(MockBehavior.Strict);
-        _unitOfWork.SetupGet(x => x.OrderEmailRepository).Returns(emails.Object);
-        emails.Setup(x => x.Add(It.IsAny<OrderEmail>()));
+        _unitOfWork.SetupGet(candidateUnitOfWork => candidateUnitOfWork.OrderEmailRepository).Returns(emails.Object);
+        emails.Setup(orderEmailRepository => orderEmailRepository.Add(It.IsAny<OrderEmail>()));
         _unitOfWork
             .Setup(unitOfWork => unitOfWork.SaveChangesAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(1);
         _emailTemplateService
-            .Setup(service => service.BuildOrderStatusChangedMessage(
-                "customer@example.com",
-                It.Is<OrderDto>(updatedOrder =>
-                    updatedOrder.OrderNumber == order.OrderNumber &&
-                    updatedOrder.Status == OrderStatus.Confirmed)))
+            .Setup(service => service.BuildOrderStatusChangedMessage("customer@example.com", It.Is<OrderDto>(updatedOrder => updatedOrder.OrderNumber == order.OrderNumber && updatedOrder.Status == OrderStatus.Confirmed)))
             .Returns(statusMessage);
         _emailService
             .Setup(service => service.SendAsync(statusMessage, It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
-        var service = new AdminOrderService(
-            _databaseContext.Object,
-            _unitOfWork.Object,
-            _emailService.Object,
-            _emailTemplateService.Object);
+        var service = new AdminOrderService(_databaseContext.Object, _unitOfWork.Object, _emailService.Object, _emailTemplateService.Object);
 
         var result = await service.UpdateAsync(
             order.Id,
@@ -90,8 +82,11 @@ public sealed class AdminOrderServiceTests
 
         Assert.Equal(OrderStatus.Confirmed, result.Status);
         _emailService.Verify(service => service.SendAsync(It.IsAny<EmailMessage>(), It.IsAny<CancellationToken>()), Times.Never);
-        emails.Verify(x => x.Add(It.Is<OrderEmail>(email => email.OrderId == order.Id &&
-            email.Kind == "status" && email.EventId != Guid.Empty && email.Recipient == statusMessage.To)), Times.Once);
+        emails.Verify(
+            orderEmailRepository => orderEmailRepository.Add(It.Is<OrderEmail>(email => email.OrderId == order.Id &&
+                email.Kind == "status" && email.EventId != Guid.Empty && email.Recipient == statusMessage.To)),
+            Times.Once
+        );
     }
 
     private static Mock<DbSet<TEntity>> CreateMockDbSet<TEntity>(IEnumerable<TEntity> entities)
@@ -147,10 +142,7 @@ public sealed class AdminOrderServiceTests
         {
             var expectedResultType = typeof(TResult).GetGenericArguments()[0];
             var executionResult = typeof(IQueryProvider)
-                .GetMethod(
-                    nameof(IQueryProvider.Execute),
-                    1,
-                    [typeof(Expression)])
+                .GetMethod(nameof(IQueryProvider.Execute), 1, [typeof(Expression)])
                 ?? throw new InvalidOperationException("IQueryProvider.Execute method was not found.");
             var typedExecutionResult = executionResult
                 .MakeGenericMethod(expectedResultType)

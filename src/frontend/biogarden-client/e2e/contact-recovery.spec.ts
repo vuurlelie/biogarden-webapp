@@ -4,11 +4,16 @@ import { apiBaseUrl, mockPublicShopApi } from "./fixtures";
 test("contact retry reuses the submission ID and edited content gets a new ID", async ({ page }) => {
   await mockPublicShopApi(page);
   const requests: { submissionId: string; message: string }[] = [];
-  await page.route(`${apiBaseUrl}/api/contact`, async route => {
-    requests.push(route.request().postDataJSON());
-    if (requests.length < 3) await route.fulfill({ status: 503, json: { detail: "Próbáld újra." } });
-    else await route.fulfill({ status: 202, json: { submissionId: requests.at(-1)!.submissionId } });
-  });
+  await page.route(
+    `${apiBaseUrl}/api/contact`,
+    async route => {
+      requests.push(route.request().postDataJSON());
+      if (requests.length < 3)
+        await route.fulfill({ status: 503, json: { detail: "Próbáld újra." } });
+      else
+        await route.fulfill({ status: 202, json: { submissionId: requests.at(-1)!.submissionId } });
+    }
+  );
   await page.goto("/");
   await page.getByRole("button", { name: /Írj nekünk itt|Irj nekunk itt/ }).click();
   await page.locator("#contact-name").fill("Visitor");

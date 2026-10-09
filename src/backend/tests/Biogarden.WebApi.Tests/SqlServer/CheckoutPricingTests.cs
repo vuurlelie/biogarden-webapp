@@ -73,7 +73,7 @@ public sealed class CheckoutPricingTests : IAsyncLifetime
         Assert.Equal(OrderPaymentMethod.CashOnDelivery, order.PaymentMethod);
         Assert.Equal("HUF", order.Currency);
         await using var database = _app.OpenDatabase();
-        await database.Products.Where(x => x.Id == productId).ExecuteUpdateAsync(s => s.SetProperty(x => x.Price, 9999));
+        await database.Products.Where(product => product.Id == productId).ExecuteUpdateAsync(updateSettersBuilder => updateSettersBuilder.SetProperty(product => product.Price, 9999));
         request.QuoteVersion = null;
         request.PaymentMethod = null;
         using var retry = await client.PostAsJsonAsync("/api/orders", request);
@@ -91,7 +91,7 @@ public sealed class CheckoutPricingTests : IAsyncLifetime
         var productId = await AddProductAsync(client);
         var request = await Request().WithQuoteAsync(client);
         await using var database = _app.OpenDatabase();
-        await database.Products.Where(x => x.Id == productId).ExecuteUpdateAsync(s => s.SetProperty(x => x.Price, 5100));
+        await database.Products.Where(product => product.Id == productId).ExecuteUpdateAsync(updateSettersBuilder => updateSettersBuilder.SetProperty(product => product.Price, 5100));
         using var stale = await client.PostAsJsonAsync("/api/orders", request);
         Assert.Equal(HttpStatusCode.Conflict, stale.StatusCode);
         Assert.Empty(await database.Orders.ToListAsync());
@@ -110,8 +110,7 @@ public sealed class CheckoutPricingTests : IAsyncLifetime
         using var owner = _app.Factory.CreateClient();
         using var stranger = _app.Factory.CreateClient();
         await AddProductAsync(owner);
-        using var missing = await stranger.PostAsJsonAsync("/api/orders/quote", new CheckoutQuoteRequest(
-            FulfillmentMethod.HomeDelivery, OrderPaymentMethod.OnlineCard));
+        using var missing = await stranger.PostAsJsonAsync("/api/orders/quote", new CheckoutQuoteRequest(FulfillmentMethod.HomeDelivery, OrderPaymentMethod.OnlineCard));
         Assert.Equal(HttpStatusCode.NotFound, missing.StatusCode);
         foreach (var choice in new[] {
             new CheckoutQuoteRequest(FulfillmentMethod.HomeDelivery, OrderPaymentMethod.PayAtPickup),
@@ -148,8 +147,8 @@ public sealed class CheckoutPricingTests : IAsyncLifetime
         using var blocked = await owner.PostAsync($"/api/orders/{order.Id}/sumup-checkout", null);
         Assert.Equal(HttpStatusCode.Conflict, blocked.StatusCode);
         Assert.Contains("nem online", await blocked.Content.ReadAsStringAsync());
-        await using var db = _app.OpenDatabase();
-        Assert.Null((await db.Orders.SingleAsync()).SumUpCheckoutId);
+        await using var databaseContext = _app.OpenDatabase();
+        Assert.Null((await databaseContext.Orders.SingleAsync()).SumUpCheckoutId);
     }
 
     [SqlServerFact]
@@ -189,8 +188,7 @@ public sealed class CheckoutPricingTests : IAsyncLifetime
 
     [SqlServerTheory]
     [MemberData(nameof(PurchaseCombinations))]
-    public async Task EverySupportedPurchasePersistsReviewedTotalsDespiteInjectedAmounts(
-        FulfillmentMethod method, OrderPaymentMethod payment, bool company)
+    public async Task EverySupportedPurchasePersistsReviewedTotalsDespiteInjectedAmounts(FulfillmentMethod method, OrderPaymentMethod payment, bool company)
     {
         using var client = _app.Factory.CreateClient();
         await AddProductAsync(client);
@@ -240,13 +238,13 @@ public sealed class CheckoutPricingTests : IAsyncLifetime
         Assert.Equal(quote.PaymentFee, order.PaymentFee);
         Assert.Equal("HUF", order.Currency);
         Assert.Equal(payment, order.PaymentMethod);
-        await using var db = _app.OpenDatabase();
-        var saved = await db.Orders.SingleAsync();
+        await using var databaseContext = _app.OpenDatabase();
+        var saved = await databaseContext.Orders.SingleAsync();
         Assert.Equal(order.TotalPrice, saved.TotalPrice);
         Assert.Equal(request.CustomerType, saved.CustomerType);
         Assert.Equal(company ? "Matrix Kft." : null, saved.BillingCompanyName);
-        Assert.Equal(2, (await db.Products.SingleAsync()).StockQuantity);
-        Assert.Equal(2, await db.OrderEmails.CountAsync());
+        Assert.Equal(2, (await databaseContext.Products.SingleAsync()).StockQuantity);
+        Assert.Equal(2, await databaseContext.OrderEmails.CountAsync());
     }
 
     [SqlServerFact]
@@ -265,12 +263,12 @@ public sealed class CheckoutPricingTests : IAsyncLifetime
         using var disabled = await client.PostAsJsonAsync("/api/orders", request);
         Assert.Equal(HttpStatusCode.Conflict, disabled.StatusCode);
         var methods = (await client.GetFromJsonAsync<CheckoutMethodDto[]>("/api/orders/checkout-methods"))!;
-        Assert.DoesNotContain(methods, x => x.FulfillmentMethod == FulfillmentMethod.HomeDelivery);
-        await using var db = _app.OpenDatabase();
-        Assert.Empty(await db.Orders.ToListAsync());
-        Assert.Empty(await db.OrderEmails.ToListAsync());
-        Assert.Equal(3, (await db.Products.SingleAsync()).StockQuantity);
-        Assert.False((await db.Carts.SingleAsync()).IsCheckedOut);
+        Assert.DoesNotContain(methods, checkoutMethod => checkoutMethod.FulfillmentMethod == FulfillmentMethod.HomeDelivery);
+        await using var databaseContext = _app.OpenDatabase();
+        Assert.Empty(await databaseContext.Orders.ToListAsync());
+        Assert.Empty(await databaseContext.OrderEmails.ToListAsync());
+        Assert.Equal(3, (await databaseContext.Products.SingleAsync()).StockQuantity);
+        Assert.False((await databaseContext.Carts.SingleAsync()).IsCheckedOut);
     }
 
     [SqlServerFact]
@@ -289,9 +287,9 @@ public sealed class CheckoutPricingTests : IAsyncLifetime
         Assert.Equal(HttpStatusCode.Conflict, quote.StatusCode);
         var methods = (await client.GetFromJsonAsync<CheckoutMethodDto[]>("/api/orders/checkout-methods"))!;
         Assert.All(methods, method => Assert.DoesNotContain(OrderPaymentMethod.CashOnDelivery, method.PaymentMethods));
-        await using var db = _app.OpenDatabase();
-        Assert.Empty(await db.Orders.ToListAsync());
-        Assert.Empty(await db.OrderEmails.ToListAsync());
-        Assert.Equal(3, (await db.Products.SingleAsync()).StockQuantity);
+        await using var databaseContext = _app.OpenDatabase();
+        Assert.Empty(await databaseContext.Orders.ToListAsync());
+        Assert.Empty(await databaseContext.OrderEmails.ToListAsync());
+        Assert.Equal(3, (await databaseContext.Products.SingleAsync()).StockQuantity);
     }
 }

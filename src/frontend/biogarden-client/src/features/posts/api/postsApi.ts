@@ -12,12 +12,15 @@ export type PostListQuery = {
 function buildPostQuery(query: PostListQuery = {}) {
   const params = new URLSearchParams();
 
-  if (query.page) params.set("page", String(query.page));
-  if (query.pageSize) params.set("pageSize", String(query.pageSize));
+  if (query.page)
+    params.set("page", String(query.page));
+  if (query.pageSize)
+    params.set("pageSize", String(query.pageSize));
   if (query.category !== undefined && query.category !== "all") {
     params.set("category", String(query.category));
   }
-  if (query.sort) params.set("sort", query.sort);
+  if (query.sort)
+    params.set("sort", query.sort);
 
   const queryString = params.toString();
   return queryString ? `?${queryString}` : "";
@@ -43,8 +46,10 @@ export async function getAllPosts(): Promise<Post[]> {
   }
 
   const remainingPages = await Promise.all(
-    Array.from({ length: firstPage.totalPages - 1 }, (_, index) =>
-      getPostPage({ page: index + 2, pageSize, sort: "newest" }),
+    Array.from(
+      { length: firstPage.totalPages - 1 },
+      (_, index) =>
+        getPostPage({ page: index + 2, pageSize, sort: "newest" }),
     ),
   );
 

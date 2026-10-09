@@ -16,7 +16,7 @@ public sealed class BrowserCookieRequestFilter : IAsyncActionFilter
             context.Result = new UnauthorizedResult();
             return Task.CompletedTask;
         }
-        if (context.HttpContext.User.HasClaim(x => x.Type == BrowserAuthentication.SessionClaim))
+        if (context.HttpContext.User.HasClaim(claim => claim.Type == BrowserAuthentication.SessionClaim))
             return new BrowserSessionRequestAttribute().OnActionExecutionAsync(context, next);
         return next();
     }

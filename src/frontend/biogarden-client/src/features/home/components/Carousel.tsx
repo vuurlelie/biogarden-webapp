@@ -11,39 +11,56 @@ export default function Carousel({
   auto = false,
   interval = 5000,
 }: CarouselProps) {
-  const slides = useMemo(() => React.Children.toArray(children), [children]);
+  const slides = useMemo(
+    () => React.Children.toArray(children),
+    [children]
+  );
   const [current, setCurrent] = useState(0);
   const [paused, setPaused] = useState(false);
   const focusRef = useRef(false);
   const hoverRef = useRef(false);
   const explicitResumeRef = useRef(false);
 
-  const previous = useCallback(() => {
-    setCurrent((current) => (current === 0 ? slides.length - 1 : current - 1));
-  }, [slides.length]);
+  const previous = useCallback(
+    () => {
+      setCurrent((current) => (current === 0 ? slides.length - 1 : current - 1));
+    },
+    [slides.length]
+  );
 
-  const next = useCallback(() => {
-    setCurrent((current) => (current === slides.length - 1 ? 0 : current + 1));
-  }, [slides.length]);
+  const next = useCallback(
+    () => {
+      setCurrent((current) => (current === slides.length - 1 ? 0 : current + 1));
+    },
+    [slides.length]
+  );
 
-  useEffect(() => {
-    if (!auto || paused || slides.length <= 1)
-      return;
+  useEffect(
+    () => {
+      if (!auto || paused || slides.length <= 1)
+        return;
 
-    const id = setInterval(() => {
-      if ((explicitResumeRef.current || (!hoverRef.current && !focusRef.current)) && !window.matchMedia("(prefers-reduced-motion: reduce)").matches) next();
-    }, Math.max(2000, interval));
-    return () => clearInterval(id);
-  }, [auto, paused, next, interval, slides.length]);
+      const id = setInterval(
+        () => {
+          if ((explicitResumeRef.current || (!hoverRef.current && !focusRef.current)) && !window.matchMedia("(prefers-reduced-motion: reduce)").matches)
+            next();
+        },
+        Math.max(2000, interval)
+      );
+      return () => clearInterval(id);
+    },
+    [auto, paused, next, interval, slides.length]
+  );
 
   const playbackLabel = paused ? "Automatikus lejátszás folytatása" : "Automatikus lejátszás szüneteltetése";
   const startX = useRef<number | null>(null);
 
-  const onTouchStart = (e: React.TouchEvent) => (startX.current = e.touches[0].clientX);
+  const onTouchStart = (touchEvent: React.TouchEvent) => (startX.current = touchEvent.touches[0].clientX);
 
-  const onTouchEnd = (e: React.TouchEvent) => {
-    if (startX.current == null) return;
-    const dx = e.changedTouches[0].clientX - startX.current;
+  const onTouchEnd = (touchEvent: React.TouchEvent) => {
+    if (startX.current == null)
+      return;
+    const dx = touchEvent.changedTouches[0].clientX - startX.current;
     if (Math.abs(dx) > 40) {
       if (dx > 0) {
         previous();
@@ -65,12 +82,24 @@ export default function Carousel({
       aria-label="Kertészeti képek"
       onFocusCapture={event => {
         focusRef.current = true;
-        if (!(event.target as HTMLElement).closest("[data-carousel-playback]")) explicitResumeRef.current = false;
+        if (!(event.target as HTMLElement).closest("[data-carousel-playback]"))
+          explicitResumeRef.current = false;
       }}
-      onBlurCapture={event => { if (!event.currentTarget.contains(event.relatedTarget)) { focusRef.current = false; explicitResumeRef.current = false; } }}
+      onBlurCapture={event => {
+        if (!event.currentTarget.contains(event.relatedTarget)) {
+          focusRef.current = false;
+          explicitResumeRef.current = false;
+        }
+      }}
       onKeyDown={event => {
-        if (event.key === "ArrowLeft") { event.preventDefault(); previous(); }
-        if (event.key === "ArrowRight") { event.preventDefault(); next(); }
+        if (event.key === "ArrowLeft") {
+          event.preventDefault();
+          previous();
+        }
+        if (event.key === "ArrowRight") {
+          event.preventDefault();
+          next();
+        }
       }}
       aria-roledescription="carousel"
     >
@@ -78,8 +107,8 @@ export default function Carousel({
         className="flex transition-transform ease-out duration-500"
         style={{ transform: `translateX(-${current * 100}%)` }}
       >
-        {slides.map((node, i) => (
-          <div key={i} className="min-w-full">
+        {slides.map((node, slideIndex) => (
+          <div key={slideIndex} className="min-w-full">
             {node}
           </div>
         ))}
@@ -132,13 +161,13 @@ export default function Carousel({
       </button>}
       <div className="absolute bottom-3 left-0 right-0">
         <div className="flex items-center justify-center gap-2">
-          {slides.map((_, i) => (
+          {slides.map((_, slideIndex) => (
             <button
-              key={i}
-              onClick={() => setCurrent(i)}
-              aria-label={`Ugrás a(z) ${i + 1}. diára`}
+              key={slideIndex}
+              onClick={() => setCurrent(slideIndex)}
+              aria-label={`Ugrás a(z) ${slideIndex + 1}. diára`}
               className={`transition-all w-1 h-1 rounded-full bg-white ${
-                current === i ? "scale-110" : "opacity-60"
+                current === slideIndex ? "scale-110" : "opacity-60"
               }`}
             />
           ))}

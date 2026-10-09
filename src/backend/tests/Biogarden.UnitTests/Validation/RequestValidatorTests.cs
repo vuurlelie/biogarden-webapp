@@ -78,8 +78,8 @@ public sealed class RequestValidatorTests
     [Fact]
     public async Task Product_RejectsUndefinedEnumsNegativeStockAndOverlongName()
     {
-        var dto = new ProductCreateDto { Name = new string('a', 201), StockQuantity = -1, Category = (ProductCategory)999 };
-        var result = await new ProductCreateDtoValidator().ValidateAsync(dto);
+        var productCreate = new ProductCreateDto { Name = new string('a', 201), StockQuantity = -1, Category = (ProductCategory)999 };
+        var result = await new ProductCreateDtoValidator().ValidateAsync(productCreate);
         Assert.Contains(result.Errors, error => error.PropertyName == "Name");
         Assert.Contains(result.Errors, error => error.PropertyName == "StockQuantity");
         Assert.Contains(result.Errors, error => error.PropertyName == "Category");

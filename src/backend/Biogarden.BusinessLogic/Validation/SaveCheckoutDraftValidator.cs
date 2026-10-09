@@ -7,33 +7,33 @@ public sealed class SaveCheckoutDraftValidator : AbstractValidator<SaveCheckoutD
 {
     public SaveCheckoutDraftValidator()
     {
-        RuleFor(x => x.Fields).NotNull();
-        When(x => x.Fields is not null, () =>
+        RuleFor(saveCheckoutDraft => saveCheckoutDraft.Fields).NotNull();
+        When(saveCheckoutDraft => saveCheckoutDraft.Fields is not null, () =>
         {
-            RuleFor(x => x.Fields.FulfillmentMethod).IsInEnum().When(x => x.Fields.FulfillmentMethod.HasValue);
-            RuleFor(x => x.Fields.GlsDeliveryPointId).MaximumLength(100);
-            RuleFor(x => x.Fields.CustomerName).NotNull().MaximumLength(200);
-            RuleFor(x => x.Fields.CustomerEmail).NotNull().MaximumLength(256);
-            RuleFor(x => x.Fields.CustomerPhone).NotNull().MaximumLength(50);
-            RuleFor(x => x.Fields.PostalCode).NotNull().MaximumLength(20);
-            RuleFor(x => x.Fields.City).NotNull().MaximumLength(100);
-            RuleFor(x => x.Fields.Street).NotNull().MaximumLength(200);
-            RuleFor(x => x.Fields.HouseNumber).NotNull().MaximumLength(50);
-            RuleFor(x => x.Fields.Building).NotNull().MaximumLength(50);
-            RuleFor(x => x.Fields.Floor).NotNull().MaximumLength(50);
-            RuleFor(x => x.Fields.Door).NotNull().MaximumLength(50);
-            RuleFor(x => x.Fields.Doorbell).NotNull().MaximumLength(50);
-            RuleFor(x => x.Fields.BillingCompanyName).NotNull().MaximumLength(200);
-            RuleFor(x => x.Fields.BillingTaxNumber).NotNull().MaximumLength(20);
-            RuleFor(x => x.Fields.DeliveryPostalCode).NotNull().MaximumLength(20);
-            RuleFor(x => x.Fields.DeliveryCity).NotNull().MaximumLength(100);
-            RuleFor(x => x.Fields.DeliveryStreet).NotNull().MaximumLength(200);
-            RuleFor(x => x.Fields.DeliveryHouseNumber).NotNull().MaximumLength(50);
-            RuleFor(x => x.Fields.DeliveryBuilding).NotNull().MaximumLength(50);
-            RuleFor(x => x.Fields.DeliveryFloor).NotNull().MaximumLength(50);
-            RuleFor(x => x.Fields.DeliveryDoor).NotNull().MaximumLength(50);
-            RuleFor(x => x.Fields.DeliveryDoorbell).NotNull().MaximumLength(50);
-            RuleFor(x => x.Fields.CustomerType).InclusiveBetween(0, 1);
+            RuleFor(saveCheckoutDraft => saveCheckoutDraft.Fields.FulfillmentMethod).IsInEnum().When(saveCheckoutDraft => saveCheckoutDraft.Fields.FulfillmentMethod.HasValue);
+            RuleFor(saveCheckoutDraft => saveCheckoutDraft.Fields.GlsDeliveryPointId).MaximumLength(100);
+            RuleFor(saveCheckoutDraft => saveCheckoutDraft.Fields.CustomerName).NotNull().MaximumLength(200);
+            RuleFor(saveCheckoutDraft => saveCheckoutDraft.Fields.CustomerEmail).NotNull().MaximumLength(256);
+            RuleFor(saveCheckoutDraft => saveCheckoutDraft.Fields.CustomerPhone).NotNull().MaximumLength(50);
+            RuleFor(saveCheckoutDraft => saveCheckoutDraft.Fields.PostalCode).NotNull().MaximumLength(20);
+            RuleFor(saveCheckoutDraft => saveCheckoutDraft.Fields.City).NotNull().MaximumLength(100);
+            RuleFor(saveCheckoutDraft => saveCheckoutDraft.Fields.Street).NotNull().MaximumLength(200);
+            RuleFor(saveCheckoutDraft => saveCheckoutDraft.Fields.HouseNumber).NotNull().MaximumLength(50);
+            RuleFor(saveCheckoutDraft => saveCheckoutDraft.Fields.Building).NotNull().MaximumLength(50);
+            RuleFor(saveCheckoutDraft => saveCheckoutDraft.Fields.Floor).NotNull().MaximumLength(50);
+            RuleFor(saveCheckoutDraft => saveCheckoutDraft.Fields.Door).NotNull().MaximumLength(50);
+            RuleFor(saveCheckoutDraft => saveCheckoutDraft.Fields.Doorbell).NotNull().MaximumLength(50);
+            RuleFor(saveCheckoutDraft => saveCheckoutDraft.Fields.BillingCompanyName).NotNull().MaximumLength(200);
+            RuleFor(saveCheckoutDraft => saveCheckoutDraft.Fields.BillingTaxNumber).NotNull().MaximumLength(20);
+            RuleFor(saveCheckoutDraft => saveCheckoutDraft.Fields.DeliveryPostalCode).NotNull().MaximumLength(20);
+            RuleFor(saveCheckoutDraft => saveCheckoutDraft.Fields.DeliveryCity).NotNull().MaximumLength(100);
+            RuleFor(saveCheckoutDraft => saveCheckoutDraft.Fields.DeliveryStreet).NotNull().MaximumLength(200);
+            RuleFor(saveCheckoutDraft => saveCheckoutDraft.Fields.DeliveryHouseNumber).NotNull().MaximumLength(50);
+            RuleFor(saveCheckoutDraft => saveCheckoutDraft.Fields.DeliveryBuilding).NotNull().MaximumLength(50);
+            RuleFor(saveCheckoutDraft => saveCheckoutDraft.Fields.DeliveryFloor).NotNull().MaximumLength(50);
+            RuleFor(saveCheckoutDraft => saveCheckoutDraft.Fields.DeliveryDoor).NotNull().MaximumLength(50);
+            RuleFor(saveCheckoutDraft => saveCheckoutDraft.Fields.DeliveryDoorbell).NotNull().MaximumLength(50);
+            RuleFor(saveCheckoutDraft => saveCheckoutDraft.Fields.CustomerType).InclusiveBetween(0, 1);
         });
     }
 }

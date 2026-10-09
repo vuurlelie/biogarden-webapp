@@ -22,14 +22,15 @@ public class CartService : ICartService
     public Task<CartDto> GetCartAsync(Guid? userId, string? sessionId, CancellationToken cancellationToken = default)
         => WithOwnerLockAsync(userId, sessionId, () => GetCartCoreAsync(userId, sessionId, cancellationToken), cancellationToken);
 
-    public Task<CartDto> AddItemAsync(Guid? userId, string? sessionId, AddCartItemDto dto, CancellationToken cancellationToken = default)
+    public Task<CartDto> AddItemAsync(Guid? userId, string? sessionId, AddCartItemDto addCartItem, CancellationToken cancellationToken = default)
     {
-        if (dto.Quantity <= 0) throw new ArgumentException("A mennyiségnek pozitívnak kell lennie.");
-        return WithOwnerLockAsync(userId, sessionId, () => AddItemCoreAsync(userId, sessionId, dto, cancellationToken), cancellationToken);
+        if (addCartItem.Quantity <= 0)
+            throw new ArgumentException("A mennyiségnek pozitívnak kell lennie.");
+        return WithOwnerLockAsync(userId, sessionId, () => AddItemCoreAsync(userId, sessionId, addCartItem, cancellationToken), cancellationToken);
     }
 
-    public Task<CartDto> UpdateItemQuantityAsync(Guid? userId, string? sessionId, Guid cartItemId, UpdateCartItemQuantityDto dto, CancellationToken cancellationToken = default)
-        => WithOwnerLockAsync(userId, sessionId, () => UpdateItemQuantityCoreAsync(userId, sessionId, cartItemId, dto, cancellationToken), cancellationToken);
+    public Task<CartDto> UpdateItemQuantityAsync(Guid? userId, string? sessionId, Guid cartItemId, UpdateCartItemQuantityDto updateCartItemQuantity, CancellationToken cancellationToken = default)
+        => WithOwnerLockAsync(userId, sessionId, () => UpdateItemQuantityCoreAsync(userId, sessionId, cartItemId, updateCartItemQuantity, cancellationToken), cancellationToken);
 
     public Task<CartDto> RemoveItemAsync(Guid? userId, string? sessionId, Guid cartItemId, CancellationToken cancellationToken = default)
         => WithOwnerLockAsync(userId, sessionId, () => RemoveItemCoreAsync(userId, sessionId, cartItemId, cancellationToken), cancellationToken);
@@ -39,12 +40,16 @@ public class CartService : ICartService
 
     public Task<CartDto> MergeGuestCartIntoUserCartAsync(Guid userId, string guestSessionId, CancellationToken cancellationToken = default, string? browserSession = null)
     {
-        if (string.IsNullOrWhiteSpace(guestSessionId)) throw new ArgumentException("A guest session azonosító nem lehet üres.");
+        if (string.IsNullOrWhiteSpace(guestSessionId))
+            throw new ArgumentException("A guest session azonosító nem lehet üres.");
         // Every merge locks the destination user first, then its guest source. Other
         // operations own only one lock, so competing merges cannot form a lock cycle.
-        return WithOwnerLockAsync(userId, null,
-            () => WithOwnerLockAsync(null, guestSessionId,
-                () => MergeGuestCartIntoUserCartCoreAsync(userId, guestSessionId, cancellationToken, browserSession), cancellationToken), cancellationToken);
+        return WithOwnerLockAsync(
+            userId,
+            null,
+            () => WithOwnerLockAsync(null, guestSessionId, () => MergeGuestCartIntoUserCartCoreAsync(userId, guestSessionId, cancellationToken, browserSession), cancellationToken),
+            cancellationToken
+        );
     }
 
     private async Task<CartDto> WithOwnerLockAsync(Guid? userId, string? sessionId, Func<Task<CartDto>> operation, CancellationToken cancellationToken)
@@ -53,16 +58,9 @@ public class CartService : ICartService
         return await operation();
     }
 
-    private async Task<CartDto> GetCartCoreAsync(
-        Guid? userId,
-        string? sessionId,
-        CancellationToken cancellationToken = default)
+    private async Task<CartDto> GetCartCoreAsync(Guid? userId, string? sessionId, CancellationToken cancellationToken = default)
     {
-        var cart = await GetOrCreateCartAsync(
-            userId,
-            sessionId,
-            createIfMissing: true,
-            cancellationToken);
+        var cart = await GetOrCreateCartAsync(userId, sessionId, createIfMissing: true, cancellationToken);
 
         TouchCart(cart, GetUtcNow());
         await _unitOfWork.SaveChangesAsync(cancellationToken);
@@ -70,26 +68,16 @@ public class CartService : ICartService
         return await MapCartAsync(cart, cancellationToken);
     }
 
-    private async Task<CartDto> AddItemCoreAsync(
-        Guid? userId,
-        string? sessionId,
-        AddCartItemDto addCartItemDto,
-        CancellationToken cancellationToken = default)
+    private async Task<CartDto> AddItemCoreAsync(Guid? userId, string? sessionId, AddCartItemDto addCartItemDto, CancellationToken cancellationToken = default)
     {
         if (addCartItemDto.Quantity <= 0)
         {
             throw new ArgumentException("A mennyiségnek pozitívnak kell lennie.");
         }
 
-        var cart = await GetOrCreateCartAsync(
-            userId,
-            sessionId,
-            createIfMissing: true,
-            cancellationToken);
+        var cart = await GetOrCreateCartAsync(userId, sessionId, createIfMissing: true, cancellationToken);
 
-        var product = await _unitOfWork.ProductRepository.GetByIdAsync(
-            addCartItemDto.ProductId,
-            cancellationToken);
+        var product = await _unitOfWork.ProductRepository.GetByIdAsync(addCartItemDto.ProductId, cancellationToken);
 
         if (product is null)
         {
@@ -109,21 +97,13 @@ public class CartService : ICartService
                 ? addCartItemDto.Quantity
                 : existingCartItem.Quantity + addCartItemDto.Quantity;
 
-        await EnsureEnoughStockAsync(
-            productId: product.Id,
-            requestedQuantity: targetQuantity,
-            cartId: cart.Id,
-            cancellationToken);
+        await EnsureEnoughStockAsync(productId: product.Id, requestedQuantity: targetQuantity, cartId: cart.Id, cancellationToken);
 
         var now = GetUtcNow();
 
         if (existingCartItem is null)
         {
-            var cartItem = CreateCartItem(
-                cart,
-                product,
-                addCartItemDto.Quantity,
-                now);
+            var cartItem = CreateCartItem(cart, product, addCartItemDto.Quantity, now);
 
             await _unitOfWork.CartRepository.AddItemAsync(cartItem, cancellationToken);
         }
@@ -141,15 +121,13 @@ public class CartService : ICartService
         return await MapCartAsync(updatedCart, cancellationToken);
     }
 
-    public async Task<int> GetAvailableQuantityToAddAsync(
-        Guid? userId,
-        string? sessionId,
-        int productId,
-        CancellationToken cancellationToken = default)
+    public async Task<int> GetAvailableQuantityToAddAsync(Guid? userId, string? sessionId, int productId, CancellationToken cancellationToken = default)
     {
         var product = await _unitOfWork.ProductRepository.GetByIdAsync(productId, cancellationToken);
-        if (product is null) throw new KeyNotFoundException($"Product with id {productId} was not found.");
-        if (!product.Available) return 0;
+        if (product is null)
+            throw new KeyNotFoundException($"Product with id {productId} was not found.");
+        if (!product.Available)
+            return 0;
 
         var cart = await ResolveExistingCartAsync(userId, sessionId, cancellationToken);
         var reservedByOtherCarts = await _unitOfWork.CartRepository
@@ -160,18 +138,9 @@ public class CartService : ICartService
         return Math.Max(0, product.StockQuantity - reservedByOtherCarts - quantityAlreadyInCart);
     }
 
-    private async Task<CartDto> UpdateItemQuantityCoreAsync(
-        Guid? userId,
-        string? sessionId,
-        Guid cartItemId,
-        UpdateCartItemQuantityDto updateCartItemQuantityDto,
-        CancellationToken cancellationToken = default)
+    private async Task<CartDto> UpdateItemQuantityCoreAsync(Guid? userId, string? sessionId, Guid cartItemId, UpdateCartItemQuantityDto updateCartItemQuantityDto, CancellationToken cancellationToken = default)
     {
-        var cart = await GetOrCreateCartAsync(
-            userId,
-            sessionId,
-            createIfMissing: false,
-            cancellationToken);
+        var cart = await GetOrCreateCartAsync(userId, sessionId, createIfMissing: false, cancellationToken);
 
         var cartItem = cart.Items
             .SingleOrDefault(item => item.Id == cartItemId);
@@ -194,11 +163,7 @@ public class CartService : ICartService
             return await MapCartAsync(updatedCartAfterRemove, cancellationToken);
         }
 
-        await EnsureEnoughStockAsync(
-            productId: cartItem.ProductId,
-            requestedQuantity: updateCartItemQuantityDto.Quantity,
-            cartId: cart.Id,
-            cancellationToken);
+        await EnsureEnoughStockAsync(productId: cartItem.ProductId, requestedQuantity: updateCartItemQuantityDto.Quantity, cartId: cart.Id, cancellationToken);
 
         var now = GetUtcNow();
         cartItem.Quantity = updateCartItemQuantityDto.Quantity;
@@ -213,17 +178,9 @@ public class CartService : ICartService
         return await MapCartAsync(updatedCart, cancellationToken);
     }
 
-    private async Task<CartDto> RemoveItemCoreAsync(
-        Guid? userId,
-        string? sessionId,
-        Guid cartItemId,
-        CancellationToken cancellationToken = default)
+    private async Task<CartDto> RemoveItemCoreAsync(Guid? userId, string? sessionId, Guid cartItemId, CancellationToken cancellationToken = default)
     {
-        var cart = await GetOrCreateCartAsync(
-            userId,
-            sessionId,
-            createIfMissing: false,
-            cancellationToken);
+        var cart = await GetOrCreateCartAsync(userId, sessionId, createIfMissing: false, cancellationToken);
 
         var cartItem = cart.Items
             .SingleOrDefault(item => item.Id == cartItemId);
@@ -245,16 +202,9 @@ public class CartService : ICartService
         return await MapCartAsync(updatedCart, cancellationToken);
     }
 
-    private async Task<CartDto> ClearCartCoreAsync(
-        Guid? userId,
-        string? sessionId,
-        CancellationToken cancellationToken = default)
+    private async Task<CartDto> ClearCartCoreAsync(Guid? userId, string? sessionId, CancellationToken cancellationToken = default)
     {
-        var cart = await GetOrCreateCartAsync(
-            userId,
-            sessionId,
-            createIfMissing: false,
-            cancellationToken);
+        var cart = await GetOrCreateCartAsync(userId, sessionId, createIfMissing: false, cancellationToken);
 
         cart.Items.Clear();
 
@@ -267,25 +217,16 @@ public class CartService : ICartService
         return await MapCartAsync(updatedCart, cancellationToken);
     }
 
-    private async Task<CartDto> MergeGuestCartIntoUserCartCoreAsync(
-        Guid userId,
-        string guestSessionId,
-        CancellationToken cancellationToken = default, string? browserSession = null)
+    private async Task<CartDto> MergeGuestCartIntoUserCartCoreAsync(Guid userId, string guestSessionId, CancellationToken cancellationToken = default, string? browserSession = null)
     {
         if (string.IsNullOrWhiteSpace(guestSessionId))
         {
             throw new ArgumentException("A guest session azonosító nem lehet üres.");
         }
 
-        var userCart = await GetOrCreateCartAsync(
-            userId,
-            sessionId: null,
-            createIfMissing: true,
-            cancellationToken);
+        var userCart = await GetOrCreateCartAsync(userId, sessionId: null, createIfMissing: true, cancellationToken);
 
-        var guestCart = await _unitOfWork.CartRepository.GetActiveBySessionIdAsync(
-            guestSessionId.Trim(),
-            cancellationToken);
+        var guestCart = await _unitOfWork.CartRepository.GetActiveBySessionIdAsync(guestSessionId.Trim(), cancellationToken);
 
         if (guestCart is null || guestCart.Id == userCart.Id)
         {
@@ -294,8 +235,7 @@ public class CartService : ICartService
 
         var now = GetUtcNow();
 
-        var reservations = await _unitOfWork.CartRepository.GetActiveReservedQuantitiesAsync(
-            guestCart.Items.Select(item => item.ProductId).Distinct().ToArray(), userCart.Id, guestCart.Id, cancellationToken);
+        var reservations = await _unitOfWork.CartRepository.GetActiveReservedQuantitiesAsync(guestCart.Items.Select(item => item.ProductId).Distinct().ToArray(), userCart.Id, guestCart.Id, cancellationToken);
 
         foreach (var guestCartItem in guestCart.Items.ToList())
         {
@@ -306,26 +246,15 @@ public class CartService : ICartService
                     ? guestCartItem.Quantity
                     : existingUserCartItem.Quantity + guestCartItem.Quantity;
 
-            await EnsureEnoughStockAsync(
-                productId: guestCartItem.ProductId,
-                requestedQuantity: mergedQuantity,
-                cartId: userCart.Id,
-                cancellationToken,
-                reservations: reservations);
+            await EnsureEnoughStockAsync(productId: guestCartItem.ProductId, requestedQuantity: mergedQuantity, cartId: userCart.Id, cancellationToken, reservations: reservations);
 
             if (existingUserCartItem is null)
             {
                 var product = guestCartItem.Product ??
-                    await _unitOfWork.ProductRepository.GetByIdAsync(
-                        guestCartItem.ProductId,
-                        cancellationToken)
+                    await _unitOfWork.ProductRepository.GetByIdAsync(guestCartItem.ProductId, cancellationToken)
                     ?? throw new KeyNotFoundException(
                         $"Product with id {guestCartItem.ProductId} was not found.");
-                var cartItem = CreateCartItem(
-                    userCart,
-                    product,
-                    guestCartItem.Quantity,
-                    now);
+                var cartItem = CreateCartItem(userCart, product, guestCartItem.Quantity, now);
 
                 await _unitOfWork.CartRepository.AddItemAsync(cartItem, cancellationToken);
             }
@@ -350,6 +279,7 @@ public class CartService : ICartService
             userCart.CheckoutDraftExpiresAtUtc = guestCart.CheckoutDraftExpiresAtUtc < userCart.ExpiresAtUtc
                 ? guestCart.CheckoutDraftExpiresAtUtc : userCart.ExpiresAtUtc;
         }
+
         guestCart.ClearCheckoutDraft();
 
         await _unitOfWork.SaveChangesAsync(cancellationToken);
@@ -359,10 +289,7 @@ public class CartService : ICartService
         return await MapCartAsync(updatedCart, cancellationToken);
     }
 
-    public async Task<CartValidationResultDto> ValidateCartForCheckoutAsync(
-        Guid? userId,
-        string? sessionId,
-        CancellationToken cancellationToken = default)
+    public async Task<CartValidationResultDto> ValidateCartForCheckoutAsync(Guid? userId, string? sessionId, CancellationToken cancellationToken = default)
     {
         var cart = await ResolveExistingCartAsync(userId, sessionId, cancellationToken);
 
@@ -397,14 +324,11 @@ public class CartService : ICartService
         }
 
         var issues = new List<CartValidationIssueDto>();
-        var reservations = await _unitOfWork.CartRepository.GetActiveReservedQuantitiesAsync(
-            cart.Items.Select(item => item.ProductId).Distinct().ToArray(), cart.Id, null, cancellationToken);
+        var reservations = await _unitOfWork.CartRepository.GetActiveReservedQuantitiesAsync(cart.Items.Select(item => item.ProductId).Distinct().ToArray(), cart.Id, null, cancellationToken);
 
         foreach (var cartItem in cart.Items)
         {
-            var product = await _unitOfWork.ProductRepository.GetByIdAsync(
-                cartItem.ProductId,
-                cancellationToken);
+            var product = await _unitOfWork.ProductRepository.GetByIdAsync(cartItem.ProductId, cancellationToken);
 
             if (product is null)
             {
@@ -453,11 +377,7 @@ public class CartService : ICartService
         };
     }
 
-    private async Task<Cart> GetOrCreateCartAsync(
-        Guid? userId,
-        string? sessionId,
-        bool createIfMissing,
-        CancellationToken cancellationToken)
+    private async Task<Cart> GetOrCreateCartAsync(Guid? userId, string? sessionId, bool createIfMissing, CancellationToken cancellationToken)
     {
         var existingCart = await ResolveExistingCartAsync(userId, sessionId, cancellationToken);
 
@@ -495,35 +415,24 @@ public class CartService : ICartService
         return await ReloadCartAsync(cart.Id, cancellationToken);
     }
 
-    private async Task<Cart?> ResolveExistingCartAsync(
-        Guid? userId,
-        string? sessionId,
-        CancellationToken cancellationToken)
+    private async Task<Cart?> ResolveExistingCartAsync(Guid? userId, string? sessionId, CancellationToken cancellationToken)
     {
         if (userId.HasValue)
         {
-            return await _unitOfWork.CartRepository.GetActiveByUserIdAsync(
-                userId.Value,
-                cancellationToken);
+            return await _unitOfWork.CartRepository.GetActiveByUserIdAsync(userId.Value, cancellationToken);
         }
 
         if (!string.IsNullOrWhiteSpace(sessionId))
         {
-            return await _unitOfWork.CartRepository.GetActiveBySessionIdAsync(
-                sessionId.Trim(),
-                cancellationToken);
+            return await _unitOfWork.CartRepository.GetActiveBySessionIdAsync(sessionId.Trim(), cancellationToken);
         }
 
         return null;
     }
 
-    private async Task<Cart> ReloadCartAsync(
-        Guid cartId,
-        CancellationToken cancellationToken)
+    private async Task<Cart> ReloadCartAsync(Guid cartId, CancellationToken cancellationToken)
     {
-        var cart = await _unitOfWork.CartRepository.GetByIdWithItemsAsync(
-            cartId,
-            cancellationToken);
+        var cart = await _unitOfWork.CartRepository.GetByIdWithItemsAsync(cartId, cancellationToken);
 
         if (cart is null)
         {
@@ -533,26 +442,16 @@ public class CartService : ICartService
         return cart;
     }
 
-    private async Task<CartDto> MapCartAsync(
-        Cart cart,
-        CancellationToken cancellationToken)
+    private async Task<CartDto> MapCartAsync(Cart cart, CancellationToken cancellationToken)
     {
-        var reservedQuantitiesByProductId = await _unitOfWork.CartRepository.GetActiveReservedQuantitiesAsync(
-            cart.Items.Select(item => item.ProductId).Distinct().ToArray(), cart.Id, null, cancellationToken);
+        var reservedQuantitiesByProductId = await _unitOfWork.CartRepository.GetActiveReservedQuantitiesAsync(cart.Items.Select(item => item.ProductId).Distinct().ToArray(), cart.Id, null, cancellationToken);
 
         return cart.ToDto(reservedQuantitiesByProductId);
     }
 
-    private async Task EnsureEnoughStockAsync(
-        int productId,
-        int requestedQuantity,
-        Guid cartId,
-        CancellationToken cancellationToken,
-        IReadOnlyDictionary<int, int>? reservations = null)
+    private async Task EnsureEnoughStockAsync(int productId, int requestedQuantity, Guid cartId, CancellationToken cancellationToken, IReadOnlyDictionary<int, int>? reservations = null)
     {
-        var product = await _unitOfWork.ProductRepository.GetByIdAsync(
-            productId,
-            cancellationToken);
+        var product = await _unitOfWork.ProductRepository.GetByIdAsync(productId, cancellationToken);
 
         if (product is null)
         {
@@ -568,8 +467,7 @@ public class CartService : ICartService
         // A merge transfers existing reservations; neither participating cart is a competitor.
         var reservedQuantity = reservations is not null
             ? reservations.GetValueOrDefault(productId)
-            : await _unitOfWork.CartRepository.GetActiveReservedQuantityForProductAsync(
-                productId, cartId, cancellationToken);
+            : await _unitOfWork.CartRepository.GetActiveReservedQuantityForProductAsync(productId, cartId, cancellationToken);
 
         var availableStock = Math.Max(0, product.StockQuantity - reservedQuantity);
 
@@ -587,11 +485,7 @@ public class CartService : ICartService
     private static CartItem? FindItemByProductId(Cart cart, int productId) =>
         cart.Items.SingleOrDefault(item => item.ProductId == productId);
 
-    private static CartItem CreateCartItem(
-        Cart cart,
-        Product product,
-        int quantity,
-        DateTime now) =>
+    private static CartItem CreateCartItem(Cart cart, Product product, int quantity, DateTime now) =>
         new()
         {
             Id = Guid.NewGuid(),

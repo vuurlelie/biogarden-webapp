@@ -40,13 +40,17 @@ export default function AccountOrderDetailsPage() {
   const [withdrawalValidationError, setWithdrawalValidationError] = useState("");
   const cancellationSuccessModalRef = useRef<HTMLElement | null>(null);
 
-  useModalFocus(cancellationSuccessModalRef, {
-    isOpen: Boolean(cancellationSuccess),
-    onClose: () => setCancellationSuccess(null),
-  });
+  useModalFocus(
+    cancellationSuccessModalRef,
+    {
+      isOpen: Boolean(cancellationSuccess),
+      onClose: () => setCancellationSuccess(null),
+    }
+  );
 
   async function handleWithdrawalRequest() {
-    if (!order || isRequestingWithdrawal || order.withdrawalRequests.filter(request => request.status === 1).length >= MAX_PENDING_ORDER_REQUESTS) return;
+    if (!order || isRequestingWithdrawal || order.withdrawalRequests.filter(request => request.status === 1).length >= MAX_PENDING_ORDER_REQUESTS)
+      return;
     if (withdrawalReason.trim().length < 10) {
       setWithdrawalValidationError("Írd le legalább 10 karakterben a kérésedet.");
       return;
@@ -72,7 +76,8 @@ export default function AccountOrderDetailsPage() {
   }
 
   async function handleCancelOrder() {
-    if (!order) return;
+    if (!order)
+      return;
     setIsCancelling(true);
     setError("");
     try {
@@ -87,40 +92,49 @@ export default function AccountOrderDetailsPage() {
     }
   }
 
-  useEffect(() => {
-    let shouldIgnoreResult = false;
+  useEffect(
+    () => {
+      let shouldIgnoreResult = false;
 
-    if (!orderId) {
-      setNotFound(true);
-      setIsLoading(false);
-      return;
-    }
-
-    async function loadOrder() {
-      try {
-        const loadedOrder = await getOrderById(orderId!);
-        if (!shouldIgnoreResult) setOrder(loadedOrder);
-      } catch (loadError) {
-        if (shouldIgnoreResult) return;
-        if (hasErrorStatus(loadError, 401)) {
-          navigate(ROUTES.login, { replace: true });
-          return;
-        }
-        if (hasErrorStatus(loadError, 404)) {
-          setNotFound(true);
-          return;
-        }
-        setError(getErrorMessage(loadError, "A rendelés betöltése nem sikerült."));
-      } finally {
-        if (!shouldIgnoreResult) setIsLoading(false);
+      if (!orderId) {
+        setNotFound(true);
+        setIsLoading(false);
+        return;
       }
-    }
 
-    void loadOrder();
-    return () => {
-      shouldIgnoreResult = true;
-    };
-  }, [navigate, orderId]);
+      async function loadOrder() {
+        try {
+          const loadedOrder = await getOrderById(orderId!);
+          if (!shouldIgnoreResult)
+            setOrder(loadedOrder);
+        } catch (loadError) {
+          if (shouldIgnoreResult)
+            return;
+          if (hasErrorStatus(loadError, 401)) {
+            navigate(
+              ROUTES.login,
+              { replace: true }
+            );
+            return;
+          }
+          if (hasErrorStatus(loadError, 404)) {
+            setNotFound(true);
+            return;
+          }
+          setError(getErrorMessage(loadError, "A rendelés betöltése nem sikerült."));
+        } finally {
+          if (!shouldIgnoreResult)
+            setIsLoading(false);
+        }
+      }
+
+      void loadOrder();
+      return () => {
+        shouldIgnoreResult = true;
+      };
+    },
+    [navigate, orderId]
+  );
 
   if (isLoading) {
     return <div className="rounded-sm bg-site-surface-soft p-10 text-center shadow-md">Rendelés betöltése...</div>;
@@ -284,7 +298,8 @@ export default function AccountOrderDetailsPage() {
             value={withdrawalReason}
             onChange={(event) => {
               setWithdrawalReason(event.target.value);
-              if (withdrawalValidationError) setWithdrawalValidationError("");
+              if (withdrawalValidationError)
+                setWithdrawalValidationError("");
             }}
             disabled={requestLimitReached || isRequestingWithdrawal}
             maxLength={MAX_REQUEST_LENGTH}

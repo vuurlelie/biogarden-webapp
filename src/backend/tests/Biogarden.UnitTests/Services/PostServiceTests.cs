@@ -16,7 +16,7 @@ public sealed class PostServiceTests
 
     public PostServiceTests()
     {
-        _unitOfWork.SetupGet(x => x.PostRepository).Returns(_posts.Object);
+        _unitOfWork.SetupGet(unitOfWork => unitOfWork.PostRepository).Returns(_posts.Object);
         _service = new PostService(_unitOfWork.Object);
     }
 
@@ -32,15 +32,7 @@ public sealed class PostServiceTests
         };
 
         _posts
-            .Setup(repository => repository.GetPagedAsync(
-                null,
-                PostCategory.Recipe,
-                true,
-                null,
-                "oldest",
-                2,
-                4,
-                It.IsAny<CancellationToken>()))
+            .Setup(repository => repository.GetPagedAsync(null, PostCategory.Recipe, true, null, "oldest", 2, 4, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new PagedResult<Post>(
                 [new Post { Id = 3, Title = "Recept", Article = "Legalabb husz karakteres szoveg" }],
                 2,
@@ -68,15 +60,7 @@ public sealed class PostServiceTests
         };
 
         _posts
-            .Setup(repository => repository.GetPagedAsync(
-                "palanta",
-                null,
-                false,
-                true,
-                string.Empty,
-                1,
-                12,
-                It.IsAny<CancellationToken>()))
+            .Setup(repository => repository.GetPagedAsync("palanta", null, false, true, string.Empty, 1, 12, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new PagedResult<Post>(
                 [new Post { Id = 4, Title = "Piszkozat", Article = "Legalabb husz karakteres szoveg", Draft = true }],
                 1,

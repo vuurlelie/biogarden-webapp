@@ -17,36 +17,26 @@ public sealed class ContactService : IContactService
     private readonly IEmailTemplateService _emailTemplateService;
     private readonly EmailBrandingOptions _brandingOptions;
 
-    public ContactService(
-        INotificationEmailRepository repository,
-        IEmailTemplateService emailTemplateService,
-        IOptions<EmailBrandingOptions> brandingOptions)
+    public ContactService(INotificationEmailRepository repository, IEmailTemplateService emailTemplateService, IOptions<EmailBrandingOptions> brandingOptions)
     {
         _repository = repository;
         _emailTemplateService = emailTemplateService;
         _brandingOptions = brandingOptions.Value;
     }
 
-    public async Task SendMessageAsync(
-        ContactMessageRequestDto contactMessageRequestDto,
-        CancellationToken cancellationToken = default)
+    public async Task SendMessageAsync(ContactMessageRequestDto contactMessageRequestDto, CancellationToken cancellationToken = default)
     {
-        if (contactMessageRequestDto.SubmissionId == Guid.Empty) throw new ArgumentException("Az üzenetazonosító megadása kötelező.");
+        if (contactMessageRequestDto.SubmissionId == Guid.Empty)
+            throw new ArgumentException("Az üzenetazonosító megadása kötelező.");
         var normalizedRequest = Normalize(contactMessageRequestDto);
         var hash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(normalizedRequest))));
         var now = DateTime.UtcNow;
 
-        var businessMessage = _emailTemplateService.BuildContactBusinessNotificationMessage(
-            _brandingOptions.ContactEmail,
-            normalizedRequest);
+        var businessMessage = _emailTemplateService.BuildContactBusinessNotificationMessage(_brandingOptions.ContactEmail, normalizedRequest);
 
 
-        var visitorMessage = _emailTemplateService.BuildContactVisitorConfirmationMessage(
-            normalizedRequest.Email,
-            normalizedRequest);
-        await _repository.AcceptContactAsync([
-            Create("contact-business", businessMessage), Create("contact-visitor", visitorMessage)
-        ], cancellationToken);
+        var visitorMessage = _emailTemplateService.BuildContactVisitorConfirmationMessage(normalizedRequest.Email, normalizedRequest);
+        await _repository.AcceptContactAsync([Create("contact-business", businessMessage), Create("contact-visitor", visitorMessage)], cancellationToken);
 
         NotificationEmail Create(string kind, EmailMessage message) => new()
         {

@@ -83,48 +83,58 @@ export default function AdminPostFormModal({ post, onClose, onSaved }: Props) {
 
   const previewUrl = selectedImagePreviewUrl || imageUrl(form.image);
 
-  useModalFocus(modalRef, {
-    isOpen: true,
-    onClose: () => {
-      if (!saving) onClose();
-    },
-  });
-
-  useEffect(() => {
-    setPreviewFailed(false);
-  }, [previewUrl]);
-
-  useEffect(() => {
-    if (!imageFile) {
-      setSelectedImagePreviewUrl("");
-      return;
+  useModalFocus(
+    modalRef,
+    {
+      isOpen: true,
+      onClose: () => {
+        if (!saving)
+          onClose();
+      },
     }
+  );
 
-    let cancelled = false;
-    const reader = new FileReader();
+  useEffect(
+    () => {
+      setPreviewFailed(false);
+    },
+    [previewUrl]
+  );
 
-    reader.onload = () => {
-      if (!cancelled && typeof reader.result === "string") {
-        setSelectedImagePreviewUrl(reader.result);
-      }
-    };
-
-    reader.onerror = () => {
-      if (!cancelled) {
+  useEffect(
+    () => {
+      if (!imageFile) {
         setSelectedImagePreviewUrl("");
-        setPreviewFailed(true);
+        return;
       }
-    };
 
-    reader.readAsDataURL(imageFile);
+      let cancelled = false;
+      const reader = new FileReader();
 
-    return () => {
-      cancelled = true;
-      if (reader.readyState === FileReader.LOADING) {
-        reader.abort();
-      }
-    };
-  }, [imageFile]);
+      reader.onload = () => {
+        if (!cancelled && typeof reader.result === "string") {
+          setSelectedImagePreviewUrl(reader.result);
+        }
+      };
+
+      reader.onerror = () => {
+        if (!cancelled) {
+          setSelectedImagePreviewUrl("");
+          setPreviewFailed(true);
+        }
+      };
+
+      reader.readAsDataURL(imageFile);
+
+      return () => {
+        cancelled = true;
+        if (reader.readyState === FileReader.LOADING) {
+          reader.abort();
+        }
+      };
+    },
+    [imageFile]
+  );
 
   function update<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((current) => ({ ...current, [key]: value }));
@@ -145,7 +155,8 @@ export default function AdminPostFormModal({ post, onClose, onSaved }: Props) {
   }
 
   function renderFieldError(field: PostInvalidField) {
-    if (!fieldErrors[field]) return null;
+    if (!fieldErrors[field])
+      return null;
 
     return (
       <p id={getErrorId(field)} className="mt-1 text-xs font-normal text-site-danger">
@@ -156,7 +167,8 @@ export default function AdminPostFormModal({ post, onClose, onSaved }: Props) {
 
   function clearFieldError(field: PostInvalidField) {
     setFieldErrors((current) => {
-      if (!current[field]) return current;
+      if (!current[field])
+        return current;
       const next = { ...current };
       delete next[field];
       return next;
@@ -223,7 +235,10 @@ export default function AdminPostFormModal({ post, onClose, onSaved }: Props) {
 
       onSaved(post ? "A bejegyzés módosítása sikerült." : "Az új bejegyzés létrehozása sikerült.");
     } catch (saveError) {
-      setFieldErrors(getServerFieldErrors(saveError, ["title", "article", "publishedAt", "image"] as const));
+      setFieldErrors(getServerFieldErrors(
+        saveError,
+        ["title", "article", "publishedAt", "image"] as const
+      ));
       setFormError(getErrorMessage(saveError, "A mentés nem sikerült."));
     } finally {
       setSaving(false);

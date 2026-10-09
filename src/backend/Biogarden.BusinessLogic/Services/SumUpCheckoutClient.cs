@@ -15,15 +15,9 @@ public sealed class SumUpCheckoutClient : ISumUpCheckoutClient
         _httpClient = httpClient;
     }
 
-    public async Task<SumUpCheckoutResult> CreateAsync(
-        SumUpCreateCheckoutRequest request,
-        string apiKey,
-        Uri apiBaseUrl,
-        CancellationToken cancellationToken = default)
+    public async Task<SumUpCheckoutResult> CreateAsync(SumUpCreateCheckoutRequest request, string apiKey, Uri apiBaseUrl, CancellationToken cancellationToken = default)
     {
-        using var httpRequest = new HttpRequestMessage(
-            HttpMethod.Post,
-            new Uri(apiBaseUrl, "/v0.1/checkouts"));
+        using var httpRequest = new HttpRequestMessage(HttpMethod.Post, new Uri(apiBaseUrl, "/v0.1/checkouts"));
 
         httpRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
         httpRequest.Content = JsonContent.Create(new SumUpCreateCheckoutApiRequest
@@ -48,15 +42,9 @@ public sealed class SumUpCheckoutClient : ISumUpCheckoutClient
         return checkout.ToResult();
     }
 
-    public async Task<SumUpCheckoutResult> GetAsync(
-        string checkoutId,
-        string apiKey,
-        Uri apiBaseUrl,
-        CancellationToken cancellationToken = default)
+    public async Task<SumUpCheckoutResult> GetAsync(string checkoutId, string apiKey, Uri apiBaseUrl, CancellationToken cancellationToken = default)
     {
-        using var httpRequest = new HttpRequestMessage(
-            HttpMethod.Get,
-            new Uri(apiBaseUrl, $"/v0.1/checkouts/{Uri.EscapeDataString(checkoutId)}"));
+        using var httpRequest = new HttpRequestMessage(HttpMethod.Get, new Uri(apiBaseUrl, $"/v0.1/checkouts/{Uri.EscapeDataString(checkoutId)}"));
 
         httpRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
 
@@ -70,9 +58,7 @@ public sealed class SumUpCheckoutClient : ISumUpCheckoutClient
         return checkout.ToResult();
     }
 
-    private static Task EnsureSuccessAsync(
-        HttpResponseMessage response,
-        CancellationToken cancellationToken)
+    private static Task EnsureSuccessAsync(HttpResponseMessage response, CancellationToken cancellationToken)
     {
         if (response.IsSuccessStatusCode)
         {
@@ -91,7 +77,7 @@ public sealed class SumUpCheckoutClient : ISumUpCheckoutClient
         await EnsureSuccessAsync(response, cancellationToken);
         var checkouts = await response.Content.ReadFromJsonAsync<SumUpCheckoutApiResponse[]>(cancellationToken: cancellationToken)
             ?? throw new InvalidOperationException("SumUp checkout list was empty.");
-        return checkouts.Select(x => x.ToResult()).ToArray();
+        return checkouts.Select(checkoutPayload => checkoutPayload.ToResult()).ToArray();
     }
 
     private sealed class SumUpCreateCheckoutApiRequest
@@ -160,25 +146,24 @@ public sealed class SumUpCheckoutClient : ISumUpCheckoutClient
             // Pending/refunded or contradictory transaction histories require reconciliation, never another charge.
             if (Transactions.Any(transaction => transaction.Status is not ("SUCCESSFUL" or "FAILED" or "CANCELLED")) ||
                 (Status == "PAID" ? successful.Length != 1 : successful.Length != 0))
+            {
                 throw new PaymentRecoveryException();
+            }
+
             var transaction = successful.SingleOrDefault();
+
             if (transaction is not null && (string.IsNullOrWhiteSpace(transaction.TransactionCode) ||
                 transaction.TransactionCode.Length > 200 || !Amount.HasValue || Amount <= 0 ||
                 transaction.Amount != Amount || string.IsNullOrWhiteSpace(Currency) ||
                 !string.Equals(transaction.Currency, Currency, StringComparison.OrdinalIgnoreCase) ||
                 string.IsNullOrWhiteSpace(MerchantCode) || transaction.MerchantCode != MerchantCode))
+            {
                 throw new PaymentRecoveryException();
+            }
+
             var transactionCode = transaction?.TransactionCode;
 
-            return new SumUpCheckoutResult(
-                Id,
-                Status,
-                HostedCheckoutUrl,
-                transactionCode,
-                Amount,
-                Currency,
-                CheckoutReference,
-                MerchantCode);
+            return new SumUpCheckoutResult(Id, Status, HostedCheckoutUrl, transactionCode, Amount, Currency, CheckoutReference, MerchantCode);
         }
     }
 

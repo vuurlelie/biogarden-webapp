@@ -38,8 +38,7 @@ public class AccountSecurityMutationFilter : IAsyncActionFilter
         if (result < 0)
             throw new InvalidOperationException("Másik fiókmódosítás van folyamatban. Kérjük, próbáld újra.");
 
-        if (!await SessionAuthentication.IsCurrentAsync(
-            context.HttpContext.User, context.HttpContext.RequestServices, cancellationToken))
+        if (!await SessionAuthentication.IsCurrentAsync(context.HttpContext.User, context.HttpContext.RequestServices, cancellationToken))
         {
             context.Result = new UnauthorizedResult();
             return;

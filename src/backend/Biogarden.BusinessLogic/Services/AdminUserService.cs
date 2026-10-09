@@ -15,10 +15,7 @@ public sealed class AdminUserService : IAdminUserService
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly IAccountLifecycleOperations _lifecycle;
 
-    public AdminUserService(
-        IAppDbContext databaseContext,
-        UserManager<ApplicationUser> userManager,
-        IAccountLifecycleOperations lifecycle)
+    public AdminUserService(IAppDbContext databaseContext, UserManager<ApplicationUser> userManager, IAccountLifecycleOperations lifecycle)
     {
         _databaseContext = databaseContext;
         _userManager = userManager;
@@ -28,18 +25,24 @@ public sealed class AdminUserService : IAdminUserService
     public async Task<PagedResultDto<AdminUserDto>> GetPageAsync(AdminUserListQuery filter, CancellationToken cancellationToken = default)
     {
         var query = _userManager.Users.AsNoTracking()
-            .Where(x => x.AnonymizedAtUtc == null && (x.Email == null || !x.Email.EndsWith("@deleted.invalid")));
+            .Where(candidateUser => candidateUser.AnonymizedAtUtc == null && (candidateUser.Email == null || !candidateUser.Email.EndsWith("@deleted.invalid")));
         var search = filter.Search?.Trim();
-        if (!string.IsNullOrEmpty(search)) query = query.Where(x =>
-            ((x.LastName ?? "") + " " + (x.FirstName ?? "")).Contains(search)
-            || (x.Email != null && x.Email.Contains(search)) || (x.PhoneNumber != null && x.PhoneNumber.Contains(search))
-            || (x.CompanyName != null && x.CompanyName.Contains(search)) || (x.TaxNumber != null && x.TaxNumber.Contains(search)));
-        var adminIds = _databaseContext.UserRoles.Where(ur => _databaseContext.Roles.Any(r => r.Id == ur.RoleId && r.NormalizedName == "ADMIN")).Select(ur => ur.UserId);
-        if (filter.Role == "admin") query = query.Where(x => adminIds.Contains(x.Id));
-        if (filter.Role == "customer") query = query.Where(x => !adminIds.Contains(x.Id));
-        if (filter.Status == "active") query = query.Where(x => x.DeactivatedAtUtc == null);
-        if (filter.Status == "inactive") query = query.Where(x => x.DeactivatedAtUtc != null);
-        if (filter.Status == "request") query = query.Where(x => _databaseContext.AccountLifecycleRequests.Any(r => r.UserId == x.Id && r.Status == AccountLifecycleRequestStatus.Pending));
+        if (!string.IsNullOrEmpty(search))
+            query = query.Where(candidateUser =>
+            ((candidateUser.LastName ?? "") + " " + (candidateUser.FirstName ?? "")).Contains(search)
+            || (candidateUser.Email != null && candidateUser.Email.Contains(search)) || (candidateUser.PhoneNumber != null && candidateUser.PhoneNumber.Contains(search))
+            || (candidateUser.CompanyName != null && candidateUser.CompanyName.Contains(search)) || (candidateUser.TaxNumber != null && candidateUser.TaxNumber.Contains(search)));
+        var adminIds = _databaseContext.UserRoles.Where(userRole => _databaseContext.Roles.Any(identityRole => identityRole.Id == userRole.RoleId && identityRole.NormalizedName == "ADMIN")).Select(userRole => userRole.UserId);
+        if (filter.Role == "admin")
+            query = query.Where(candidateUser => adminIds.Contains(candidateUser.Id));
+        if (filter.Role == "customer")
+            query = query.Where(candidateUser => !adminIds.Contains(candidateUser.Id));
+        if (filter.Status == "active")
+            query = query.Where(candidateUser => candidateUser.DeactivatedAtUtc == null);
+        if (filter.Status == "inactive")
+            query = query.Where(candidateUser => candidateUser.DeactivatedAtUtc != null);
+        if (filter.Status == "request")
+            query = query.Where(candidateUser => _databaseContext.AccountLifecycleRequests.Any(accountLifecycleRequest => accountLifecycleRequest.UserId == candidateUser.Id && accountLifecycleRequest.Status == AccountLifecycleRequestStatus.Pending));
         var count = await query.CountAsync(cancellationToken);
         var page = AdminPaging.Page(filter, count);
         var users = await query
@@ -83,7 +86,7 @@ public sealed class AdminUserService : IAdminUserService
                                select new { membership.UserId, role.Name }).ToListAsync(cancellationToken);
         foreach (var user in users)
         {
-            var roles = pageRoles.Where(x => x.UserId == user.Id && x.Name != null).Select(x => x.Name!).ToList();
+            var roles = pageRoles.Where(candidateUserRole => candidateUserRole.UserId == user.Id && candidateUserRole.Name != null).Select(candidateUserRole => candidateUserRole.Name!).ToList();
             orderCounts.TryGetValue(user.Id, out var counts);
             pendingRequests.TryGetValue(user.Id, out var pendingRequest);
 
@@ -101,15 +104,20 @@ public sealed class AdminUserService : IAdminUserService
         }
 
         var user = await FindUserAsync(userId, cancellationToken);
+
         if (isAdmin && (user.RecordStatus != RecordStatus.Active || user.DeactivatedAtUtc is not null ||
             user.AnonymizedAtUtc is not null || !user.EmailConfirmed ||
             (user.LockoutEnabled && user.LockoutEnd > DateTimeOffset.UtcNow)))
+        {
             throw new InvalidOperationException("Csak aktív, megerősített fiók kaphat admin jogosultságot.");
+        }
+
         var hasRole = await _userManager.IsInRoleAsync(user, "Admin");
         IdentityResult result = IdentityResult.Success;
 
         // Identity persists the user and role membership together in its SaveChanges call.
-        if (hasRole != isAdmin) user.SecurityStamp = Guid.NewGuid().ToString();
+        if (hasRole != isAdmin)
+            user.SecurityStamp = Guid.NewGuid().ToString();
 
         if (isAdmin && !hasRole)
         {
@@ -181,10 +189,7 @@ public sealed class AdminUserService : IAdminUserService
     public Task<AdminUserErasureResultDto> EraseAsync(Guid userId, Guid currentAdminId, CancellationToken cancellationToken = default)
         => NotificationTransaction.RunAsync(_databaseContext, () => EraseAsyncCore(userId, currentAdminId, cancellationToken), cancellationToken);
 
-    private async Task<AdminUserErasureResultDto> EraseAsyncCore(
-        Guid userId,
-        Guid currentAdminId,
-        CancellationToken cancellationToken = default)
+    private async Task<AdminUserErasureResultDto> EraseAsyncCore(Guid userId, Guid currentAdminId, CancellationToken cancellationToken = default)
     {
         if (userId == currentAdminId)
         {
@@ -230,11 +235,7 @@ public sealed class AdminUserService : IAdminUserService
     public Task<AdminUserDto> CompleteErasureRequestAsync(int requestId, Guid currentAdminId, AdminAccountLifecycleDecisionDto decision, CancellationToken cancellationToken = default)
         => NotificationTransaction.RunAsync(_databaseContext, () => CompleteErasureRequestAsyncCore(requestId, currentAdminId, decision, cancellationToken), cancellationToken);
 
-    private async Task<AdminUserDto> CompleteErasureRequestAsyncCore(
-        int requestId,
-        Guid currentAdminId,
-        AdminAccountLifecycleDecisionDto decision,
-        CancellationToken cancellationToken = default)
+    private async Task<AdminUserDto> CompleteErasureRequestAsyncCore(int requestId, Guid currentAdminId, AdminAccountLifecycleDecisionDto decision, CancellationToken cancellationToken = default)
     {
         var request = await _databaseContext.AccountLifecycleRequests
             .Include("User.ShippingAddress")
@@ -277,11 +278,7 @@ public sealed class AdminUserService : IAdminUserService
         return await BuildUserDtoAsync(user.Id, cancellationToken);
     }
 
-    public async Task<AdminUserDto> RejectRequestAsync(
-        int requestId,
-        Guid currentAdminId,
-        AdminAccountLifecycleDecisionDto decision,
-        CancellationToken cancellationToken = default)
+    public async Task<AdminUserDto> RejectRequestAsync(int requestId, Guid currentAdminId, AdminAccountLifecycleDecisionDto decision, CancellationToken cancellationToken = default)
     {
         var request = await _databaseContext.AccountLifecycleRequests
             .FirstOrDefaultAsync(item => item.Id == requestId, cancellationToken)
@@ -327,12 +324,7 @@ public sealed class AdminUserService : IAdminUserService
         return ToDto(user, roles, orderCount, activeOrderCount, pendingRequest);
     }
 
-    private static AdminUserDto ToDto(
-        ApplicationUser user,
-        IEnumerable<string> roles,
-        int orderCount,
-        int activeOrderCount,
-        AccountLifecycleRequest? pendingRequest)
+    private static AdminUserDto ToDto(ApplicationUser user, IEnumerable<string> roles, int orderCount, int activeOrderCount, AccountLifecycleRequest? pendingRequest)
     {
         return new AdminUserDto
         {
@@ -377,14 +369,11 @@ public sealed class AdminUserService : IAdminUserService
                 && (order.Status == OrderStatus.Pending
                     || order.Status == OrderStatus.Confirmed
                     || order.Status == OrderStatus.Shipped),
-            cancellationToken);
+            cancellationToken
+        );
     }
 
-    private async Task CompletePendingErasureRequestsAsync(
-        Guid userId,
-        Guid currentAdminId,
-        string adminNote,
-        CancellationToken cancellationToken)
+    private async Task CompletePendingErasureRequestsAsync(Guid userId, Guid currentAdminId, string adminNote, CancellationToken cancellationToken)
     {
         var requests = await _databaseContext.AccountLifecycleRequests
             .Where(request => request.UserId == userId

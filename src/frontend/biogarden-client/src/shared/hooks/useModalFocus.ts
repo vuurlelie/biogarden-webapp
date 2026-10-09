@@ -15,15 +15,15 @@ type UseModalFocusOptions = {
   returnFocusRef?: RefObject<HTMLElement | null>;
 };
 
-export function useModalFocus<T extends HTMLElement>(
-  modalRef: RefObject<T | null>,
-  { isOpen, onClose, returnFocusRef }: UseModalFocusOptions,
-) {
+export function useModalFocus<T extends HTMLElement>(modalRef: RefObject<T | null>, { isOpen, onClose, returnFocusRef }: UseModalFocusOptions) {
   const onCloseRef = useRef(onClose);
 
-  useEffect(() => {
-    onCloseRef.current = onClose;
-  }, [onClose]);
+  useEffect(
+    () => {
+      onCloseRef.current = onClose;
+    },
+    [onClose]
+  );
 
   useEffect(() => {
     if (!isOpen) {
@@ -35,7 +35,8 @@ export function useModalFocus<T extends HTMLElement>(
       : null;
     const returnFocusElement = returnFocusRef?.current;
     const modal = modalRef.current;
-    if (!modal) return;
+    if (!modal)
+      return;
 
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
@@ -50,13 +51,17 @@ export function useModalFocus<T extends HTMLElement>(
         }
       }
       branch = branch.parentElement;
-      if (branch === document.body) break;
+      if (branch === document.body)
+        break;
     }
 
-    const focusTimer = window.setTimeout(() => {
-      const firstFocusable = getFocusableElements(modal)[0];
-      (firstFocusable ?? modal)?.focus();
-    }, 0);
+    const focusTimer = window.setTimeout(
+      () => {
+        const firstFocusable = getFocusableElements(modal)[0];
+        (firstFocusable ?? modal)?.focus();
+      },
+      0
+    );
 
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") {

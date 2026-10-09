@@ -23,7 +23,7 @@ public sealed class BrowserSessionTests : IAsyncLifetime
     public async Task ActivityRenewsSession_PassiveReadsDoNot_AndIdleExpiryIsAnonymous()
     {
         var clock = new SessionClock();
-        using var api = _app.Factory.WithWebHostBuilder(builder => builder.ConfigureTestServices(services => services.AddSingleton<TimeProvider>(clock)));
+        using var api = _app.Factory.WithWebHostBuilder(webHostBuilder => webHostBuilder.ConfigureTestServices(services => services.AddSingleton<TimeProvider>(clock)));
         using var client = api.CreateClient();
         await CreateUser();
         var login = await Login(client);
@@ -53,7 +53,7 @@ public sealed class BrowserSessionTests : IAsyncLifetime
         using var other = _app.Factory.CreateClient();
         var login = await Login(first);
         await Login(other);
-        var cookie = login.Headers.GetValues("Set-Cookie").Last(x => x.StartsWith("biogarden_session=")).Split(';')[0];
+        var cookie = login.Headers.GetValues("Set-Cookie").Last(cookieHeader => cookieHeader.StartsWith("biogarden_session=")).Split(';')[0];
         Assert.Equal(HttpStatusCode.NoContent, (await first.PostAsync("/api/auth/logout", null)).StatusCode);
         using var replay = _app.Factory.CreateClient(new() { HandleCookies = false });
         replay.DefaultRequestHeaders.Add("Cookie", cookie);
@@ -67,7 +67,7 @@ public sealed class BrowserSessionTests : IAsyncLifetime
         await CreateUser();
         using var client = _app.Factory.CreateClient();
         var first = await Login(client);
-        var oldCookie = first.Headers.GetValues("Set-Cookie").Last(x => x.StartsWith("biogarden_session=")).Split(';')[0];
+        var oldCookie = first.Headers.GetValues("Set-Cookie").Last(cookieHeader => cookieHeader.StartsWith("biogarden_session=")).Split(';')[0];
         var oldSession = (await first.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("sessionId").GetString();
         var second = await Login(client);
         Assert.NotEqual(oldSession, (await second.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("sessionId").GetString());
@@ -104,8 +104,8 @@ public sealed class BrowserSessionTests : IAsyncLifetime
         await CreateUser();
         using var client = _app.Factory.CreateClient();
         await Login(client);
-        await using (var db = _app.OpenDatabase())
-            await db.Users.ExecuteUpdateAsync(s => s.SetProperty(x => x.SecurityStamp, Guid.NewGuid().ToString()));
+        await using (var databaseContext = _app.OpenDatabase())
+            await databaseContext.Users.ExecuteUpdateAsync(updateSettersBuilder => updateSettersBuilder.SetProperty(user => user.SecurityStamp, Guid.NewGuid().ToString()));
         Assert.Equal(HttpStatusCode.NoContent, (await client.GetAsync("/api/auth/session")).StatusCode);
     }
 
@@ -113,7 +113,7 @@ public sealed class BrowserSessionTests : IAsyncLifetime
     public async Task TicketRenewalCannotResurrectRevokedOrExpiredSession()
     {
         var clock = new SessionClock();
-        using var api = _app.Factory.WithWebHostBuilder(builder => builder.ConfigureTestServices(services => services.AddSingleton<TimeProvider>(clock)));
+        using var api = _app.Factory.WithWebHostBuilder(webHostBuilder => webHostBuilder.ConfigureTestServices(services => services.AddSingleton<TimeProvider>(clock)));
         var store = api.Services.GetRequiredService<DatabaseTicketStore>();
         var properties = new AuthenticationProperties { ExpiresUtc = clock.GetUtcNow().AddMinutes(60) };
         var ticket = new AuthenticationTicket(new ClaimsPrincipal(new ClaimsIdentity([new Claim("test", "value")], "test")), properties, "test");

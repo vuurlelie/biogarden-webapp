@@ -11,9 +11,7 @@ public interface IUnitOfWork
     IOrderEmailRepository OrderEmailRepository { get; }
     IPaymentProviderEventRepository PaymentProviderEventRepository { get; }
 
-    Task<TResult> ExecuteInTransactionAsync<TResult>(
-        Func<CancellationToken, Task<TResult>> operation,
-        CancellationToken cancellationToken = default);
+    Task<TResult> ExecuteInTransactionAsync<TResult>(Func<CancellationToken, Task<TResult>> operation, CancellationToken cancellationToken = default);
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
     void ClearTrackedChanges();

@@ -17,13 +17,15 @@ public sealed class CheckoutPricingOptions
     public void ValidateForStartup()
     {
         if (Currency != SupportedCurrency || DeliveryFees.Count == 0 ||
-            DeliveryFees.Any(x => !Enum.IsDefined(x.Key) || !ValidMoney(x.Value)) ||
-            EnabledPaymentMethods.Length == 0 || EnabledPaymentMethods.Any(x => !Enum.IsDefined(x)) ||
+            DeliveryFees.Any(deliveryFee => !Enum.IsDefined(deliveryFee.Key) || !ValidMoney(deliveryFee.Value)) ||
+            EnabledPaymentMethods.Length == 0 || EnabledPaymentMethods.Any(orderPaymentMethod => !Enum.IsDefined(orderPaymentMethod)) ||
             !ValidMoney(CodLowerFee) || !ValidMoney(CodUpperFee) || CodUpperFee < CodLowerFee ||
             !ValidMoney(CodLowerLimit) || !ValidMoney(CodMaximum) ||
             (EnabledPaymentMethods.Contains(OrderPaymentMethod.CashOnDelivery) &&
                 (CodLowerLimit <= CodLowerFee || CodMaximum <= CodLowerLimit + CodUpperFee)))
+        {
             throw new InvalidOperationException("CheckoutPricing configuration is invalid.");
+        }
     }
 
     private static bool ValidMoney(decimal value) => value >= 0 && value <= 999999999m && decimal.Truncate(value) == value;

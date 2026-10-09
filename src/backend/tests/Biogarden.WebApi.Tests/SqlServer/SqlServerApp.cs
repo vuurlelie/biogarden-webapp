@@ -42,7 +42,8 @@ public sealed class SqlServerApp : IAsyncLifetime
         await using var database = OpenDatabase();
         // Create only a database which does not already exist. EnsureCreated would bypass migrations.
         var creator = database.GetService<Microsoft.EntityFrameworkCore.Storage.IRelationalDatabaseCreator>();
-        if (await creator.ExistsAsync()) throw new InvalidOperationException("Test database already exists.");
+        if (await creator.ExistsAsync())
+            throw new InvalidOperationException("Test database already exists.");
         await creator.CreateAsync();
         _created = true;
         try
@@ -72,8 +73,10 @@ public sealed class SqlServerApp : IAsyncLifetime
 
     public async Task DisposeAsync()
     {
-        if (Factory is not null) await Factory.DisposeAsync();
-        if (!_created) return;
+        if (Factory is not null)
+            await Factory.DisposeAsync();
+        if (!_created)
+            return;
 
         var target = new SqlConnectionStringBuilder(_connectionString).InitialCatalog;
         if (target != _databaseName || !target.StartsWith("BiogardenIntegration_", StringComparison.Ordinal))
@@ -135,7 +138,8 @@ public sealed class SqlServerApp : IAsyncLifetime
         public Task<GlsDeliveryPointDto> ResolveAsync(string id, FulfillmentMethod type, CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            if (Unavailable) throw new GlsDirectoryUnavailableException();
+            if (Unavailable)
+                throw new GlsDirectoryUnavailableException();
             if (!Points.TryGetValue(id, out var point) || point.Type != type)
                 throw new InvalidOperationException("Delivery point no longer available.");
             return Task.FromResult(point);
@@ -150,7 +154,8 @@ public sealed class SqlServerApp : IAsyncLifetime
 
         public Task SendAsync(EmailMessage message, CancellationToken cancellationToken = default)
         {
-            if (Fail) throw new System.Net.Mail.SmtpException("Simulated outage");
+            if (Fail)
+                throw new System.Net.Mail.SmtpException("Simulated outage");
             Sent.Add(message);
             return Task.CompletedTask;
         }
@@ -161,15 +166,20 @@ public sealed class SqlServerApp : IAsyncLifetime
         public bool Enabled { get; set; }
         public bool NotificationsEnabled { get; set; }
 
-        public override ValueTask<InterceptionResult<int>> SavingChangesAsync(
-            DbContextEventData eventData, InterceptionResult<int> result, CancellationToken cancellationToken = default)
+        public override ValueTask<InterceptionResult<int>> SavingChangesAsync(DbContextEventData eventData, InterceptionResult<int> result, CancellationToken cancellationToken = default)
         {
             if (Enabled && eventData.Context!.ChangeTracker.Entries<OrderEmail>()
                 .Any(entry => entry.State == EntityState.Added))
+            {
                 throw new InvalidOperationException("Simulated queue persistence failure");
+            }
+
             if (NotificationsEnabled && eventData.Context!.ChangeTracker.Entries<NotificationEmail>()
                 .Any(entry => entry.State == EntityState.Added))
+            {
                 throw new InvalidOperationException("Simulated notification persistence failure");
+            }
+
             return base.SavingChangesAsync(eventData, result, cancellationToken);
         }
     }
@@ -186,16 +196,18 @@ public sealed class SqlServerApp : IAsyncLifetime
         public Task WaitForBothAsync() => _bothArrived.Task.WaitAsync(TimeSpan.FromSeconds(20));
         public void Release() => _release.TrySetResult();
 
-        public override async ValueTask<InterceptionResult<int>> SavingChangesAsync(
-            DbContextEventData eventData, InterceptionResult<int> result, CancellationToken cancellationToken = default)
+        public override async ValueTask<InterceptionResult<int>> SavingChangesAsync(DbContextEventData eventData, InterceptionResult<int> result, CancellationToken cancellationToken = default)
         {
             if (EntityType is not null && eventData.Context!.ChangeTracker.Entries()
                 .Any(entry => entry.State == State && entry.Entity.GetType() == EntityType))
             {
                 var arrival = Interlocked.Increment(ref _arrivals);
-                if (arrival == 2) _bothArrived.TrySetResult();
-                if (arrival <= 2) await _release.Task.WaitAsync(TimeSpan.FromSeconds(25), cancellationToken);
+                if (arrival == 2)
+                    _bothArrived.TrySetResult();
+                if (arrival <= 2)
+                    await _release.Task.WaitAsync(TimeSpan.FromSeconds(25), cancellationToken);
             }
+
             return result;
         }
     }

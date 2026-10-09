@@ -15,18 +15,30 @@ test("anonymous analytics waits for consent and can be withdrawn", async ({ page
   await mockEmptyCartApi(page);
 
   await page.goto("/");
-  await expect(page.getByRole("region", { name: "Adatvédelmi beállítások" })).toBeVisible();
+  await expect(page.getByRole(
+    "region",
+    { name: "Adatvédelmi beállítások" }
+  )).toBeVisible();
   await expect(capturedEvents(page)).resolves.toHaveLength(0);
 
-  await page.getByRole("button", { name: "Analitika engedélyezése" }).click();
+  await page.getByRole(
+    "button",
+    { name: "Analitika engedélyezése" }
+  ).click();
   await expect
     .poll(async () => (await capturedEvents(page)).some((event) => event.name === "page_view"))
     .toBe(true);
 
   const eventCountAfterConsent = (await capturedEvents(page)).length;
-  await page.getByRole("button", { name: "Adatvédelmi beállítások" }).click();
+  await page.getByRole(
+    "button",
+    { name: "Adatvédelmi beállítások" }
+  ).click();
   await page.getByLabel("Anonim látogatottsági analitika").uncheck();
-  await page.getByRole("button", { name: "Mentés" }).click();
+  await page.getByRole(
+    "button",
+    { name: "Mentés" }
+  ).click();
 
   await page.getByRole("link", { name: /Rólunk|Rolunk/ }).first().click();
   await page.waitForTimeout(250);
@@ -35,9 +47,12 @@ test("anonymous analytics waits for consent and can be withdrawn", async ({ page
 
 test("contact analytics event does not include submitted personal data", async ({ page }) => {
   await mockEmptyCartApi(page);
-  await page.route(`${apiBaseUrl}/api/contact`, async (route) => {
-    await route.fulfill({ status: 204 });
-  });
+  await page.route(
+    `${apiBaseUrl}/api/contact`,
+    async (route) => {
+      await route.fulfill({ status: 204 });
+    }
+  );
   await enableAnalyticsBeforeLoad(page);
 
   await page.goto("/");
@@ -66,11 +81,14 @@ async function captureAnalyticsEvents(page: Page) {
     };
 
     analyticsWindow.__biogardenAnalyticsEvents = [];
-    window.addEventListener("biogarden:analytics-event", (event) => {
-      analyticsWindow.__biogardenAnalyticsEvents.push(
-        (event as CustomEvent<{ name: string; payload: Record<string, unknown> }>).detail,
-      );
-    });
+    window.addEventListener(
+      "biogarden:analytics-event",
+      (event) => {
+        analyticsWindow.__biogardenAnalyticsEvents.push(
+          (event as CustomEvent<{ name: string; payload: Record<string, unknown> }>).detail,
+        );
+      }
+    );
   });
 }
 
@@ -105,7 +123,8 @@ async function waitForCapturedEvent(page: Page, name: string): Promise<CapturedA
 
   const events = await capturedEvents(page);
   const event = events.find((candidate) => candidate.name === name);
-  if (!event) throw new Error(`Analytics event was not captured: ${name}`);
+  if (!event)
+    throw new Error(`Analytics event was not captured: ${name}`);
 
   return event;
 }

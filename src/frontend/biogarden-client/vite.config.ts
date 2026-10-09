@@ -33,8 +33,10 @@ export default defineConfig(({ mode }) => {
       rollupOptions: {
         output: {
           manualChunks(id): string | undefined {
-            if (!id.includes("node_modules")) return undefined;
-            if (id.includes("@tiptap") || id.includes("prosemirror")) return "editor";
+            if (!id.includes("node_modules"))
+              return undefined;
+            if (id.includes("@tiptap") || id.includes("prosemirror"))
+              return "editor";
             return "vendor";
           },
         },

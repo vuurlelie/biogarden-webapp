@@ -22,15 +22,22 @@ export function AnalyticsProvider({ children }: { children: ReactNode }) {
 
   const analyticsEnabled = consent?.analytics === true;
 
-  const saveConsent = useCallback((preferences: ConsentPreferences) => {
-    const stored = saveStoredConsent(preferences);
-    setConsent(stored);
-    setPreferencesOpen(false);
-  }, []);
+  const saveConsent = useCallback(
+    (preferences: ConsentPreferences) => {
+      const stored = saveStoredConsent(preferences);
+      setConsent(stored);
+      setPreferencesOpen(false);
+    },
+    []
+  );
 
   const track = useCallback(
-    (name: AnalyticsEventName, payload: AnalyticsPayload = {}) => {
-      if (!analyticsEnabled) return;
+    (
+      name: AnalyticsEventName,
+      payload: AnalyticsPayload = {}
+    ) => {
+      if (!analyticsEnabled)
+        return;
 
       const event: AnalyticsEvent = {
         name,
@@ -38,7 +45,10 @@ export function AnalyticsProvider({ children }: { children: ReactNode }) {
         occurredAtUtc: new Date().toISOString(),
       };
 
-      window.dispatchEvent(new CustomEvent(ANALYTICS_EVENT_DISPATCHED, { detail: event }));
+      window.dispatchEvent(new CustomEvent(
+        ANALYTICS_EVENT_DISPATCHED,
+        { detail: event }
+      ));
     },
     [analyticsEnabled],
   );

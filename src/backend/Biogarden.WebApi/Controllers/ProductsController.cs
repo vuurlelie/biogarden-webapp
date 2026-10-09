@@ -18,9 +18,7 @@ public sealed class ProductsController : ControllerBase
 
     [HttpGet]
     [ProducesResponseType(typeof(PagedResultDto<ProductListItemDto>), StatusCodes.Status200OK)]
-    public async Task<PagedResultDto<ProductListItemDto>> GetAll(
-        [FromQuery] ProductListQueryDto query,
-        CancellationToken cancellationToken)
+    public async Task<PagedResultDto<ProductListItemDto>> GetAll([FromQuery] ProductListQueryDto query, CancellationToken cancellationToken)
     {
         return await _productService.GetPagedAsync(query, cancellationToken);
     }

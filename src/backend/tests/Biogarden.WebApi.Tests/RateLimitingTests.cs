@@ -33,7 +33,8 @@ public sealed class RateLimitingTests
         request.Headers.Add("Access-Control-Request-Headers", "x-checkout-request,content-type");
         using var response = await client.SendAsync(request);
         Assert.Equal(allowed, response.Headers.Contains("Access-Control-Allow-Origin"));
-        if (allowed) Assert.Equal(origin, Assert.Single(response.Headers.GetValues("Access-Control-Allow-Origin")));
+        if (allowed)
+            Assert.Equal(origin, Assert.Single(response.Headers.GetValues("Access-Control-Allow-Origin")));
     }
 
     [Theory]
@@ -52,7 +53,8 @@ public sealed class RateLimitingTests
         using var client = factory.CreateClient();
         client.DefaultRequestHeaders.Remove("X-Checkout-Request");
         using var request = new HttpRequestMessage(new HttpMethod(method), path);
-        if (path == "/api/cart/items") request.Content = CreateAddCartItemRequestContent();
+        if (path == "/api/cart/items")
+            request.Content = CreateAddCartItemRequestContent();
         using var response = await client.SendAsync(request);
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         Assert.True(response.Headers.CacheControl?.NoStore);
@@ -91,13 +93,17 @@ public sealed class RateLimitingTests
         });
         using var client = factory.CreateClient();
         client.DefaultRequestHeaders.Remove("X-Checkout-Request");
-        if (header) client.DefaultRequestHeaders.Add("X-Checkout-Request", "1");
-        if (origin is not null) client.DefaultRequestHeaders.Add("Origin", origin);
-        if (token is not null) client.DefaultRequestHeaders.Authorization = new("Bearer", token);
+        if (header)
+            client.DefaultRequestHeaders.Add("X-Checkout-Request", "1");
+        if (origin is not null)
+            client.DefaultRequestHeaders.Add("Origin", origin);
+        if (token is not null)
+            client.DefaultRequestHeaders.Authorization = new("Bearer", token);
         using var response = await client.GetAsync("/api/cart");
         Assert.Equal(expected, response.StatusCode);
         Assert.True(response.Headers.CacheControl?.NoStore);
-        if (expected != HttpStatusCode.OK) Assert.False(response.Headers.Contains("Set-Cookie"));
+        if (expected != HttpStatusCode.OK)
+            Assert.False(response.Headers.Contains("Set-Cookie"));
     }
 
     [Theory]
@@ -126,8 +132,7 @@ public sealed class RateLimitingTests
         using var client = factory.CreateClient(new WebApplicationFactoryClientOptions { BaseAddress = new Uri(baseUrl) });
         using var first = await client.GetAsync("/api/cart");
         first.EnsureSuccessStatusCode();
-        var cookie = Assert.Single(Microsoft.Net.Http.Headers.SetCookieHeaderValue.ParseList(first.Headers.GetValues("Set-Cookie").ToList()),
-            item => item.Name == "biogarden_cart_id");
+        var cookie = Assert.Single(Microsoft.Net.Http.Headers.SetCookieHeaderValue.ParseList(first.Headers.GetValues("Set-Cookie").ToList()), item => item.Name == "biogarden_cart_id");
         Assert.Equal(sameSite, cookie.SameSite.ToString());
         Assert.Equal(secure, cookie.Secure);
         Assert.True(cookie.HttpOnly);
@@ -136,8 +141,7 @@ public sealed class RateLimitingTests
 
         using var next = await client.PostAsync("/api/cart/items", CreateAddCartItemRequestContent());
         next.EnsureSuccessStatusCode();
-        var renewed = Assert.Single(Microsoft.Net.Http.Headers.SetCookieHeaderValue.ParseList(next.Headers.GetValues("Set-Cookie").ToList()),
-            item => item.Name == "biogarden_cart_id");
+        var renewed = Assert.Single(Microsoft.Net.Http.Headers.SetCookieHeaderValue.ParseList(next.Headers.GetValues("Set-Cookie").ToList()), item => item.Name == "biogarden_cart_id");
         Assert.Equal(cookie.Value, renewed.Value);
     }
 
@@ -145,9 +149,9 @@ public sealed class RateLimitingTests
     public async Task SensitiveAuthEndpoint_ReturnsTooManyRequests_WhenPolicyLimitIsExceeded()
     {
         using var factory = new BiogardenWebApiFactory()
-            .WithWebHostBuilder(builder =>
+            .WithWebHostBuilder(webHostBuilder =>
             {
-                builder.ConfigureTestServices(services =>
+                webHostBuilder.ConfigureTestServices(services =>
                 {
                     services.RemoveAll<IAuthService>();
                     services.AddScoped<IAuthService, AlwaysFailingAuthService>();
@@ -158,16 +162,12 @@ public sealed class RateLimitingTests
 
         for (var attempt = 0; attempt < 5; attempt++)
         {
-            using var allowedResponse = await client.PostAsync(
-                "/api/auth/login",
-                CreateLoginRequestContent());
+            using var allowedResponse = await client.PostAsync("/api/auth/login", CreateLoginRequestContent());
 
             Assert.Equal(HttpStatusCode.Unauthorized, allowedResponse.StatusCode);
         }
 
-        using var rejectedResponse = await client.PostAsync(
-            "/api/auth/login",
-            CreateLoginRequestContent());
+        using var rejectedResponse = await client.PostAsync("/api/auth/login", CreateLoginRequestContent());
 
         Assert.Equal(HttpStatusCode.TooManyRequests, rejectedResponse.StatusCode);
         Assert.NotNull(rejectedResponse.Headers.RetryAfter?.Delta);
@@ -195,16 +195,12 @@ public sealed class RateLimitingTests
 
         for (var attempt = 0; attempt < 3; attempt++)
         {
-            using var allowedResponse = await client.PostAsync(
-                "/api/contact",
-                CreateContactRequestContent());
+            using var allowedResponse = await client.PostAsync("/api/contact", CreateContactRequestContent());
 
             Assert.Equal(HttpStatusCode.Accepted, allowedResponse.StatusCode);
         }
 
-        using var rejectedResponse = await client.PostAsync(
-            "/api/contact",
-            CreateContactRequestContent());
+        using var rejectedResponse = await client.PostAsync("/api/contact", CreateContactRequestContent());
 
         await AssertRateLimitedResponse(rejectedResponse);
     }
@@ -223,16 +219,12 @@ public sealed class RateLimitingTests
 
         for (var attempt = 0; attempt < 30; attempt++)
         {
-            using var allowedResponse = await client.PostAsync(
-                "/api/cart/items",
-                CreateAddCartItemRequestContent());
+            using var allowedResponse = await client.PostAsync("/api/cart/items", CreateAddCartItemRequestContent());
 
             Assert.Equal(HttpStatusCode.OK, allowedResponse.StatusCode);
         }
 
-        using var rejectedResponse = await client.PostAsync(
-            "/api/cart/items",
-            CreateAddCartItemRequestContent());
+        using var rejectedResponse = await client.PostAsync("/api/cart/items", CreateAddCartItemRequestContent());
 
         await AssertRateLimitedResponse(rejectedResponse);
     }
@@ -251,16 +243,12 @@ public sealed class RateLimitingTests
 
         for (var attempt = 0; attempt < 3; attempt++)
         {
-            using var allowedResponse = await client.PostAsync(
-                "/api/orders",
-                CreateOrderRequestContent());
+            using var allowedResponse = await client.PostAsync("/api/orders", CreateOrderRequestContent());
 
             Assert.Equal(HttpStatusCode.Created, allowedResponse.StatusCode);
         }
 
-        using var rejectedResponse = await client.PostAsync(
-            "/api/orders",
-            CreateOrderRequestContent());
+        using var rejectedResponse = await client.PostAsync("/api/orders", CreateOrderRequestContent());
 
         await AssertRateLimitedResponse(rejectedResponse);
     }
@@ -277,9 +265,7 @@ public sealed class RateLimitingTests
             });
 
         using var client = factory.CreateClient();
-        using var response = await client.PostAsync(
-            "/api/orders",
-            CreateOrderRequestContent("checkout-key-123"));
+        using var response = await client.PostAsync("/api/orders", CreateOrderRequestContent("checkout-key-123"));
 
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
 
@@ -308,16 +294,17 @@ public sealed class RateLimitingTests
         var error = (await response.Content.ReadFromJsonAsync<ApiErrorResponse>())!;
         Assert.DoesNotContain(detail, error.Detail);
         Assert.False(string.IsNullOrWhiteSpace(error.TraceId));
-        if (!databaseFailure) Assert.Equal("Insufficient stock.", error.Detail);
+        if (!databaseFailure)
+            Assert.Equal("Insufficient stock.", error.Detail);
     }
 
     private static WebApplicationFactory<Program> CreateFactory(
         Action<IServiceCollection> configureServices)
     {
         return new BiogardenWebApiFactory()
-            .WithWebHostBuilder(builder =>
+            .WithWebHostBuilder(webHostBuilder =>
             {
-                builder.ConfigureTestServices(configureServices);
+                webHostBuilder.ConfigureTestServices(configureServices);
             });
     }
 
@@ -344,10 +331,7 @@ public sealed class RateLimitingTests
             }
             """;
 
-        return new StringContent(
-            loginRequest,
-            Encoding.UTF8,
-            "application/json");
+        return new StringContent(loginRequest, Encoding.UTF8, "application/json");
     }
 
     private static StringContent CreateContactRequestContent()
@@ -397,10 +381,7 @@ public sealed class RateLimitingTests
 
     private static StringContent CreateJsonContent(string json)
     {
-        return new StringContent(
-            json,
-            Encoding.UTF8,
-            "application/json");
+        return new StringContent(json, Encoding.UTF8, "application/json");
     }
 
     private sealed class AlwaysFailingAuthService : IAuthService
@@ -441,9 +422,7 @@ public sealed class RateLimitingTests
 
     private sealed class SuccessfulContactService : IContactService
     {
-        public Task SendMessageAsync(
-            ContactMessageRequestDto contactMessageRequestDto,
-            CancellationToken cancellationToken = default)
+        public Task SendMessageAsync(ContactMessageRequestDto contactMessageRequestDto, CancellationToken cancellationToken = default)
         {
             return Task.CompletedTask;
         }
@@ -451,72 +430,44 @@ public sealed class RateLimitingTests
 
     private sealed class SuccessfulCartService(Exception? failure = null) : ICartService
     {
-        public Task<CartDto> GetCartAsync(
-            Guid? userId,
-            string? sessionId,
-            CancellationToken cancellationToken = default)
+        public Task<CartDto> GetCartAsync(Guid? userId, string? sessionId, CancellationToken cancellationToken = default)
         {
             return Task.FromResult(CreateCart());
         }
 
-        public Task<CartDto> AddItemAsync(
-            Guid? userId,
-            string? sessionId,
-            AddCartItemDto addCartItemDto,
-            CancellationToken cancellationToken = default)
+        public Task<CartDto> AddItemAsync(Guid? userId, string? sessionId, AddCartItemDto addCartItemDto, CancellationToken cancellationToken = default)
         {
-            if (failure is not null) throw failure;
+            if (failure is not null)
+                throw failure;
             return Task.FromResult(CreateCart());
         }
 
-        public Task<int> GetAvailableQuantityToAddAsync(
-            Guid? userId,
-            string? sessionId,
-            int productId,
-            CancellationToken cancellationToken = default)
+        public Task<int> GetAvailableQuantityToAddAsync(Guid? userId, string? sessionId, int productId, CancellationToken cancellationToken = default)
         {
             return Task.FromResult(10);
         }
 
-        public Task<CartDto> UpdateItemQuantityAsync(
-            Guid? userId,
-            string? sessionId,
-            Guid cartItemId,
-            UpdateCartItemQuantityDto updateCartItemQuantityDto,
-            CancellationToken cancellationToken = default)
+        public Task<CartDto> UpdateItemQuantityAsync(Guid? userId, string? sessionId, Guid cartItemId, UpdateCartItemQuantityDto updateCartItemQuantityDto, CancellationToken cancellationToken = default)
         {
             return Task.FromResult(CreateCart());
         }
 
-        public Task<CartDto> RemoveItemAsync(
-            Guid? userId,
-            string? sessionId,
-            Guid cartItemId,
-            CancellationToken cancellationToken = default)
+        public Task<CartDto> RemoveItemAsync(Guid? userId, string? sessionId, Guid cartItemId, CancellationToken cancellationToken = default)
         {
             return Task.FromResult(CreateCart());
         }
 
-        public Task<CartDto> ClearCartAsync(
-            Guid? userId,
-            string? sessionId,
-            CancellationToken cancellationToken = default)
+        public Task<CartDto> ClearCartAsync(Guid? userId, string? sessionId, CancellationToken cancellationToken = default)
         {
             return Task.FromResult(CreateCart());
         }
 
-        public Task<CartDto> MergeGuestCartIntoUserCartAsync(
-            Guid userId,
-            string guestSessionId,
-            CancellationToken cancellationToken = default, string? browserSession = null)
+        public Task<CartDto> MergeGuestCartIntoUserCartAsync(Guid userId, string guestSessionId, CancellationToken cancellationToken = default, string? browserSession = null)
         {
             return Task.FromResult(CreateCart());
         }
 
-        public Task<CartValidationResultDto> ValidateCartForCheckoutAsync(
-            Guid? userId,
-            string? sessionId,
-            CancellationToken cancellationToken = default)
+        public Task<CartValidationResultDto> ValidateCartForCheckoutAsync(Guid? userId, string? sessionId, CancellationToken cancellationToken = default)
         {
             return Task.FromResult(new CartValidationResultDto());
         }
@@ -538,11 +489,7 @@ public sealed class RateLimitingTests
         public Task<OrderDto> GetCheckoutOrderAsync(Guid? userId, string? sessionId, Guid orderId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<CheckoutQuoteDto> GetCheckoutQuoteAsync(Guid? userId, string? sessionId, CheckoutQuoteRequest request, CancellationToken cancellationToken = default) => throw new NotSupportedException();
 
-        public virtual Task<OrderCreationResult> CreateOrderFromCartAsync(
-            Guid? userId,
-            string? sessionId,
-            PlaceOrderDto dto,
-            CancellationToken cancellationToken = default)
+        public virtual Task<OrderCreationResult> CreateOrderFromCartAsync(Guid? userId, string? sessionId, PlaceOrderDto placeOrder, CancellationToken cancellationToken = default)
         {
             return Task.FromResult(new OrderCreationResult(CreateOrder(), Created: true));
         }
@@ -551,11 +498,7 @@ public sealed class RateLimitingTests
 
         public Task ReconcileSumUpCheckoutAsync(Biogarden.BusinessLogic.Models.Payments.SumUpCheckoutResult checkout, CancellationToken cancellationToken = default) => throw new NotSupportedException();
 
-        public Task<SumUpCheckoutDto> CreateSumUpCheckoutAsync(
-            Guid? userId,
-            string? sessionId,
-            Guid orderId,
-            CancellationToken cancellationToken = default)
+        public Task<SumUpCheckoutDto> CreateSumUpCheckoutAsync(Guid? userId, string? sessionId, Guid orderId, CancellationToken cancellationToken = default)
         {
             return Task.FromResult(new SumUpCheckoutDto
             {
@@ -565,38 +508,22 @@ public sealed class RateLimitingTests
             });
         }
 
-        public Task<OrderDto> ConfirmSumUpCheckoutAsync(
-            string sumUpCheckoutId,
-            string? sumUpTransactionId,
-            decimal? amount = null,
-            string? currency = null,
-            CancellationToken cancellationToken = default)
+        public Task<OrderDto> ConfirmSumUpCheckoutAsync(string sumUpCheckoutId, string? sumUpTransactionId, decimal? amount = null, string? currency = null, CancellationToken cancellationToken = default)
         {
             return Task.FromResult(CreateOrder());
         }
 
-        public Task<OrderDto?> MarkSumUpPaymentFailedAsync(
-            string sumUpCheckoutId,
-            string? sumUpTransactionId,
-            CancellationToken cancellationToken = default)
+        public Task<OrderDto?> MarkSumUpPaymentFailedAsync(string sumUpCheckoutId, string? sumUpTransactionId, CancellationToken cancellationToken = default)
         {
             return Task.FromResult<OrderDto?>(CreateOrder());
         }
 
-        public Task<OrderDto> CancelOrderAsync(
-            Guid userId,
-            Guid orderId,
-            CancelOrderDto dto,
-            CancellationToken cancellationToken = default)
+        public Task<OrderDto> CancelOrderAsync(Guid userId, Guid orderId, CancelOrderDto cancelOrder, CancellationToken cancellationToken = default)
         {
             return Task.FromResult(CreateOrder());
         }
 
-        public Task<OrderWithdrawalRequestDto> RequestWithdrawalAsync(
-            Guid userId,
-            Guid orderId,
-            CreateOrderWithdrawalRequestDto dto,
-            CancellationToken cancellationToken = default)
+        public Task<OrderWithdrawalRequestDto> RequestWithdrawalAsync(Guid userId, Guid orderId, CreateOrderWithdrawalRequestDto createOrderWithdrawalRequest, CancellationToken cancellationToken = default)
         {
             return Task.FromResult(new OrderWithdrawalRequestDto
             {
@@ -604,47 +531,37 @@ public sealed class RateLimitingTests
                 OrderId = orderId,
                 CustomerName = "Test User",
                 CustomerEmail = "test@example.com",
-                Reason = dto.Reason,
+                Reason = createOrderWithdrawalRequest.Reason,
                 Status = OrderWithdrawalRequestStatus.Pending,
                 RequestedAtUtc = DateTime.UtcNow
             });
         }
 
-        public Task<OrderWithdrawalRequestDto> RequestWithdrawalByOrderLookupAsync(
-            PublicOrderWithdrawalRequestDto dto,
-            CancellationToken cancellationToken = default)
+        public Task<OrderWithdrawalRequestDto> RequestWithdrawalByOrderLookupAsync(PublicOrderWithdrawalRequestDto publicOrderWithdrawalRequest, CancellationToken cancellationToken = default)
         {
             return Task.FromResult(new OrderWithdrawalRequestDto
             {
                 Id = 1,
                 OrderId = Guid.NewGuid(),
                 CustomerName = "Teszt Elek",
-                CustomerEmail = dto.CustomerEmail,
-                Reason = dto.Reason,
+                CustomerEmail = publicOrderWithdrawalRequest.CustomerEmail,
+                Reason = publicOrderWithdrawalRequest.Reason,
                 Status = OrderWithdrawalRequestStatus.Pending,
                 RequestedAtUtc = DateTime.UtcNow
             });
         }
 
-        public Task<PagedResultDto<OrderDto>> GetMyOrdersAsync(
-            Guid userId, CustomerOrderListQuery query,
-            CancellationToken cancellationToken = default)
+        public Task<PagedResultDto<OrderDto>> GetMyOrdersAsync(Guid userId, CustomerOrderListQuery query, CancellationToken cancellationToken = default)
         {
             return Task.FromResult(new PagedResultDto<OrderDto>(new List<OrderDto> { CreateOrder() }, 1, query.PageSize, 1));
         }
 
-        public Task<OrderDto> GetOrderByIdAsync(
-            Guid userId,
-            Guid orderId,
-            CancellationToken cancellationToken = default)
+        public Task<OrderDto> GetOrderByIdAsync(Guid userId, Guid orderId, CancellationToken cancellationToken = default)
         {
             return Task.FromResult(CreateOrder());
         }
 
-        public Task<PublicOrderPaymentStatusDto> GetPublicOrderPaymentStatusAsync(
-            Guid orderId,
-            string sumUpCheckoutReference,
-            CancellationToken cancellationToken = default)
+        public Task<PublicOrderPaymentStatusDto> GetPublicOrderPaymentStatusAsync(Guid orderId, string sumUpCheckoutReference, CancellationToken cancellationToken = default)
         {
             return Task.FromResult(new PublicOrderPaymentStatusDto
             {
@@ -674,14 +591,10 @@ public sealed class RateLimitingTests
     {
         public PlaceOrderDto? LastPlaceOrderDto { get; private set; }
 
-        public override Task<OrderCreationResult> CreateOrderFromCartAsync(
-            Guid? userId,
-            string? sessionId,
-            PlaceOrderDto dto,
-            CancellationToken cancellationToken = default)
+        public override Task<OrderCreationResult> CreateOrderFromCartAsync(Guid? userId, string? sessionId, PlaceOrderDto placeOrder, CancellationToken cancellationToken = default)
         {
-            LastPlaceOrderDto = dto;
-            return base.CreateOrderFromCartAsync(userId, sessionId, dto, cancellationToken);
+            LastPlaceOrderDto = placeOrder;
+            return base.CreateOrderFromCartAsync(userId, sessionId, placeOrder, cancellationToken);
         }
     }
 }

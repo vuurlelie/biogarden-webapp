@@ -25,9 +25,9 @@ public sealed class PublicOrderWithdrawalEndpointTests
     public async Task RequestWithdrawalByOrderLookup_RejectsMalformedOrMismatchedOrders(string orderNumber, HttpStatusCode expected)
     {
         using var factory = new BiogardenWebApiFactory()
-            .WithWebHostBuilder(builder =>
+            .WithWebHostBuilder(webHostBuilder =>
             {
-                builder.ConfigureTestServices(services =>
+                webHostBuilder.ConfigureTestServices(services =>
                 {
                     services.RemoveAll<IOrderService>();
                     services.AddScoped<IOrderService, MissingPublicOrderService>();
@@ -59,9 +59,7 @@ public sealed class PublicOrderWithdrawalEndpointTests
         Assert.NotNull(problem);
         Assert.Equal(StatusCodes.Status404NotFound, problem.Status);
         Assert.Equal("Resource not found.", problem.Title);
-        Assert.Equal(
-            "Nem találtunk ilyen rendelést ezzel az email címmel.",
-            problem.Detail);
+        Assert.Equal("Nem találtunk ilyen rendelést ezzel az email címmel.", problem.Detail);
     }
 
     private sealed class MissingPublicOrderService : IOrderService
@@ -69,73 +67,39 @@ public sealed class PublicOrderWithdrawalEndpointTests
         public Task<OrderDto> GetCheckoutOrderAsync(Guid? userId, string? sessionId, Guid orderId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<CheckoutQuoteDto> GetCheckoutQuoteAsync(Guid? userId, string? sessionId, CheckoutQuoteRequest request, CancellationToken cancellationToken = default) => throw new NotSupportedException();
 
-        public Task<OrderCreationResult> CreateOrderFromCartAsync(
-            Guid? userId,
-            string? sessionId,
-            PlaceOrderDto dto,
-            CancellationToken cancellationToken = default) =>
+        public Task<OrderCreationResult> CreateOrderFromCartAsync(Guid? userId, string? sessionId, PlaceOrderDto placeOrder, CancellationToken cancellationToken = default) =>
             throw new NotSupportedException();
 
         public Task<OrderDto> RecoverCheckoutOrderAsync(Guid? userId, string? sessionId, string idempotencyKey, CancellationToken cancellationToken = default) => throw new NotSupportedException();
 
         public Task ReconcileSumUpCheckoutAsync(Biogarden.BusinessLogic.Models.Payments.SumUpCheckoutResult checkout, CancellationToken cancellationToken = default) => throw new NotSupportedException();
 
-        public Task<SumUpCheckoutDto> CreateSumUpCheckoutAsync(
-            Guid? userId,
-            string? sessionId,
-            Guid orderId,
-            CancellationToken cancellationToken = default) =>
+        public Task<SumUpCheckoutDto> CreateSumUpCheckoutAsync(Guid? userId, string? sessionId, Guid orderId, CancellationToken cancellationToken = default) =>
             throw new NotSupportedException();
 
-        public Task<OrderDto> ConfirmSumUpCheckoutAsync(
-            string sumUpCheckoutId,
-            string? sumUpTransactionId,
-            decimal? amount = null,
-            string? currency = null,
-            CancellationToken cancellationToken = default) =>
+        public Task<OrderDto> ConfirmSumUpCheckoutAsync(string sumUpCheckoutId, string? sumUpTransactionId, decimal? amount = null, string? currency = null, CancellationToken cancellationToken = default) =>
             throw new NotSupportedException();
 
-        public Task<OrderDto?> MarkSumUpPaymentFailedAsync(
-            string sumUpCheckoutId,
-            string? sumUpTransactionId,
-            CancellationToken cancellationToken = default) =>
+        public Task<OrderDto?> MarkSumUpPaymentFailedAsync(string sumUpCheckoutId, string? sumUpTransactionId, CancellationToken cancellationToken = default) =>
             throw new NotSupportedException();
 
-        public Task<OrderDto> CancelOrderAsync(
-            Guid userId,
-            Guid orderId,
-            CancelOrderDto dto,
-            CancellationToken cancellationToken = default) =>
+        public Task<OrderDto> CancelOrderAsync(Guid userId, Guid orderId, CancelOrderDto cancelOrder, CancellationToken cancellationToken = default) =>
             throw new NotSupportedException();
 
-        public Task<OrderWithdrawalRequestDto> RequestWithdrawalAsync(
-            Guid userId,
-            Guid orderId,
-            CreateOrderWithdrawalRequestDto dto,
-            CancellationToken cancellationToken = default) =>
+        public Task<OrderWithdrawalRequestDto> RequestWithdrawalAsync(Guid userId, Guid orderId, CreateOrderWithdrawalRequestDto createOrderWithdrawalRequest, CancellationToken cancellationToken = default) =>
             throw new NotSupportedException();
 
-        public Task<OrderWithdrawalRequestDto> RequestWithdrawalByOrderLookupAsync(
-            PublicOrderWithdrawalRequestDto dto,
-            CancellationToken cancellationToken = default) =>
+        public Task<OrderWithdrawalRequestDto> RequestWithdrawalByOrderLookupAsync(PublicOrderWithdrawalRequestDto publicOrderWithdrawalRequest, CancellationToken cancellationToken = default) =>
             throw new KeyNotFoundException(
                 "Nem találtunk ilyen rendelést ezzel az email címmel.");
 
-        public Task<PagedResultDto<OrderDto>> GetMyOrdersAsync(
-            Guid userId, CustomerOrderListQuery query,
-            CancellationToken cancellationToken = default) =>
+        public Task<PagedResultDto<OrderDto>> GetMyOrdersAsync(Guid userId, CustomerOrderListQuery query, CancellationToken cancellationToken = default) =>
             throw new NotSupportedException();
 
-        public Task<OrderDto> GetOrderByIdAsync(
-            Guid userId,
-            Guid orderId,
-            CancellationToken cancellationToken = default) =>
+        public Task<OrderDto> GetOrderByIdAsync(Guid userId, Guid orderId, CancellationToken cancellationToken = default) =>
             throw new NotSupportedException();
 
-        public Task<PublicOrderPaymentStatusDto> GetPublicOrderPaymentStatusAsync(
-            Guid orderId,
-            string sumUpCheckoutReference,
-            CancellationToken cancellationToken = default) =>
+        public Task<PublicOrderPaymentStatusDto> GetPublicOrderPaymentStatusAsync(Guid orderId, string sumUpCheckoutReference, CancellationToken cancellationToken = default) =>
             throw new NotSupportedException();
     }
 }

@@ -66,9 +66,7 @@ public class ProfileController : ControllerBase
     {
         var userId = GetCurrentUserId();
 
-        await _userService.UpdateAddressesAsync(
-            userId,
-            updateUserAddressesDto);
+        await _userService.UpdateAddressesAsync(userId, updateUserAddressesDto);
 
         return NoContent();
     }
@@ -77,16 +75,11 @@ public class ProfileController : ControllerBase
     [ServiceFilter(typeof(Filters.AccountSecurityMutationFilter))]
     [ProducesResponseType(typeof(AccountLifecycleResultDto), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(AccountLifecycleResultDto), StatusCodes.Status202Accepted)]
-    public async Task<ActionResult<AccountLifecycleResultDto>> RequestAccountLifecycleAsync(
-        [FromBody] AccountLifecycleRequestDto request,
-        CancellationToken cancellationToken)
+    public async Task<ActionResult<AccountLifecycleResultDto>> RequestAccountLifecycleAsync([FromBody] AccountLifecycleRequestDto request, CancellationToken cancellationToken)
     {
         var userId = GetCurrentUserId();
 
-        var result = await _userService.RequestAccountLifecycleAsync(
-            userId,
-            request,
-            cancellationToken);
+        var result = await _userService.RequestAccountLifecycleAsync(userId, request, cancellationToken);
         return result.Status == AccountLifecycleRequestStatus.Pending
             ? Accepted(result)
             : Ok(result);

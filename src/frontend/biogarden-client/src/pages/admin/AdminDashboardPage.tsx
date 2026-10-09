@@ -7,8 +7,14 @@ import AdminPageHeader from "../../shared/components/admin/AdminPageHeader";
 import { ROUTES } from "../../shared/constants/routes";
 import { getErrorMessage, isAbortError } from "../../shared/utils/errorHandling";
 
-const PRICE = new Intl.NumberFormat("hu-HU", { style: "currency", currency: "HUF", maximumFractionDigits: 0 });
-const DATE = new Intl.DateTimeFormat("hu-HU", { timeZone: SITE_TIME_ZONE, year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+const PRICE = new Intl.NumberFormat(
+  "hu-HU",
+  { style: "currency", currency: "HUF", maximumFractionDigits: 0 }
+);
+const DATE = new Intl.DateTimeFormat(
+  "hu-HU",
+  { timeZone: SITE_TIME_ZONE, year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }
+);
 
 const statusLabels: Record<number, string> = {
   0: "Függőben",
@@ -78,24 +84,32 @@ export default function AdminDashboardPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const loadDashboard = useCallback(async (signal?: AbortSignal) => {
-    setLoading(true);
-    setError(null);
-    try {
-      setDashboard(await getAdminDashboard(signal));
-    } catch (loadError) {
-      if (isAbortError(loadError)) return;
-      setError(getErrorMessage(loadError, "Az adatok betöltése nem sikerült."));
-    } finally {
-      if (!signal?.aborted) setLoading(false);
-    }
-  }, []);
+  const loadDashboard = useCallback(
+    async (signal?: AbortSignal) => {
+      setLoading(true);
+      setError(null);
+      try {
+        setDashboard(await getAdminDashboard(signal));
+      } catch (loadError) {
+        if (isAbortError(loadError))
+          return;
+        setError(getErrorMessage(loadError, "Az adatok betöltése nem sikerült."));
+      } finally {
+        if (!signal?.aborted)
+          setLoading(false);
+      }
+    },
+    []
+  );
 
-  useEffect(() => {
-    const controller = new AbortController();
-    void loadDashboard(controller.signal);
-    return () => controller.abort();
-  }, [loadDashboard]);
+  useEffect(
+    () => {
+      const controller = new AbortController();
+      void loadDashboard(controller.signal);
+      return () => controller.abort();
+    },
+    [loadDashboard]
+  );
 
   return (
     <div className="space-y-6">

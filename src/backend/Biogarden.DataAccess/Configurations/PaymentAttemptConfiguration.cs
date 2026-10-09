@@ -6,16 +6,16 @@ namespace Biogarden.DataAccess.Configurations;
 
 public sealed class PaymentAttemptConfiguration : IEntityTypeConfiguration<PaymentAttempt>
 {
-    public void Configure(EntityTypeBuilder<PaymentAttempt> builder)
+    public void Configure(EntityTypeBuilder<PaymentAttempt> paymentAttemptBuilder)
     {
-        builder.HasKey(x => x.Id);
-        builder.Property(x => x.Reference).HasMaxLength(64);
-        builder.Property(x => x.CheckoutId).HasMaxLength(100);
-        builder.Property(x => x.Status).HasMaxLength(20);
-        builder.Property(x => x.RowVersion).IsRowVersion();
-        builder.HasIndex(x => x.Reference).IsUnique();
-        builder.HasIndex(x => x.CheckoutId).IsUnique().HasFilter("[CheckoutId] IS NOT NULL");
-        builder.HasIndex(x => new { x.OrderId, x.CreatedAtUtc });
-        builder.HasOne<Order>().WithMany().HasForeignKey(x => x.OrderId).OnDelete(DeleteBehavior.Restrict);
+        paymentAttemptBuilder.HasKey(paymentAttempt => paymentAttempt.Id);
+        paymentAttemptBuilder.Property(paymentAttempt => paymentAttempt.Reference).HasMaxLength(64);
+        paymentAttemptBuilder.Property(paymentAttempt => paymentAttempt.CheckoutId).HasMaxLength(100);
+        paymentAttemptBuilder.Property(paymentAttempt => paymentAttempt.Status).HasMaxLength(20);
+        paymentAttemptBuilder.Property(paymentAttempt => paymentAttempt.RowVersion).IsRowVersion();
+        paymentAttemptBuilder.HasIndex(paymentAttempt => paymentAttempt.Reference).IsUnique();
+        paymentAttemptBuilder.HasIndex(paymentAttempt => paymentAttempt.CheckoutId).IsUnique().HasFilter("[CheckoutId] IS NOT NULL");
+        paymentAttemptBuilder.HasIndex(paymentAttempt => new { paymentAttempt.OrderId, paymentAttempt.CreatedAtUtc });
+        paymentAttemptBuilder.HasOne<Order>().WithMany().HasForeignKey(paymentAttempt => paymentAttempt.OrderId).OnDelete(DeleteBehavior.Restrict);
     }
 }

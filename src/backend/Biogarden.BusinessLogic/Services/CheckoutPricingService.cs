@@ -12,25 +12,25 @@ public sealed class CheckoutPricingService(IOptions<CheckoutPricingOptions> opti
     private readonly CheckoutPricingOptions _options = options.Value;
 
     public IReadOnlyList<CheckoutMethodDto> GetMethods() => _options.DeliveryFees
-        .OrderBy(x => x.Key)
-        .Select(x => new CheckoutMethodDto(x.Key, x.Value,
-            _options.EnabledPaymentMethods.Where(payment => Allowed(x.Key, payment)).ToArray()))
-        .Where(x => x.PaymentMethods.Length > 0).ToArray();
+        .OrderBy(deliveryFee => deliveryFee.Key)
+        .Select(deliveryFee => new CheckoutMethodDto(deliveryFee.Key, deliveryFee.Value, _options.EnabledPaymentMethods.Where(payment => Allowed(deliveryFee.Key, payment)).ToArray()))
+        .Where(checkoutMethod => checkoutMethod.PaymentMethods.Length > 0).ToArray();
 
-    public CheckoutQuoteDto Calculate(Guid cartId, FulfillmentMethod method, OrderPaymentMethod payment,
-        IEnumerable<OrderItemDto> source, GlsDeliveryPointDto? deliveryPoint = null)
+    public CheckoutQuoteDto Calculate(Guid cartId, FulfillmentMethod method, OrderPaymentMethod payment, IEnumerable<OrderItemDto> source, GlsDeliveryPointDto? deliveryPoint = null)
     {
         if (!_options.DeliveryFees.TryGetValue(method, out var deliveryFee) ||
             !_options.EnabledPaymentMethods.Contains(payment) || !Allowed(method, payment))
+        {
             throw new InvalidOperationException("Ez az átvételi és fizetési mód nem választható.");
+        }
 
-        var items = source.OrderBy(x => x.ProductId).ToArray();
-        if (items.Length == 0 || items.Any(x => x.Quantity <= 0 || x.UnitPrice < 0))
+        var items = source.OrderBy(orderItem => orderItem.ProductId).ToArray();
+        if (items.Length == 0 || items.Any(orderItem => orderItem.Quantity <= 0 || orderItem.UnitPrice < 0))
             throw new InvalidOperationException("A kosár nem árazható.");
         // HUF checkout uses whole forints, rounded once per line, away from zero.
         foreach (var item in items)
             item.LineTotal = CalculateLineTotal(item.UnitPrice, item.Quantity);
-        var subtotal = items.Sum(x => x.LineTotal);
+        var subtotal = items.Sum(orderItem => orderItem.LineTotal);
         var paymentFee = 0m;
         if (payment == OrderPaymentMethod.CashOnDelivery)
         {

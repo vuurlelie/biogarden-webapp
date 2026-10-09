@@ -2,7 +2,10 @@ let flushCheckout: (() => Promise<boolean>) | undefined;
 
 export function registerCheckoutFlush(flush: () => Promise<boolean>): () => void {
   flushCheckout = flush;
-  return () => { if (flushCheckout === flush) flushCheckout = undefined; };
+  return () => {
+    if (flushCheckout === flush)
+      flushCheckout = undefined;
+  };
 }
 
 export async function prepareSessionTransition(): Promise<void> {

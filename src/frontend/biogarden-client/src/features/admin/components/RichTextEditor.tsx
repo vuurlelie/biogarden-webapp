@@ -48,7 +48,8 @@ const FontSize = Extension.create({
             default: null,
             parseHTML: (element) => element.style.fontSize || null,
             renderHTML: (attributes) => {
-              if (!attributes.fontSize) return {};
+              if (!attributes.fontSize)
+                return {};
               return { style: `font-size: ${attributes.fontSize}` };
             },
           },
@@ -62,11 +63,17 @@ const FontSize = Extension.create({
       setFontSize:
         (fontSize: string) =>
         ({ chain }) =>
-          chain().setMark("textStyle", { fontSize }).run(),
+          chain().setMark(
+            "textStyle",
+            { fontSize }
+          ).run(),
       unsetFontSize:
         () =>
         ({ chain }) =>
-          chain().setMark("textStyle", { fontSize: null }).removeEmptyTextStyle().run(),
+          chain().setMark(
+            "textStyle",
+            { fontSize: null }
+          ).removeEmptyTextStyle().run(),
     };
   },
 });
@@ -131,34 +138,70 @@ export default function RichTextEditor({
     },
   });
 
-  useEffect(() => {
-    if (!editor) return;
-    if (value !== editor.getHTML()) {
-      editor.commands.setContent(value, { emitUpdate: false });
-    }
-  }, [editor, value]);
+  useEffect(
+    () => {
+      if (!editor)
+        return;
+      if (value !== editor.getHTML()) {
+        editor.commands.setContent(
+          value,
+          { emitUpdate: false }
+        );
+      }
+    },
+    [editor, value]
+  );
 
-  useEffect(() => {
-    if (!editor) return;
+  useEffect(
+    () => {
+      if (!editor)
+        return;
 
-    const refreshToolbarState = () => setEditorStateVersion((version) => version + 1);
-    editor.on("transaction", refreshToolbarState);
-    editor.on("selectionUpdate", refreshToolbarState);
-    editor.on("update", refreshToolbarState);
+      const refreshToolbarState = () => setEditorStateVersion((version) => version + 1);
+      editor.on("transaction", refreshToolbarState);
+      editor.on("selectionUpdate", refreshToolbarState);
+      editor.on("update", refreshToolbarState);
 
-    return () => {
-      editor.off("transaction", refreshToolbarState);
-      editor.off("selectionUpdate", refreshToolbarState);
-      editor.off("update", refreshToolbarState);
-    };
-  }, [editor]);
+      return () => {
+        editor.off("transaction", refreshToolbarState);
+        editor.off("selectionUpdate", refreshToolbarState);
+        editor.off("update", refreshToolbarState);
+      };
+    },
+    [editor]
+  );
 
   const currentBlock = (() => {
     void editorStateVersion;
-    if (!editor) return "paragraph";
-    if (editor.isActive("heading", { level: 2 })) return "h2";
-    if (editor.isActive("heading", { level: 3 })) return "h3";
-    if (editor.isActive("heading", { level: 4 })) return "h4";
+    if (!editor)
+      return "paragraph";
+
+    if (editor.isActive(
+      "heading",
+      { level: 2 }
+    ))
+      {
+      return "h2";
+    }
+
+
+    if (editor.isActive(
+      "heading",
+      { level: 3 }
+    ))
+      {
+      return "h3";
+    }
+
+
+    if (editor.isActive(
+      "heading",
+      { level: 4 }
+    ))
+      {
+      return "h4";
+    }
+
     return "paragraph";
   })();
 
@@ -174,11 +217,13 @@ export default function RichTextEditor({
   }
 
   function setLink() {
-    if (!editor) return;
+    if (!editor)
+      return;
     const previousUrl = editor.getAttributes("link").href as string | undefined;
     const url = window.prompt("Add meg a link URL-jét:", previousUrl ?? "");
 
-    if (url === null) return;
+    if (url === null)
+      return;
     if (url.trim() === "") {
       editor.chain().focus().extendMarkRange("link").unsetLink().run();
       return;
@@ -209,7 +254,8 @@ export default function RichTextEditor({
         <div
           className="border-b border-site-border bg-[#f7f8f5]"
           onMouseDown={(event) => {
-            if ((event.target as HTMLElement).closest("button")) event.preventDefault();
+            if ((event.target as HTMLElement).closest("button"))
+              event.preventDefault();
           }}
         >
           <div className="flex flex-wrap items-center gap-1 px-3 py-2">
@@ -258,8 +304,10 @@ export default function RichTextEditor({
               defaultValue=""
               onChange={(event) => {
                 const nextFont = event.target.value;
-                if (nextFont) editor.chain().focus().setFontFamily(nextFont).run();
-                else editor.chain().focus().unsetFontFamily().run();
+                if (nextFont)
+                  editor.chain().focus().setFontFamily(nextFont).run();
+                else
+                  editor.chain().focus().unsetFontFamily().run();
               }}
             >
               {fontFamilies.map(([optionValue, optionLabel]) => (
@@ -273,8 +321,10 @@ export default function RichTextEditor({
               defaultValue=""
               onChange={(event) => {
                 const nextSize = event.target.value;
-                if (nextSize) editor.chain().focus().setFontSize(nextSize).run();
-                else editor.chain().focus().unsetFontSize().run();
+                if (nextSize)
+                  editor.chain().focus().setFontSize(nextSize).run();
+                else
+                  editor.chain().focus().unsetFontSize().run();
               }}
             >
               {fontSizes.map(([optionValue, optionLabel]) => (
@@ -322,10 +372,14 @@ export default function RichTextEditor({
               value={currentBlock}
               onChange={(event) => {
                 const block = event.target.value;
-                if (block === "h2") editor.chain().focus().setHeading({ level: 2 }).run();
-                else if (block === "h3") editor.chain().focus().setHeading({ level: 3 }).run();
-                else if (block === "h4") editor.chain().focus().setHeading({ level: 4 }).run();
-                else editor.chain().focus().setParagraph().run();
+                if (block === "h2")
+                  editor.chain().focus().setHeading({ level: 2 }).run();
+                else if (block === "h3")
+                  editor.chain().focus().setHeading({ level: 3 }).run();
+                else if (block === "h4")
+                  editor.chain().focus().setHeading({ level: 4 }).run();
+                else
+                  editor.chain().focus().setParagraph().run();
               }}
             >
               <option value="paragraph">Bekezdés</option>

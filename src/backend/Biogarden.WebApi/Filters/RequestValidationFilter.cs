@@ -16,9 +16,11 @@ public sealed class RequestValidationFilter : IAsyncActionFilter, IOrderedFilter
         {
             foreach (var argument in context.ActionArguments.Values)
             {
-                if (argument is null) continue;
+                if (argument is null)
+                    continue;
                 var serviceType = typeof(IValidator<>).MakeGenericType(argument.GetType());
-                if (context.HttpContext.RequestServices.GetService(serviceType) is not IValidator validator) continue;
+                if (context.HttpContext.RequestServices.GetService(serviceType) is not IValidator validator)
+                    continue;
                 var validationContext = new ValidationContext<object>(argument);
                 validationContext.RootContextData["Authenticated"] = context.HttpContext.User.Identity?.IsAuthenticated == true;
                 var result = await validator.ValidateAsync(validationContext, context.HttpContext.RequestAborted);

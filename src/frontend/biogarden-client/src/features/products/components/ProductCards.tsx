@@ -26,7 +26,8 @@ export default function ProductCards({ products, headingLevel = 2 }: ProductCard
   const [errors, setErrors] = useState<Record<number, string | undefined>>({});
 
   async function handleAddToCart(productId: number) {
-    if (pendingProducts.current.has(productId)) return;
+    if (pendingProducts.current.has(productId))
+      return;
     pendingProducts.current.add(productId);
     setAnnouncement("");
     setAddingProductIds(new Set(pendingProducts.current));
@@ -47,10 +48,7 @@ export default function ProductCards({ products, headingLevel = 2 }: ProductCard
     <p className="sr-only" aria-live="polite" aria-atomic="true">{announcement}</p>
     <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
       {products.map((product) => {
-        const detailsUrl = ROUTES.productDetails.replace(
-          ":productId",
-          String(product.id),
-        );
+        const detailsUrl = ROUTES.productDetails.replace(":productId", String(product.id));
         const packageLabel = getProductPackageLabel(product);
 
         return (

@@ -23,17 +23,17 @@ public sealed class AdminPaginationTests : IAsyncLifetime
     [SqlServerFact]
     public async Task OrdersAreFilteredBeforePagingWithStableTiesAndBoundedSizes()
     {
-        await using var db = _app.OpenDatabase();
+        await using var databaseContext = _app.OpenDatabase();
         var timestamp = DateTime.UtcNow;
-        db.Orders.AddRange(Enumerable.Range(1, 65).Select(i => NewOrder(i, timestamp)));
-        await db.SaveChangesAsync();
+        databaseContext.Orders.AddRange(Enumerable.Range(1, 65).Select(index => NewOrder(index, timestamp)));
+        await databaseContext.SaveChangesAsync();
         using var client = await Client();
         var first = await ReadPage<OrderDto>(client, "/api/admin/orders?pageSize=12");
         var second = await ReadPage<OrderDto>(client, "/api/admin/orders?page=2&pageSize=12");
         Assert.Equal(65, first.TotalCount);
         Assert.Equal(12, first.Items.Count);
-        Assert.Empty(first.Items.Select(x => x.Id).Intersect(second.Items.Select(x => x.Id)));
-        Assert.Equal(first.Items.Select(x => x.Id), (await ReadPage<OrderDto>(client, "/api/admin/orders?pageSize=12")).Items.Select(x => x.Id));
+        Assert.Empty(first.Items.Select(order => order.Id).Intersect(second.Items.Select(order => order.Id)));
+        Assert.Equal(first.Items.Select(order => order.Id), (await ReadPage<OrderDto>(client, "/api/admin/orders?pageSize=12")).Items.Select(order => order.Id));
         var filtered = await ReadPage<OrderDto>(client, "/api/admin/orders?search=ORD-65&status=3&fulfillment=0");
         Assert.Equal("ORD-65", Assert.Single(filtered.Items).OrderNumber);
         Assert.Equal(1, filtered.TotalCount);
@@ -54,13 +54,13 @@ public sealed class AdminPaginationTests : IAsyncLifetime
     [SqlServerFact]
     public async Task InventoryFiltersCountLiveReservationsBeforePagingAndSupportsSingleRead()
     {
-        await using var db = _app.OpenDatabase();
-        var products = Enumerable.Range(1, 25).Select(i => new Product { Name = $"Paging {i:D2}", Price = 900, StockQuantity = 10, Available = true }).ToArray();
-        db.Products.AddRange(products);
-        await db.SaveChangesAsync();
-        db.Carts.Add(new Cart { Id = Guid.NewGuid(), SessionId = "live", ExpiresAtUtc = DateTime.UtcNow.AddHours(1), Items = [new CartItem { ProductId = products[24].Id, Quantity = 8 }] });
-        db.Carts.Add(new Cart { Id = Guid.NewGuid(), SessionId = "expired", ExpiresAtUtc = DateTime.UtcNow.AddHours(-1), Items = [new CartItem { ProductId = products[0].Id, Quantity = 10 }] });
-        await db.SaveChangesAsync();
+        await using var databaseContext = _app.OpenDatabase();
+        var products = Enumerable.Range(1, 25).Select(index => new Product { Name = $"Paging {index:D2}", Price = 900, StockQuantity = 10, Available = true }).ToArray();
+        databaseContext.Products.AddRange(products);
+        await databaseContext.SaveChangesAsync();
+        databaseContext.Carts.Add(new Cart { Id = Guid.NewGuid(), SessionId = "live", ExpiresAtUtc = DateTime.UtcNow.AddHours(1), Items = [new CartItem { ProductId = products[24].Id, Quantity = 8 }] });
+        databaseContext.Carts.Add(new Cart { Id = Guid.NewGuid(), SessionId = "expired", ExpiresAtUtc = DateTime.UtcNow.AddHours(-1), Items = [new CartItem { ProductId = products[0].Id, Quantity = 10 }] });
+        await databaseContext.SaveChangesAsync();
         using var client = await Client();
         var low = await ReadPage<AdminInventoryItemDto>(client, "/api/admin/inventory?stock=low&pageSize=1");
         var item = Assert.Single(low.Items);
@@ -84,29 +84,29 @@ public sealed class AdminPaginationTests : IAsyncLifetime
     [SqlServerFact]
     public async Task AccountsFilterRolesLifecycleAndPendingRequestsBeforePaging()
     {
-        await using var db = _app.OpenDatabase();
+        await using var databaseContext = _app.OpenDatabase();
         var role = new IdentityRole<Guid> { Id = Guid.NewGuid(), Name = "Admin", NormalizedName = "ADMIN" };
-        db.Roles.Add(role);
-        var users = Enumerable.Range(1, 25).Select(i => new ApplicationUser
+        databaseContext.Roles.Add(role);
+        var users = Enumerable.Range(1, 25).Select(index => new ApplicationUser
         {
             Id = Guid.NewGuid(),
-            UserName = $"paging{i}@example.com",
-            Email = $"paging{i}@example.com",
+            UserName = $"paging{index}@example.com",
+            Email = $"paging{index}@example.com",
             LastName = "Paging",
-            FirstName = $"User {i:D2}",
+            FirstName = $"User {index:D2}",
             CreatedAt = new DateTime(2026, 1, 1),
-            DeactivatedAtUtc = i == 24 ? DateTime.UtcNow : null,
-            AnonymizedAtUtc = i == 25 ? DateTime.UtcNow : null
+            DeactivatedAtUtc = index == 24 ? DateTime.UtcNow : null,
+            AnonymizedAtUtc = index == 25 ? DateTime.UtcNow : null
         }).ToArray();
-        db.Users.AddRange(users);
-        db.UserRoles.Add(new IdentityUserRole<Guid> { UserId = users[23].Id, RoleId = role.Id });
-        db.AccountLifecycleRequests.Add(new AccountLifecycleRequest { UserId = users[22].Id, Type = AccountLifecycleRequestType.Erasure, Status = AccountLifecycleRequestStatus.Pending });
-        await db.SaveChangesAsync();
+        databaseContext.Users.AddRange(users);
+        databaseContext.UserRoles.Add(new IdentityUserRole<Guid> { UserId = users[23].Id, RoleId = role.Id });
+        databaseContext.AccountLifecycleRequests.Add(new AccountLifecycleRequest { UserId = users[22].Id, Type = AccountLifecycleRequestType.Erasure, Status = AccountLifecycleRequestStatus.Pending });
+        await databaseContext.SaveChangesAsync();
         using var client = await Client();
         var first = await ReadPage<AdminUserDto>(client, "/api/admin/users?search=Paging&pageSize=12");
         var second = await ReadPage<AdminUserDto>(client, "/api/admin/users?search=Paging&pageSize=12&page=2");
         Assert.Equal(24, first.TotalCount);
-        Assert.Empty(first.Items.Select(x => x.Id).Intersect(second.Items.Select(x => x.Id)));
+        Assert.Empty(first.Items.Select(order => order.Id).Intersect(second.Items.Select(order => order.Id)));
         var admins = await ReadPage<AdminUserDto>(client, "/api/admin/users?search=Paging&role=admin&status=inactive");
         Assert.True(Assert.Single(admins.Items).IsAdmin);
         Assert.Equal(users[23].Id, admins.Items[0].Id);
@@ -120,45 +120,44 @@ public sealed class AdminPaginationTests : IAsyncLifetime
     [SqlServerFact]
     public async Task WithdrawalPagesShrinkAfterHandlingAndKeepFilteredCounts()
     {
-        await using var db = _app.OpenDatabase();
+        await using var databaseContext = _app.OpenDatabase();
         var timestamp = DateTime.UtcNow;
-        db.OrderWithdrawalRequests.AddRange(Enumerable.Range(1, 13).Select(i => new OrderWithdrawalRequest
+        databaseContext.OrderWithdrawalRequests.AddRange(Enumerable.Range(1, 13).Select(index => new OrderWithdrawalRequest
         {
-            Order = NewOrder(i, timestamp),
+            Order = NewOrder(index, timestamp),
             CustomerName = "Paging Customer",
             CustomerEmail = "paging@example.com",
-            Reason = $"Request {i}",
+            Reason = $"Request {index}",
             RequestedAtUtc = timestamp
         }));
-        await db.SaveChangesAsync();
+        await databaseContext.SaveChangesAsync();
         using var client = await Client();
         var last = await ReadPage<AdminOrderRequestThreadDto>(client, "/api/admin/orders/withdrawal-requests?status=1&page=2");
         var request = Assert.Single(Assert.Single(last.Items).Messages);
         Assert.Equal(13, last.TotalCount);
         var handleUrl = $"/api/admin/orders/withdrawal-requests/{request.Id}/handled";
-        Assert.Equal(HttpStatusCode.BadRequest, (await client.PutAsJsonAsync(handleUrl, new { adminResponse = new string('x', 1001) })).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await client.PutAsJsonAsync(handleUrl, new { adminResponse = new string ('x', 1001) })).StatusCode);
         (await client.PutAsJsonAsync(handleUrl, new { adminResponse = "  A kérésedet teljesítettük.  " })).EnsureSuccessStatusCode();
         var orderDetails = await client.GetFromJsonAsync<OrderDto>($"/api/admin/orders/{request.OrderId}");
-        Assert.Equal("A kérésedet teljesítettük.", orderDetails!.WithdrawalRequests.Single(x => x.Id == request.Id).AdminResponse);
+        Assert.Equal("A kérésedet teljesítettük.", orderDetails!.WithdrawalRequests.Single(withdrawalRequest => withdrawalRequest.Id == request.Id).AdminResponse);
         Assert.Equal(HttpStatusCode.Conflict, (await client.PutAsJsonAsync(handleUrl, new { adminResponse = "Másik válasz" })).StatusCode);
         (await client.PutAsJsonAsync(handleUrl, new { adminResponse = "A kérésedet teljesítettük." })).EnsureSuccessStatusCode();
         var adjusted = await ReadPage<AdminOrderRequestThreadDto>(client, "/api/admin/orders/withdrawal-requests?status=1&page=2");
         Assert.Equal(1, adjusted.Page);
         Assert.Equal(12, adjusted.TotalCount);
-        Assert.DoesNotContain(adjusted.Items, x => x.OrderId == request.OrderId);
+        Assert.DoesNotContain(adjusted.Items, requestThread => requestThread.OrderId == request.OrderId);
         var handled = await ReadPage<AdminOrderRequestThreadDto>(client, $"/api/admin/orders/withdrawal-requests?status=2&search={request.OrderNumber}");
         Assert.Equal(request.Id, Assert.Single(Assert.Single(handled.Items).Messages).Id);
-        db.OrderWithdrawalRequests.AddRange(Enumerable.Range(1, 2).Select(i => new OrderWithdrawalRequest
+        databaseContext.OrderWithdrawalRequests.AddRange(Enumerable.Range(1, 2).Select(index => new OrderWithdrawalRequest
         {
             OrderId = request.OrderId,
             CustomerName = "Paging Customer",
             CustomerEmail = "paging@example.com",
-            Reason = $"Additional context {i}",
-            RequestedAtUtc = timestamp.AddMinutes(i)
+            Reason = $"Additional context {index}",
+            RequestedAtUtc = timestamp.AddMinutes(index)
         }));
-        await db.SaveChangesAsync();
-        var conversation = await ReadPage<AdminOrderRequestThreadDto>(client,
-            "/api/admin/orders/withdrawal-requests?status=1&search=Additional%20context%202&pageSize=1");
+        await databaseContext.SaveChangesAsync();
+        var conversation = await ReadPage<AdminOrderRequestThreadDto>(client, "/api/admin/orders/withdrawal-requests?status=1&search=Additional%20context%202&pageSize=1");
         Assert.Equal(1, conversation.TotalCount);
         var messages = Assert.Single(conversation.Items).Messages;
         Assert.Equal(3, messages.Count);
@@ -186,18 +185,18 @@ public sealed class AdminPaginationTests : IAsyncLifetime
     public async Task CustomerHistoryIsPagedOwnedAndKeepsOpenRequestsRecent()
     {
         using var owner = await Client(false);
-        await using var db = _app.OpenDatabase();
-        var userId = await db.Users.Select(user => user.Id).SingleAsync();
+        await using var databaseContext = _app.OpenDatabase();
+        var userId = await databaseContext.Users.Select(user => user.Id).SingleAsync();
         var now = DateTime.UtcNow;
-        var orders = Enumerable.Range(1, 25).Select(i => NewOrder(i, now.AddYears(-1))).ToArray();
+        var orders = Enumerable.Range(1, 25).Select(index => NewOrder(index, now.AddYears(-1))).ToArray();
         foreach (var order in orders) { order.UserId = userId; order.CompletedAtUtc = now.AddDays(-20); }
         orders[0].CompletedAtUtc = now.AddDays(-13);
         orders[1].Status = OrderStatus.Confirmed;
         orders[1].CompletedAtUtc = null;
         orders[2].WithdrawalRequests.Add(new OrderWithdrawalRequest { Reason = "Unresolved customer question", CustomerName = "Test", CustomerEmail = "test@example.com" });
         orders[3].CompletedAtUtc = null; // Historical completion date is unknown.
-        db.Orders.AddRange(orders);
-        await db.SaveChangesAsync();
+        databaseContext.Orders.AddRange(orders);
+        await databaseContext.SaveChangesAsync();
         var recent = await ReadPage<OrderDto>(owner, "/api/orders");
         Assert.Equal(3, recent.TotalCount);
         var first = await ReadPage<OrderDto>(owner, "/api/orders?view=history");
@@ -243,7 +242,8 @@ public sealed class AdminPaginationTests : IAsyncLifetime
         if (admin)
         {
             var roles = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole<Guid>>>();
-            if (!await roles.RoleExistsAsync("Admin")) Assert.True((await roles.CreateAsync(new IdentityRole<Guid>("Admin"))).Succeeded);
+            if (!await roles.RoleExistsAsync("Admin"))
+                Assert.True((await roles.CreateAsync(new IdentityRole<Guid>("Admin"))).Succeeded);
             Assert.True((await users.AddToRoleAsync(user, "Admin")).Succeeded);
         }
         var token = await scope.ServiceProvider.GetRequiredService<ITokenService>().CreateTokenAsync(user);

@@ -37,8 +37,13 @@ export default function CheckoutPage() {
     () => Boolean(cart?.items.length && cart.items.every((item) => item.deliveryAvailable)),
     [cart],
   );
-  const pricing = useCheckoutPricing(cart, method, paymentMethod, isGlsMethod(method) ? draft.glsDeliveryPointId : null,
-    draftReady && (method === FULFILLMENT.PersonalPickup || deliveryAllowed) && (!isGlsMethod(method) || Boolean(gls.point)));
+  const pricing = useCheckoutPricing(
+    cart,
+    method,
+    paymentMethod,
+    isGlsMethod(method) ? draft.glsDeliveryPointId : null,
+    draftReady && (method === FULFILLMENT.PersonalPickup || deliveryAllowed) && (!isGlsMethod(method) || Boolean(gls.point))
+  );
   const quote = pricing.quote;
   const availablePayments = pricing.methods?.find(choice => choice.fulfillmentMethod === method)?.paymentMethods ?? [];
   const { submitting, showReview, setShowReview, termsAccepted, setTermsAccepted,
@@ -48,22 +53,29 @@ export default function CheckoutPage() {
     });
 
   const previousStep = useRef(step);
-  useLayoutEffect(() => {
-    if (previousStep.current === step) return;
-    previousStep.current = step;
-    headingRef.current?.focus({ preventScroll: true });
-    window.scrollTo({
-      top: 0,
-      left: 0,
-      behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth",
-    });
-  }, [step]);
+  useLayoutEffect(
+    () => {
+      if (previousStep.current === step)
+        return;
+      previousStep.current = step;
+      headingRef.current?.focus({ preventScroll: true });
+      window.scrollTo({
+        top: 0,
+        left: 0,
+        behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth",
+      });
+    },
+    [step]
+  );
 
-  useEffect(() => {
-    if (!cartLoading && draftReady && !deliveryAllowed && method !== FULFILLMENT.PersonalPickup) {
-      setDraft(current => ({ ...current, fulfillmentMethod: FULFILLMENT.PersonalPickup, glsDeliveryPointId: null }));
-    }
-  }, [cartLoading, draftReady, deliveryAllowed, method, setDraft]);
+  useEffect(
+    () => {
+      if (!cartLoading && draftReady && !deliveryAllowed && method !== FULFILLMENT.PersonalPickup) {
+        setDraft(current => ({ ...current, fulfillmentMethod: FULFILLMENT.PersonalPickup, glsDeliveryPointId: null }));
+      }
+    },
+    [cartLoading, draftReady, deliveryAllowed, method, setDraft]
+  );
 
   if (!submitting && (cancelledSumUpOrderId || checkoutKey)) {
     return <CheckoutRecoveryView orderId={cancelledSumUpOrderId} checkoutKey={checkoutKey} busy={submitting} error={error} />;
@@ -159,9 +171,14 @@ export default function CheckoutPage() {
             <p className="rounded-sm bg-site-surface-soft p-4 text-sm">
               Felhasználói fiókból történő rendeléshez jelentkezz be itt:{" "}
               <Link to={ROUTES.login} state={{ from: ROUTES.checkout }} onClick={async event => {
-                if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+                if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey)
+                  return;
                 event.preventDefault();
-                if (await draftStorage.flush()) navigate(ROUTES.login, { state: { from: ROUTES.checkout } });
+                if (await draftStorage.flush())
+                  navigate(
+                    ROUTES.login,
+                    { state: { from: ROUTES.checkout } }
+                  );
               }} className="font-semibold underline">
                 Bejelentkezés
               </Link>
@@ -384,7 +401,8 @@ export default function CheckoutPage() {
             }
             setLeaving(true);
             try {
-              if (await draftStorage.flush()) navigate(ROUTES.cart);
+              if (await draftStorage.flush())
+                navigate(ROUTES.cart);
             } finally { setLeaving(false); }
           }}
         />
@@ -398,7 +416,10 @@ export default function CheckoutPage() {
           fieldErrors={fieldErrors}
           quote={quote}
           method={method}
-          onClose={() => { if (!submitting) setShowReview(false); }}
+          onClose={() => {
+            if (!submitting)
+              setShowReview(false);
+          }}
           deliveryPoint={quote.deliveryPoint}
           onFieldErrorsChange={setFieldErrors}
           onPlaceOrder={() => void placeOrder()}

@@ -75,7 +75,7 @@ public sealed class CheckoutDraftTests : IAsyncLifetime
         client.DefaultRequestHeaders.Add("X-Checkout-Request", "1");
         Assert.Equal(HttpStatusCode.BadRequest, (await client.PutAsJsonAsync(Path(cart.Id), new { fields = new { customerName = 123 } })).StatusCode);
         Assert.Equal(HttpStatusCode.BadRequest, (await client.PutAsJsonAsync(Path(cart.Id), new { fields = new { password = "forbidden" } })).StatusCode);
-        Assert.Equal(HttpStatusCode.BadRequest, (await client.PutAsJsonAsync(Path(cart.Id), Request(name: new string('x', 201)))).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await client.PutAsJsonAsync(Path(cart.Id), Request(name: new string ('x', 201)))).StatusCode);
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", "invalid");
         Assert.Equal(HttpStatusCode.Unauthorized, (await client.GetAsync(Path(cart.Id))).StatusCode);
     }
@@ -85,8 +85,7 @@ public sealed class CheckoutDraftTests : IAsyncLifetime
     {
         using var client = Client();
         var cart = await CartAsync(client);
-        var responses = await Task.WhenAll(client.PutAsJsonAsync(Path(cart.Id), Request(name: "First")),
-            client.PutAsJsonAsync(Path(cart.Id), Request(name: "Second")));
+        var responses = await Task.WhenAll(client.PutAsJsonAsync(Path(cart.Id), Request(name: "First")), client.PutAsJsonAsync(Path(cart.Id), Request(name: "Second")));
         Assert.Single(responses, response => response.StatusCode == HttpStatusCode.OK);
         Assert.Single(responses, response => response.StatusCode == HttpStatusCode.Conflict);
         Assert.Equal(HttpStatusCode.Conflict, (await client.DeleteAsync(Path(cart.Id))).StatusCode);
@@ -185,11 +184,11 @@ public sealed class CheckoutDraftTests : IAsyncLifetime
     {
         var userId = await CreateUserAsync();
         int productId;
-        await using (var db = _app.OpenDatabase())
+        await using (var databaseContext = _app.OpenDatabase())
         {
             var product = new Product { Name = "Session transfer", Available = true, Price = 900m, StockQuantity = 3 };
-            db.Products.Add(product);
-            await db.SaveChangesAsync();
+            databaseContext.Products.Add(product);
+            await databaseContext.SaveChangesAsync();
             productId = product.Id;
         }
         using var client = Client();
@@ -217,11 +216,12 @@ public sealed class CheckoutDraftTests : IAsyncLifetime
         Assert.Equal(cart.Id, guestCart.Id);
         Assert.Equal(1, guestCart.TotalItemCount);
         Assert.Null((await client.GetFromJsonAsync<CheckoutDraftDto>(Path(cart.Id)))!.Fields);
-        await using (var db = _app.OpenDatabase())
-            Assert.Null((await db.Carts.SingleAsync(item => item.Id == cart.Id)).CheckoutDraftJson);
+        await using (var databaseContext = _app.OpenDatabase())
+            Assert.Null((await databaseContext.Carts.SingleAsync(item => item.Id == cart.Id)).CheckoutDraftJson);
         using var stranger = Client();
         Assert.Equal(HttpStatusCode.NotFound, (await stranger.GetAsync(Path(cart.Id))).StatusCode);
-        if (finishSignedIn) await Login();
+        if (finishSignedIn)
+            await Login();
         var request = new PlaceOrderDto
         {
             IdempotencyKey = cart.Id.ToString("N"), CustomerName = "My checkout",
@@ -234,7 +234,7 @@ public sealed class CheckoutDraftTests : IAsyncLifetime
         Assert.Equal(HttpStatusCode.Created, placed.StatusCode);
         await using var verify = _app.OpenDatabase();
         var order = await verify.Orders.SingleAsync();
-        Assert.Equal(finishSignedIn ? userId : (Guid?)null, order.UserId);
+        Assert.Equal(finishSignedIn ? userId : (Guid? )null, order.UserId);
         Assert.Equal(2, (await verify.Products.SingleAsync()).StockQuantity);
     }
 

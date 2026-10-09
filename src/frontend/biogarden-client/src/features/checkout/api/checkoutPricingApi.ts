@@ -11,20 +11,31 @@ export type CheckoutQuote = { cartId: string; fulfillmentMethod: FulfillmentMeth
   version: string; items: OrderItem[]; deliveryPoint: GlsDeliveryPoint | null };
 
 export async function getCheckoutMethods(signal: AbortSignal): Promise<CheckoutMethod[]> {
-  const response = await apiRequest("/api/orders/checkout-methods", { signal, cache: "no-store", fallbackMessage: "Az átvételi módok nem tölthetők be." });
+  const response = await apiRequest(
+    "/api/orders/checkout-methods",
+    { signal, cache: "no-store", fallbackMessage: "Az átvételi módok nem tölthetők be." }
+  );
   const methods = await response.json() as CheckoutMethod[];
+
   if (!Array.isArray(methods) || methods.some(method => !method || !Object.values(FULFILLMENT).includes(method.fulfillmentMethod)
     || !Number.isFinite(method.deliveryFee) || method.deliveryFee < 0 || !Array.isArray(method.paymentMethods)
-    || method.paymentMethods.some(payment => !Object.values(PAYMENT).includes(payment)))) throw new Error("Érvénytelen átvételi beállítások.");
+    || method.paymentMethods.some(payment => !Object.values(PAYMENT).includes(payment))))
+    {
+    throw new Error("Érvénytelen átvételi beállítások.");
+  }
+
   return methods;
 }
 
-export async function getCheckoutQuote(cartId: string, fulfillmentMethod: FulfillmentMethod, paymentMethod: OrderPaymentMethod,
-  glsDeliveryPointId: string | null, signal: AbortSignal): Promise<CheckoutQuote> {
-  const response = await apiRequest("/api/orders/quote", { method: "POST", signal, credentials: "include", cache: "no-store",
-    authSessionId: getAuthSession()?.sessionId, jsonBody: { fulfillmentMethod, paymentMethod, glsDeliveryPointId },
-    fallbackMessage: "Az árak ellenőrzése nem sikerült. Próbáld újra." });
+export async function getCheckoutQuote(cartId: string, fulfillmentMethod: FulfillmentMethod, paymentMethod: OrderPaymentMethod, glsDeliveryPointId: string | null, signal: AbortSignal): Promise<CheckoutQuote> {
+  const response = await apiRequest(
+    "/api/orders/quote",
+    { method: "POST", signal, credentials: "include", cache: "no-store",
+      authSessionId: getAuthSession()?.sessionId, jsonBody: { fulfillmentMethod, paymentMethod, glsDeliveryPointId },
+      fallbackMessage: "Az árak ellenőrzése nem sikerült. Próbáld újra." }
+  );
   const quote = await response.json() as CheckoutQuote;
+
   if (!quote || quote.cartId !== cartId || quote.fulfillmentMethod !== fulfillmentMethod || quote.paymentMethod !== paymentMethod
     || quote.currency !== "HUF" || !/^[A-F0-9]{64}$/.test(quote.version)
     || ![quote.subtotal, quote.deliveryFee, quote.paymentFee, quote.totalPrice].every(value => Number.isFinite(value) && value >= 0)
@@ -33,5 +44,6 @@ export async function getCheckoutQuote(cartId: string, fulfillmentMethod: Fulfil
     || (glsDeliveryPointId !== null && (quote.deliveryPoint?.id !== glsDeliveryPointId || quote.deliveryPoint.type !== fulfillmentMethod))) {
     throw new Error("Érvénytelen árösszesítés. Próbáld újra.");
   }
+
   return quote;
 }

@@ -51,7 +51,8 @@ export default function LoginPage() {
 
   function clearFieldError(field: LoginField) {
     setFieldErrors((currentErrors) => {
-      if (!currentErrors[field]) return currentErrors;
+      if (!currentErrors[field])
+        return currentErrors;
       const nextErrors = { ...currentErrors };
       delete nextErrors[field];
       return nextErrors;
@@ -69,7 +70,8 @@ export default function LoginPage() {
   function renderFieldError(field: LoginField) {
     const fieldError = fieldErrors[field];
 
-    if (!fieldError) return null;
+    if (!fieldError)
+      return null;
 
     return (
       <p id={getErrorId(field)} className="mt-1.5 text-xs font-normal text-site-danger" role="alert">
@@ -99,9 +101,15 @@ export default function LoginPage() {
       const auth = await login({ email: email.trim(), password });
       saveAuthSession(auth);
       const from = (location.state as LoginLocationState | null)?.from;
-      navigate(from ?? ROUTES.account, { replace: true });
+      navigate(
+        from ?? ROUTES.account,
+        { replace: true }
+      );
     } catch (submitError) {
-      setFieldErrors(getServerFieldErrors(submitError, ["email", "password"] as const));
+      setFieldErrors(getServerFieldErrors(
+        submitError,
+        ["email", "password"] as const
+      ));
       const message = getErrorMessage(submitError, "A bejelentkezés nem sikerült.");
 
       if (message.toLocaleLowerCase("hu-HU").includes("meger")) {

@@ -30,10 +30,7 @@ public class CartController : ControllerBase
         var userId = GetCurrentUserId();
         var sessionId = GetOrCreateSessionId();
 
-        var cart = await _cartService.GetCartAsync(
-            userId,
-            sessionId,
-            cancellationToken);
+        var cart = await _cartService.GetCartAsync(userId, sessionId, cancellationToken);
 
         EnsureCartCookie(sessionId);
 
@@ -45,18 +42,12 @@ public class CartController : ControllerBase
     [ProducesResponseType(typeof(CartDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
-    public async Task<ActionResult<CartDto>> AddItem(
-        [FromBody] AddCartItemDto addCartItemDto,
-        CancellationToken cancellationToken)
+    public async Task<ActionResult<CartDto>> AddItem([FromBody] AddCartItemDto addCartItemDto, CancellationToken cancellationToken)
     {
         var userId = GetCurrentUserId();
         var sessionId = GetOrCreateSessionId();
 
-        var cart = await _cartService.AddItemAsync(
-            userId,
-            sessionId,
-            addCartItemDto,
-            cancellationToken);
+        var cart = await _cartService.AddItemAsync(userId, sessionId, addCartItemDto, cancellationToken);
 
         EnsureCartCookie(sessionId);
 
@@ -66,12 +57,9 @@ public class CartController : ControllerBase
     [HttpGet("products/{productId:int}/availability")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<ActionResult> GetProductAvailability(
-        int productId,
-        CancellationToken cancellationToken)
+    public async Task<ActionResult> GetProductAvailability(int productId, CancellationToken cancellationToken)
     {
-        var availableQuantity = await _cartService.GetAvailableQuantityToAddAsync(
-            GetCurrentUserId(), GetSessionId(), productId, cancellationToken);
+        var availableQuantity = await _cartService.GetAvailableQuantityToAddAsync(GetCurrentUserId(), GetSessionId(), productId, cancellationToken);
         return Ok(new { availableQuantity });
     }
 
@@ -81,20 +69,12 @@ public class CartController : ControllerBase
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<ActionResult<CartDto>> UpdateItemQuantity(
-        Guid cartItemId,
-        [FromBody] UpdateCartItemQuantityDto updateCartItemQuantityDto,
-        CancellationToken cancellationToken)
+    public async Task<ActionResult<CartDto>> UpdateItemQuantity(Guid cartItemId, [FromBody] UpdateCartItemQuantityDto updateCartItemQuantityDto, CancellationToken cancellationToken)
     {
         var userId = GetCurrentUserId();
         var sessionId = GetOrCreateSessionId();
 
-        var cart = await _cartService.UpdateItemQuantityAsync(
-            userId,
-            sessionId,
-            cartItemId,
-            updateCartItemQuantityDto,
-            cancellationToken);
+        var cart = await _cartService.UpdateItemQuantityAsync(userId, sessionId, cartItemId, updateCartItemQuantityDto, cancellationToken);
 
         EnsureCartCookie(sessionId);
 
@@ -105,18 +85,12 @@ public class CartController : ControllerBase
     [EnableRateLimiting(RateLimitPolicyNames.CartMutation)]
     [ProducesResponseType(typeof(CartDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<ActionResult<CartDto>> RemoveItem(
-        Guid cartItemId,
-        CancellationToken cancellationToken)
+    public async Task<ActionResult<CartDto>> RemoveItem(Guid cartItemId, CancellationToken cancellationToken)
     {
         var userId = GetCurrentUserId();
         var sessionId = GetOrCreateSessionId();
 
-        var cart = await _cartService.RemoveItemAsync(
-            userId,
-            sessionId,
-            cartItemId,
-            cancellationToken);
+        var cart = await _cartService.RemoveItemAsync(userId, sessionId, cartItemId, cancellationToken);
 
         EnsureCartCookie(sessionId);
 
@@ -132,10 +106,7 @@ public class CartController : ControllerBase
         var userId = GetCurrentUserId();
         var sessionId = GetOrCreateSessionId();
 
-        var cart = await _cartService.ClearCartAsync(
-            userId,
-            sessionId,
-            cancellationToken);
+        var cart = await _cartService.ClearCartAsync(userId, sessionId, cancellationToken);
 
         EnsureCartCookie(sessionId);
 
@@ -150,10 +121,7 @@ public class CartController : ControllerBase
         var userId = GetCurrentUserId();
         var sessionId = GetOrCreateSessionId();
 
-        var validationResult = await _cartService.ValidateCartForCheckoutAsync(
-            userId,
-            sessionId,
-            cancellationToken);
+        var validationResult = await _cartService.ValidateCartForCheckoutAsync(userId, sessionId, cancellationToken);
 
         EnsureCartCookie(sessionId);
 
@@ -180,19 +148,12 @@ public class CartController : ControllerBase
 
         if (string.IsNullOrWhiteSpace(guestSessionId))
         {
-            var userCart = await _cartService.GetCartAsync(
-                userId,
-                sessionId: null,
-                cancellationToken);
+            var userCart = await _cartService.GetCartAsync(userId, sessionId: null, cancellationToken);
 
             return Ok(userCart);
         }
 
-        var mergedCart = await _cartService.MergeGuestCartIntoUserCartAsync(
-            userId.Value,
-            guestSessionId,
-            cancellationToken,
-            User.FindFirstValue(Biogarden.WebApi.Authentication.BrowserAuthentication.SessionClaim));
+        var mergedCart = await _cartService.MergeGuestCartIntoUserCartAsync(userId.Value, guestSessionId, cancellationToken, User.FindFirstValue(Biogarden.WebApi.Authentication.BrowserAuthentication.SessionClaim));
 
         EnsureCartCookie(guestSessionId);
 
@@ -212,10 +173,7 @@ public class CartController : ControllerBase
             return Unauthorized();
         }
 
-        var cart = await _cartService.GetCartAsync(
-            userId,
-            sessionId: null,
-            cancellationToken);
+        var cart = await _cartService.GetCartAsync(userId, sessionId: null, cancellationToken);
 
         return Ok(cart);
     }

@@ -9,8 +9,7 @@ namespace Biogarden.WebApi.Health;
 
 // Read-only operational signal. Keep it separate from readiness: a delivery incident
 // must not remove an otherwise functional shop from traffic or restart its workers.
-public sealed class OperationalHealthCheck(AppDbContext database, TimeProvider clock,
-    IOptions<OperationalMonitoringOptions> options) : IHealthCheck
+public sealed class OperationalHealthCheck(AppDbContext database, TimeProvider clock, IOptions<OperationalMonitoringOptions> options) : IHealthCheck
 {
     public async Task<HealthCheckResult> CheckHealthAsync(HealthCheckContext context, CancellationToken cancellationToken = default)
     {
@@ -18,15 +17,27 @@ public sealed class OperationalHealthCheck(AppDbContext database, TimeProvider c
         var settings = options.Value;
         var emailCutoff = now.AddMinutes(-settings.EmailOverdueMinutes);
         var paymentCutoff = now.AddMinutes(-settings.PaymentRecoveryMinutes);
-        var orderEmailIssue = await database.OrderEmails.AnyAsync(x => x.SentAtUtc == null &&
-            (x.Attempts >= settings.EmailFailureAttempts || x.NextAttemptAtUtc <= emailCutoff), cancellationToken);
-        var notificationIssue = await database.NotificationEmails.AnyAsync(x => x.CompletedAtUtc == null && x.ExpiresAtUtc > now &&
-            (x.Attempts >= settings.EmailFailureAttempts || x.NextAttemptAtUtc <= emailCutoff), cancellationToken);
-        var failedEvent = await database.PaymentProviderEvents.AnyAsync(x => x.ProcessedAtUtc == null &&
-            x.ProcessingFailedAtUtc != null && x.ReceivedAtUtc <= paymentCutoff, cancellationToken);
-        var ambiguousPayment = await database.PaymentAttempts.AnyAsync(x => x.CreateRequested && x.CheckoutId == null &&
-            x.CreatedAtUtc <= paymentCutoff, cancellationToken);
-        var pendingRefund = await database.Orders.AnyAsync(x => x.PaymentStatus == PaymentStatus.RefundPending, cancellationToken);
+        var orderEmailIssue = await database.OrderEmails.AnyAsync(
+            orderEmail => orderEmail.SentAtUtc == null &&
+                (orderEmail.Attempts >= settings.EmailFailureAttempts || orderEmail.NextAttemptAtUtc <= emailCutoff),
+            cancellationToken
+        );
+        var notificationIssue = await database.NotificationEmails.AnyAsync(
+            notificationEmail => notificationEmail.CompletedAtUtc == null && notificationEmail.ExpiresAtUtc > now &&
+                (notificationEmail.Attempts >= settings.EmailFailureAttempts || notificationEmail.NextAttemptAtUtc <= emailCutoff),
+            cancellationToken
+        );
+        var failedEvent = await database.PaymentProviderEvents.AnyAsync(
+            paymentProviderEvent => paymentProviderEvent.ProcessedAtUtc == null &&
+                paymentProviderEvent.ProcessingFailedAtUtc != null && paymentProviderEvent.ReceivedAtUtc <= paymentCutoff,
+            cancellationToken
+        );
+        var ambiguousPayment = await database.PaymentAttempts.AnyAsync(
+            paymentAttempt => paymentAttempt.CreateRequested && paymentAttempt.CheckoutId == null &&
+                paymentAttempt.CreatedAtUtc <= paymentCutoff,
+            cancellationToken
+        );
+        var pendingRefund = await database.Orders.AnyAsync(order => order.PaymentStatus == PaymentStatus.RefundPending, cancellationToken);
         return orderEmailIssue || notificationIssue || failedEvent || ambiguousPayment || pendingRefund
             ? HealthCheckResult.Unhealthy("Operational follow-up required.")
             : HealthCheckResult.Healthy();

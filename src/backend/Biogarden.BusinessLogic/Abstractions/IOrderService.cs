@@ -9,59 +9,24 @@ public interface IOrderService
     Task<OrderDto> RecoverCheckoutOrderAsync(Guid? userId, string? sessionId, string idempotencyKey, CancellationToken cancellationToken = default);
     Task ReconcileSumUpCheckoutAsync(Models.Payments.SumUpCheckoutResult checkout, CancellationToken cancellationToken = default);
     Task<OrderDto> GetCheckoutOrderAsync(Guid? userId, string? sessionId, Guid orderId, CancellationToken cancellationToken = default);
-    Task<CheckoutQuoteDto> GetCheckoutQuoteAsync(Guid? userId, string? sessionId,
-        CheckoutQuoteRequest request, CancellationToken cancellationToken = default);
-    Task<OrderCreationResult> CreateOrderFromCartAsync(
-        Guid? userId,
-        string? sessionId,
-        PlaceOrderDto dto,
-        CancellationToken cancellationToken = default);
+    Task<CheckoutQuoteDto> GetCheckoutQuoteAsync(Guid? userId, string? sessionId, CheckoutQuoteRequest request, CancellationToken cancellationToken = default);
+    Task<OrderCreationResult> CreateOrderFromCartAsync(Guid? userId, string? sessionId, PlaceOrderDto placeOrder, CancellationToken cancellationToken = default);
 
-    Task<SumUpCheckoutDto> CreateSumUpCheckoutAsync(
-        Guid? userId,
-        string? sessionId,
-        Guid orderId,
-        CancellationToken cancellationToken = default);
+    Task<SumUpCheckoutDto> CreateSumUpCheckoutAsync(Guid? userId, string? sessionId, Guid orderId, CancellationToken cancellationToken = default);
 
-    Task<OrderDto> ConfirmSumUpCheckoutAsync(
-        string sumUpCheckoutId,
-        string? sumUpTransactionId,
-        decimal? amount = null,
-        string? currency = null,
-        CancellationToken cancellationToken = default);
+    Task<OrderDto> ConfirmSumUpCheckoutAsync(string sumUpCheckoutId, string? sumUpTransactionId, decimal? amount = null, string? currency = null, CancellationToken cancellationToken = default);
 
-    Task<OrderDto?> MarkSumUpPaymentFailedAsync(
-        string sumUpCheckoutId,
-        string? sumUpTransactionId,
-        CancellationToken cancellationToken = default);
+    Task<OrderDto?> MarkSumUpPaymentFailedAsync(string sumUpCheckoutId, string? sumUpTransactionId, CancellationToken cancellationToken = default);
 
-    Task<OrderDto> CancelOrderAsync(
-        Guid userId,
-        Guid orderId,
-        CancelOrderDto dto,
-        CancellationToken cancellationToken = default);
+    Task<OrderDto> CancelOrderAsync(Guid userId, Guid orderId, CancelOrderDto cancelOrder, CancellationToken cancellationToken = default);
 
-    Task<OrderWithdrawalRequestDto> RequestWithdrawalAsync(
-        Guid userId,
-        Guid orderId,
-        CreateOrderWithdrawalRequestDto dto,
-        CancellationToken cancellationToken = default);
+    Task<OrderWithdrawalRequestDto> RequestWithdrawalAsync(Guid userId, Guid orderId, CreateOrderWithdrawalRequestDto createOrderWithdrawalRequest, CancellationToken cancellationToken = default);
 
-    Task<OrderWithdrawalRequestDto> RequestWithdrawalByOrderLookupAsync(
-        PublicOrderWithdrawalRequestDto dto,
-        CancellationToken cancellationToken = default);
+    Task<OrderWithdrawalRequestDto> RequestWithdrawalByOrderLookupAsync(PublicOrderWithdrawalRequestDto publicOrderWithdrawalRequest, CancellationToken cancellationToken = default);
 
-    Task<PagedResultDto<OrderDto>> GetMyOrdersAsync(
-        Guid userId, CustomerOrderListQuery query,
-        CancellationToken cancellationToken = default);
+    Task<PagedResultDto<OrderDto>> GetMyOrdersAsync(Guid userId, CustomerOrderListQuery query, CancellationToken cancellationToken = default);
 
-    Task<OrderDto> GetOrderByIdAsync(
-        Guid userId,
-        Guid orderId,
-        CancellationToken cancellationToken = default);
+    Task<OrderDto> GetOrderByIdAsync(Guid userId, Guid orderId, CancellationToken cancellationToken = default);
 
-    Task<PublicOrderPaymentStatusDto> GetPublicOrderPaymentStatusAsync(
-        Guid orderId,
-        string sumUpCheckoutReference,
-        CancellationToken cancellationToken = default);
+    Task<PublicOrderPaymentStatusDto> GetPublicOrderPaymentStatusAsync(Guid orderId, string sumUpCheckoutReference, CancellationToken cancellationToken = default);
 }

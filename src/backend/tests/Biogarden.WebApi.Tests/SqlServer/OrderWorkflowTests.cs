@@ -81,7 +81,7 @@ public sealed class OrderWorkflowTests : IAsyncLifetime
         Assert.Equal(order.Id, (await retry.Content.ReadFromJsonAsync<OrderDto>())!.Id);
 
         await using var database = _app.OpenDatabase();
-        var saved = await database.Orders.Include(x => x.Items).SingleAsync();
+        var saved = await database.Orders.Include(candidateOrder => candidateOrder.Items).SingleAsync();
         Assert.Null(saved.UserId);
         Assert.Equal(900m, saved.TotalPrice);
         Assert.Single(saved.Items);
@@ -143,7 +143,7 @@ public sealed class OrderWorkflowTests : IAsyncLifetime
             await hold.ExecuteNonQueryAsync();
         }
         var timeout = new OrderQueueTimeout(sqlError);
-        using var api = _app.Factory.WithWebHostBuilder(builder => builder.ConfigureTestServices(services =>
+        using var api = _app.Factory.WithWebHostBuilder(webHostBuilder => webHostBuilder.ConfigureTestServices(services =>
             services.AddDbContext<AppDbContext>(options => options.AddInterceptors(timeout))));
         using var client = api.CreateClient();
         await AddToCartAsync(client, productId);
@@ -184,9 +184,7 @@ public sealed class OrderWorkflowTests : IAsyncLifetime
         public int Attempts;
         public int ObservedError;
 
-        public override async ValueTask<InterceptionResult<DbDataReader>> ReaderExecutingAsync(
-            DbCommand command, CommandEventData eventData, InterceptionResult<DbDataReader> result,
-            CancellationToken cancellationToken = default)
+        public override async ValueTask<InterceptionResult<DbDataReader>> ReaderExecutingAsync(DbCommand command, CommandEventData eventData, InterceptionResult<DbDataReader> result, CancellationToken cancellationToken = default)
         {
             if (Enabled && command.CommandText.Contains("INSERT INTO [OrderEmails]", StringComparison.Ordinal))
             {
@@ -234,7 +232,7 @@ public sealed class OrderWorkflowTests : IAsyncLifetime
                 Assert.False(string.IsNullOrEmpty(email.HtmlBody));
             });
             await database.OrderEmails.ExecuteUpdateAsync(setters => setters
-                .SetProperty(x => x.NextAttemptAtUtc, DateTime.UtcNow.AddMinutes(-1)));
+                .SetProperty(orderEmail => orderEmail.NextAttemptAtUtc, DateTime.UtcNow.AddMinutes(-1)));
         }
         await _app.RestartApiAsync();
         _app.Sender.Fail = false;
@@ -246,7 +244,7 @@ public sealed class OrderWorkflowTests : IAsyncLifetime
             Assert.False(await dispatcher.DispatchNextAsync(default));
         }
         Assert.Equal(2, _app.Sender.Sent.Count);
-        Assert.Equal(2, _app.Sender.Sent.Select(x => x.To).Distinct().Count());
+        Assert.Equal(2, _app.Sender.Sent.Select(emailMessage => emailMessage.To).Distinct().Count());
         await using var check = _app.OpenDatabase();
         Assert.All(await check.OrderEmails.ToListAsync(), email =>
         {
@@ -264,8 +262,8 @@ public sealed class OrderWorkflowTests : IAsyncLifetime
         await PlaceOrderAsync();
         await using (var database = _app.OpenDatabase())
         {
-            await database.OrderEmails.Where(x => x.Kind == "business").ExecuteUpdateAsync(setters => setters
-                .SetProperty(x => x.NextAttemptAtUtc, DateTime.UtcNow.AddHours(1)));
+            await database.OrderEmails.Where(orderEmail => orderEmail.Kind == "business").ExecuteUpdateAsync(setters => setters
+                .SetProperty(orderEmail => orderEmail.NextAttemptAtUtc, DateTime.UtcNow.AddHours(1)));
         }
         using var firstScope = _app.Factory.Services.CreateScope();
         using var secondScope = _app.Factory.Services.CreateScope();
@@ -273,7 +271,7 @@ public sealed class OrderWorkflowTests : IAsyncLifetime
         var secondRepository = secondScope.ServiceProvider.GetRequiredService<IOrderEmailRepository>();
         var now = DateTime.UtcNow;
         var claims = await Task.WhenAll(firstRepository.TryClaimAsync(now, default), secondRepository.TryClaimAsync(now, default));
-        var firstClaim = Assert.Single(claims, x => x is not null)!;
+        var firstClaim = Assert.Single(claims, emailClaim => emailClaim is not null)!;
         var newClaim = await secondRepository.TryClaimAsync(now.AddMinutes(3), default);
         Assert.NotNull(newClaim);
         Assert.Equal(firstClaim.Id, newClaim.Id);
@@ -281,11 +279,11 @@ public sealed class OrderWorkflowTests : IAsyncLifetime
 
         await firstRepository.CompleteAsync(firstClaim.Id, firstClaim.LeaseId!.Value, now, default);
         await using var check = _app.OpenDatabase();
-        var pending = await check.OrderEmails.AsNoTracking().SingleAsync(x => x.Id == newClaim.Id);
+        var pending = await check.OrderEmails.AsNoTracking().SingleAsync(orderEmail => orderEmail.Id == newClaim.Id);
         Assert.Null(pending.SentAtUtc);
         Assert.Equal(newClaim.LeaseId, pending.LeaseId);
         await secondRepository.CompleteAsync(newClaim.Id, newClaim.LeaseId!.Value, now.AddMinutes(3), default);
-        Assert.NotNull((await check.OrderEmails.AsNoTracking().SingleAsync(x => x.Id == newClaim.Id)).SentAtUtc);
+        Assert.NotNull((await check.OrderEmails.AsNoTracking().SingleAsync(orderEmail => orderEmail.Id == newClaim.Id)).SentAtUtc);
     }
 
     [SqlServerFact]
@@ -294,14 +292,14 @@ public sealed class OrderWorkflowTests : IAsyncLifetime
         var id = await SeedProductAsync();
         await using var first = _app.OpenDatabase();
         await using var second = _app.OpenDatabase();
-        var a = await first.Products.SingleAsync(x => x.Id == id);
-        var b = await second.Products.SingleAsync(x => x.Id == id);
-        a.StockQuantity = 2;
-        b.StockQuantity = 1;
+        var product = await first.Products.SingleAsync(candidateProduct => candidateProduct.Id == id);
+        var concurrentProduct = await second.Products.SingleAsync(candidateProduct => candidateProduct.Id == id);
+        product.StockQuantity = 2;
+        concurrentProduct.StockQuantity = 1;
         await first.SaveChangesAsync();
         await Assert.ThrowsAsync<DbUpdateConcurrencyException>(() => second.SaveChangesAsync());
         await using var check = _app.OpenDatabase();
-        Assert.Equal(2, (await check.Products.SingleAsync(x => x.Id == id)).StockQuantity);
+        Assert.Equal(2, (await check.Products.SingleAsync(candidateProduct => candidateProduct.Id == id)).StockQuantity);
     }
 
     [SqlServerFact]
@@ -320,13 +318,13 @@ public sealed class OrderWorkflowTests : IAsyncLifetime
         using var paymentScope = _app.Factory.Services.CreateScope();
         var paymentDatabase = paymentScope.ServiceProvider.GetRequiredService<Biogarden.DataAccess.AppDbContext>();
         // Hold the snapshot a payment request read before cancellation commits.
-        await paymentDatabase.Orders.SingleAsync(x => x.Id == orderId);
+        await paymentDatabase.Orders.SingleAsync(candidateOrder => candidateOrder.Id == orderId);
         using (var cancelScope = _app.Factory.Services.CreateScope())
         {
             var admin = cancelScope.ServiceProvider.GetRequiredService<Biogarden.BusinessLogic.Abstractions.IAdminOrderService>();
             await admin.UpdateAsync(orderId, new Biogarden.BusinessLogic.DTOs.Admin.AdminOrderUpdateDto
             {
-                Version = Convert.ToBase64String((await paymentDatabase.Orders.AsNoTracking().SingleAsync(x => x.Id == orderId)).RowVersion),
+                Version = Convert.ToBase64String((await paymentDatabase.Orders.AsNoTracking().SingleAsync(candidateOrder => candidateOrder.Id == orderId)).RowVersion),
                 Status = OrderStatus.Cancelled,
                 PaymentStatus = PaymentStatus.Pending
             });
@@ -356,7 +354,7 @@ public sealed class OrderWorkflowTests : IAsyncLifetime
         var productId = await SeedProductAsync();
         await using (var seed = _app.OpenDatabase())
         {
-            await seed.Products.ExecuteUpdateAsync(setters => setters.SetProperty(x => x.StockQuantity, 1));
+            await seed.Products.ExecuteUpdateAsync(setters => setters.SetProperty(product => product.StockQuantity, 1));
         }
         using var client = _app.Factory.CreateClient();
         await AddToCartAsync(client, productId);
@@ -378,7 +376,7 @@ public sealed class OrderWorkflowTests : IAsyncLifetime
         if (disableBeforeCancellation)
         {
             await using var database = _app.OpenDatabase();
-            await database.Products.ExecuteUpdateAsync(setters => setters.SetProperty(x => x.Available, false));
+            await database.Products.ExecuteUpdateAsync(setters => setters.SetProperty(product => product.Available, false));
         }
         await ChangeStatusAsync(order.Id, OrderStatus.Cancelled);
         await ChangeStatusAsync(order.Id, OrderStatus.Cancelled);
@@ -436,15 +434,15 @@ public sealed class OrderWorkflowTests : IAsyncLifetime
         await ChangeStatusAsync(orderId, OrderStatus.Confirmed);
         await ChangeStatusAsync(orderId, OrderStatus.Confirmed);
         await ChangeStatusAsync(orderId, OrderStatus.Shipped);
-        var notifications = await check.OrderEmails.Where(x => x.Kind == "status").ToListAsync();
+        var notifications = await check.OrderEmails.Where(orderEmail => orderEmail.Kind == "status").ToListAsync();
         Assert.Equal(2, notifications.Count);
-        Assert.Equal(2, notifications.Select(x => x.EventId).Distinct().Count());
+        Assert.Equal(2, notifications.Select(orderEmail => orderEmail.EventId).Distinct().Count());
         Assert.Empty(_app.Sender.Sent);
         await _app.RestartApiAsync();
         _app.Sender.Fail = false;
         using var scope = _app.Factory.Services.CreateScope();
         var dispatcher = scope.ServiceProvider.GetRequiredService<OrderEmailDispatcher>();
-        for (var i = 0; i < 4; i++) Assert.True(await dispatcher.DispatchNextAsync(default));
+        for (var index = 0; index < 4; index++) Assert.True(await dispatcher.DispatchNextAsync(default));
         Assert.False(await dispatcher.DispatchNextAsync(default));
         Assert.Equal(4, _app.Sender.Sent.Count);
     }
@@ -482,9 +480,9 @@ public sealed class OrderWorkflowTests : IAsyncLifetime
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
         Assert.NotNull(await response.Content.ReadFromJsonAsync<OrderWithdrawalRequestDto>());
         Assert.Single(await check.OrderWithdrawalRequests.ToListAsync());
-        var notifications = await check.OrderEmails.Where(x => x.Kind.StartsWith("withdrawal-")).ToListAsync();
+        var notifications = await check.OrderEmails.Where(orderEmail => orderEmail.Kind.StartsWith("withdrawal-")).ToListAsync();
         Assert.Equal(2, notifications.Count);
-        Assert.Single(notifications.Select(x => x.EventId).Distinct());
+        Assert.Single(notifications.Select(orderEmail => orderEmail.EventId).Distinct());
         Assert.All(notifications, email => Assert.NotEqual(Guid.Empty, email.EventId));
         Assert.Empty(_app.Sender.Sent);
     }
@@ -531,16 +529,16 @@ public sealed class OrderWorkflowTests : IAsyncLifetime
     public async Task CompletionTimestampIsRecordedOnce()
     {
         await PlaceOrderAsync();
-        await using var db = _app.OpenDatabase();
-        var order = await db.Orders.AsNoTracking().SingleAsync();
+        await using var databaseContext = _app.OpenDatabase();
+        var order = await databaseContext.Orders.AsNoTracking().SingleAsync();
         Assert.Null(order.CompletedAtUtc);
         var before = DateTime.UtcNow;
         await ChangeStatusAsync(order.Id, OrderStatus.Completed);
-        var completed = await db.Orders.AsNoTracking().SingleAsync();
+        var completed = await databaseContext.Orders.AsNoTracking().SingleAsync();
         Assert.NotNull(completed.CompletedAtUtc);
         Assert.InRange(completed.CompletedAtUtc.Value, before, DateTime.UtcNow);
         await ChangeStatusAsync(order.Id, OrderStatus.Completed);
-        Assert.Equal(completed.CompletedAtUtc, (await db.Orders.AsNoTracking().SingleAsync()).CompletedAtUtc);
+        Assert.Equal(completed.CompletedAtUtc, (await databaseContext.Orders.AsNoTracking().SingleAsync()).CompletedAtUtc);
     }
 
     private async Task ChangeStatusAsync(Guid orderId, OrderStatus status)
@@ -549,7 +547,7 @@ public sealed class OrderWorkflowTests : IAsyncLifetime
         var service = scope.ServiceProvider.GetRequiredService<Biogarden.BusinessLogic.Abstractions.IAdminOrderService>();
         await service.UpdateAsync(orderId, new Biogarden.BusinessLogic.DTOs.Admin.AdminOrderUpdateDto
         {
-            Version = (await service.GetPageAsync(new())).Items.Single(x => x.Id == orderId).Version,
+            Version = (await service.GetPageAsync(new())).Items.Single(order => order.Id == orderId).Version,
             Status = status,
             PaymentStatus = PaymentStatus.Pending
         });

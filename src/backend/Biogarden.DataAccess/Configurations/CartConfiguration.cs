@@ -12,9 +12,7 @@ public class CartConfiguration : IEntityTypeConfiguration<Cart>
             "Carts",
             tableBuilder =>
             {
-                tableBuilder.HasCheckConstraint(
-                    "CK_Carts_UserId_Or_SessionId",
-                    "[UserId] IS NOT NULL OR [SessionId] IS NOT NULL");
+                tableBuilder.HasCheckConstraint("CK_Carts_UserId_Or_SessionId", "[UserId] IS NOT NULL OR [SessionId] IS NOT NULL");
             });
 
         cartBuilder.HasKey(cart => cart.Id);

@@ -47,34 +47,53 @@ export function useCheckoutFlow({ form, cartState, pricing, gls, paymentMethod, 
     : null;
   const checkoutKey = searchParams.get("checkoutKey") === rejectedCheckoutKey ? null : searchParams.get("checkoutKey");
 
-  useModalFocus(reviewModalRef, {
-    isOpen: showReview && Boolean(quote) && (submitting || (!cancelledSumUpOrderId && !checkoutKey)) && !loading && !cartLoading && draftReady && Boolean(cart?.items.length),
-    onClose: () => { if (!submitting) setShowReview(false); },
-    returnFocusRef: reviewButtonRef,
-  });
+  useModalFocus(
+    reviewModalRef,
+    {
+      isOpen: showReview && Boolean(quote) && (submitting || (!cancelledSumUpOrderId && !checkoutKey)) && !loading && !cartLoading && draftReady && Boolean(cart?.items.length),
+      onClose: () => {
+        if (!submitting)
+          setShowReview(false);
+      },
+      returnFocusRef: reviewButtonRef,
+    }
+  );
 
-  useEffect(() => {
-    setPaymentMethod(null);
-    setShowReview(false);
-    setTermsAccepted(false);
-    setPrivacyAccepted(false);
-  }, [method, draft.glsDeliveryPointId, setPaymentMethod]);
+  useEffect(
+    () => {
+      setPaymentMethod(null);
+      setShowReview(false);
+      setTermsAccepted(false);
+      setPrivacyAccepted(false);
+    },
+    [method, draft.glsDeliveryPointId, setPaymentMethod]
+  );
 
-  useEffect(() => {
-    setShowReview(false);
-    setTermsAccepted(false);
-    setPrivacyAccepted(false);
-  }, [quote?.version, paymentMethod]);
+  useEffect(
+    () => {
+      setShowReview(false);
+      setTermsAccepted(false);
+      setPrivacyAccepted(false);
+    },
+    [quote?.version, paymentMethod]
+  );
 
-  useEffect(() => {
-    if (!cart?.items.length || checkoutStartedTrackedRef.current) return;
+  useEffect(
+    () => {
+      if (!cart?.items.length || checkoutStartedTrackedRef.current)
+        return;
 
-    checkoutStartedTrackedRef.current = true;
-    track("checkout_started", {
-      itemCount: cart.totalItemCount,
-      cartValueBucket: getCartValueBucket(cart.totalPrice),
-    });
-  }, [cart, track]);
+      checkoutStartedTrackedRef.current = true;
+      track(
+        "checkout_started",
+        {
+          itemCount: cart.totalItemCount,
+          cartValueBucket: getCartValueBucket(cart.totalPrice),
+        }
+      );
+    },
+    [cart, track]
+  );
 
   async function submit(event: FormEvent) {
     event.preventDefault();
@@ -90,7 +109,10 @@ export function useCheckoutFlow({ form, cartState, pricing, gls, paymentMethod, 
       setError(pricing.methodsError || "Válassz egy elérhető átvételi módot.");
       return;
     }
-    if (step === "payment" && !quote) { setError("Ellenőrizd újra az árakat a folytatáshoz."); return; }
+    if (step === "payment" && !quote) {
+      setError("Ellenőrizd újra az árakat a folytatáshoz.");
+      return;
+    }
     if (isGlsMethod(method) && !gls.point) {
       errors.glsDeliveryPointId = gls.loading ? "Várd meg az átvételi pont ellenőrzését." : gls.error ?? "Válassz egy GLS átvételi pontot a térképen.";
     }
@@ -115,17 +137,23 @@ export function useCheckoutFlow({ form, cartState, pricing, gls, paymentMethod, 
 
       if (step === "details") {
         setStep("payment");
-        track("checkout_step_completed", {
-          step: "details",
-          fulfillmentMethod: String(method),
-        });
+        track(
+          "checkout_step_completed",
+          {
+            step: "details",
+            fulfillmentMethod: String(method),
+          }
+        );
       } else {
         setShowReview(true);
-        track("checkout_step_completed", {
-          step: "payment",
-          fulfillmentMethod: String(method),
-          paymentMethod,
-        });
+        track(
+          "checkout_step_completed",
+          {
+            step: "payment",
+            fulfillmentMethod: String(method),
+            paymentMethod,
+          }
+        );
       }
     } catch (validationError) {
       setError(getErrorMessage(validationError, "A kosár ellenőrzése nem sikerült."));
@@ -135,8 +163,13 @@ export function useCheckoutFlow({ form, cartState, pricing, gls, paymentMethod, 
   }
 
   async function placeOrder() {
-    if (submitting) return;
-    if (!quote) { setShowReview(false); setError("Az árösszesítés megváltozott. Tekintsd át újra a rendelést."); return; }
+    if (submitting)
+      return;
+    if (!quote) {
+      setShowReview(false);
+      setError("Az árösszesítés megváltozott. Tekintsd át újra a rendelést.");
+      return;
+    }
     if (!cart?.items.length) {
       setError("A kosár üres.");
       setShowReview(false);
@@ -170,29 +203,41 @@ export function useCheckoutFlow({ form, cartState, pricing, gls, paymentMethod, 
       submissionKey = request.idempotencyKey;
       setRejectedCheckoutKey(null);
       // Save only the server-owned cart key in the URL before submitting; no personal data.
-      setSearchParams({ checkoutKey: request.idempotencyKey }, { replace: true });
+      setSearchParams(
+        { checkoutKey: request.idempotencyKey },
+        { replace: true }
+      );
       requestStarted = true;
       const order = await createOrder(request);
       orderCreated = true;
 
-      track("order_submitted", {
-        paymentMethod,
-        fulfillmentMethod: String(method),
-        itemCount: cart.totalItemCount,
-        cartValueBucket: getCartValueBucket(cart.totalPrice),
-      });
+      track(
+        "order_submitted",
+        {
+          paymentMethod,
+          fulfillmentMethod: String(method),
+          itemCount: cart.totalItemCount,
+          cartValueBucket: getCartValueBucket(cart.totalPrice),
+        }
+      );
 
       if (order.paymentMethod === PAYMENT.OnlineCard) {
         // Retain only the order identifier in the URL, before contacting the provider.
         // The backend still checks ownership; a failed payment start must not resubmit the cart.
-        setSearchParams({ sumup: "cancelled", orderId: order.id }, { replace: true });
+        setSearchParams(
+          { sumup: "cancelled", orderId: order.id },
+          { replace: true }
+        );
         const checkout = await createSumUpCheckout(order.id);
         window.location.assign(checkout.url);
         navigationStarted = true;
         return;
       }
 
-      navigate(ROUTES.orderSuccess, { replace: true, state: { order } });
+      navigate(
+        ROUTES.orderSuccess,
+        { replace: true, state: { order } }
+      );
       navigationStarted = true;
       void refresh().catch(() => undefined);
     } catch (submitError) {
@@ -200,7 +245,10 @@ export function useCheckoutFlow({ form, cartState, pricing, gls, paymentMethod, 
       if (!orderCreated && (!requestStarted || rejected)) {
         // Router transitions can lag state updates. Keep the existing form mounted for focus restoration.
         setRejectedCheckoutKey(submissionKey);
-        setSearchParams({}, { replace: true });
+        setSearchParams(
+          {},
+          { replace: true }
+        );
         draftStorage.resume();
       }
       if (!orderCreated && hasErrorStatus(submitError, 409)) {
@@ -209,9 +257,11 @@ export function useCheckoutFlow({ form, cartState, pricing, gls, paymentMethod, 
         setPrivacyAccepted(false);
       }
       setShowReview(false);
-      const serverErrors = getServerFieldErrors<keyof CheckoutFieldErrors>(submitError,
+      const serverErrors = getServerFieldErrors<keyof CheckoutFieldErrors>(
+        submitError,
         [...Object.keys(draft) as (keyof CheckoutDraft)[], "terms", "privacy"],
-        { acceptedTermsVersion: "terms", acceptedPrivacyPolicyVersion: "privacy" });
+        { acceptedTermsVersion: "terms", acceptedPrivacyPolicyVersion: "privacy" }
+      );
       setFieldErrors(serverErrors);
       if (Object.keys(serverErrors).some((field) => field !== "terms" && field !== "privacy")) {
         setStep("details");
@@ -220,7 +270,8 @@ export function useCheckoutFlow({ form, cartState, pricing, gls, paymentMethod, 
     } finally {
       // Navigation may commit after this promise settles. Keep recovery unmounted
       // once a successful order is being handed off to its destination.
-      if (!navigationStarted) setSubmitting(false);
+      if (!navigationStarted)
+        setSubmitting(false);
     }
   }
 

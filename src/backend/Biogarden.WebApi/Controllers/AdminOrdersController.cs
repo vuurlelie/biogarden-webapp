@@ -40,12 +40,10 @@ public sealed class AdminOrdersController : ControllerBase
     }
 
     [HttpPut("{orderId:guid}")]
-    public async Task<ActionResult<OrderDto>> Update(
-        Guid orderId,
-        AdminOrderUpdateDto changes,
-        CancellationToken token)
+    public async Task<ActionResult<OrderDto>> Update(Guid orderId, AdminOrderUpdateDto changes, CancellationToken token)
     {
-        if (!Guid.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var actorId)) return Unauthorized();
+        if (!Guid.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var actorId))
+            return Unauthorized();
         return Ok(await _service.UpdateAsync(orderId, changes, token, actorId));
     }
 
@@ -53,7 +51,8 @@ public sealed class AdminOrdersController : ControllerBase
     public async Task<ActionResult<AdminOrderWithdrawalRequestDto>> MarkWithdrawalRequestHandled(
         int requestId,
         CancellationToken token,
-        [FromBody(EmptyBodyBehavior = Microsoft.AspNetCore.Mvc.ModelBinding.EmptyBodyBehavior.Allow)] HandleOrderRequestDto? body = null)
+        [FromBody(EmptyBodyBehavior = Microsoft.AspNetCore.Mvc.ModelBinding.EmptyBodyBehavior.Allow)] HandleOrderRequestDto? body = null
+    )
     {
         return Ok(await _service.MarkWithdrawalRequestHandledAsync(requestId, token, body?.AdminResponse));
     }

@@ -22,32 +22,42 @@ export function CheckoutRecoveryView({ orderId, checkoutKey, busy, error: initia
   const [error, setError] = useState("");
   const [revision, setRevision] = useState(0);
   const headingRef = useRef<HTMLHeadingElement>(null);
-  useEffect(() => { headingRef.current?.focus(); }, [orderId, checkoutKey]);
+  useEffect(
+    () => { headingRef.current?.focus(); },
+    [orderId, checkoutKey]
+  );
 
   useEffect(() => {
-    if (busy) return;
+    if (busy)
+      return;
     const controller = new AbortController();
     const request = orderId ? getCheckoutOrder(orderId, controller.signal)
       : recoverCheckoutOrder(checkoutKey!, controller.signal);
     void request.then(value => {
-      if (controller.signal.aborted) return;
+      if (controller.signal.aborted)
+        return;
       setOrder(value);
       setError("");
       if (value.status !== CANCELLED && (value.paymentStatus === PAID || (value.paymentMethod !== null && value.paymentMethod !== PAYMENT.OnlineCard))) {
         navigate(`${ROUTES.orderSuccess}?orderId=${encodeURIComponent(value.id)}`, { replace: true, state: { order: value } });
       }
     }).catch(reason => {
-      if (controller.signal.aborted) return;
+      if (controller.signal.aborted)
+        return;
       setOrder(null);
       setError(hasErrorStatus(reason, 404)
         ? "A rendelés ebben a munkamenetben még nem található. Ellenőrizd újra az eredményt; ha kijelentkeztél, jelentkezz vissza."
         : getErrorMessage(reason, "A rendelés állapotát most nem tudjuk ellenőrizni."));
-    }).finally(() => { if (!controller.signal.aborted) setLoading(false); });
+    }).finally(() => {
+      if (!controller.signal.aborted)
+        setLoading(false);
+    });
     return () => controller.abort();
   }, [orderId, checkoutKey, busy, revision, navigate]);
 
   async function retryPayment() {
-    if (!order || paying) return;
+    if (!order || paying)
+      return;
     setPaying(true);
     setError("");
     try {
@@ -56,7 +66,10 @@ export function CheckoutRecoveryView({ orderId, checkoutKey, busy, error: initia
     } catch (reason) {
       setError(getErrorMessage(reason, "A fizetés újraindítása nem sikerült."));
       // A callback may have confirmed payment while this request was in flight.
-      if (hasErrorStatus(reason, 409)) { setLoading(true); setRevision(value => value + 1); }
+      if (hasErrorStatus(reason, 409)) {
+        setLoading(true);
+        setRevision(value => value + 1);
+      }
     } finally { setPaying(false); }
   }
 

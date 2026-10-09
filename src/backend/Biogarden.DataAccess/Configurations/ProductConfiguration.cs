@@ -56,13 +56,9 @@ public class ProductConfiguration : IEntityTypeConfiguration<Product>
 
         productBuilder.ToTable(table =>
         {
-            table.HasCheckConstraint(
-                "CK_Products_Price_NonNegative",
-                "[Price] >= 0");
+            table.HasCheckConstraint("CK_Products_Price_NonNegative", "[Price] >= 0");
 
-            table.HasCheckConstraint(
-                "CK_Products_StockQuantity_NonNegative",
-                "[StockQuantity] >= 0");
+            table.HasCheckConstraint("CK_Products_StockQuantity_NonNegative", "[StockQuantity] >= 0");
         });
     }
 }

@@ -47,19 +47,17 @@ public sealed class ContactServiceTests
                     && request.Email == "visitor@example.com"
                     && request.Phone == "+36 20 123 4567"
                     && request.Subject == "Kérdés"
-                    && request.Message == "Szeretnék érdeklődni a termékekről.")))
+                    && request.Message == "Szeretnék érdeklődni a termékekről.")
+            ))
             .Returns(businessMessage);
         templateService
-            .Setup(template => template.BuildContactVisitorConfirmationMessage(
-                "visitor@example.com",
-                It.Is<ContactMessageRequestDto>(request =>
-                    request.Name == "Teszt Elek"
-                    && request.Email == "visitor@example.com")))
+            .Setup(template => template.BuildContactVisitorConfirmationMessage("visitor@example.com", It.Is<ContactMessageRequestDto>(request => request.Name == "Teszt Elek" && request.Email == "visitor@example.com")))
             .Returns(visitorMessage);
         emailService.Setup(repository => repository.AcceptContactAsync(
             It.Is<IReadOnlyList<NotificationEmail>>(emails => emails.Count == 2 && emails[0].Recipient == businessMessage.To &&
                 emails[1].Recipient == visitorMessage.To && emails[0].EventId == emails[1].EventId && emails[0].RequestHash == emails[1].RequestHash),
-            It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
+            It.IsAny<CancellationToken>()
+        )).Returns(Task.CompletedTask);
 
         await service.SendMessageAsync(new ContactMessageRequestDto
         {

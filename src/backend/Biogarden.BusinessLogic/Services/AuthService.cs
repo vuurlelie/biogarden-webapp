@@ -28,7 +28,8 @@ public class AuthService : IAuthService
         IAccountNotificationQueue notifications,
         IEmailTemplateService emailTemplateService,
         IOptions<AuthEmailOptions> authEmailOptions,
-        IAppDbContext databaseContext)
+        IAppDbContext databaseContext
+    )
     {
         _userManager = userManager;
         _tokenService = tokenService;
@@ -124,15 +125,11 @@ public class AuthService : IAuthService
             PrintedInvoiceRequested = registerRequestDto.PrintedInvoiceRequested
         };
 
-        var result = await _userManager.CreateAsync(
-            user,
-            registerRequestDto.Password);
+        var result = await _userManager.CreateAsync(user, registerRequestDto.Password);
 
         if (!result.Succeeded)
         {
-            var errors = string.Join(
-                ", ",
-                result.Errors.Select(error => error.Description));
+            var errors = string.Join(", ", result.Errors.Select(error => error.Description));
 
             return AuthOperationResultDto.Failure(errors);
         }
@@ -183,16 +180,15 @@ public class AuthService : IAuthService
             return LoginResultDto.Failure("Hibás email vagy jelszó.");
         }
 
-        var passwordValid = await _userManager.CheckPasswordAsync(
-            user,
-            loginRequestDto.Password);
+        var passwordValid = await _userManager.CheckPasswordAsync(user, loginRequestDto.Password);
 
         if (!passwordValid)
         {
             if (user.LockoutEnabled)
             {
                 var failure = await _userManager.AccessFailedAsync(user);
-                if (!failure.Succeeded) throw new InvalidOperationException("A bejelentkezés nem sikerült. Próbáld újra később.");
+                if (!failure.Succeeded)
+                    throw new InvalidOperationException("A bejelentkezés nem sikerült. Próbáld újra később.");
             }
             return LoginResultDto.Failure("Hibás email vagy jelszó.");
         }
@@ -205,7 +201,8 @@ public class AuthService : IAuthService
         if (user.LockoutEnabled)
         {
             var reset = await _userManager.ResetAccessFailedCountAsync(user);
-            if (!reset.Succeeded) return LoginResultDto.Failure("Hibás email vagy jelszó.");
+            if (!reset.Succeeded)
+                return LoginResultDto.Failure("Hibás email vagy jelszó.");
         }
         var roles = await _userManager.GetRolesAsync(user);
         var token = await _tokenService.CreateTokenAsync(user);
@@ -237,9 +234,7 @@ public class AuthService : IAuthService
             return AuthOperationResultDto.Success();
         }
 
-        var result = await _userManager.ConfirmEmailAsync(
-            user,
-            confirmEmailRequestDto.Token);
+        var result = await _userManager.ConfirmEmailAsync(user, confirmEmailRequestDto.Token);
 
         if (!result.Succeeded)
         {
@@ -327,16 +322,11 @@ public class AuthService : IAuthService
             return AuthOperationResultDto.Failure("A jelszó visszaállítása nem sikerült.");
         }
 
-        var result = await _userManager.ResetPasswordAsync(
-            user,
-            resetPasswordRequestDto.Token,
-            resetPasswordRequestDto.Password);
+        var result = await _userManager.ResetPasswordAsync(user, resetPasswordRequestDto.Token, resetPasswordRequestDto.Password);
 
         if (!result.Succeeded)
         {
-            var errors = string.Join(
-                ", ",
-                result.Errors.Select(error => error.Description));
+            var errors = string.Join(", ", result.Errors.Select(error => error.Description));
 
             return AuthOperationResultDto.Failure(
                 string.IsNullOrWhiteSpace(errors)
@@ -358,9 +348,7 @@ public class AuthService : IAuthService
 
     private async Task DeleteExpiredUnconfirmedUsersAsync()
     {
-        var retentionDays = Math.Max(
-            1,
-            _authEmailOptions.UnconfirmedAccountRetentionDays);
+        var retentionDays = Math.Max(1, _authEmailOptions.UnconfirmedAccountRetentionDays);
 
         var createdBefore = DateTime.UtcNow.AddDays(-retentionDays);
 
@@ -386,9 +374,7 @@ public class AuthService : IAuthService
 
     private static bool IsValidTaxNumber(string taxNumber)
     {
-        return System.Text.RegularExpressions.Regex.IsMatch(
-            taxNumber,
-            @"^\d{8}(-\d-\d{2})?$");
+        return System.Text.RegularExpressions.Regex.IsMatch(taxNumber, @"^\d{8}(-\d-\d{2})?$");
     }
 
     private static bool IsCompleteAddress(AddressCreateDto address)

@@ -4,7 +4,5 @@ namespace Biogarden.BusinessLogic.Abstractions;
 
 public interface IContactService
 {
-    Task SendMessageAsync(
-        ContactMessageRequestDto contactMessageRequestDto,
-        CancellationToken cancellationToken = default);
+    Task SendMessageAsync(ContactMessageRequestDto contactMessageRequestDto, CancellationToken cancellationToken = default);
 }

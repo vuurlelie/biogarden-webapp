@@ -42,7 +42,8 @@ export default function RegisterPage() {
   }
 
   function renderFieldError(field: RegisterInvalidField) {
-    if (!fieldErrors[field]) return null;
+    if (!fieldErrors[field])
+      return null;
 
     return (
       <p id={getErrorId(field)} className="mt-1 text-xs font-normal text-site-danger">
@@ -53,7 +54,8 @@ export default function RegisterPage() {
 
   function clearFieldError(field: RegisterInvalidField) {
     setFieldErrors((current) => {
-      if (!current[field]) return current;
+      if (!current[field])
+        return current;
       const next = { ...current };
       delete next[field];
       return next;
@@ -74,8 +76,10 @@ export default function RegisterPage() {
 
   function getServerField(message: string): RegisterInvalidField | null {
     const normalizedMessage = message.toLocaleLowerCase("hu-HU");
-    if (normalizedMessage.includes("email")) return "email";
-    if (normalizedMessage.includes("jelsz")) return "password";
+    if (normalizedMessage.includes("email"))
+      return "email";
+    if (normalizedMessage.includes("jelsz"))
+      return "password";
     return null;
   }
 
@@ -116,13 +120,19 @@ export default function RegisterPage() {
         billingAddress: null,
         printedInvoiceRequested: false,
       });
-      navigate(ROUTES.login, {
-        replace: true,
-        state: { registrationRequiresConfirmation: true },
-      });
+      navigate(
+        ROUTES.login,
+        {
+          replace: true,
+          state: { registrationRequiresConfirmation: true },
+        }
+      );
     } catch (submitError) {
       const message = getErrorMessage(submitError, "A regisztráció nem sikerült.");
-      const structuredErrors = getServerFieldErrors(submitError, ["email", "password", "confirmPassword"] as const);
+      const structuredErrors = getServerFieldErrors(
+        submitError,
+        ["email", "password", "confirmPassword"] as const
+      );
       if (Object.keys(structuredErrors).length) {
         setFieldErrors(structuredErrors);
         setFormError(message);

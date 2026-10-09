@@ -32,21 +32,21 @@ public static class ProductMapper
             DeliveryAvailable = product.DeliveryAvailable
         };
 
-    public static Product ToEntity(this ProductCreateDto dto)
+    public static Product ToEntity(this ProductCreateDto productCreate)
     {
         return new Product
         {
-            Name = dto.Name,
-            Description = dto.Description,
-            Price = dto.Price,
-            Category = dto.Category,
-            Image = string.IsNullOrWhiteSpace(dto.Image) ? BusinessRules.DefaultProductImagePath : dto.Image,
-            Unit = dto.Unit,
-            UnitAmount = dto.UnitAmount,
-            UnitAmountMeasure = dto.UnitAmountMeasure,
-            StockQuantity = dto.StockQuantity,
-            Available = dto.Available,
-            DeliveryAvailable = dto.DeliveryAvailable
+            Name = productCreate.Name,
+            Description = productCreate.Description,
+            Price = productCreate.Price,
+            Category = productCreate.Category,
+            Image = string.IsNullOrWhiteSpace(productCreate.Image) ? BusinessRules.DefaultProductImagePath : productCreate.Image,
+            Unit = productCreate.Unit,
+            UnitAmount = productCreate.UnitAmount,
+            UnitAmountMeasure = productCreate.UnitAmountMeasure,
+            StockQuantity = productCreate.StockQuantity,
+            Available = productCreate.Available,
+            DeliveryAvailable = productCreate.DeliveryAvailable
         };
     }
 

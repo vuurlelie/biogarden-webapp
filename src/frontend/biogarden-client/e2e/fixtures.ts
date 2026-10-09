@@ -52,11 +52,14 @@ const pageTwoProduct = {
 const pagedProducts = [
   product,
   relatedProduct,
-  ...Array.from({ length: 10 }, (_, index) => ({
-    ...product,
-    id: index + 3,
-    name: `Teszt termek ${index + 3}`,
-  })),
+  ...Array.from(
+    { length: 10 },
+    (_, index) => ({
+      ...product,
+      id: index + 3,
+      name: `Teszt termek ${index + 3}`,
+    })
+  ),
 ];
 
 const pageOnePost = {
@@ -71,11 +74,14 @@ const pageOnePost = {
 
 const pagedPosts = [
   pageOnePost,
-  ...Array.from({ length: 3 }, (_, index) => ({
-    ...pageOnePost,
-    id: index + 2,
-    title: `Teszt bejegyzes ${index + 2}`,
-  })),
+  ...Array.from(
+    { length: 3 },
+    (_, index) => ({
+      ...pageOnePost,
+      id: index + 2,
+      title: `Teszt bejegyzes ${index + 2}`,
+    })
+  ),
 ];
 
 const pageTwoPost = {
@@ -250,11 +256,14 @@ export async function mockKnowledgePostsApi(page: Page) {
     },
   );
 
-  await page.route(`${apiBaseUrl}/api/posts/1`, async (route) => {
-    await route.fulfill({
-      json: pageOnePost,
-    });
-  });
+  await page.route(
+    `${apiBaseUrl}/api/posts/1`,
+    async (route) => {
+      await route.fulfill({
+        json: pageOnePost,
+      });
+    }
+  );
 }
 
 export async function mockPublicShopApi(page: Page) {
@@ -268,161 +277,210 @@ export async function mockPublicShopApi(page: Page) {
     (url) => url.origin === apiBaseUrl && url.pathname === "/api/products",
     async (route) => {
       await route.fulfill({
-        json: createPagedResult([product, relatedProduct], 1, 60, 2),
+        json: createPagedResult(
+          [product, relatedProduct],
+          1,
+          60,
+          2
+        ),
       });
     },
   );
 
-  await page.route(`${apiBaseUrl}/api/products/1`, async (route) => {
-    await route.fulfill({
-      json: {
-        ...product,
-        description: "Nyugtato gyogytea teszt leirassal.",
-        stockQuantity: 8,
-      },
-    });
-  });
-
-  await page.route(`${apiBaseUrl}/api/cart/products/1/availability`, async (route) => {
-    await route.fulfill({ json: { availableQuantity: 8 } });
-  });
-
-  await page.route(`${apiBaseUrl}/api/cart`, async (route) => {
-    if (route.request().method() === "GET") {
-      await route.fulfill({ json: createCart(items) });
-      return;
+  await page.route(
+    `${apiBaseUrl}/api/products/1`,
+    async (route) => {
+      await route.fulfill({
+        json: {
+          ...product,
+          description: "Nyugtato gyogytea teszt leirassal.",
+          stockQuantity: 8,
+        },
+      });
     }
+  );
 
-    await route.fallback();
-  });
+  await page.route(
+    `${apiBaseUrl}/api/cart/products/1/availability`,
+    async (route) => {
+      await route.fulfill({ json: { availableQuantity: 8 } });
+    }
+  );
 
-  await page.route(`${apiBaseUrl}/api/cart/items`, async (route) => {
-    items = [cartItem];
-    await route.fulfill({ json: createCart(items) });
-  });
+  await page.route(
+    `${apiBaseUrl}/api/cart`,
+    async (route) => {
+      if (route.request().method() === "GET") {
+        await route.fulfill({ json: createCart(items) });
+        return;
+      }
+
+      await route.fallback();
+    }
+  );
+
+  await page.route(
+    `${apiBaseUrl}/api/cart/items`,
+    async (route) => {
+      items = [cartItem];
+      await route.fulfill({ json: createCart(items) });
+    }
+  );
 }
 
-export async function mockCheckoutApi(
-  page: Page,
-  onlinePayment = false,
-  onCreateOrder?: (payload: Record<string, unknown>) => void,
-) {
+export async function mockCheckoutApi(page: Page, onlinePayment = false, onCreateOrder?: (payload: Record<string, unknown>) => void) {
   let createdPaymentMethod: number | null = null;
   await page.route(`${apiBaseUrl}/api/orders/checkout-recovery/*`, route => createdPaymentMethod === null
     ? route.fulfill({ status: 404 })
     : route.fulfill({ json: { ...successfulOrder, paymentMethod: createdPaymentMethod } }));
-  await page.route(`${apiBaseUrl}/api/orders/${successfulOrder.id}/receipt`, route => route.fulfill({
-    json: { ...successfulOrder, paymentMethod: onlinePayment ? 0 : 1 },
-  }));
+  await page.route(
+    `${apiBaseUrl}/api/orders/${successfulOrder.id}/receipt`,
+    route => route.fulfill({
+      json: { ...successfulOrder, paymentMethod: onlinePayment ? 0 : 1 },
+    })
+  );
   await mockCheckoutDraftApi(page);
-  await page.route(`${apiBaseUrl}/api/cart`, async (route) => {
-    if (route.request().method() === "GET") {
-      await route.fulfill({ json: createCart([cartItem]) });
-      return;
+  await page.route(
+    `${apiBaseUrl}/api/cart`,
+    async (route) => {
+      if (route.request().method() === "GET") {
+        await route.fulfill({ json: createCart([cartItem]) });
+        return;
+      }
+
+      await route.fallback();
     }
+  );
 
-    await route.fallback();
-  });
-
-  await page.route(`${apiBaseUrl}/api/cart/validate`, async (route) => {
-    await route.fulfill({ json: { isValid: true, issues: [] } });
-  });
-
-  await page.route(`${apiBaseUrl}/api/orders`, async (route) => {
-    createdPaymentMethod = route.request().postDataJSON().paymentMethod;
-    if (route.request().method() === "POST" && onCreateOrder) {
-      onCreateOrder(route.request().postDataJSON() as Record<string, unknown>);
+  await page.route(
+    `${apiBaseUrl}/api/cart/validate`,
+    async (route) => {
+      await route.fulfill({ json: { isValid: true, issues: [] } });
     }
+  );
 
-    await route.fulfill({ status: 201, json: { ...successfulOrder, paymentMethod: route.request().postDataJSON().paymentMethod } });
-  });
+  await page.route(
+    `${apiBaseUrl}/api/orders`,
+    async (route) => {
+      createdPaymentMethod = route.request().postDataJSON().paymentMethod;
+      if (route.request().method() === "POST" && onCreateOrder) {
+        onCreateOrder(route.request().postDataJSON() as Record<string, unknown>);
+      }
 
-  await page.route(`${apiBaseUrl}/api/orders/${successfulOrder.id}/sumup-checkout`, async (route) => {
-    await route.fulfill({
-      status: onlinePayment ? 500 : 200,
-      json: onlinePayment
-        ? { detail: "SumUp checkout is not enabled." }
-        : {
-            orderId: successfulOrder.id,
-            checkoutId: "sumup-checkout-1",
-            url: "https://example.com/sumup-checkout",
-          },
-    });
-  });
+      await route.fulfill({ status: 201, json: { ...successfulOrder, paymentMethod: route.request().postDataJSON().paymentMethod } });
+    }
+  );
+
+  await page.route(
+    `${apiBaseUrl}/api/orders/${successfulOrder.id}/sumup-checkout`,
+    async (route) => {
+      await route.fulfill({
+        status: onlinePayment ? 500 : 200,
+        json: onlinePayment
+          ? { detail: "SumUp checkout is not enabled." }
+          : {
+              orderId: successfulOrder.id,
+              checkoutId: "sumup-checkout-1",
+              url: "https://example.com/sumup-checkout",
+            },
+      });
+    }
+  );
 }
 
 export async function mockEmptyCartApi(page: Page) {
-  await page.route(`${apiBaseUrl}/api/cart`, async (route) => {
-    if (route.request().method() === "GET") {
-      await route.fulfill({ json: createCart([]) });
-      return;
-    }
+  await page.route(
+    `${apiBaseUrl}/api/cart`,
+    async (route) => {
+      if (route.request().method() === "GET") {
+        await route.fulfill({ json: createCart([]) });
+        return;
+      }
 
-    await route.fallback();
-  });
+      await route.fallback();
+    }
+  );
 }
 
 export async function mockCheckoutValidationIssueApi(page: Page, issueMessage: string) {
   await mockCheckoutDraftApi(page);
-  await page.route(`${apiBaseUrl}/api/cart`, async (route) => {
-    if (route.request().method() === "GET") {
-      await route.fulfill({ json: createCart([cartItem]) });
-      return;
+  await page.route(
+    `${apiBaseUrl}/api/cart`,
+    async (route) => {
+      if (route.request().method() === "GET") {
+        await route.fulfill({ json: createCart([cartItem]) });
+        return;
+      }
+
+      await route.fallback();
     }
+  );
 
-    await route.fallback();
-  });
-
-  await page.route(`${apiBaseUrl}/api/cart/validate`, async (route) => {
-    await route.fulfill({
-      json: {
-        isValid: false,
-        issues: [
-          {
-            productId: product.id,
-            productName: product.name,
-            message: issueMessage,
-          },
-        ],
-      },
-    });
-  });
+  await page.route(
+    `${apiBaseUrl}/api/cart/validate`,
+    async (route) => {
+      await route.fulfill({
+        json: {
+          isValid: false,
+          issues: [
+            {
+              productId: product.id,
+              productName: product.name,
+              message: issueMessage,
+            },
+          ],
+        },
+      });
+    }
+  );
 }
 
 export async function mockCancelledPaymentRetryApi(page: Page) {
-  await page.route(`${apiBaseUrl}/api/orders/${successfulOrder.id}/receipt`, route => route.fulfill({
-    json: { ...successfulOrder, paymentMethod: 0 },
-  }));
-  await page.route(`${apiBaseUrl}/api/cart`, async (route) => {
-    if (route.request().method() === "GET") {
-      await route.fulfill({ json: createCart([]) });
-      return;
+  await page.route(
+    `${apiBaseUrl}/api/orders/${successfulOrder.id}/receipt`,
+    route => route.fulfill({
+      json: { ...successfulOrder, paymentMethod: 0 },
+    })
+  );
+  await page.route(
+    `${apiBaseUrl}/api/cart`,
+    async (route) => {
+      if (route.request().method() === "GET") {
+        await route.fulfill({ json: createCart([]) });
+        return;
+      }
+
+      await route.fallback();
     }
+  );
 
-    await route.fallback();
-  });
-
-  await page.route(`${apiBaseUrl}/api/orders/${successfulOrder.id}/sumup-checkout`, async (route) => {
-    await route.fulfill({
-      status: 500,
-      json: { detail: "SumUp checkout is not enabled." },
-    });
-  });
+  await page.route(
+    `${apiBaseUrl}/api/orders/${successfulOrder.id}/sumup-checkout`,
+    async (route) => {
+      await route.fulfill({
+        status: 500,
+        json: { detail: "SumUp checkout is not enabled." },
+      });
+    }
+  );
 }
 
-export async function mockSumUpReturnStatusApi(
-  page: Page,
-  paymentStatus: PaymentStatus,
-) {
-  await page.route(`${apiBaseUrl}/api/orders/${successfulOrder.id}/receipt`, route => route.fulfill({ status: 404, json: { detail: "Owning session unavailable" } }));
-  await page.route(`${apiBaseUrl}/api/cart`, async (route) => {
-    if (route.request().method() === "GET") {
-      await route.fulfill({ json: createCart([]) });
-      return;
-    }
+export async function mockSumUpReturnStatusApi(page: Page, paymentStatus: PaymentStatus) {
+  await page.route(
+    `${apiBaseUrl}/api/orders/${successfulOrder.id}/receipt`,
+    route => route.fulfill({ status: 404, json: { detail: "Owning session unavailable" } })
+  );
+  await page.route(
+    `${apiBaseUrl}/api/cart`,
+    async (route) => {
+      if (route.request().method() === "GET") {
+        await route.fulfill({ json: createCart([]) });
+        return;
+      }
 
-    await route.fallback();
-  });
+      await route.fallback();
+    }
+  );
 
   await page.route(
     (url) =>
@@ -456,29 +514,44 @@ export async function mockAdminOrdersApi(page: Page) {
     houseNumber: "1",
   };
 
-  await page.route(`${apiBaseUrl}/api/cart`, async (route) => {
-    if (route.request().method() === "GET") {
-      await route.fulfill({ json: createCart([]) });
-      return;
+  await page.route(
+    `${apiBaseUrl}/api/cart`,
+    async (route) => {
+      if (route.request().method() === "GET") {
+        await route.fulfill({ json: createCart([]) });
+        return;
+      }
+
+      await route.fallback();
     }
+  );
 
-    await route.fallback();
-  });
+  await page.route(
+    (url) => url.origin === apiBaseUrl && url.pathname === "/api/admin/orders",
+    async (route) => {
+      await route.fulfill({ json: createPagedResult(
+        [adminOrder],
+        1,
+        12,
+        1
+      ) });
+    }
+  );
 
-  await page.route((url) => url.origin === apiBaseUrl && url.pathname === "/api/admin/orders", async (route) => {
-    await route.fulfill({ json: createPagedResult([adminOrder], 1, 12, 1) });
-  });
-
-  await page.route(`${apiBaseUrl}/api/admin/orders/${adminOrder.id}`, async (route) => {
-    if (route.request().method() === "PUT") adminOrder = { ...adminOrder, status: 1, paymentStatus: 2 };
-    await route.fulfill({
-      json: {
-        ...adminOrder,
-        status: 1,
-        paymentStatus: 2,
-      },
-    });
-  });
+  await page.route(
+    `${apiBaseUrl}/api/admin/orders/${adminOrder.id}`,
+    async (route) => {
+      if (route.request().method() === "PUT")
+        adminOrder = { ...adminOrder, status: 1, paymentStatus: 2 };
+      await route.fulfill({
+        json: {
+          ...adminOrder,
+          status: 1,
+          paymentStatus: 2,
+        },
+      });
+    }
+  );
 }
 
 export async function mockAccountOrdersApi(page: Page) {
@@ -490,46 +563,67 @@ export async function mockAccountOrdersApi(page: Page) {
     confirmedAtUtc: "2026-07-22T10:05:00Z",
   };
 
-  await page.route(`${apiBaseUrl}/api/cart`, async (route) => {
-    if (route.request().method() === "GET") {
-      await route.fulfill({ json: createCart([]) });
-      return;
+  await page.route(
+    `${apiBaseUrl}/api/cart`,
+    async (route) => {
+      if (route.request().method() === "GET") {
+        await route.fulfill({ json: createCart([]) });
+        return;
+      }
+
+      await route.fallback();
     }
+  );
 
-    await route.fallback();
-  });
+  await page.route(
+    url => url.origin === apiBaseUrl && url.pathname === "/api/orders",
+    async (route) => {
+      await route.fulfill({ json: { items: [accountOrder], page: 1, pageSize: 10, totalCount: 1, totalPages: 1 } });
+    }
+  );
 
-  await page.route(url => url.origin === apiBaseUrl && url.pathname === "/api/orders", async (route) => {
-    await route.fulfill({ json: { items: [accountOrder], page: 1, pageSize: 10, totalCount: 1, totalPages: 1 } });
-  });
-
-  await page.route(`${apiBaseUrl}/api/orders/${accountOrder.id}`, async (route) => {
-    await route.fulfill({ json: accountOrder });
-  });
+  await page.route(
+    `${apiBaseUrl}/api/orders/${accountOrder.id}`,
+    async (route) => {
+      await route.fulfill({ json: accountOrder });
+    }
+  );
 }
 
 export async function signInAsCustomer(page: Page) {
-  setMockSession(page.context(), {
-    userId: "44444444-4444-4444-4444-444444444444", email: "customer@example.com", roles: [],
-    sessionId: "customer-session", expiresAtUtc: new Date(Date.now() + 3_600_000).toISOString(),
-  });
+  setMockSession(
+    page.context(),
+    {
+      userId: "44444444-4444-4444-4444-444444444444", email: "customer@example.com", roles: [],
+      sessionId: "customer-session", expiresAtUtc: new Date(Date.now() + 3_600_000).toISOString(),
+    }
+  );
 }
 
 export async function signInAsAdmin(page: Page) {
-  setMockSession(page.context(), {
-    userId: "22222222-2222-2222-2222-222222222222", email: "admin@example.com", roles: ["Admin"],
-    sessionId: "admin-session", expiresAtUtc: new Date(Date.now() + 3_600_000).toISOString(),
-  });
+  setMockSession(
+    page.context(),
+    {
+      userId: "22222222-2222-2222-2222-222222222222", email: "admin@example.com", roles: ["Admin"],
+      sessionId: "admin-session", expiresAtUtc: new Date(Date.now() + 3_600_000).toISOString(),
+    }
+  );
 }
 
 export async function mockCheckoutDraftApi(page: Page) {
-  await page.route(`${apiBaseUrl}/api/orders/checkout-methods`, route => route.fulfill({ json: [
-    { fulfillmentMethod: 0, deliveryFee: 0, paymentMethods: [0, 1] },
-    { fulfillmentMethod: 1, deliveryFee: 2740, paymentMethods: [0, 2] },
-    { fulfillmentMethod: 2, deliveryFee: 2090, paymentMethods: [0, 2] },
-    { fulfillmentMethod: 3, deliveryFee: 2590, paymentMethods: [0, 2] },
-  ] }));
-  await page.route(`${apiBaseUrl}/api/orders/quote`, route => route.fulfill({ json: checkoutQuote(route.request().postDataJSON()) }));
+  await page.route(
+    `${apiBaseUrl}/api/orders/checkout-methods`,
+    route => route.fulfill({ json: [
+      { fulfillmentMethod: 0, deliveryFee: 0, paymentMethods: [0, 1] },
+      { fulfillmentMethod: 1, deliveryFee: 2740, paymentMethods: [0, 2] },
+      { fulfillmentMethod: 2, deliveryFee: 2090, paymentMethods: [0, 2] },
+      { fulfillmentMethod: 3, deliveryFee: 2590, paymentMethods: [0, 2] },
+    ] })
+  );
+  await page.route(
+    `${apiBaseUrl}/api/orders/quote`,
+    route => route.fulfill({ json: checkoutQuote(route.request().postDataJSON()) })
+  );
   let stored: { version: string | null; expiresAtUtc: string | null; fields: unknown } = { version: null, expiresAtUtc: null, fields: null };
   let revision = 0;
   await page.route(`${apiBaseUrl}/api/checkout-drafts/**`, async route => {

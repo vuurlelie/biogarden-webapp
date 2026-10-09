@@ -62,7 +62,8 @@ export default function ContactForm({
 
   function clearFieldError(field: ContactField) {
     setFieldErrors((currentErrors) => {
-      if (!currentErrors[field]) return currentErrors;
+      if (!currentErrors[field])
+        return currentErrors;
       const nextErrors = { ...currentErrors };
       delete nextErrors[field];
       return nextErrors;
@@ -81,7 +82,8 @@ export default function ContactForm({
   function renderFieldError(field: ContactField, className = "mt-1.5") {
     const fieldError = fieldErrors[field];
 
-    if (!fieldError) return null;
+    if (!fieldError)
+      return null;
 
     return (
       <p id={getErrorId(field)} className={`${className} text-xs font-normal text-site-danger`} role="alert">
@@ -121,10 +123,14 @@ export default function ContactForm({
         message: form.message.trim(),
       };
       const serialized = JSON.stringify(payload);
-      if (submissionRef.current?.payload !== serialized) submissionRef.current = { payload: serialized, id: crypto.randomUUID() };
+      if (submissionRef.current?.payload !== serialized)
+        submissionRef.current = { payload: serialized, id: crypto.randomUUID() };
       await sendContactMessage({ ...payload, submissionId: submissionRef.current.id });
       submissionRef.current = null;
-      track("contact_form_submitted", { source: "footer" });
+      track(
+        "contact_form_submitted",
+        { source: "footer" }
+      );
       setSuccess("Köszönjük, rögzítettük az üzeneted! A visszaigazoló email megérkezése néhány percet igénybe vehet. Kérjük, ellenőrizd a Spam és a Promóciók mappát is.");
       setFieldErrors({});
       setForm(initialForm);

@@ -28,10 +28,7 @@ public sealed class AdminUsersController : ControllerBase
     }
 
     [HttpPost("{userId:guid}/admin-role")]
-    public async Task<ActionResult<AdminUserDto>> SetAdminRole(
-        Guid userId,
-        [FromQuery] bool isAdmin,
-        CancellationToken cancellationToken)
+    public async Task<ActionResult<AdminUserDto>> SetAdminRole(Guid userId, [FromQuery] bool isAdmin, CancellationToken cancellationToken)
     {
         var currentUserId = GetCurrentUserId();
         if (!isAdmin && userId == currentUserId)
@@ -79,19 +76,13 @@ public sealed class AdminUsersController : ControllerBase
     }
 
     [HttpPost("requests/{requestId:int}/complete-erasure")]
-    public async Task<ActionResult<AdminUserDto>> CompleteErasureRequest(
-        int requestId,
-        [FromBody] AdminAccountLifecycleDecisionDto decision,
-        CancellationToken cancellationToken)
+    public async Task<ActionResult<AdminUserDto>> CompleteErasureRequest(int requestId, [FromBody] AdminAccountLifecycleDecisionDto decision, CancellationToken cancellationToken)
     {
         return Ok(await _service.CompleteErasureRequestAsync(requestId, GetCurrentUserId(), decision, cancellationToken));
     }
 
     [HttpPost("requests/{requestId:int}/reject")]
-    public async Task<ActionResult<AdminUserDto>> RejectRequest(
-        int requestId,
-        [FromBody] AdminAccountLifecycleDecisionDto decision,
-        CancellationToken cancellationToken)
+    public async Task<ActionResult<AdminUserDto>> RejectRequest(int requestId, [FromBody] AdminAccountLifecycleDecisionDto decision, CancellationToken cancellationToken)
     {
         return Ok(await _service.RejectRequestAsync(requestId, GetCurrentUserId(), decision, cancellationToken));
     }

@@ -31,9 +31,8 @@ public sealed class RealBrowserJourneyTests : IAsyncLifetime
     public async Task CheckoutSurvivesLostResponseAndCancellationRestoresStock(string browserProject)
     {
         using var certificate = new BrowserCertificate();
-        await using var factory = _app.Factory.WithWebHostBuilder(builder => builder.ConfigureTestServices(services =>
-            services.Configure<CorsOptions>(options => options.AddPolicy("FrontendDev", policy =>
-                policy.WithOrigins("https://localhost:4174").AllowAnyHeader().AllowAnyMethod().AllowCredentials()))));
+        await using var factory = _app.Factory.WithWebHostBuilder(webHostBuilder => webHostBuilder.ConfigureTestServices(services =>
+            services.Configure<CorsOptions>(options => options.AddPolicy("FrontendDev", policy => policy.WithOrigins("https://localhost:4174").AllowAnyHeader().AllowAnyMethod().AllowCredentials()))));
         factory.UseKestrel(options => options.Listen(IPAddress.Loopback, 0, listen => listen.UseHttps(certificate.Value)));
         using var client = factory.CreateClient();
         var product = new Product { Name = "Real journey tea", Available = true, DeliveryAvailable = true, Price = 900m, StockQuantity = 10 };
@@ -43,12 +42,12 @@ public sealed class RealBrowserJourneyTests : IAsyncLifetime
         var published = new Post { Title = "Browser public article", Article = "<p>Public content</p>" };
         var draft = new Post { Title = "Browser private draft", Article = "<p>Private draft</p>", Draft = true };
         var deleted = new Post { Title = "Browser deleted article", Article = "<p>Deleted content</p>", RecordStatus = RecordStatus.Deleted };
-        await using (var db = _app.OpenDatabase())
+        await using (var databaseContext = _app.OpenDatabase())
         {
-            db.Products.AddRange(product, unavailable);
-            db.Carts.Add(expiredCart);
-            db.Posts.AddRange(published, draft, deleted);
-            await db.SaveChangesAsync();
+            databaseContext.Products.AddRange(product, unavailable);
+            databaseContext.Carts.Add(expiredCart);
+            databaseContext.Posts.AddRange(published, draft, deleted);
+            await databaseContext.SaveChangesAsync();
         }
         var email = $"browser-{Guid.NewGuid():N}@example.com";
         using (var scope = factory.Services.CreateScope())
@@ -95,15 +94,16 @@ public sealed class RealBrowserJourneyTests : IAsyncLifetime
         var output = process.StandardOutput.ReadToEndAsync();
         var error = process.StandardError.ReadToEndAsync();
         try { await process.WaitForExitAsync().WaitAsync(TimeSpan.FromMinutes(3)); }
-        catch { if (!process.HasExited) process.Kill(entireProcessTree: true); await process.WaitForExitAsync(); throw; }
+        catch { if (!process.HasExited)
+            process.Kill(entireProcessTree: true); await process.WaitForExitAsync(); throw; }
         Assert.True(process.ExitCode == 0, (await output) + (await error));
         await using var check = _app.OpenDatabase();
-        var order = await check.Orders.Include(x => x.Items).SingleAsync();
+        var order = await check.Orders.Include(candidateOrder => candidateOrder.Items).SingleAsync();
         Assert.Equal(1800m, order.TotalPrice);
         Assert.Equal(2, Assert.Single(order.Items).Quantity);
         Assert.Equal(OrderStatus.Cancelled, order.Status);
         Assert.False(order.StockCommitted);
-        Assert.Equal(10, (await check.Products.SingleAsync(x => x.Id == product.Id)).StockQuantity);
+        Assert.Equal(10, (await check.Products.SingleAsync(candidateProduct => candidateProduct.Id == product.Id)).StockQuantity);
         Assert.Equal(2, await check.OrderEmails.CountAsync());
         Assert.Empty(await check.PaymentAttempts.ToListAsync());
         Assert.Empty(_app.Sender.Sent);
@@ -116,7 +116,9 @@ public sealed class RealBrowserTheoryAttribute : TheoryAttribute
     {
         if (Environment.GetEnvironmentVariable("BIOGARDEN_REAL_BROWSER") != "1" ||
             string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable(SqlServerFactAttribute.ConnectionVariable)))
+        {
             Skip = "Set BIOGARDEN_REAL_BROWSER=1 and BIOGARDEN_TEST_SQLSERVER; install frontend dependencies and Playwright Chromium/Firefox.";
+        }
     }
 }
 

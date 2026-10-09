@@ -13,17 +13,13 @@ public sealed class ExceptionHandlingMiddleware
     private readonly RequestDelegate _next;
     private readonly ILogger<ExceptionHandlingMiddleware> _logger;
 
-    public ExceptionHandlingMiddleware(
-        RequestDelegate next,
-        ILogger<ExceptionHandlingMiddleware> logger)
+    public ExceptionHandlingMiddleware(RequestDelegate next, ILogger<ExceptionHandlingMiddleware> logger)
     {
         _next = next;
         _logger = logger;
     }
 
-    public async Task Invoke(
-        HttpContext context,
-        IErrorAlertService errorAlertService)
+    public async Task Invoke(HttpContext context, IErrorAlertService errorAlertService)
     {
         try
         {
@@ -45,10 +41,7 @@ public sealed class ExceptionHandlingMiddleware
         }
     }
 
-    private async Task HandleExceptionAsync(
-        HttpContext context,
-        IErrorAlertService errorAlertService,
-        Exception exception)
+    private async Task HandleExceptionAsync(HttpContext context, IErrorAlertService errorAlertService, Exception exception)
     {
         var concurrencyFailure = ContainsConcurrencyFailure(exception);
         var transientDatabaseFailure = exception is not Biogarden.BusinessLogic.Services.PaymentRecoveryException
@@ -102,7 +95,8 @@ public sealed class ExceptionHandlingMiddleware
     private static bool ContainsConcurrencyFailure(Exception exception)
     {
         for (Exception? current = exception; current is not null; current = current.InnerException)
-            if (current is Microsoft.EntityFrameworkCore.DbUpdateConcurrencyException) return true;
+            if (current is Microsoft.EntityFrameworkCore.DbUpdateConcurrencyException)
+                return true;
         return false;
     }
 
@@ -129,19 +123,11 @@ public sealed class ExceptionHandlingMiddleware
         return false;
     }
 
-    private void LogException(
-        HttpContext context,
-        Exception exception,
-        HttpStatusCode statusCode)
+    private void LogException(HttpContext context, Exception exception, HttpStatusCode statusCode)
     {
         if (statusCode == HttpStatusCode.InternalServerError)
         {
-            _logger.LogError(
-                exception,
-                "Unhandled API exception during {Method} {Path}. TraceId: {TraceId}",
-                context.Request.Method,
-                context.Request.Path,
-                context.TraceIdentifier);
+            _logger.LogError(exception, "Unhandled API exception during {Method} {Path}. TraceId: {TraceId}", context.Request.Method, context.Request.Path, context.TraceIdentifier);
 
             return;
         }
@@ -152,13 +138,11 @@ public sealed class ExceptionHandlingMiddleware
             context.Request.Method,
             context.Request.Path,
             (int)statusCode,
-            context.TraceIdentifier);
+            context.TraceIdentifier
+        );
     }
 
-    private async Task NotifyUnexpectedExceptionAsync(
-        HttpContext context,
-        IErrorAlertService errorAlertService,
-        Exception exception)
+    private async Task NotifyUnexpectedExceptionAsync(HttpContext context, IErrorAlertService errorAlertService, Exception exception)
     {
         try
         {
@@ -174,10 +158,7 @@ public sealed class ExceptionHandlingMiddleware
         }
         catch (Exception alertException)
         {
-            _logger.LogError(
-                alertException,
-                "Failed to send error alert for trace {TraceId}.",
-                context.TraceIdentifier);
+            _logger.LogError(alertException, "Failed to send error alert for trace {TraceId}.", context.TraceIdentifier);
         }
     }
 

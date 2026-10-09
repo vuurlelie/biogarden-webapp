@@ -5,9 +5,7 @@ namespace Biogarden.BusinessLogic.Mappers;
 
 public static class CartMapper
 {
-    public static CartDto ToDto(
-        this Cart cart,
-        IReadOnlyDictionary<int, int> reservedQuantitiesByProductId)
+    public static CartDto ToDto(this Cart cart, IReadOnlyDictionary<int, int> reservedQuantitiesByProductId)
     {
         var itemDtos = cart.Items
             .OrderBy(cartItem => cartItem.CreatedAtUtc)
@@ -16,16 +14,12 @@ public static class CartMapper
                 var product = cartItem.Product
                     ?? throw new InvalidOperationException("Cart item product must be loaded before mapping.");
                 var reservedQuantityExcludingCurrentCart =
-                    reservedQuantitiesByProductId.TryGetValue(
-                        cartItem.ProductId,
-                        out var reservedQuantity)
+                    reservedQuantitiesByProductId.TryGetValue(cartItem.ProductId, out var reservedQuantity)
                         ? reservedQuantity
                         : 0;
 
                 var availableQuantityForCart =
-                    Math.Max(
-                        0,
-                        product.StockQuantity - reservedQuantityExcludingCurrentCart);
+                    Math.Max(0, product.StockQuantity - reservedQuantityExcludingCurrentCart);
 
                 return new CartItemDto
                 {

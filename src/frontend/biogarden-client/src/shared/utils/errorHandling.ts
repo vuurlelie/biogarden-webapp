@@ -8,13 +8,19 @@ export function getServerFieldErrors<T extends string>(
   aliases: Readonly<Record<string, T>> = {},
 ): Partial<Record<T, string>> {
   const result: Partial<Record<T, string>> = {};
+
   if (!(error instanceof Error) || !("fieldErrors" in error) ||
-      !error.fieldErrors || typeof error.fieldErrors !== "object") return result;
+      !error.fieldErrors || typeof error.fieldErrors !== "object")
+    {
+    return result;
+  }
+
   for (const [key, messages] of Object.entries(error.fieldErrors)) {
     const field = aliases[key] ?? fields.find((candidate) => candidate === key);
     if (field && Array.isArray(messages)) {
       const message = messages.filter((item): item is string => typeof item === "string").join(" ");
-      if (message) result[field] = message;
+      if (message)
+        result[field] = message;
     }
   }
   return result;

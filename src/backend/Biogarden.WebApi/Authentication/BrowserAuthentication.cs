@@ -18,7 +18,8 @@ public static class BrowserAuthentication
             ?? Path.Combine(AppContext.BaseDirectory, ".private", "data-protection-keys");
         var dataProtection = services.AddDataProtection().SetApplicationName("Biogarden.WebApi")
             .PersistKeysToFileSystem(new DirectoryInfo(keyPath));
-        if (OperatingSystem.IsWindows()) dataProtection.ProtectKeysWithDpapi();
+        if (OperatingSystem.IsWindows())
+            dataProtection.ProtectKeysWithDpapi();
         services.AddSingleton<DatabaseTicketStore>();
         services.AddAuthentication().AddCookie(Scheme);
         services.AddOptions<CookieAuthenticationOptions>(Scheme)
@@ -39,21 +40,22 @@ public static class BrowserAuthentication
                 options.Events.OnRedirectToAccessDenied = context => { context.Response.StatusCode = 403; return Task.CompletedTask; };
                 options.Events.OnValidatePrincipal = async context =>
                 {
-                    if (context.Principal is null || !await SessionAuthentication.IsCurrentAsync(context.Principal,
-                        context.HttpContext.RequestServices, context.HttpContext.RequestAborted))
+                    if (context.Principal is null || !await SessionAuthentication.IsCurrentAsync(context.Principal, context.HttpContext.RequestServices, context.HttpContext.RequestAborted))
                     {
                         context.RejectPrincipal();
                         await context.HttpContext.SignOutAsync(Scheme);
                         return;
                     }
                     var request = context.Request;
-                    if (request.Headers["X-Session-Activity"] != "1") return;
+                    if (request.Headers["X-Session-Activity"] != "1")
+                        return;
                     var origin = request.Headers.Origin;
                     if (origin.Count > 0)
                     {
                         var provider = context.HttpContext.RequestServices.GetRequiredService<ICorsPolicyProvider>();
                         var policy = await provider.GetPolicyAsync(context.HttpContext, "FrontendDev");
-                        if (origin.Count != 1 || policy is null || !policy.IsOriginAllowed(origin.ToString())) return;
+                        if (origin.Count != 1 || policy is null || !policy.IsOriginAllowed(origin.ToString()))
+                            return;
                     }
                     context.Properties.IssuedUtc = clock.GetUtcNow();
                     context.Properties.ExpiresUtc = clock.GetUtcNow().Add(IdleLifetime);
@@ -64,6 +66,10 @@ public static class BrowserAuthentication
     }
 
     public static Biogarden.WebApi.Contracts.BrowserSessionResponse Describe(ClaimsPrincipal user, AuthenticationProperties properties) => new(
-        user.FindFirstValue(ClaimTypes.NameIdentifier)!, user.FindFirstValue(ClaimTypes.Email)!,
-        user.FindAll(ClaimTypes.Role).Select(x => x.Value).ToArray(), user.FindFirstValue(SessionClaim)!, properties.ExpiresUtc);
+        user.FindFirstValue(ClaimTypes.NameIdentifier)!,
+        user.FindFirstValue(ClaimTypes.Email)!,
+        user.FindAll(ClaimTypes.Role).Select(claim => claim.Value).ToArray(),
+        user.FindFirstValue(SessionClaim)!,
+        properties.ExpiresUtc
+    );
 }

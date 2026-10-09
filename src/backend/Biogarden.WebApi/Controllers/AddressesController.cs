@@ -45,16 +45,11 @@ public class AddressesController : ControllerBase
     {
         var addressId = await _addressService.CreateAsync(addressCreateDto);
 
-        return CreatedAtAction(
-            nameof(GetByIdAsync),
-            new { addressId },
-            addressId);
+        return CreatedAtAction(nameof(GetByIdAsync), new { addressId }, addressId);
     }
 
     [HttpPut("{addressId:int}")]
-    public async Task<IActionResult> UpdateAsync(
-        int addressId,
-        [FromBody] AddressEditDto addressEditDto)
+    public async Task<IActionResult> UpdateAsync(int addressId, [FromBody] AddressEditDto addressEditDto)
     {
         await _addressService.UpdateAsync(addressId, addressEditDto);
 

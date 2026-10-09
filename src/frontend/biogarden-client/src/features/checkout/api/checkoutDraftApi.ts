@@ -8,22 +8,37 @@ export type SavedCheckoutDraft = { version: string | null; expiresAtUtc: string 
 
 function parseDraft(input: unknown): SavedCheckoutDraft {
   const invalid = () => new Error("A mentett pénztáradatok sérültek.");
-  if (!input || typeof input !== "object") throw invalid();
+  if (!input || typeof input !== "object")
+    throw invalid();
   const value = input as SavedCheckoutDraft;
-  if (value.fields === null && value.version === null && value.expiresAtUtc === null) return value;
+  if (value.fields === null && value.version === null && value.expiresAtUtc === null)
+    return value;
+
   if (!value.fields || typeof value.fields !== "object" || typeof value.version !== "string"
-    || typeof value.expiresAtUtc !== "string" || !Number.isFinite(Date.parse(value.expiresAtUtc))) throw invalid();
+    || typeof value.expiresAtUtc !== "string" || !Number.isFinite(Date.parse(value.expiresAtUtc)))
+    {
+    throw invalid();
+  }
+
   for (const [key, empty] of Object.entries(EMPTY_DRAFT)) {
-    if (key === "fulfillmentMethod" || key === "glsDeliveryPointId") continue;
-    if (typeof value.fields[key as keyof CheckoutDraft] !== typeof empty) throw invalid();
+    if (key === "fulfillmentMethod" || key === "glsDeliveryPointId")
+      continue;
+    if (typeof value.fields[key as keyof CheckoutDraft] !== typeof empty)
+      throw invalid();
   }
   // Older drafts have no shipping selection. Restore them as personal pickup.
   value.fields.fulfillmentMethod ??= EMPTY_DRAFT.fulfillmentMethod;
   value.fields.glsDeliveryPointId ??= null;
+
   if (!Object.values(FULFILLMENT).includes(value.fields.fulfillmentMethod)
     || (value.fields.glsDeliveryPointId !== null && (typeof value.fields.glsDeliveryPointId !== "string"
-      || value.fields.glsDeliveryPointId.length > 100))) throw invalid();
-  if (![0, 1].includes(value.fields.customerType)) throw new Error("Érvénytelen vásárlói típus.");
+      || value.fields.glsDeliveryPointId.length > 100)))
+    {
+    throw invalid();
+  }
+
+  if (![0, 1].includes(value.fields.customerType))
+    throw new Error("Érvénytelen vásárlói típus.");
   return { ...value, fields: Object.fromEntries(Object.keys(EMPTY_DRAFT)
     .map(key => [key, value.fields![key as keyof CheckoutDraft]])) as CheckoutDraft };
 }

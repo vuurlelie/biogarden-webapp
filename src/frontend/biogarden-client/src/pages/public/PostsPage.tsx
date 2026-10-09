@@ -23,68 +23,76 @@ export default function PostsPage() {
   const [hasError, setHasError] = useState(false);
   const latestLoadId = useRef(0);
 
-  useEffect(() => {
-    const loadId = latestLoadId.current + 1;
-    latestLoadId.current = loadId;
-    const isStaleLoad = () => latestLoadId.current !== loadId;
+  useEffect(
+    () => {
+      const loadId = latestLoadId.current + 1;
+      latestLoadId.current = loadId;
+      const isStaleLoad = () => latestLoadId.current !== loadId;
 
-    async function loadPosts() {
-      try {
-        setIsLoading(true);
-        setHasError(false);
+      async function loadPosts() {
+        try {
+          setIsLoading(true);
+          setHasError(false);
 
-        const result = await getPostPage(
-          {
-            page: currentPage,
-            pageSize: POSTS_PER_PAGE,
-            category: selectedCategory,
-            sort: sortOrder,
-          },
-        );
+          const result = await getPostPage(
+            {
+              page: currentPage,
+              pageSize: POSTS_PER_PAGE,
+              category: selectedCategory,
+              sort: sortOrder,
+            },
+          );
 
-        if (isStaleLoad()) return;
+          if (isStaleLoad())
+            return;
 
-        setPosts(result.items);
-        setTotalPages(result.totalPages);
-        setTotalCount(result.totalCount);
-      } catch (error) {
-        if (isStaleLoad()) return;
+          setPosts(result.items);
+          setTotalPages(result.totalPages);
+          setTotalCount(result.totalCount);
+        } catch (error) {
+          if (isStaleLoad())
+            return;
 
-        console.error(error);
-        setHasError(true);
-      } finally {
-        if (!isStaleLoad()) {
-          setIsLoading(false);
-        }
-      }
-    }
-
-    void loadPosts();
-  }, [selectedCategory, sortOrder, currentPage]);
-
-  useEffect(() => {
-    let isCurrentRequest = true;
-
-    async function loadSidebarPosts() {
-      try {
-        const allPosts = await getAllPosts();
-
-        if (isCurrentRequest) {
-          setSidebarPosts(allPosts);
-        }
-      } catch (error) {
-        if (isCurrentRequest) {
           console.error(error);
+          setHasError(true);
+        } finally {
+          if (!isStaleLoad()) {
+            setIsLoading(false);
+          }
         }
       }
-    }
 
-    void loadSidebarPosts();
+      void loadPosts();
+    },
+    [selectedCategory, sortOrder, currentPage]
+  );
 
-    return () => {
-      isCurrentRequest = false;
-    };
-  }, []);
+  useEffect(
+    () => {
+      let isCurrentRequest = true;
+
+      async function loadSidebarPosts() {
+        try {
+          const allPosts = await getAllPosts();
+
+          if (isCurrentRequest) {
+            setSidebarPosts(allPosts);
+          }
+        } catch (error) {
+          if (isCurrentRequest) {
+            console.error(error);
+          }
+        }
+      }
+
+      void loadSidebarPosts();
+
+      return () => {
+        isCurrentRequest = false;
+      };
+    },
+    []
+  );
 
   function resetToFirstPage() {
     setCurrentPage(1);
@@ -158,10 +166,7 @@ export default function PostsPage() {
 
       <div className="mt-3 text-sm text-site-text">
         {totalCount > 0
-          ? `${(currentPage - 1) * POSTS_PER_PAGE + 1}-${Math.min(
-            currentPage * POSTS_PER_PAGE,
-            totalCount,
-          )} bejegyzés, összesen: ${totalCount} db`
+          ? `${(currentPage - 1) * POSTS_PER_PAGE + 1}-${Math.min(currentPage * POSTS_PER_PAGE, totalCount)} bejegyzés, összesen: ${totalCount} db`
           : "Nincs a szűrésnek megfelelő bejegyzés."}
       </div>
 

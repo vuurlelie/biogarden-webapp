@@ -5,30 +5,38 @@ export default function BackToTopBtn() {
   const [overDarkFooter, setOverDarkFooter] = useState(false);
   const buttonRef = useRef<HTMLButtonElement>(null);
 
-  useEffect(() => {
-    const onScroll = () => {
-      const scrollHeight = window.scrollY || document.documentElement.scrollTop;
-      setIsVisible(scrollHeight > 30);
-      const button = buttonRef.current?.getBoundingClientRect();
-      const footer = document.getElementById("footer-credits")?.getBoundingClientRect();
-      setOverDarkFooter(Boolean(button && footer && button.bottom > footer.top &&
-        button.top < footer.bottom && button.right > footer.left && button.left < footer.right));
-    };
-    window.addEventListener("scroll", onScroll, { passive: true });
-    window.addEventListener("resize", onScroll);
-    const observer = new ResizeObserver(onScroll);
-    observer.observe(document.body);
-    onScroll();
-    return () => {
-      window.removeEventListener("scroll", onScroll);
-      window.removeEventListener("resize", onScroll);
-      observer.disconnect();
-    };
-  }, [isVisible]);
+  useEffect(
+    () => {
+      const onScroll = () => {
+        const scrollHeight = window.scrollY || document.documentElement.scrollTop;
+        setIsVisible(scrollHeight > 30);
+        const button = buttonRef.current?.getBoundingClientRect();
+        const footer = document.getElementById("footer-credits")?.getBoundingClientRect();
+        setOverDarkFooter(Boolean(button && footer && button.bottom > footer.top &&
+          button.top < footer.bottom && button.right > footer.left && button.left < footer.right));
+      };
+      window.addEventListener(
+        "scroll",
+        onScroll,
+        { passive: true }
+      );
+      window.addEventListener("resize", onScroll);
+      const observer = new ResizeObserver(onScroll);
+      observer.observe(document.body);
+      onScroll();
+      return () => {
+        window.removeEventListener("scroll", onScroll);
+        window.removeEventListener("resize", onScroll);
+        observer.disconnect();
+      };
+    },
+    [isVisible]
+  );
 
   const backToTop = () => window.scrollTo({ top: 0, behavior: "smooth" });
 
-  if (!isVisible) return null;
+  if (!isVisible)
+    return null;
 
   return (
     <button

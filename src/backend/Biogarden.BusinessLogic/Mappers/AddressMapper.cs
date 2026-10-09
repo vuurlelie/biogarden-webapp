@@ -58,9 +58,7 @@ public static class AddressMapper
         };
     }
 
-    public static void ApplyChanges(
-        this Address address,
-        AddressEditDto addressEditDto)
+    public static void ApplyChanges(this Address address, AddressEditDto addressEditDto)
     {
         address.PostalCode = addressEditDto.PostalCode.Trim();
         address.City = addressEditDto.City.Trim();

@@ -39,20 +39,14 @@ public class OrderRepository : IOrderRepository
             .FirstOrDefaultAsync(order => order.Id == orderId, cancellationToken);
     }
 
-    public async Task<Order?> GetByOrderNumberAndEmailWithItemsAsync(
-        string orderNumber,
-        string customerEmail,
-        CancellationToken cancellationToken = default)
+    public async Task<Order?> GetByOrderNumberAndEmailWithItemsAsync(string orderNumber, string customerEmail, CancellationToken cancellationToken = default)
     {
         return await _context.Orders
             .Include(order => order.Items)
             .ThenInclude(orderItem => orderItem.Product)
             .Include(order => order.WithdrawalRequests)
             .AsSplitQuery()
-            .FirstOrDefaultAsync(
-                order => order.OrderNumber == orderNumber &&
-                    order.CustomerEmail.ToLower() == customerEmail,
-                cancellationToken);
+            .FirstOrDefaultAsync(order => order.OrderNumber == orderNumber && order.CustomerEmail.ToLower() == customerEmail, cancellationToken);
     }
 
     public async Task<Order?> GetByCartIdWithItemsAsync(Guid cartId, CancellationToken cancellationToken = default)
@@ -64,9 +58,7 @@ public class OrderRepository : IOrderRepository
             .FirstOrDefaultAsync(order => order.CartId == cartId, cancellationToken);
     }
 
-    public async Task<Order?> GetByIdempotencyKeyWithItemsAsync(
-        string idempotencyKey,
-        CancellationToken cancellationToken = default)
+    public async Task<Order?> GetByIdempotencyKeyWithItemsAsync(string idempotencyKey, CancellationToken cancellationToken = default)
     {
         return await _context.Orders
             .Include(order => order.Items)
@@ -76,33 +68,26 @@ public class OrderRepository : IOrderRepository
             .FirstOrDefaultAsync(order => order.IdempotencyKey == idempotencyKey, cancellationToken);
     }
 
-    public async Task<Order?> GetBySumUpCheckoutIdAsync(
-        string sumUpCheckoutId,
-        CancellationToken cancellationToken = default)
+    public async Task<Order?> GetBySumUpCheckoutIdAsync(string sumUpCheckoutId, CancellationToken cancellationToken = default)
     {
         return await _context.Orders
             .Include(order => order.Items)
             .AsSplitQuery()
             .FirstOrDefaultAsync(
                 order => order.SumUpCheckoutId == sumUpCheckoutId || _context.PaymentAttempts.Any(attempt => attempt.OrderId == order.Id && attempt.CheckoutId == sumUpCheckoutId),
-                cancellationToken);
+                cancellationToken
+            );
     }
 
-    public async Task<Order?> GetBySumUpTransactionIdAsync(
-        string sumUpTransactionId,
-        CancellationToken cancellationToken = default)
+    public async Task<Order?> GetBySumUpTransactionIdAsync(string sumUpTransactionId, CancellationToken cancellationToken = default)
     {
         return await _context.Orders
             .Include(order => order.Items)
             .AsSplitQuery()
-            .FirstOrDefaultAsync(
-                order => order.SumUpTransactionId == sumUpTransactionId,
-                cancellationToken);
+            .FirstOrDefaultAsync(order => order.SumUpTransactionId == sumUpTransactionId, cancellationToken);
     }
 
-    public async Task<(List<Order> Items, int TotalCount, int Page)> GetByUserIdAsync(
-        Guid userId, string view, string? search, int? year, int page, int pageSize, DateTime now,
-        CancellationToken cancellationToken = default)
+    public async Task<(List<Order> Items, int TotalCount, int Page)> GetByUserIdAsync(Guid userId, string view, string? search, int? year, int page, int pageSize, DateTime now, CancellationToken cancellationToken = default)
     {
         var completedCutoff = now.AddDays(-14);
         var cancelledCutoff = now.AddDays(-7);
@@ -116,7 +101,8 @@ public class OrderRepository : IOrderRepository
             query = query.Where(order => !order.WithdrawalRequests.Any(request => request.Status == Biogarden.DataAccess.Enums.OrderWithdrawalRequestStatus.Pending)
                 && ((order.Status == Biogarden.DataAccess.Enums.OrderStatus.Completed && (order.CompletedAtUtc == null || order.CompletedAtUtc < completedCutoff))
                 || (order.Status == Biogarden.DataAccess.Enums.OrderStatus.Cancelled && ((order.DeletedAtUtc ?? order.CancelledAtUtc) == null || (order.DeletedAtUtc ?? order.CancelledAtUtc) < cancelledCutoff))));
-        if (!string.IsNullOrWhiteSpace(search)) query = query.Where(order => order.OrderNumber.Contains(search.Trim()));
+        if (!string.IsNullOrWhiteSpace(search))
+            query = query.Where(order => order.OrderNumber.Contains(search.Trim()));
         if (year.HasValue)
         {
             var start = new DateTime(year.Value, 1, 1, 0, 0, 0, DateTimeKind.Utc);
@@ -147,14 +133,10 @@ public class OrderRepository : IOrderRepository
             await _context.Orders.FromSqlInterpolated($"SELECT * FROM Orders WITH (UPDLOCK, HOLDLOCK) WHERE Id = {orderId}")
                 .AsNoTracking().SingleAsync(cancellationToken);
         }
-        return await _context.OrderWithdrawalRequests.CountAsync(
-            request => request.OrderId == orderId && request.Status == Biogarden.DataAccess.Enums.OrderWithdrawalRequestStatus.Pending,
-            cancellationToken);
+        return await _context.OrderWithdrawalRequests.CountAsync(request => request.OrderId == orderId && request.Status == Biogarden.DataAccess.Enums.OrderWithdrawalRequestStatus.Pending, cancellationToken);
     }
 
-    public async Task AddWithdrawalRequestAsync(
-        OrderWithdrawalRequest request,
-        CancellationToken cancellationToken = default)
+    public async Task AddWithdrawalRequestAsync(OrderWithdrawalRequest request, CancellationToken cancellationToken = default)
     {
         await _context.OrderWithdrawalRequests.AddAsync(request, cancellationToken);
     }

@@ -23,9 +23,7 @@ public sealed class EmailTemplateServiceTests
             LogoUrl = "https://bakonykincse.hu/logo.png"
         }));
 
-        var message = service.BuildEmailConfirmationMessage(
-            "vasarlo@example.com",
-            "https://bakonykincse.hu/email-megerosites?token=abc");
+        var message = service.BuildEmailConfirmationMessage("vasarlo@example.com", "https://bakonykincse.hu/email-megerosites?token=abc");
 
         Assert.Equal("vasarlo@example.com", message.To);
         Assert.Contains("Email cím megerősítése", message.Subject);
@@ -48,9 +46,7 @@ public sealed class EmailTemplateServiceTests
             LogoUrl = string.Empty
         }));
 
-        var message = service.BuildEmailConfirmationMessage(
-            "vasarlo@example.com",
-            "https://bakonykincse.hu/email-megerosites?token=abc");
+        var message = service.BuildEmailConfirmationMessage("vasarlo@example.com", "https://bakonykincse.hu/email-megerosites?token=abc");
 
         Assert.Contains(">BK<", message.HtmlBody);
     }
@@ -68,9 +64,7 @@ public sealed class EmailTemplateServiceTests
             LogoUrl = "https://bakonykincse.hu/logo.png"
         }));
 
-        var message = service.BuildPasswordResetMessage(
-            "vasarlo@example.com",
-            "https://bakonykincse.hu/jelszo-visszaallitas?token=abc");
+        var message = service.BuildPasswordResetMessage("vasarlo@example.com", "https://bakonykincse.hu/jelszo-visszaallitas?token=abc");
 
         Assert.Equal("vasarlo@example.com", message.To);
         Assert.Contains("Jelszó visszaállítása", message.Subject);
@@ -217,9 +211,7 @@ public sealed class EmailTemplateServiceTests
         var message = service.BuildOrderConfirmationMessage("customer@example.com", order);
 
         Assert.Contains("Szállítási adatok:", message.PlainTextBody);
-        Assert.Contains(
-            "- Cím: 8431 Bakonyszentlászló Jókai utca 22 (emelet: 1, ajtó: 3)",
-            message.PlainTextBody);
+        Assert.Contains("- Cím: 8431 Bakonyszentlászló Jókai utca 22 (emelet: 1, ajtó: 3)", message.PlainTextBody);
         Assert.DoesNotContain("Átvételi adatok:", message.PlainTextBody);
         Assert.Contains(WebUtility.HtmlEncode("Szállítási cím"), message.HtmlBody);
         Assert.Contains("email-data-text", message.HtmlBody);
@@ -258,9 +250,7 @@ public sealed class EmailTemplateServiceTests
         Assert.Contains("Számlázási adatok:", message.PlainTextBody);
         Assert.Contains("- Cégnév: Teszt Kft.", message.PlainTextBody);
         Assert.Contains("- Adószám: 12345678-1-12", message.PlainTextBody);
-        Assert.Contains(
-            "- Számla átvétele: Elektronikus számlát küldünk emailben, és nyomtatott számlát is mellékelünk.",
-            message.PlainTextBody);
+        Assert.Contains("- Számla átvétele: Elektronikus számlát küldünk emailben, és nyomtatott számlát is mellékelünk.", message.PlainTextBody);
     }
 
     [Fact]
@@ -273,9 +263,7 @@ public sealed class EmailTemplateServiceTests
 
         Assert.Equal("info@bakonykincse.hu", message.To);
         Assert.Contains("Új rendelés érkezett", message.Subject);
-        Assert.Matches(
-            "A rendelést az admin felületen tudod feldolgozni\\.[\\s\\S]*Admin felület megnyitása:",
-            message.PlainTextBody);
+        Assert.Matches("A rendelést az admin felületen tudod feldolgozni\\.[\\s\\S]*Admin felület megnyitása:", message.PlainTextBody);
         Assert.Contains("Vevő adatai:", message.PlainTextBody);
         Assert.Contains("- Név: Teszt Elek", message.PlainTextBody);
         Assert.Contains("- Email: customer@example.com", message.PlainTextBody);
@@ -327,9 +315,7 @@ public sealed class EmailTemplateServiceTests
         var message = service.BuildOrderBusinessNotificationMessage("info@bakonykincse.hu", order);
 
         Assert.Contains("Kiállítandó bizonylat:", message.PlainTextBody);
-        Assert.Contains(
-            "- Admin teendő: Elektronikus számla szükséges, és nyomtatott számlát is mellékelni kell.",
-            message.PlainTextBody);
+        Assert.Contains("- Admin teendő: Elektronikus számla szükséges, és nyomtatott számlát is mellékelni kell.", message.PlainTextBody);
         Assert.Contains("- Cégnév: Teszt Kft.", message.PlainTextBody);
         Assert.Contains("- Adószám: 12345678-1-12", message.PlainTextBody);
         Assert.Contains(">Teendő<", message.HtmlBody);
@@ -363,10 +349,7 @@ public sealed class EmailTemplateServiceTests
         var order = CreateOrderDto();
         var request = CreateWithdrawalRequestDto(order);
 
-        var message = service.BuildOrderWithdrawalBusinessNotificationMessage(
-            "info@bakonykincse.hu",
-            order,
-            request);
+        var message = service.BuildOrderWithdrawalBusinessNotificationMessage("info@bakonykincse.hu", order, request);
 
         Assert.Equal("info@bakonykincse.hu", message.To);
         Assert.Contains("Elállási vagy fogyasztói kérés", message.Subject);
@@ -390,10 +373,7 @@ public sealed class EmailTemplateServiceTests
         var order = CreateOrderDto();
         var request = CreateWithdrawalRequestDto(order);
 
-        var message = service.BuildOrderWithdrawalCustomerConfirmationMessage(
-            "customer@example.com",
-            order,
-            request);
+        var message = service.BuildOrderWithdrawalCustomerConfirmationMessage("customer@example.com", order, request);
 
         Assert.Equal("customer@example.com", message.To);
         Assert.Contains("Megkaptuk a rendeléshez kapcsolódó kérésedet", message.Subject);
@@ -413,9 +393,7 @@ public sealed class EmailTemplateServiceTests
     [InlineData("reactivated", "Fiókod újra aktiválva lett")]
     [InlineData("deleted", "Fiókod törölve lett")]
     [InlineData("anonymized", "Fiókadataid anonimizálva lettek")]
-    public void BuildAccountLifecycleMessages_CreateBrandedNotifications(
-        string messageType,
-        string expectedTitle)
+    public void BuildAccountLifecycleMessages_CreateBrandedNotifications(string messageType, string expectedTitle)
     {
         var service = new EmailTemplateService(Options.Create(new EmailBrandingOptions
         {

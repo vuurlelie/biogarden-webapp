@@ -137,7 +137,8 @@ public sealed class ConcurrentCheckoutTests : IAsyncLifetime
     private static async Task<HttpResponseMessage> ReserveAndBuyAsync(HttpClient client, int productId)
     {
         var response = await client.PostAsJsonAsync("/api/cart/items", new AddCartItemDto { ProductId = productId, Quantity = 1 });
-        if (!response.IsSuccessStatusCode) return response;
+        if (!response.IsSuccessStatusCode)
+            return response;
         response.Dispose();
         return await client.PostAsJsonAsync("/api/orders", await Request().WithQuoteAsync(client));
     }

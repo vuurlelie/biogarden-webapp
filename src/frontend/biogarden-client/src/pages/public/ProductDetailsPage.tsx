@@ -64,10 +64,13 @@ export default function ProductDetailsPage() {
   const imageModalRef = useRef<HTMLDivElement | null>(null);
   const { track } = useAnalytics();
 
-  useModalFocus(imageModalRef, {
-    isOpen: isImageOpen,
-    onClose: () => setIsImageOpen(false),
-  });
+  useModalFocus(
+    imageModalRef,
+    {
+      isOpen: isImageOpen,
+      onClose: () => setIsImageOpen(false),
+    }
+  );
   const { addItem } = useCart();
 
   useEffect(() => {
@@ -95,7 +98,8 @@ export default function ProductDetailsPage() {
 
         const loadedProduct = await getProductById(parsedProductId, controller.signal);
 
-        if (shouldIgnoreResult) return;
+        if (shouldIgnoreResult)
+          return;
 
         if (loadedProduct === null) {
           setNotFound(true);
@@ -106,7 +110,8 @@ export default function ProductDetailsPage() {
         setProduct(loadedProduct);
         // Recommendations are optional and must not delay availability or block purchasing.
         void getProducts(controller.signal).then(products => {
-          if (shouldIgnoreResult) return;
+          if (shouldIgnoreResult)
+            return;
           const otherProducts = products.filter((item) => item.id !== loadedProduct.id);
           const sameCategoryProducts = otherProducts.filter((item) => item.category === loadedProduct.category);
           const fallbackProducts = otherProducts.filter((item) => item.category !== loadedProduct.category);
@@ -116,16 +121,19 @@ export default function ProductDetailsPage() {
         });
 
         const availableQuantity = await getAvailableQuantityToAdd(loadedProduct.id, controller.signal);
-        if (shouldIgnoreResult) return;
+        if (shouldIgnoreResult)
+          return;
         setAvailableToAdd(availableQuantity);
         setQuantity("");
         setQuantityError(null);
       } catch (error) {
-        if (shouldIgnoreResult) return;
+        if (shouldIgnoreResult)
+          return;
         console.error(error);
         setHasError(true);
       } finally {
-        if (!shouldIgnoreResult) setIsLoading(false);
+        if (!shouldIgnoreResult)
+          setIsLoading(false);
       }
     }
 
@@ -136,13 +144,20 @@ export default function ProductDetailsPage() {
     };
   }, [productId]);
 
-  useEffect(() => {
-    if (!product) return;
-    track("product_view", {
-      productId: product.id,
-      category: String(product.category),
-    });
-  }, [product, track]);
+  useEffect(
+    () => {
+      if (!product)
+        return;
+      track(
+        "product_view",
+        {
+          productId: product.id,
+          category: String(product.category),
+        }
+      );
+    },
+    [product, track]
+  );
 
   if (isLoading) {
     return (
@@ -202,19 +217,23 @@ export default function ProductDetailsPage() {
     setIsRefreshingAvailability(true);
     try {
       const remaining = await getAvailableQuantityToAdd(currentProduct.id, signal);
-      if (signal?.aborted) return;
+      if (signal?.aborted)
+        return;
       setAvailableToAdd(remaining);
       setAvailabilityRefreshFailed(false);
     } catch {
-      if (!signal?.aborted) setAvailabilityRefreshFailed(true);
+      if (!signal?.aborted)
+        setAvailabilityRefreshFailed(true);
     } finally {
-      if (!signal?.aborted) setIsRefreshingAvailability(false);
+      if (!signal?.aborted)
+        setIsRefreshingAvailability(false);
     }
   }
 
   async function handleAddToCart() {
     const currentProduct = product;
-    if (!currentProduct || isAddingToCart || isRefreshingAvailability || availabilityRefreshFailed) return;
+    if (!currentProduct || isAddingToCart || isRefreshingAvailability || availabilityRefreshFailed)
+      return;
     const signal = productRequests.current?.signal;
 
     const amount = Number(quantity);
@@ -236,14 +255,17 @@ export default function ProductDetailsPage() {
     setCartMessage(null);
     try {
       await addItem(currentProduct.id, amount);
-      if (signal?.aborted) return;
+      if (signal?.aborted)
+        return;
       setQuantity("");
       setCartMessage(`${amount} ${getUnitLabel(currentProduct.unit)} bekerült a kosárba.`);
       await refreshAvailability(currentProduct);
     } catch (error) {
-      if (!signal?.aborted) setCartMessage(getErrorMessage(error, "A terméket nem sikerült kosárba tenni."));
+      if (!signal?.aborted)
+        setCartMessage(getErrorMessage(error, "A terméket nem sikerült kosárba tenni."));
     } finally {
-      if (!signal?.aborted) setIsAddingToCart(false);
+      if (!signal?.aborted)
+        setIsAddingToCart(false);
     }
   }
 

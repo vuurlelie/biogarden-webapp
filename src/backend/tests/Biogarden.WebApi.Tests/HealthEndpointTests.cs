@@ -46,10 +46,7 @@ public sealed class HealthEndpointTests : IClassFixture<BiogardenWebApiFactory>
         AssertHeader(response, "X-Content-Type-Options", "nosniff");
         AssertHeader(response, "X-Frame-Options", "DENY");
         AssertHeader(response, "Referrer-Policy", "strict-origin-when-cross-origin");
-        AssertHeader(
-            response,
-            "Permissions-Policy",
-            "camera=(), microphone=(), geolocation=(), payment=()");
+        AssertHeader(response, "Permissions-Policy", "camera=(), microphone=(), geolocation=(), payment=()");
         Assert.True(response.Headers.TryGetValues("Content-Security-Policy", out var values));
         var contentSecurityPolicy = Assert.Single(values);
         Assert.Contains("frame-ancestors 'none'", contentSecurityPolicy);
@@ -57,10 +54,7 @@ public sealed class HealthEndpointTests : IClassFixture<BiogardenWebApiFactory>
         Assert.Contains("img-src 'self' data: blob:", contentSecurityPolicy);
     }
 
-    private static void AssertHeader(
-        HttpResponseMessage response,
-        string headerName,
-        string expectedValue)
+    private static void AssertHeader(HttpResponseMessage response, string headerName, string expectedValue)
     {
         Assert.True(response.Headers.TryGetValues(headerName, out var values));
         Assert.Equal(expectedValue, Assert.Single(values));

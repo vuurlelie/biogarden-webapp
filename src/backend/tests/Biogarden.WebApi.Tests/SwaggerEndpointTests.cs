@@ -15,7 +15,7 @@ public sealed class SwaggerEndpointTests
     public async Task NonDevelopmentDoesNotExposeDocumentation(string environment, string path)
     {
         using var factory = new BiogardenWebApiFactory();
-        using var hosted = factory.WithWebHostBuilder(builder => builder.UseEnvironment(environment));
+        using var hosted = factory.WithWebHostBuilder(webHostBuilder => webHostBuilder.UseEnvironment(environment));
         using var client = hosted.CreateClient();
         Assert.Equal(System.Net.HttpStatusCode.NotFound, (await client.GetAsync(path)).StatusCode);
     }
@@ -24,7 +24,7 @@ public sealed class SwaggerEndpointTests
     public async Task DevelopmentDocument_DescribesCheckoutRequestAndResponse()
     {
         using var factory = new BiogardenWebApiFactory();
-        using var development = factory.WithWebHostBuilder(builder => builder.UseEnvironment("Development"));
+        using var development = factory.WithWebHostBuilder(webHostBuilder => webHostBuilder.UseEnvironment("Development"));
         using var client = development.CreateClient();
         using var response = await client.GetAsync("/swagger/v1/swagger.json");
         response.EnsureSuccessStatusCode();

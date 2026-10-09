@@ -41,56 +41,73 @@ export default function AdminProductsPage() {
   const [deleting, setDeleting] = useState(false);
   const latestLoadId = useRef(0);
 
-  const loadProducts = useCallback(async () => {
-    const loadId = latestLoadId.current + 1;
-    latestLoadId.current = loadId;
-    const isStaleLoad = () => latestLoadId.current !== loadId;
+  const loadProducts = useCallback(
+    async () => {
+      const loadId = latestLoadId.current + 1;
+      latestLoadId.current = loadId;
+      const isStaleLoad = () => latestLoadId.current !== loadId;
 
-    setLoading(true);
-    setError(null);
+      setLoading(true);
+      setError(null);
 
-    try {
-      const result = await getAdminProductPage(
-        {
-          page,
-          pageSize: PAGE_SIZE,
-          search,
-          category,
-          availability,
-        },
-      );
-      if (isStaleLoad()) return;
+      try {
+        const result = await getAdminProductPage(
+          {
+            page,
+            pageSize: PAGE_SIZE,
+            search,
+            category,
+            availability,
+          },
+        );
+        if (isStaleLoad())
+          return;
 
-      setProducts(result.items);
-      setTotalCount(result.totalCount);
-      setTotalPages(result.totalPages);
-    } catch (loadError) {
-      if (isStaleLoad()) return;
+        setProducts(result.items);
+        setTotalCount(result.totalCount);
+        setTotalPages(result.totalPages);
+      } catch (loadError) {
+        if (isStaleLoad())
+          return;
 
-      setError(getErrorMessage(loadError, "A termékek betöltése nem sikerült."));
-    } finally {
-      if (!isStaleLoad()) setLoading(false);
-    }
-  }, [availability, category, page, search]);
+        setError(getErrorMessage(loadError, "A termékek betöltése nem sikerült."));
+      } finally {
+        if (!isStaleLoad())
+          setLoading(false);
+      }
+    },
+    [availability, category, page, search]
+  );
 
-  useEffect(() => {
-    void loadProducts();
-  }, [loadProducts]);
+  useEffect(
+    () => {
+      void loadProducts();
+    },
+    [loadProducts]
+  );
 
-  useEffect(() => {
-    if (!message) return;
-    const timeout = window.setTimeout(() => setMessage(null), 4000);
-    return () => window.clearTimeout(timeout);
-  }, [message]);
+  useEffect(
+    () => {
+      if (!message)
+        return;
+      const timeout = window.setTimeout(() => setMessage(null), 4000);
+      return () => window.clearTimeout(timeout);
+    },
+    [message]
+  );
 
-  useEffect(() => {
-    if (page > totalPages) {
-      setPage(totalPages);
-    }
-  }, [page, totalPages]);
+  useEffect(
+    () => {
+      if (page > totalPages) {
+        setPage(totalPages);
+      }
+    },
+    [page, totalPages]
+  );
 
   async function confirmDelete() {
-    if (!deletingProduct) return;
+    if (!deletingProduct)
+      return;
 
     setDeleting(true);
     setError(null);

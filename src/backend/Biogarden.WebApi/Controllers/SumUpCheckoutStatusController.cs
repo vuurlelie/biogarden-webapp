@@ -30,14 +30,13 @@ public sealed class SumUpCheckoutStatusController : ControllerBase
         int count;
         while ((count = await Request.Body.ReadAsync(buffer, cancellationToken)) > 0)
         {
-            if (body.Length + count > MaxPayloadBytes) return StatusCode(StatusCodes.Status413PayloadTooLarge);
+            if (body.Length + count > MaxPayloadBytes)
+                return StatusCode(StatusCodes.Status413PayloadTooLarge);
             body.Write(buffer, 0, count);
         }
         var payload = System.Text.Encoding.UTF8.GetString(body.ToArray());
 
-        await _checkoutStatusService.HandleAsync(
-            payload,
-            cancellationToken);
+        await _checkoutStatusService.HandleAsync(payload, cancellationToken);
 
         return Ok();
     }

@@ -14,8 +14,11 @@ export default function RouteMetadata() {
   useLayoutEffect(() => {
     // Reset before page-level effects, including while lazy pages/data are loading.
     // Unknown/private routes are noindex; public pages explicitly supply their own SEO.
-    applyMetadata({ title: titles[pathname] ?? (pathname.startsWith("/admin") ? "Adminisztráció" :
-      pathname.startsWith("/fiokom") ? "Fiókom" : undefined), noIndex: true }, pathname);
+    applyMetadata(
+      { title: titles[pathname] ?? (pathname.startsWith("/admin") ? "Adminisztráció" :
+        pathname.startsWith("/fiokom") ? "Fiókom" : undefined), noIndex: true },
+      pathname
+    );
   }, [pathname, search]);
   return null;
 }

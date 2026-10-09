@@ -35,34 +35,44 @@ export default function Navbar({
   const [mobileAccountOpen, setMobileAccountOpen] = useState(false);
   const [progress, setProgress] = useState(0);
 
-  useEffect(() => {
-    const onScroll = () => {
-      const doc = document.documentElement;
-      const scrolled = doc.scrollTop;
-      const max = doc.scrollHeight - window.innerHeight;
+  useEffect(
+    () => {
+      const onScroll = () => {
+        const doc = document.documentElement;
+        const scrolled = doc.scrollTop;
+        const max = doc.scrollHeight - window.innerHeight;
 
-      setProgress(max > 0 ? Math.min(100, Math.round((scrolled / max) * 100)) : 0);
-      setIsScrolled(scrolled > 0);
-    };
+        setProgress(max > 0 ? Math.min(100, Math.round((scrolled / max) * 100)) : 0);
+        setIsScrolled(scrolled > 0);
+      };
 
-    window.addEventListener("scroll", onScroll, { passive: true });
-    onScroll();
+      window.addEventListener(
+        "scroll",
+        onScroll,
+        { passive: true }
+      );
+      onScroll();
 
-    return () => window.removeEventListener("scroll", onScroll);
-  }, []);
+      return () => window.removeEventListener("scroll", onScroll);
+    },
+    []
+  );
 
-  useEffect(() => {
-    if (!mobileOpen) {
-      return;
-    }
+  useEffect(
+    () => {
+      if (!mobileOpen) {
+        return;
+      }
 
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
+      const previousOverflow = document.body.style.overflow;
+      document.body.style.overflow = "hidden";
 
-    return () => {
-      document.body.style.overflow = previousOverflow;
-    };
-  }, [mobileOpen]);
+      return () => {
+        document.body.style.overflow = previousOverflow;
+      };
+    },
+    [mobileOpen]
+  );
 
   const closeMobile = () => {
     setMobileOpen(false);
@@ -70,12 +80,16 @@ export default function Navbar({
   };
 
   const goLogin = async (event: React.MouseEvent<HTMLAnchorElement>) => {
-    if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+    if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey)
+      return;
     event.preventDefault();
     try {
       await prepareSessionTransition();
       closeMobile();
-      navigate(ROUTES.login, { state: { from: window.location.pathname } });
+      navigate(
+        ROUTES.login,
+        { state: { from: window.location.pathname } }
+      );
     } catch (error) {
       window.alert(error instanceof Error ? error.message : "Az adatok mentése nem sikerült.");
     }
@@ -89,7 +103,11 @@ export default function Navbar({
       return;
     }
     closeMobile();
-    if (window.location.pathname !== ROUTES.checkout) navigate(ROUTES.home, { replace: true });
+    if (window.location.pathname !== ROUTES.checkout)
+      navigate(
+        ROUTES.home,
+        { replace: true }
+      );
   };
 
   const goContact = () => {
@@ -121,18 +139,18 @@ export default function Navbar({
     };
 
   const navLinkClass = useMemo(
-  () =>
-    ({ isActive }: { isActive: boolean }) =>
-      [
-        "relative inline-flex items-center text-[0.8rem] lg:text-base uppercase tracking-wide transition-colors duration-200",
-        "after:content-[''] after:absolute after:left-0 after:-bottom-1 after:h-[2px] after:w-full after:bg-site-green",
-        "after:origin-left after:scale-x-0 after:transition-transform after:duration-300",
-        isActive
-          ? "font-bold text-site-green-dark after:scale-x-100"
-          : "text-site-nav hover:text-site-green-dark hover:font-semibold",
-      ].join(" "),
-  [],
-);
+    () =>
+      ({ isActive }: { isActive: boolean }) =>
+        [
+          "relative inline-flex items-center text-[0.8rem] lg:text-base uppercase tracking-wide transition-colors duration-200",
+          "after:content-[''] after:absolute after:left-0 after:-bottom-1 after:h-[2px] after:w-full after:bg-site-green",
+          "after:origin-left after:scale-x-0 after:transition-transform after:duration-300",
+          isActive
+            ? "font-bold text-site-green-dark after:scale-x-100"
+            : "text-site-nav hover:text-site-green-dark hover:font-semibold",
+        ].join(" "),
+    [],
+  );
 
   const desktopActionLinkClass =
     "inline-flex items-center text-sm uppercase tracking-wide text-site-nav transition-colors hover:text-site-green-dark";

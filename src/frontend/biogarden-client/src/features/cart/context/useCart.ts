@@ -16,6 +16,7 @@ export const CartContext = createContext<CartContextValue | null>(null);
 
 export function useCart(): CartContextValue {
   const context = useContext(CartContext);
-  if (!context) throw new Error("A useCart csak CartProvider alatt használható.");
+  if (!context)
+    throw new Error("A useCart csak CartProvider alatt használható.");
   return context;
 }

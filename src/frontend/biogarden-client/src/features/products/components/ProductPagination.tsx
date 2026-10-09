@@ -9,9 +9,13 @@ export default function ProductPagination({
   totalPages,
   onPageChange,
 }: ProductPaginationProps) {
-  if (totalPages <= 1) return null;
+  if (totalPages <= 1)
+    return null;
 
-  const pages = Array.from({ length: totalPages }, (_, index) => index + 1);
+  const pages = Array.from(
+    { length: totalPages },
+    (_, index) => index + 1
+  );
 
   return (
     <nav

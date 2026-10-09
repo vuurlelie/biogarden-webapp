@@ -19,73 +19,98 @@ export default function OrderSuccessPage() {
   const { track } = useAnalytics();
 
   useEffect(() => {
-    if (!orderId || order) return;
+    if (!orderId || order)
+      return;
     const controller = new AbortController();
     void getCheckoutOrder(orderId, controller.signal).then(value => {
-      if (!controller.signal.aborted) setReceipt(value);
+      if (!controller.signal.aborted)
+        setReceipt(value);
     }).catch(() => { /* Limited payment status remains available when the owning session is unavailable. */ });
     return () => controller.abort();
   }, [orderId, order]);
 
-  useEffect(() => {
-    if (order) {
-      track("payment_return_viewed", { status: "offline_or_confirmed" });
-    }
-  }, [order, track]);
+  useEffect(
+    () => {
+      if (order) {
+        track(
+          "payment_return_viewed",
+          { status: "offline_or_confirmed" }
+        );
+      }
+    },
+    [order, track]
+  );
 
-  useEffect(() => {
-    if (!sumUpCheckoutReference || !orderId) {
-      return;
-    }
+  useEffect(
+    () => {
+      if (!sumUpCheckoutReference || !orderId) {
+        return;
+      }
 
-    let cancelled = false;
-    let attempts = 0;
-    let timeoutId: number | undefined;
+      let cancelled = false;
+      let attempts = 0;
+      let timeoutId: number | undefined;
 
-    async function checkPaymentStatus() {
-      attempts += 1;
-      setSumUpReturnState("checking");
+      async function checkPaymentStatus() {
+        attempts += 1;
+        setSumUpReturnState("checking");
 
-      try {
-        const status = await getPublicOrderPaymentStatus(orderId!, sumUpCheckoutReference!);
-        if (cancelled) return;
+        try {
+          const status = await getPublicOrderPaymentStatus(orderId!, sumUpCheckoutReference!);
+          if (cancelled)
+            return;
 
-        setReturnedOrderNumber(status.orderNumber);
+          setReturnedOrderNumber(status.orderNumber);
 
-        if (status.paymentStatus === 2) {
-          setSumUpReturnState("paid");
-          track("payment_return_viewed", { status: "paid" });
-          return;
-        }
+          if (status.paymentStatus === 2) {
+            setSumUpReturnState("paid");
+            track(
+              "payment_return_viewed",
+              { status: "paid" }
+            );
+            return;
+          }
 
-        if (status.paymentStatus === 3) {
-          setSumUpReturnState("failed");
-          track("payment_return_viewed", { status: "failed" });
-          return;
-        }
+          if (status.paymentStatus === 3) {
+            setSumUpReturnState("failed");
+            track(
+              "payment_return_viewed",
+              { status: "failed" }
+            );
+            return;
+          }
 
-        if (attempts < 8) {
-          timeoutId = window.setTimeout(checkPaymentStatus, 2000);
-          return;
-        }
+          if (attempts < 8) {
+            timeoutId = window.setTimeout(checkPaymentStatus, 2000);
+            return;
+          }
 
-        setSumUpReturnState("pending");
-        track("payment_return_viewed", { status: "pending" });
-      } catch {
-        if (!cancelled) {
-          setSumUpReturnState("error");
-          track("payment_return_viewed", { status: "error" });
+          setSumUpReturnState("pending");
+          track(
+            "payment_return_viewed",
+            { status: "pending" }
+          );
+        } catch {
+          if (!cancelled) {
+            setSumUpReturnState("error");
+            track(
+              "payment_return_viewed",
+              { status: "error" }
+            );
+          }
         }
       }
-    }
 
-    void checkPaymentStatus();
+      void checkPaymentStatus();
 
-    return () => {
-      cancelled = true;
-      if (timeoutId) window.clearTimeout(timeoutId);
-    };
-  }, [orderId, sumUpCheckoutReference, track]);
+      return () => {
+        cancelled = true;
+        if (timeoutId)
+          window.clearTimeout(timeoutId);
+      };
+    },
+    [orderId, sumUpCheckoutReference, track]
+  );
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-16 text-center">

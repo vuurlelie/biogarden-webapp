@@ -16,6 +16,8 @@ public sealed class GlsOptions
             !string.IsNullOrEmpty(uri.UserInfo) || CountryCode != "HU" ||
             CacheMinutes is < 1 or > 60 || TimeoutSeconds is < 1 or > 30 ||
             RetryDelaySeconds is < 1 or > 300 || MaximumResponseBytes is < 1024 or > 16 * 1024 * 1024)
+        {
             throw new InvalidOperationException("Gls configuration is invalid.");
+        }
     }
 }

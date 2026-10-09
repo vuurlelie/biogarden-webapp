@@ -12,9 +12,7 @@ public sealed class DatabaseHealthCheck : IHealthCheck
         _dbContext = dbContext;
     }
 
-    public async Task<HealthCheckResult> CheckHealthAsync(
-        HealthCheckContext context,
-        CancellationToken cancellationToken = default)
+    public async Task<HealthCheckResult> CheckHealthAsync(HealthCheckContext context, CancellationToken cancellationToken = default)
     {
         try
         {
@@ -26,9 +24,7 @@ public sealed class DatabaseHealthCheck : IHealthCheck
         }
         catch (Exception exception)
         {
-            return HealthCheckResult.Unhealthy(
-                "Database health check failed.",
-                exception);
+            return HealthCheckResult.Unhealthy("Database health check failed.", exception);
         }
     }
 }

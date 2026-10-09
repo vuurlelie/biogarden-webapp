@@ -29,13 +29,15 @@ export function CartProvider({ children }: { children: ReactNode }) {
     const sessionId = getAuthSession()?.sessionId;
     const isCurrent = () => mounted.current && generation === sessionGeneration.current && sessionId === getAuthSession()?.sessionId;
     const assertCurrent = () => {
-      if (!isCurrent()) throw new DOMException("A kosár munkamenete megváltozott.", "AbortError");
+      if (!isCurrent())
+        throw new DOMException("A kosár munkamenete megváltozott.", "AbortError");
     };
     const task = pending.current.then(async () => {
       assertCurrent();
       setError(null);
       const showLoading = operation === null || !sessionReady.current;
-      if (showLoading) setIsLoading(true);
+      if (showLoading)
+        setIsLoading(true);
       try {
         let result: Cart | undefined;
         // Establish the guest cookie (or finish login merging) before any mutation.
@@ -51,10 +53,12 @@ export function CartProvider({ children }: { children: ReactNode }) {
         assertCurrent();
         setCart(result);
       } catch (caughtError) {
-        if (isCurrent()) setError(getErrorMessage(caughtError, "A kosár művelet nem sikerült."));
+        if (isCurrent())
+          setError(getErrorMessage(caughtError, "A kosár művelet nem sikerült."));
         throw caughtError;
       } finally {
-        if (showLoading && isCurrent()) setIsLoading(false);
+        if (showLoading && isCurrent())
+          setIsLoading(false);
       }
     });
     // A rejected operation must not poison subsequent work. Keep in-flight guest
@@ -63,41 +67,50 @@ export function CartProvider({ children }: { children: ReactNode }) {
     return task;
   }, []);
 
-  const refresh = useCallback(() => run(null), [run]);
+  const refresh = useCallback(
+    () => run(null),
+    [run]
+  );
 
-  useEffect(() => {
-    mounted.current = true;
-    const handleAuthChange = () => {
-      ++sessionGeneration.current;
-      sessionReady.current = false;
-      initializeSession.current = getAuthSession() ? mergeGuestCart : getCart;
-      setCart(null);
-      setError(null);
-      setIsLoading(true);
-      void refresh().catch(() => undefined);
-    };
+  useEffect(
+    () => {
+      mounted.current = true;
+      const handleAuthChange = () => {
+        ++sessionGeneration.current;
+        sessionReady.current = false;
+        initializeSession.current = getAuthSession() ? mergeGuestCart : getCart;
+        setCart(null);
+        setError(null);
+        setIsLoading(true);
+        void refresh().catch(() => undefined);
+      };
 
-    window.addEventListener(AUTH_CHANGED_EVENT, handleAuthChange);
-    if (!started.current) {
-      started.current = true;
-      void refresh().catch(() => undefined);
-    }
-    return () => {
-      mounted.current = false;
-      window.removeEventListener(AUTH_CHANGED_EVENT, handleAuthChange);
-    };
-  }, [refresh]);
+      window.addEventListener(AUTH_CHANGED_EVENT, handleAuthChange);
+      if (!started.current) {
+        started.current = true;
+        void refresh().catch(() => undefined);
+      }
+      return () => {
+        mounted.current = false;
+        window.removeEventListener(AUTH_CHANGED_EVENT, handleAuthChange);
+      };
+    },
+    [refresh]
+  );
 
-  const value = useMemo<CartContextValue>(() => ({
-    cart,
-    isLoading,
-    error,
-    refresh,
-    addItem: (productId, quantity = 1) => run(() => addCartItem(productId, quantity)),
-    updateQuantity: (cartItemId, quantity) => run(() => updateCartItem(cartItemId, quantity)),
-    removeItem: (cartItemId) => run(() => removeCartItem(cartItemId)),
-    clear: () => run(clearCart),
-  }), [cart, error, isLoading, refresh, run]);
+  const value = useMemo<CartContextValue>(
+    () => ({
+      cart,
+      isLoading,
+      error,
+      refresh,
+      addItem: (productId, quantity = 1) => run(() => addCartItem(productId, quantity)),
+      updateQuantity: (cartItemId, quantity) => run(() => updateCartItem(cartItemId, quantity)),
+      removeItem: (cartItemId) => run(() => removeCartItem(cartItemId)),
+      clear: () => run(clearCart),
+    }),
+    [cart, error, isLoading, refresh, run]
+  );
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;
 }

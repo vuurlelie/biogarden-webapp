@@ -35,5 +35,10 @@ public sealed class CheckoutDraftFields
 
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 public sealed record SaveCheckoutDraftDto(Guid? Version, CheckoutDraftFields Fields);
-public sealed record CheckoutDraftDto(Guid? Version, DateTime? ExpiresAtUtc, CheckoutDraftFields? Fields,
-    Biogarden.BusinessLogic.DTOs.Orders.GlsDeliveryPointDto? DeliveryPoint = null, string? DeliveryPointError = null);
+public sealed record CheckoutDraftDto(
+    Guid? Version,
+    DateTime? ExpiresAtUtc,
+    CheckoutDraftFields? Fields,
+    Biogarden.BusinessLogic.DTOs.Orders.GlsDeliveryPointDto? DeliveryPoint = null,
+    string? DeliveryPointError = null
+);

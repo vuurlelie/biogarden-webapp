@@ -43,7 +43,8 @@ export default function OrderWithdrawalRequestPage() {
   function clearFieldError(field: WithdrawalField) {
     setMessage("");
     setFieldErrors((currentErrors) => {
-      if (!currentErrors[field]) return currentErrors;
+      if (!currentErrors[field])
+        return currentErrors;
       const nextErrors = { ...currentErrors };
       delete nextErrors[field];
       return nextErrors;
@@ -61,7 +62,8 @@ export default function OrderWithdrawalRequestPage() {
   function renderFieldError(field: WithdrawalField, className = "mt-1.5") {
     const fieldError = fieldErrors[field];
 
-    if (!fieldError) return null;
+    if (!fieldError)
+      return null;
 
     return (
       <p id={getErrorId(field)} className={`${className} text-xs font-normal text-site-danger`} role="alert">
@@ -103,15 +105,15 @@ export default function OrderWithdrawalRequestPage() {
         customerEmail: customerEmail.trim(),
         reason: reason.trim(),
       });
-      track("withdrawal_request_submitted", { source: "public_form" });
+      track(
+        "withdrawal_request_submitted",
+        { source: "public_form" }
+      );
       setReason("");
       setFieldErrors({});
       setMessage("A kérésedet rögzítettük! A visszaigazoló email megérkezése néhány percet igénybe vehet. Kérjük, ellenőrizd a Spam és a Promóciók mappát is.");
     } catch (submitError) {
-      const errorMessage = getErrorMessage(
-        submitError,
-        "A kérés elküldése nem sikerült. Kérjük, ellenőrizd az adatokat és próbáld újra.",
-      );
+      const errorMessage = getErrorMessage(submitError, "A kérés elküldése nem sikerült. Kérjük, ellenőrizd az adatokat és próbáld újra.");
       if (submitError instanceof OrdersApiError && submitError.status === 404) {
         setFieldErrors({ orderNumber: errorMessage, customerEmail: errorMessage });
         orderNumberInputRef.current?.focus();

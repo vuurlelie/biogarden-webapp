@@ -13,7 +13,8 @@ public sealed class AccountLifecycleOperations(
     UserManager<ApplicationUser> userManager,
     IAppDbContext databaseContext,
     IAccountNotificationQueue notifications,
-    IEmailTemplateService emailTemplateService) : IAccountLifecycleOperations
+    IEmailTemplateService emailTemplateService
+) : IAccountLifecycleOperations
 {
     public async Task DeactivateAsync(ApplicationUser user, CancellationToken cancellationToken)
     {
@@ -134,9 +135,7 @@ public sealed class AccountLifecycleOperations(
         await notifications.QueueMessageAsync(message, "account-deleted", cancellationToken);
     }
 
-    private async Task QueueAccountReactivatedEmailAsync(
-        string? email,
-        CancellationToken cancellationToken)
+    private async Task QueueAccountReactivatedEmailAsync(string? email, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(email))
         {
@@ -153,7 +152,8 @@ public sealed class AccountLifecycleOperations(
 
     private async Task DeleteUnreferencedAddressesAsync(int[] addressIds, CancellationToken cancellationToken)
     {
-        if (addressIds.Length == 0) return;
+        if (addressIds.Length == 0)
+            return;
 
         // Run after Identity has persisted the detached/deleted user, inside the caller's
         // transaction. Historical order addresses and other accounts' addresses must survive.
@@ -166,9 +166,7 @@ public sealed class AccountLifecycleOperations(
         await databaseContext.SaveChangesAsync(cancellationToken);
     }
 
-    private static async Task UpdateIdentityUserAsync(
-        UserManager<ApplicationUser> userManager,
-        ApplicationUser user)
+    private static async Task UpdateIdentityUserAsync(UserManager<ApplicationUser> userManager, ApplicationUser user)
     {
         // Persist account changes and revocation together; do not ignore a failed stamp update.
         user.SecurityStamp = Guid.NewGuid().ToString();

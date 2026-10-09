@@ -24,10 +24,10 @@ public sealed class GlsDeliveryPointTests : IAsyncLifetime
     }
     private async Task SeedAsync(HttpClient client)
     {
-        await using var db = _app.OpenDatabase();
+        await using var databaseContext = _app.OpenDatabase();
         var product = new Product { Name = "GLS tea", Price = 5000, Available = true, DeliveryAvailable = true, StockQuantity = 3 };
-        db.Products.Add(product);
-        await db.SaveChangesAsync();
+        databaseContext.Products.Add(product);
+        await databaseContext.SaveChangesAsync();
         (await client.PostAsJsonAsync("/api/cart/items", new AddCartItemDto { ProductId = product.Id, Quantity = 1 })).EnsureSuccessStatusCode();
     }
     private static PlaceOrderDto Request(GlsDeliveryPointDto point) => new()
@@ -76,10 +76,10 @@ public sealed class GlsDeliveryPointTests : IAsyncLifetime
         using var retry = await client.PostAsJsonAsync("/api/orders", request);
         Assert.Equal(HttpStatusCode.OK, retry.StatusCode);
         Assert.Equal(order.Id, (await retry.Content.ReadFromJsonAsync<OrderDto>())!.Id);
-        await using var db = _app.OpenDatabase();
-        Assert.Equal(1, await db.Orders.CountAsync());
-        Assert.Equal(2, await db.OrderEmails.CountAsync());
-        Assert.All(await db.Products.ToListAsync(), product => Assert.Equal(2, product.StockQuantity));
+        await using var databaseContext = _app.OpenDatabase();
+        Assert.Equal(1, await databaseContext.Orders.CountAsync());
+        Assert.Equal(2, await databaseContext.OrderEmails.CountAsync());
+        Assert.All(await databaseContext.Products.ToListAsync(), product => Assert.Equal(2, product.StockQuantity));
     }
 
     [SqlServerFact]
@@ -106,11 +106,11 @@ public sealed class GlsDeliveryPointTests : IAsyncLifetime
         Assert.Equal(HttpStatusCode.ServiceUnavailable, lookup.StatusCode);
         using var pickup = await client.PostAsJsonAsync("/api/orders/quote", new CheckoutQuoteRequest(FulfillmentMethod.PersonalPickup, OrderPaymentMethod.PayAtPickup));
         pickup.EnsureSuccessStatusCode();
-        await using var db = _app.OpenDatabase();
-        Assert.Empty(await db.Orders.ToListAsync());
-        Assert.Empty(await db.OrderEmails.ToListAsync());
-        Assert.Equal(3, (await db.Products.SingleAsync()).StockQuantity);
-        Assert.False((await db.Carts.SingleAsync()).IsCheckedOut);
+        await using var databaseContext = _app.OpenDatabase();
+        Assert.Empty(await databaseContext.Orders.ToListAsync());
+        Assert.Empty(await databaseContext.OrderEmails.ToListAsync());
+        Assert.Equal(3, (await databaseContext.Products.SingleAsync()).StockQuantity);
+        Assert.False((await databaseContext.Carts.SingleAsync()).IsCheckedOut);
     }
 
     [SqlServerFact]
@@ -144,10 +144,10 @@ public sealed class GlsDeliveryPointTests : IAsyncLifetime
         _app.Gls.Unavailable = true;
         using var outage = await client.PostAsJsonAsync("/api/orders", request);
         Assert.Equal(HttpStatusCode.ServiceUnavailable, outage.StatusCode);
-        await using var db = _app.OpenDatabase();
-        Assert.Empty(await db.Orders.ToListAsync());
-        Assert.Empty(await db.OrderEmails.ToListAsync());
-        Assert.Equal(3, (await db.Products.AsNoTracking().SingleAsync()).StockQuantity);
+        await using var databaseContext = _app.OpenDatabase();
+        Assert.Empty(await databaseContext.Orders.ToListAsync());
+        Assert.Empty(await databaseContext.OrderEmails.ToListAsync());
+        Assert.Equal(3, (await databaseContext.Products.AsNoTracking().SingleAsync()).StockQuantity);
         _app.Gls.Unavailable = false;
         await request.WithQuoteAsync(client);
         using var recovered = await client.PostAsJsonAsync("/api/orders", request);
@@ -155,9 +155,9 @@ public sealed class GlsDeliveryPointTests : IAsyncLifetime
         var order = (await recovered.Content.ReadFromJsonAsync<OrderDto>())!;
         Assert.Equal(replacement.Id, order.GlsDeliveryPointId);
         Assert.Equal(replacement.Address, order.GlsDeliveryPointAddress);
-        Assert.Single(await db.Orders.ToListAsync());
-        Assert.Equal(2, await db.OrderEmails.CountAsync());
-        Assert.Equal(2, (await db.Products.AsNoTracking().SingleAsync()).StockQuantity);
+        Assert.Single(await databaseContext.Orders.ToListAsync());
+        Assert.Equal(2, await databaseContext.OrderEmails.CountAsync());
+        Assert.Equal(2, (await databaseContext.Products.AsNoTracking().SingleAsync()).StockQuantity);
     }
 
     [SqlServerFact]

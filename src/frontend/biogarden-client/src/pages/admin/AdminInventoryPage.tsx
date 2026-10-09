@@ -38,7 +38,8 @@ function InventoryCard({
     setSaving(true);
     try {
       const current = await getAdminInventoryItem(item.productId);
-      if (!current) throw new Error("A termék már nem érhető el.");
+      if (!current)
+        throw new Error("A termék már nem érhető el.");
       setPreviousInput(`Korábbi bevitel: ${quantity} db, ${available ? "rendelhető" : "nem rendelhető"}. Ellenőrizd az aktuális készletet, majd szükség esetén írd be újra a módosítást.`);
       onSaved(current);
       setQuantity(String(current.stockQuantity)); setAvailable(current.available);
@@ -49,7 +50,8 @@ function InventoryCard({
   const quantityErrorId = `inventory-${item.productId}-quantity-error`;
 
   async function save() {
-    if (saving || conflict) return;
+    if (saving || conflict)
+      return;
     const value = Number(quantity);
 
     if (!Number.isInteger(value) || value < item.reservedQuantity) {
@@ -67,7 +69,8 @@ function InventoryCard({
       onSaved(updated);
       setEditing(false);
     } catch (saveError) {
-      if (hasErrorStatus(saveError, 409)) setConflict(true);
+      if (hasErrorStatus(saveError, 409))
+        setConflict(true);
       setError(getErrorMessage(saveError, "A mentés nem sikerült."));
     } finally {
       setSaving(false);
@@ -145,7 +148,8 @@ function InventoryCard({
                   value={quantity}
                   onChange={(event) => {
                     setQuantity(event.target.value);
-                    if (quantityError) setQuantityError(null);
+                    if (quantityError)
+                      setQuantityError(null);
                   }}
                   aria-invalid={Boolean(quantityError)}
                   aria-describedby={quantityError ? quantityErrorId : undefined}
@@ -216,42 +220,60 @@ export default function AdminInventoryPage() {
   const requestId = useRef(0);
   const mounted = useRef(true);
 
-  const load = useCallback(async (signal?: AbortSignal, background = false) => {
-    if (!mounted.current) return;
-    const id = ++requestId.current;
-    if (!background) setLoading(true);
-    setError(null);
+  const load = useCallback(
+    async (signal?: AbortSignal, background = false) => {
+      if (!mounted.current)
+        return;
+      const id = ++requestId.current;
+      if (!background)
+        setLoading(true);
+      setError(null);
 
-    try {
-      const result = await getAdminInventory({ page, pageSize: PAGE_SIZE, search, stock: filter }, signal);
-      if (!mounted.current || signal?.aborted || id !== requestId.current) return;
-      setItems(result.items);
-      setTotalPages(result.totalPages);
-      if (result.page !== page) setPage(result.page);
-    } catch (loadError) {
-      if (mounted.current && !signal?.aborted && id === requestId.current && !isAbortError(loadError)) {
-        setError(getErrorMessage(loadError, "A készlet betöltése nem sikerült."));
+      try {
+        const result = await getAdminInventory(
+          { page, pageSize: PAGE_SIZE, search, stock: filter },
+          signal
+        );
+        if (!mounted.current || signal?.aborted || id !== requestId.current)
+          return;
+        setItems(result.items);
+        setTotalPages(result.totalPages);
+        if (result.page !== page)
+          setPage(result.page);
+      } catch (loadError) {
+        if (mounted.current && !signal?.aborted && id === requestId.current && !isAbortError(loadError)) {
+          setError(getErrorMessage(loadError, "A készlet betöltése nem sikerült."));
+        }
+      } finally {
+        if (mounted.current && !signal?.aborted && id === requestId.current)
+          setLoading(false);
       }
-    } finally {
-      if (mounted.current && !signal?.aborted && id === requestId.current) setLoading(false);
-    }
-  }, [page, search, filter]);
+    },
+    [page, search, filter]
+  );
 
   const latestLoad = useRef(load);
-  useEffect(() => {
-    latestLoad.current = load;
-    mounted.current = true;
-    ++requestId.current;
-    const controller = new AbortController();
-    const timer = window.setTimeout(() => void load(controller.signal), search.trim() ? 250 : 0);
-    return () => { mounted.current = false; window.clearTimeout(timer); controller.abort(); };
-  }, [load, search]);
+  useEffect(
+    () => {
+      latestLoad.current = load;
+      mounted.current = true;
+      ++requestId.current;
+      const controller = new AbortController();
+      const timer = window.setTimeout(() => void load(controller.signal), search.trim() ? 250 : 0);
+      return () => { mounted.current = false; window.clearTimeout(timer); controller.abort(); };
+    },
+    [load, search]
+  );
 
-  useEffect(() => {
-    if (!message) return;
-    const timer = window.setTimeout(() => setMessage(null), 3500);
-    return () => window.clearTimeout(timer);
-  }, [message]);
+  useEffect(
+    () => {
+      if (!message)
+        return;
+      const timer = window.setTimeout(() => setMessage(null), 3500);
+      return () => window.clearTimeout(timer);
+    },
+    [message]
+  );
 
   const currentPage = page;
   const pageItems = items;

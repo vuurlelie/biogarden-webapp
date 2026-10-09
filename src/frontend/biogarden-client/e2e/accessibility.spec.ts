@@ -38,19 +38,28 @@ test("checkout review modal traps focus and restores it on close", async ({ page
   await expect(closeButton).toBeFocused();
 
   // Background controls are unavailable to keyboard and accessibility navigation.
-  const backgroundReviewButton = page.getByRole("button", { name: "Rendelés áttekintése", includeHidden: true });
+  const backgroundReviewButton = page.getByRole(
+    "button",
+    { name: "Rendelés áttekintése", includeHidden: true }
+  );
   await expect(backgroundReviewButton.locator("xpath=ancestor::form")).toHaveAttribute("inert", "");
   await backgroundReviewButton.evaluate((button: HTMLButtonElement) => button.focus());
   await expect(closeButton).toBeFocused();
 
-  await dialog.getByRole("button", { name: "Megrendelés elküldése" }).click();
+  await dialog.getByRole(
+    "button",
+    { name: "Megrendelés elküldése" }
+  ).click();
   const terms = dialog.getByRole("checkbox", { name: /Általános Szerződési Feltételeket/ });
   const privacy = dialog.getByRole("checkbox", { name: /Adatkezelési Tájékoztatót/ });
   await expect(terms).toBeFocused();
   await expect(terms).toHaveAttribute("aria-invalid", "true");
   await expect(terms).toHaveAccessibleDescription("Az Általános Szerződési Feltételek elfogadása kötelező.");
   await terms.check();
-  await dialog.getByRole("button", { name: "Megrendelés elküldése" }).click();
+  await dialog.getByRole(
+    "button",
+    { name: "Megrendelés elküldése" }
+  ).click();
   await expect(privacy).toBeFocused();
   await expect(privacy).toHaveAccessibleDescription("Az Adatkezelési Tájékoztató elfogadása kötelező.");
 
@@ -59,10 +68,16 @@ test("checkout review modal traps focus and restores it on close", async ({ page
   await expect(reviewButton).toBeFocused();
 
   await page.keyboard.press("Enter");
-  await dialog.getByRole("button", { name: "Vissza a szerkesztéshez" }).click();
+  await dialog.getByRole(
+    "button",
+    { name: "Vissza a szerkesztéshez" }
+  ).click();
   await expect(reviewButton).toBeFocused();
   await page.keyboard.press("Enter");
-  await dialog.getByRole("button", { name: "Bezárás" }).click();
+  await dialog.getByRole(
+    "button",
+    { name: "Bezárás" }
+  ).click();
   await expect(reviewButton).toBeFocused();
 });
 
@@ -70,30 +85,54 @@ test("checkout prevents dismissal during submission and restores interaction aft
   await mockCheckoutApi(page);
   let releaseOrder!: () => void;
   const pendingOrder = new Promise<void>((resolve) => { releaseOrder = resolve; });
-  await page.route(`${apiBaseUrl}/api/orders`, async (route) => {
-    await pendingOrder;
-    await route.fulfill({ status: 400, json: { detail: "Ellenőrizd a rendelés adatait." } });
-  });
+  await page.route(
+    `${apiBaseUrl}/api/orders`,
+    async (route) => {
+      await pendingOrder;
+      await route.fulfill({ status: 400, json: { detail: "Ellenőrizd a rendelés adatait." } });
+    }
+  );
   await page.goto("/penztar");
   await page.getByLabel(/Név/).fill("Teszt Elek");
   await page.getByLabel("Email cím").fill("teszt@example.com");
   await page.getByLabel("Telefonszám").fill("+36301234567");
-  await page.getByRole("button", { name: "Tovább a pénztárhoz" }).click();
+  await page.getByRole(
+    "button",
+    { name: "Tovább a pénztárhoz" }
+  ).click();
   await page.getByLabel("Fizetés átvételkor").check();
-  const reviewButton = page.getByRole("button", { name: "Rendelés áttekintése" });
+  const reviewButton = page.getByRole(
+    "button",
+    { name: "Rendelés áttekintése" }
+  );
   await reviewButton.click();
-  const dialog = page.getByRole("dialog", { name: "Megrendelés áttekintése" });
+  const dialog = page.getByRole(
+    "dialog",
+    { name: "Megrendelés áttekintése" }
+  );
   await dialog.getByRole("checkbox", { name: /Általános Szerződési Feltételeket/ }).check();
   await dialog.getByRole("checkbox", { name: /Adatkezelési Tájékoztatót/ }).check();
-  await dialog.getByRole("button", { name: "Megrendelés elküldése" }).click();
+  await dialog.getByRole(
+    "button",
+    { name: "Megrendelés elküldése" }
+  ).click();
   try {
     await expect(dialog.getByRole("status")).toContainText("feldolgozása folyamatban");
-    await expect(dialog.getByRole("button", { name: "Bezárás" })).toBeDisabled();
-    await expect(dialog.getByRole("button", { name: "Vissza a szerkesztéshez" })).toBeDisabled();
+    await expect(dialog.getByRole(
+      "button",
+      { name: "Bezárás" }
+    )).toBeDisabled();
+    await expect(dialog.getByRole(
+      "button",
+      { name: "Vissza a szerkesztéshez" }
+    )).toBeDisabled();
     await page.keyboard.press("Escape");
     await expect(dialog).toBeVisible();
     await page.keyboard.press("Tab");
-    await expect(dialog.getByRole("link", { name: "Általános Szerződési Feltételeket" })).toBeFocused();
+    await expect(dialog.getByRole(
+      "link",
+      { name: "Általános Szerződési Feltételeket" }
+    )).toBeFocused();
   } finally {
     releaseOrder();
   }
@@ -101,7 +140,10 @@ test("checkout prevents dismissal during submission and restores interaction aft
   await expect(reviewButton).toBeFocused();
   await expect(page.getByRole("alert")).toBeVisible();
   await reviewButton.click();
-  await expect(dialog.getByRole("button", { name: "Bezárás" })).toBeFocused();
+  await expect(dialog.getByRole(
+    "button",
+    { name: "Bezárás" }
+  )).toBeFocused();
   await page.keyboard.press("Escape");
   await expect(reviewButton).toBeFocused();
 });
@@ -173,36 +215,45 @@ test("login validation focuses the first invalid field", async ({ page }) => {
   await expect(emailInput).toHaveAttribute("aria-invalid", "true");
 });
 
-test("password recovery uses a thin gray focus border and preserves error styling", async ({ page }) => {
-  await mockEmptyCartApi(page);
-  await page.goto("/elfelejtett-jelszo");
-  const input = page.getByLabel("Email cím", { exact: false });
-  const submit = page.getByRole("button", { name: "Jelszó-visszaállító link küldése" });
-  await submit.click();
-  await expect(input).toBeFocused();
-  await expect(input).toHaveAttribute("aria-invalid", "true");
-  const colors = await page.evaluate(() => {
-    const probe = document.createElement("span");
-    document.body.append(probe);
-    const resolve = (name: string) => {
-      probe.style.color = `var(${name})`;
-      return getComputedStyle(probe).color;
-    };
-    const result = { focus: resolve("--color-gray-600"), error: resolve("--color-site-danger"), background: resolve("--color-site-danger-soft") };
-    probe.remove();
-    return result;
-  });
-  await expect(input).toHaveCSS("border-color", colors.focus);
-  await expect(input).toHaveCSS("border-width", "1px");
-  await expect(input).toHaveCSS("outline-style", "none");
-  await expect(input).toHaveCSS("box-shadow", "none");
-  await expect(input).toHaveCSS("background-color", colors.background);
-  await input.press("Tab");
-  await expect(input).not.toBeFocused();
-  await expect(input).toHaveCSS("border-color", colors.error);
-  await expect(submit).toBeFocused();
-  await expect(submit).toHaveCSS("outline-style", "solid");
-});
+test(
+  "password recovery uses a thin gray focus border and preserves error styling",
+  async ({ page }) => {
+    await mockEmptyCartApi(page);
+    await page.goto("/elfelejtett-jelszo");
+    const input = page.getByLabel(
+      "Email cím",
+      { exact: false }
+    );
+    const submit = page.getByRole(
+      "button",
+      { name: "Jelszó-visszaállító link küldése" }
+    );
+    await submit.click();
+    await expect(input).toBeFocused();
+    await expect(input).toHaveAttribute("aria-invalid", "true");
+    const colors = await page.evaluate(() => {
+      const probe = document.createElement("span");
+      document.body.append(probe);
+      const resolve = (name: string) => {
+        probe.style.color = `var(${name})`;
+        return getComputedStyle(probe).color;
+      };
+      const result = { focus: resolve("--color-gray-600"), error: resolve("--color-site-danger"), background: resolve("--color-site-danger-soft") };
+      probe.remove();
+      return result;
+    });
+    await expect(input).toHaveCSS("border-color", colors.focus);
+    await expect(input).toHaveCSS("border-width", "1px");
+    await expect(input).toHaveCSS("outline-style", "none");
+    await expect(input).toHaveCSS("box-shadow", "none");
+    await expect(input).toHaveCSS("background-color", colors.background);
+    await input.press("Tab");
+    await expect(input).not.toBeFocused();
+    await expect(input).toHaveCSS("border-color", colors.error);
+    await expect(submit).toBeFocused();
+    await expect(submit).toHaveCSS("outline-style", "solid");
+  }
+);
 
 test("public request validation focuses the field that needs more detail", async ({ page }) => {
   await mockEmptyCartApi(page);

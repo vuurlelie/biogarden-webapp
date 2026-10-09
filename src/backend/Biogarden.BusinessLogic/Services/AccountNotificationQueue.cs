@@ -12,7 +12,8 @@ public sealed class AccountNotificationQueue(IAppDbContext database, TimeProvide
 
     public async Task QueueAuthenticationAsync(ApplicationUser user, string kind, CancellationToken token = default)
     {
-        if (kind is not (Confirmation or PasswordReset)) throw new ArgumentOutOfRangeException(nameof(kind));
+        if (kind is not (Confirmation or PasswordReset))
+            throw new ArgumentOutOfRangeException(nameof(kind));
         var now = time.GetUtcNow().UtcDateTime;
         database.NotificationEmails.Add(new NotificationEmail
         {

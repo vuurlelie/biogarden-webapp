@@ -33,8 +33,8 @@ public sealed class CartReservationQueryTests : IAsyncLifetime
         await database.SaveChangesAsync();
         var repository = new CartRepository(database, _clock);
 
-        Assert.Equal(active, await repository.GetActiveBySessionIdAsync(guest.SessionId!) is not null);
-        Assert.Equal(active, await repository.GetActiveByUserIdAsync(user.Id) is not null);
+        Assert.Equal(active, await repository.GetActiveBySessionIdAsync(guest.SessionId!)is not null);
+        Assert.Equal(active, await repository.GetActiveByUserIdAsync(user.Id)is not null);
         Assert.Equal(active ? 5 : 0, await repository.GetActiveReservedQuantityForProductAsync(product.Id));
         var grouped = await repository.GetActiveReservedQuantitiesAsync([product.Id]);
         Assert.Equal(active ? 5 : 0, grouped.GetValueOrDefault(product.Id));
@@ -64,8 +64,7 @@ public sealed class CartReservationQueryTests : IAsyncLifetime
         var repository = new CartRepository(database, _clock);
         Assert.Empty(await repository.GetActiveReservedQuantitiesAsync([]));
         Assert.Equal(0, counter.Reads);
-        var quantities = await repository.GetActiveReservedQuantitiesAsync(
-            [first.Id, second.Id, first.Id, int.MaxValue], destination.Id, source.Id);
+        var quantities = await repository.GetActiveReservedQuantitiesAsync([first.Id, second.Id, first.Id, int.MaxValue], destination.Id, source.Id);
 
         Assert.Equal(1, counter.Reads);
         Assert.Equal(2, quantities.Count);
@@ -107,9 +106,7 @@ public sealed class CartReservationQueryTests : IAsyncLifetime
     private sealed class QueryCounter : DbCommandInterceptor
     {
         public int Reads { get; private set; }
-        public override ValueTask<InterceptionResult<DbDataReader>> ReaderExecutingAsync(
-            DbCommand command, CommandEventData eventData, InterceptionResult<DbDataReader> result,
-            CancellationToken cancellationToken = default)
+        public override ValueTask<InterceptionResult<DbDataReader>> ReaderExecutingAsync(DbCommand command, CommandEventData eventData, InterceptionResult<DbDataReader> result, CancellationToken cancellationToken = default)
         {
             Reads++;
             return ValueTask.FromResult(result);

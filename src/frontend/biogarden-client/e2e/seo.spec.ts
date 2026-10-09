@@ -37,10 +37,7 @@ test("public pages expose route-specific metadata", async ({ page }) => {
   expect(productStructuredData["@type"]).toBe("Product");
   expect(productStructuredData.offers.priceCurrency).toBe("HUF");
   await expect(page).toHaveTitle("Teszt levendula tea | Bakony Kincse Biokertészet");
-  await expect(page.locator('meta[property="og:type"]')).toHaveAttribute(
-    "content",
-    "product",
-  );
+  await expect(page.locator('meta[property="og:type"]')).toHaveAttribute("content", "product");
 });
 
 test("private routes clear product metadata during client navigation", async ({ page }) => {

@@ -59,7 +59,8 @@ public sealed class PostRepository : IPostRepository
         string sort,
         int page,
         int pageSize,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default
+    )
     {
         var query = _databaseContext.Posts.AsNoTracking();
 

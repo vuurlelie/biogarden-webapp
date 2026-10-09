@@ -30,15 +30,22 @@ export default function AdminLoginPage() {
   const emailInputRef = useRef<HTMLInputElement | null>(null);
   const passwordInputRef = useRef<HTMLInputElement | null>(null);
 
-  useEffect(() => {
-    if (existingIsAdmin) {
-      navigate(from, { replace: true });
-    }
-  }, [existingIsAdmin, from, navigate]);
+  useEffect(
+    () => {
+      if (existingIsAdmin) {
+        navigate(
+          from,
+          { replace: true }
+        );
+      }
+    },
+    [existingIsAdmin, from, navigate]
+  );
 
   function clearFieldError(field: AdminLoginField) {
     setFieldErrors((currentErrors) => {
-      if (!currentErrors[field]) return currentErrors;
+      if (!currentErrors[field])
+        return currentErrors;
       const nextErrors = { ...currentErrors };
       delete nextErrors[field];
       return nextErrors;
@@ -56,7 +63,8 @@ export default function AdminLoginPage() {
   function renderFieldError(field: AdminLoginField) {
     const fieldError = fieldErrors[field];
 
-    if (!fieldError) return null;
+    if (!fieldError)
+      return null;
 
     return (
       <p id={getErrorId(field)} className="mt-1.5 text-xs font-normal text-site-danger" role="alert">
@@ -93,7 +101,10 @@ export default function AdminLoginPage() {
         return;
       }
 
-      navigate(from, { replace: true });
+      navigate(
+        from,
+        { replace: true }
+      );
     } catch (submitError) {
       setError(
         submitError instanceof Error

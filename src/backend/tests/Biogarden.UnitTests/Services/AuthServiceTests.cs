@@ -54,17 +54,10 @@ public sealed class AuthServiceTests
             .Setup(manager => manager.FindByEmailAsync("vasarlo@example.com"))
             .ReturnsAsync((ApplicationUser?)null);
         _userManager
-            .Setup(manager => manager.CreateAsync(
-                It.Is<ApplicationUser>(user =>
-                    user.Email == "vasarlo@example.com"
-                    && user.UserName == "vasarlo@example.com"
-                    && !user.EmailConfirmed),
-                "Password1"))
+            .Setup(manager => manager.CreateAsync(It.Is<ApplicationUser>(user => user.Email == "vasarlo@example.com" && user.UserName == "vasarlo@example.com" && !user.EmailConfirmed), "Password1"))
             .ReturnsAsync(IdentityResult.Success);
         _emailService
-            .Setup(service => service.QueueAuthenticationAsync(
-                It.Is<ApplicationUser>(user => user.Email == "vasarlo@example.com"),
-                AccountNotificationQueue.Confirmation, It.IsAny<CancellationToken>()))
+            .Setup(service => service.QueueAuthenticationAsync(It.Is<ApplicationUser>(user => user.Email == "vasarlo@example.com"), AccountNotificationQueue.Confirmation, It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
         var result = await _service.RegisterAsync(new RegisterRequestDto
@@ -88,15 +81,11 @@ public sealed class AuthServiceTests
             .Setup(manager => manager.FindByEmailAsync("ceg@example.com"))
             .ReturnsAsync((ApplicationUser?)null);
         _userManager
-            .Setup(manager => manager.CreateAsync(
-                It.IsAny<ApplicationUser>(),
-                "Password1"))
+            .Setup(manager => manager.CreateAsync(It.IsAny<ApplicationUser>(), "Password1"))
             .Callback<ApplicationUser, string>((user, _) => createdUser = user)
             .ReturnsAsync(IdentityResult.Success);
         _emailService
-            .Setup(service => service.QueueAuthenticationAsync(
-                It.Is<ApplicationUser>(user => user.Email == "ceg@example.com"),
-                AccountNotificationQueue.Confirmation, It.IsAny<CancellationToken>()))
+            .Setup(service => service.QueueAuthenticationAsync(It.Is<ApplicationUser>(user => user.Email == "ceg@example.com"), AccountNotificationQueue.Confirmation, It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
         var result = await _service.RegisterAsync(new RegisterRequestDto
@@ -146,11 +135,7 @@ public sealed class AuthServiceTests
 
         Assert.False(result.Succeeded);
         Assert.Equal("Ezzel az email címmel már létezik felhasználó.", result.ErrorMessage);
-        _emailService.Verify(
-            service => service.QueueAuthenticationAsync(
-                It.IsAny<ApplicationUser>(), It.IsAny<string>(),
-                It.IsAny<CancellationToken>()),
-            Times.Never);
+        _emailService.Verify(service => service.QueueAuthenticationAsync(It.IsAny<ApplicationUser>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]
@@ -165,9 +150,7 @@ public sealed class AuthServiceTests
 
         Assert.False(result.Succeeded);
         Assert.Equal("A jelszavak nem egyeznek.", result.ErrorMessage);
-        _userManager.Verify(
-            manager => manager.FindByEmailAsync(It.IsAny<string>()),
-            Times.Never);
+        _userManager.Verify(manager => manager.FindByEmailAsync(It.IsAny<string>()), Times.Never);
     }
 
     [Fact]
@@ -193,13 +176,9 @@ public sealed class AuthServiceTests
             Password = "Password1"
         });
 
-        Assert.Equal(
-            "Hibás email vagy jelszó.",
-            result.ErrorMessage);
+        Assert.Equal("Hibás email vagy jelszó.", result.ErrorMessage);
         Assert.False(result.Succeeded);
-        _tokenService.Verify(
-            service => service.CreateTokenAsync(It.IsAny<ApplicationUser>()),
-            Times.Never);
+        _tokenService.Verify(service => service.CreateTokenAsync(It.IsAny<ApplicationUser>()), Times.Never);
     }
 
     [Fact]
@@ -227,9 +206,7 @@ public sealed class AuthServiceTests
 
         Assert.False(result.Succeeded);
         Assert.Equal("Hibás email vagy jelszó.", result.ErrorMessage);
-        _tokenService.Verify(
-            service => service.CreateTokenAsync(It.IsAny<ApplicationUser>()),
-            Times.Never);
+        _tokenService.Verify(service => service.CreateTokenAsync(It.IsAny<ApplicationUser>()), Times.Never);
     }
 
     [Fact]
@@ -242,11 +219,7 @@ public sealed class AuthServiceTests
         await _service.ResendEmailConfirmationAsync(
             new ResendEmailConfirmationRequestDto { Email = "missing@example.com" });
 
-        _emailService.Verify(
-            service => service.QueueAuthenticationAsync(
-                It.IsAny<ApplicationUser>(), It.IsAny<string>(),
-                It.IsAny<CancellationToken>()),
-            Times.Never);
+        _emailService.Verify(service => service.QueueAuthenticationAsync(It.IsAny<ApplicationUser>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]
@@ -263,9 +236,7 @@ public sealed class AuthServiceTests
             .Setup(manager => manager.FindByEmailAsync("vasarlo@example.com"))
             .ReturnsAsync(user);
         _emailService
-            .Setup(service => service.QueueAuthenticationAsync(
-                It.Is<ApplicationUser>(user => user.Email == "vasarlo@example.com"),
-                AccountNotificationQueue.PasswordReset, It.IsAny<CancellationToken>()))
+            .Setup(service => service.QueueAuthenticationAsync(It.Is<ApplicationUser>(user => user.Email == "vasarlo@example.com"), AccountNotificationQueue.PasswordReset, It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
         await _service.ForgotPasswordAsync(new ForgotPasswordRequestDto
@@ -289,11 +260,7 @@ public sealed class AuthServiceTests
             Email = "missing@example.com"
         });
 
-        _emailService.Verify(
-            service => service.QueueAuthenticationAsync(
-                It.IsAny<ApplicationUser>(), It.IsAny<string>(),
-                It.IsAny<CancellationToken>()),
-            Times.Never);
+        _emailService.Verify(service => service.QueueAuthenticationAsync(It.IsAny<ApplicationUser>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]
@@ -325,7 +292,9 @@ public sealed class AuthServiceTests
                 It.Is<EmailMessage>(message =>
                     message.To == "vasarlo@example.com"
                     && message.Subject.Contains("Jelszavad megváltozott")),
-                "password-changed", It.IsAny<CancellationToken>()))
+                "password-changed",
+                It.IsAny<CancellationToken>()
+            ))
             .Returns(Task.CompletedTask);
 
         var result = await _service.ResetPasswordAsync(new ResetPasswordRequestDto
@@ -354,9 +323,7 @@ public sealed class AuthServiceTests
 
         Assert.False(result.Succeeded);
         Assert.Equal("A jelszavak nem egyeznek.", result.ErrorMessage);
-        _userManager.Verify(
-            manager => manager.FindByIdAsync(It.IsAny<string>()),
-            Times.Never);
+        _userManager.Verify(manager => manager.FindByIdAsync(It.IsAny<string>()), Times.Never);
     }
 
     [Fact]
@@ -407,11 +374,7 @@ public sealed class AuthServiceTests
         });
 
         Assert.True(result.Succeeded);
-        _userManager.Verify(
-            manager => manager.ConfirmEmailAsync(
-                It.IsAny<ApplicationUser>(),
-                It.IsAny<string>()),
-            Times.Never);
+        _userManager.Verify(manager => manager.ConfirmEmailAsync(It.IsAny<ApplicationUser>(), It.IsAny<string>()), Times.Never);
     }
 
     [Fact]
@@ -464,8 +427,7 @@ public sealed class AuthServiceTests
             new UpperInvariantLookupNormalizer(),
             new IdentityErrorDescriber(),
             // Identity 10 resolves an optional metrics factory during construction.
-            Mock.Of<IServiceProvider>(provider =>
-                provider.GetService(typeof(System.Diagnostics.Metrics.IMeterFactory)) == null, MockBehavior.Strict),
+            Mock.Of<IServiceProvider>(provider => provider.GetService(typeof(System.Diagnostics.Metrics.IMeterFactory)) == null, MockBehavior.Strict),
             NullLogger<UserManager<ApplicationUser>>.Instance);
 
     private sealed class TestAsyncQueryProvider<TEntity> : IAsyncQueryProvider
@@ -497,16 +459,11 @@ public sealed class AuthServiceTests
             return _inner.Execute<TResult>(expression);
         }
 
-        public TResult ExecuteAsync<TResult>(
-            Expression expression,
-            CancellationToken cancellationToken = default)
+        public TResult ExecuteAsync<TResult>(Expression expression, CancellationToken cancellationToken = default)
         {
             var expectedResultType = typeof(TResult).GetGenericArguments()[0];
             var executionResult = typeof(IQueryProvider)
-                .GetMethod(
-                    nameof(IQueryProvider.Execute),
-                    1,
-                    [typeof(Expression)])
+                .GetMethod(nameof(IQueryProvider.Execute), 1, [typeof(Expression)])
                 ?? throw new InvalidOperationException("IQueryProvider.Execute method was not found.");
             var typedExecutionResult = executionResult
                 .MakeGenericMethod(expectedResultType)

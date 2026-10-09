@@ -28,18 +28,12 @@ public class OrdersController : ControllerBase
     [EnableRateLimiting(RateLimitPolicyNames.PublicForm)]
     [ProducesResponseType(typeof(OrderDto), StatusCodes.Status201Created)]
     [ProducesResponseType(typeof(OrderDto), StatusCodes.Status200OK)]
-    public async Task<ActionResult<OrderDto>> CreateOrderFromCart(
-        [FromBody] PlaceOrderDto placeOrderDto,
-        CancellationToken cancellationToken)
+    public async Task<ActionResult<OrderDto>> CreateOrderFromCart([FromBody] PlaceOrderDto placeOrderDto, CancellationToken cancellationToken)
     {
         var userId = GetCurrentUserIdOrNull();
         var sessionId = GetCartSessionId();
 
-        var result = await _orderService.CreateOrderFromCartAsync(
-            userId,
-            sessionId,
-            placeOrderDto,
-            cancellationToken);
+        var result = await _orderService.CreateOrderFromCartAsync(userId, sessionId, placeOrderDto, cancellationToken);
 
         return result.Created
             ? CreatedAtAction(nameof(GetOrderById), new { orderId = result.Order.Id }, result.Order)
@@ -71,59 +65,38 @@ public class OrdersController : ControllerBase
     [AllowAnonymous]
     [EnableRateLimiting(RateLimitPolicyNames.CartMutation)]
     [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
-    public async Task<ActionResult<CheckoutQuoteDto>> GetCheckoutQuote(
-        [FromBody] CheckoutQuoteRequest request, CancellationToken cancellationToken)
+    public async Task<ActionResult<CheckoutQuoteDto>> GetCheckoutQuote([FromBody] CheckoutQuoteRequest request, CancellationToken cancellationToken)
         => Ok(await _orderService.GetCheckoutQuoteAsync(GetCurrentUserIdOrNull(), GetCartSessionId(), request, cancellationToken));
 
     [HttpPost("{orderId:guid}/sumup-checkout")]
     [AllowAnonymous]
     [EnableRateLimiting(RateLimitPolicyNames.Payment)]
     [ProducesResponseType(typeof(SumUpCheckoutDto), StatusCodes.Status200OK)]
-    public async Task<ActionResult<SumUpCheckoutDto>> CreateSumUpCheckout(
-        Guid orderId,
-        CancellationToken cancellationToken)
+    public async Task<ActionResult<SumUpCheckoutDto>> CreateSumUpCheckout(Guid orderId, CancellationToken cancellationToken)
     {
-        var checkout = await _orderService.CreateSumUpCheckoutAsync(
-            GetCurrentUserIdOrNull(),
-            GetCartSessionId(),
-            orderId,
-            cancellationToken);
+        var checkout = await _orderService.CreateSumUpCheckoutAsync(GetCurrentUserIdOrNull(), GetCartSessionId(), orderId, cancellationToken);
 
         return Ok(checkout);
     }
 
     [HttpPost("{orderId:guid}/cancel")]
     [ProducesResponseType(typeof(OrderDto), StatusCodes.Status200OK)]
-    public async Task<ActionResult<OrderDto>> CancelOrder(
-        Guid orderId,
-        [FromBody] CancelOrderDto cancelOrderDto,
-        CancellationToken cancellationToken)
+    public async Task<ActionResult<OrderDto>> CancelOrder(Guid orderId, [FromBody] CancelOrderDto cancelOrderDto, CancellationToken cancellationToken)
     {
         var userId = GetCurrentUserId();
 
-        var order = await _orderService.CancelOrderAsync(
-            userId,
-            orderId,
-            cancelOrderDto,
-            cancellationToken);
+        var order = await _orderService.CancelOrderAsync(userId, orderId, cancelOrderDto, cancellationToken);
 
         return Ok(order);
     }
 
     [HttpPost("{orderId:guid}/withdrawal-requests")]
     [ProducesResponseType(typeof(OrderWithdrawalRequestDto), StatusCodes.Status201Created)]
-    public async Task<ActionResult<OrderWithdrawalRequestDto>> RequestWithdrawal(
-        Guid orderId,
-        [FromBody] CreateOrderWithdrawalRequestDto requestDto,
-        CancellationToken cancellationToken)
+    public async Task<ActionResult<OrderWithdrawalRequestDto>> RequestWithdrawal(Guid orderId, [FromBody] CreateOrderWithdrawalRequestDto requestDto, CancellationToken cancellationToken)
     {
         var userId = GetCurrentUserId();
 
-        var request = await _orderService.RequestWithdrawalAsync(
-            userId,
-            orderId,
-            requestDto,
-            cancellationToken);
+        var request = await _orderService.RequestWithdrawalAsync(userId, orderId, requestDto, cancellationToken);
 
         return StatusCode(StatusCodes.Status201Created, request);
     }
@@ -132,44 +105,31 @@ public class OrdersController : ControllerBase
     [AllowAnonymous]
     [EnableRateLimiting(RateLimitPolicyNames.PublicForm)]
     [ProducesResponseType(typeof(OrderWithdrawalRequestDto), StatusCodes.Status201Created)]
-    public async Task<ActionResult<OrderWithdrawalRequestDto>> RequestWithdrawalByOrderLookup(
-        [FromBody] PublicOrderWithdrawalRequestDto requestDto,
-        CancellationToken cancellationToken)
+    public async Task<ActionResult<OrderWithdrawalRequestDto>> RequestWithdrawalByOrderLookup([FromBody] PublicOrderWithdrawalRequestDto requestDto, CancellationToken cancellationToken)
     {
-        var request = await _orderService.RequestWithdrawalByOrderLookupAsync(
-            requestDto,
-            cancellationToken);
+        var request = await _orderService.RequestWithdrawalByOrderLookupAsync(requestDto, cancellationToken);
 
         return StatusCode(StatusCodes.Status201Created, request);
     }
 
     [HttpGet]
     [ProducesResponseType(typeof(PagedResultDto<OrderDto>), StatusCodes.Status200OK)]
-    public async Task<ActionResult<PagedResultDto<OrderDto>>> GetMyOrders(
-        [FromQuery] CustomerOrderListQuery query,
-        CancellationToken cancellationToken)
+    public async Task<ActionResult<PagedResultDto<OrderDto>>> GetMyOrders([FromQuery] CustomerOrderListQuery query, CancellationToken cancellationToken)
     {
         var userId = GetCurrentUserId();
 
-        var orders = await _orderService.GetMyOrdersAsync(
-            userId, query,
-            cancellationToken);
+        var orders = await _orderService.GetMyOrdersAsync(userId, query, cancellationToken);
 
         return Ok(orders);
     }
 
     [HttpGet("{orderId:guid}")]
     [ProducesResponseType(typeof(OrderDto), StatusCodes.Status200OK)]
-    public async Task<ActionResult<OrderDto>> GetOrderById(
-        Guid orderId,
-        CancellationToken cancellationToken)
+    public async Task<ActionResult<OrderDto>> GetOrderById(Guid orderId, CancellationToken cancellationToken)
     {
         var userId = GetCurrentUserId();
 
-        var order = await _orderService.GetOrderByIdAsync(
-            userId,
-            orderId,
-            cancellationToken);
+        var order = await _orderService.GetOrderByIdAsync(userId, orderId, cancellationToken);
 
         return Ok(order);
     }
@@ -178,15 +138,9 @@ public class OrdersController : ControllerBase
     [AllowAnonymous]
     [EnableRateLimiting(RateLimitPolicyNames.Payment)]
     [ProducesResponseType(typeof(PublicOrderPaymentStatusDto), StatusCodes.Status200OK)]
-    public async Task<ActionResult<PublicOrderPaymentStatusDto>> GetPublicOrderPaymentStatus(
-        Guid orderId,
-        [FromQuery] string sumUpCheckoutReference,
-        CancellationToken cancellationToken)
+    public async Task<ActionResult<PublicOrderPaymentStatusDto>> GetPublicOrderPaymentStatus(Guid orderId, [FromQuery] string sumUpCheckoutReference, CancellationToken cancellationToken)
     {
-        var status = await _orderService.GetPublicOrderPaymentStatusAsync(
-            orderId,
-            sumUpCheckoutReference,
-            cancellationToken);
+        var status = await _orderService.GetPublicOrderPaymentStatusAsync(orderId, sumUpCheckoutReference, cancellationToken);
 
         return Ok(status);
     }

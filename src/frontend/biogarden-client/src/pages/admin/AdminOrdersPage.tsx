@@ -32,12 +32,7 @@ const fulfillmentLabels = FULFILLMENT_LABELS;
 
 const statuses: OrderStatus[] = [0, 1, 2, 3, 4];
 
-function address(
-  postal: string | null,
-  city: string | null,
-  street: string | null,
-  house: string | null,
-) {
+function address(postal: string | null, city: string | null, street: string | null, house: string | null) {
   return [postal, city, street, house].filter(Boolean).join(" ") || "Nincs megadva";
 }
 
@@ -80,7 +75,8 @@ function OrderCard({
     setSaving(true);
     try {
       const current = await getAdminOrder(order.id);
-      if (!current) throw new Error("A rendelés már nem érhető el.");
+      if (!current)
+        throw new Error("A rendelés már nem érhető el.");
       setPreviousInput(`Korábbi bevitel: ${getOrderStatusLabel(status)}, ${getPaymentStatusLabel(payment)}; ${reason}; ${paymentReason}. Ellenőrizd az aktuális adatokat, majd alkalmazd újra a szükséges módosítást.`);
       onUpdated(current); setStatus(current.status); setPayment(current.paymentStatus);
       setReason(current.cancellationReason ?? ""); setConflict(false); setError(null);
@@ -95,26 +91,24 @@ function OrderCard({
   const cancellationReasonId = `admin-order-cancellation-reason-${order.id}`;
 
   async function save() {
-    if (saving || conflict) return;
-    if (paymentChanged && !paymentReason.trim()) { setError("A fizetési módosítás indoklása kötelező."); return; }
+    if (saving || conflict)
+      return;
+    if (paymentChanged && !paymentReason.trim()) {
+      setError("A fizetési módosítás indoklása kötelező.");
+      return;
+    }
     setSaving(true);
     setError(null);
 
     try {
-      const updated = await updateAdminOrder(
-        order.id,
-        status,
-        payment,
-        status === 4 ? reason.trim() || null : null,
-        order.version,
-        paymentReason.trim() || null,
-      );
+      const updated = await updateAdminOrder(order.id, status, payment, status === 4 ? reason.trim() || null : null, order.version, paymentReason.trim() || null);
       onUpdated(updated);
       setStatus(updated.status); setPayment(updated.paymentStatus);
       setReason(updated.cancellationReason ?? ""); setPaymentReason("");
       setEditing(false);
     } catch (saveError) {
-      if (hasErrorStatus(saveError, 409)) setConflict(true);
+      if (hasErrorStatus(saveError, 409))
+        setConflict(true);
       setError(getErrorMessage(saveError, "A módosítás nem sikerült."));
     } finally {
       setSaving(false);
@@ -230,12 +224,7 @@ function OrderCard({
               <p>
                 {order.fulfillmentMethod === 0
                   ? "Személyes átvétel"
-                  : address(
-                      order.deliveryPostalCode,
-                      order.deliveryCity,
-                      order.deliveryStreet,
-                      order.deliveryHouseNumber,
-                    )}
+                  : address(order.deliveryPostalCode, order.deliveryCity, order.deliveryStreet, order.deliveryHouseNumber)}
               </p>
             </DetailCard>
           </div>
@@ -384,42 +373,60 @@ export default function AdminOrdersPage() {
   const requestId = useRef(0);
   const mounted = useRef(true);
 
-  const load = useCallback(async (signal?: AbortSignal, background = false) => {
-    if (!mounted.current) return;
-    const id = ++requestId.current;
-    if (!background) setLoading(true);
-    setError(null);
+  const load = useCallback(
+    async (signal?: AbortSignal, background = false) => {
+      if (!mounted.current)
+        return;
+      const id = ++requestId.current;
+      if (!background)
+        setLoading(true);
+      setError(null);
 
-    try {
-      const result = await getAdminOrders({ page, pageSize: PAGE_SIZE, search, status, fulfillment }, signal);
-      if (!mounted.current || signal?.aborted || id !== requestId.current) return;
-      setOrders(result.items);
-      setTotalPages(result.totalPages);
-      if (result.page !== page) setPage(result.page);
-    } catch (loadError) {
-      if (mounted.current && !signal?.aborted && id === requestId.current && !isAbortError(loadError)) {
-        setError(getErrorMessage(loadError, "A rendelések betöltése nem sikerült."));
+      try {
+        const result = await getAdminOrders(
+          { page, pageSize: PAGE_SIZE, search, status, fulfillment },
+          signal
+        );
+        if (!mounted.current || signal?.aborted || id !== requestId.current)
+          return;
+        setOrders(result.items);
+        setTotalPages(result.totalPages);
+        if (result.page !== page)
+          setPage(result.page);
+      } catch (loadError) {
+        if (mounted.current && !signal?.aborted && id === requestId.current && !isAbortError(loadError)) {
+          setError(getErrorMessage(loadError, "A rendelések betöltése nem sikerült."));
+        }
+      } finally {
+        if (mounted.current && !signal?.aborted && id === requestId.current)
+          setLoading(false);
       }
-    } finally {
-      if (mounted.current && !signal?.aborted && id === requestId.current) setLoading(false);
-    }
-  }, [page, search, status, fulfillment]);
+    },
+    [page, search, status, fulfillment]
+  );
 
   const latestLoad = useRef(load);
-  useEffect(() => {
-    latestLoad.current = load;
-    mounted.current = true;
-    ++requestId.current;
-    const controller = new AbortController();
-    const timer = window.setTimeout(() => void load(controller.signal), search.trim() ? 250 : 0);
-    return () => { mounted.current = false; window.clearTimeout(timer); controller.abort(); };
-  }, [load, search]);
+  useEffect(
+    () => {
+      latestLoad.current = load;
+      mounted.current = true;
+      ++requestId.current;
+      const controller = new AbortController();
+      const timer = window.setTimeout(() => void load(controller.signal), search.trim() ? 250 : 0);
+      return () => { mounted.current = false; window.clearTimeout(timer); controller.abort(); };
+    },
+    [load, search]
+  );
 
-  useEffect(() => {
-    if (!message) return;
-    const timer = window.setTimeout(() => setMessage(null), 3500);
-    return () => clearTimeout(timer);
-  }, [message]);
+  useEffect(
+    () => {
+      if (!message)
+        return;
+      const timer = window.setTimeout(() => setMessage(null), 3500);
+      return () => clearTimeout(timer);
+    },
+    [message]
+  );
 
   const current = page;
   const shown = orders;

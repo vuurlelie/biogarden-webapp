@@ -29,12 +29,16 @@ export default function AdminDeleteConfirmationModal({
   const dialogRef = useRef<HTMLElement | null>(null);
   const titleId = useId();
 
-  useModalFocus(dialogRef, {
-    isOpen: true,
-    onClose: () => {
-      if (!deleting) onCancel();
-    },
-  });
+  useModalFocus(
+    dialogRef,
+    {
+      isOpen: true,
+      onClose: () => {
+        if (!deleting)
+          onCancel();
+      },
+    }
+  );
 
   return (
     <div
