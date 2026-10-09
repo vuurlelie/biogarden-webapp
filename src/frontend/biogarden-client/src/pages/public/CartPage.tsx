@@ -1,3 +1,4 @@
+import { parseApiDate } from "../../shared/utils/dateTime";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router";
 import { useCart } from "../../features/cart/context/useCart";
@@ -9,11 +10,14 @@ import { getCartValueBucket } from "../../features/analytics/utils/eventValidati
 import { useModalFocus } from "../../shared/hooks/useModalFocus";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
-const PRICE_FORMATTER = new Intl.NumberFormat("hu-HU", {
-  style: "currency",
-  currency: "HUF",
-  maximumFractionDigits: 0,
-});
+const PRICE_FORMATTER = new Intl.NumberFormat(
+  "hu-HU",
+  {
+    style: "currency",
+    currency: "HUF",
+    maximumFractionDigits: 0,
+  }
+);
 
 function formatPrice(value: number): string {
   return PRICE_FORMATTER.format(value);
@@ -114,31 +118,47 @@ export default function CartPage() {
   const clearButtonRef = useRef<HTMLButtonElement | null>(null);
   const { track } = useAnalytics();
 
-  useModalFocus(clearConfirmRef, {
-    isOpen: clearConfirmOpen,
-    onClose: () => setClearConfirmOpen(false),
-    returnFocusRef: clearButtonRef,
-  });
+  useModalFocus(
+    clearConfirmRef,
+    {
+      isOpen: clearConfirmOpen,
+      onClose: () => setClearConfirmOpen(false),
+      returnFocusRef: clearButtonRef,
+    }
+  );
 
-  useEffect(() => {
-    void refresh().then(() => setNow(Date.now())).catch(() => undefined);
-  }, [refresh]);
+  useEffect(
+    () => {
+      void refresh().then(() => setNow(Date.now())).catch(() => undefined);
+    },
+    [refresh]
+  );
 
-  useEffect(() => {
-    const interval = window.setInterval(() => setNow(Date.now()), 1000);
-    return () => window.clearInterval(interval);
-  }, []);
+  useEffect(
+    () => {
+      const interval = window.setInterval(() => setNow(Date.now()), 1000);
+      return () => window.clearInterval(interval);
+    },
+    []
+  );
 
-  useEffect(() => {
-    if (!cart?.items.length) return;
-    track("cart_view", {
-      itemCount: cart.totalItemCount,
-      cartValueBucket: getCartValueBucket(cart.totalPrice),
-    });
-  }, [cart, track]);
+  useEffect(
+    () => {
+      if (!cart?.items.length)
+        return;
+      track(
+        "cart_view",
+        {
+          itemCount: cart.totalItemCount,
+          cartValueBucket: getCartValueBucket(cart.totalPrice),
+        }
+      );
+    },
+    [cart, track]
+  );
 
   const remainingMilliseconds = useMemo(
-    () => Math.max(0, new Date(cart?.expiresAtUtc ?? 0).getTime() - now),
+    () => Math.max(0, (cart?.expiresAtUtc ? parseApiDate(cart.expiresAtUtc).getTime() : 0) - now),
     [cart?.expiresAtUtc, now],
   );
 
@@ -255,7 +275,8 @@ export default function CartPage() {
           className="fixed inset-0 z-[120] flex items-center justify-center bg-site-heading/55 px-4 py-8 backdrop-blur-sm"
           role="presentation"
           onMouseDown={(event) => {
-            if (event.target === event.currentTarget) setClearConfirmOpen(false);
+            if (event.target === event.currentTarget)
+              setClearConfirmOpen(false);
           }}
         >
           <section

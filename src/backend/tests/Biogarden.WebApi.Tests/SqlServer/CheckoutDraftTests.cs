@@ -85,8 +85,7 @@ public sealed class CheckoutDraftTests : IAsyncLifetime
     {
         using var client = Client();
         var cart = await CartAsync(client);
-        var responses = await Task.WhenAll(client.PutAsJsonAsync(Path(cart.Id), Request(name: "First")),
-            client.PutAsJsonAsync(Path(cart.Id), Request(name: "Second")));
+        var responses = await Task.WhenAll(client.PutAsJsonAsync(Path(cart.Id), Request(name: "First")), client.PutAsJsonAsync(Path(cart.Id), Request(name: "Second")));
         Assert.Single(responses, response => response.StatusCode == HttpStatusCode.OK);
         Assert.Single(responses, response => response.StatusCode == HttpStatusCode.Conflict);
         Assert.Equal(HttpStatusCode.Conflict, (await client.DeleteAsync(Path(cart.Id))).StatusCode);
@@ -176,6 +175,69 @@ public sealed class CheckoutDraftTests : IAsyncLifetime
         await using var verification = _app.OpenDatabase();
         Assert.Null((await verification.Carts.SingleAsync()).CheckoutDraftJson);
         Assert.Equal(1, await verification.Orders.CountAsync());
+    }
+
+    [SqlServerTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task BrowserLoginLogout_PreservesItemsClearsPersonalDataAndUsesFinalOrderOwner(bool finishSignedIn)
+    {
+        var userId = await CreateUserAsync();
+        int productId;
+        await using (var databaseContext = _app.OpenDatabase())
+        {
+            var product = new Product { Name = "Session transfer", Available = true, Price = 900m, StockQuantity = 3 };
+            databaseContext.Products.Add(product);
+            await databaseContext.SaveChangesAsync();
+            productId = product.Id;
+        }
+        using var client = Client();
+        var added = await client.PostAsJsonAsync("/api/cart/items", new AddCartItemDto { ProductId = productId, Quantity = 1 });
+        added.EnsureSuccessStatusCode();
+        var cart = (await added.Content.ReadFromJsonAsync<CartDto>())!;
+        (await client.PutAsJsonAsync(Path(cart.Id), Request(name: "My checkout"))).EnsureSuccessStatusCode();
+        async Task Login()
+        {
+            var response = await client.PostAsJsonAsync("/api/auth/login", new { email = "draft-user@example.com", password = "Password123!" });
+            response.EnsureSuccessStatusCode();
+            var session = await response.Content.ReadFromJsonAsync<Biogarden.WebApi.Contracts.BrowserSessionResponse>();
+            client.DefaultRequestHeaders.Remove("X-Browser-Session");
+            client.DefaultRequestHeaders.Add("X-Browser-Session", session!.SessionId);
+            var merged = await client.PostAsync("/api/cart/merge", null);
+            merged.EnsureSuccessStatusCode();
+            cart = (await merged.Content.ReadFromJsonAsync<CartDto>())!;
+        }
+        await Login();
+        Assert.Equal("My checkout", (await client.GetFromJsonAsync<CheckoutDraftDto>(Path(cart.Id)))!.Fields!.CustomerName);
+        Assert.Equal(HttpStatusCode.NoContent, (await client.PostAsync("/api/auth/logout", null)).StatusCode);
+        client.DefaultRequestHeaders.Remove("X-Browser-Session");
+        client.DefaultRequestHeaders.Add("X-Browser-Session", "guest");
+        var guestCart = await CartAsync(client);
+        Assert.Equal(cart.Id, guestCart.Id);
+        Assert.Equal(1, guestCart.TotalItemCount);
+        Assert.Null((await client.GetFromJsonAsync<CheckoutDraftDto>(Path(cart.Id)))!.Fields);
+        await using (var databaseContext = _app.OpenDatabase())
+            Assert.Null((await databaseContext.Carts.SingleAsync(item => item.Id == cart.Id)).CheckoutDraftJson);
+        using var stranger = Client();
+        Assert.Equal(HttpStatusCode.NotFound, (await stranger.GetAsync(Path(cart.Id))).StatusCode);
+        if (finishSignedIn)
+            await Login();
+        var request = new PlaceOrderDto
+        {
+            IdempotencyKey = cart.Id.ToString("N"),
+            CustomerName = "My checkout",
+            CustomerEmail = "draft@example.com",
+            CustomerPhone = "+36301234567",
+            AcceptedTermsVersion = LegalDocumentVersions.CurrentTermsVersion,
+            AcceptedPrivacyPolicyVersion = LegalDocumentVersions.CurrentPrivacyPolicyVersion
+        };
+        await request.WithQuoteAsync(client);
+        var placed = await client.PostAsJsonAsync("/api/orders", request);
+        Assert.Equal(HttpStatusCode.Created, placed.StatusCode);
+        await using var verify = _app.OpenDatabase();
+        var order = await verify.Orders.SingleAsync();
+        Assert.Equal(finishSignedIn ? userId : (Guid?)null, order.UserId);
+        Assert.Equal(2, (await verify.Products.SingleAsync()).StockQuantity);
     }
 
     private async Task<Guid> CreateUserAsync()

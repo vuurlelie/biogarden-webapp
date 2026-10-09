@@ -37,9 +37,7 @@ public sealed class SecurityHeadersMiddleware
             headers.TryAdd("X-Content-Type-Options", "nosniff");
             headers.TryAdd("X-Frame-Options", "DENY");
             headers.TryAdd("Referrer-Policy", "strict-origin-when-cross-origin");
-            headers.TryAdd(
-                "Permissions-Policy",
-                "camera=(), microphone=(), geolocation=(), payment=()");
+            headers.TryAdd("Permissions-Policy", "camera=(), microphone=(), geolocation=(), payment=()");
             headers.TryAdd("Content-Security-Policy", ContentSecurityPolicy);
 
             return Task.CompletedTask;

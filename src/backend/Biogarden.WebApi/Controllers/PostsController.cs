@@ -18,9 +18,7 @@ public sealed class PostsController : ControllerBase
 
     [HttpGet]
     [ProducesResponseType(typeof(PagedResultDto<PostListItemDto>), StatusCodes.Status200OK)]
-    public async Task<PagedResultDto<PostListItemDto>> GetAll(
-        [FromQuery] PostListQueryDto query,
-        CancellationToken cancellationToken)
+    public async Task<PagedResultDto<PostListItemDto>> GetAll([FromQuery] PostListQueryDto query, CancellationToken cancellationToken)
     {
         return await _postService.GetPagedAsync(query, cancellationToken);
     }

@@ -105,6 +105,19 @@ button:disabled,
   outline: 3px solid var(--color-site-green-dark);
   outline-offset: 3px;
 }
+
+/* Text-entry fields use their border as the focus indicator. Keep the outline
+   above for buttons, links, checkboxes and radio buttons. */
+:where(input:not([type="checkbox"], [type="radio"], [type="range"], [type="color"], [type="button"], [type="submit"], [type="reset"], [type="hidden"]), select, textarea, .tiptap[contenteditable="true"])[aria-invalid="true"] {
+  border-color: var(--color-site-danger);
+  background-color: var(--color-site-danger-soft);
+}
+
+:where(input:not([type="checkbox"], [type="radio"], [type="range"], [type="color"], [type="button"], [type="submit"], [type="reset"], [type="hidden"]), select, textarea, .tiptap[contenteditable="true"]):focus {
+  outline: none;
+  border: 1px solid var(--color-gray-600);
+  box-shadow: none;
+}
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
   *, *::before, *::after {

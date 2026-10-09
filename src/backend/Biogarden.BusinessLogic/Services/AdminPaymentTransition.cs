@@ -7,8 +7,10 @@ public static class AdminPaymentTransition
 {
     public static void Validate(Order order, PaymentStatus next)
     {
-        if (!Enum.IsDefined(next)) throw new ArgumentException("Érvénytelen fizetési állapot.");
-        if (next == order.PaymentStatus) return;
+        if (!Enum.IsDefined(next))
+            throw new ArgumentException("Érvénytelen fizetési állapot.");
+        if (next == order.PaymentStatus)
+            return;
         var allowed = order.PaymentStatus switch
         {
             PaymentStatus.Pending or PaymentStatus.Authorized or PaymentStatus.Failed =>
@@ -18,6 +20,7 @@ public static class AdminPaymentTransition
             PaymentStatus.PartiallyRefunded => next is PaymentStatus.RefundPending or PaymentStatus.Refunded,
             _ => false
         };
-        if (!allowed) throw new InvalidOperationException("Ez a kézi fizetési állapotváltás nem engedélyezett. Az online fizetést a szolgáltató igazolja; rögzített fizetés nem állítható vissza fizetetlenre.");
+        if (!allowed)
+            throw new InvalidOperationException("Ez a kézi fizetési állapotváltás nem engedélyezett. Az online fizetést a szolgáltató igazolja; rögzített fizetés nem állítható vissza fizetetlenre.");
     }
 }

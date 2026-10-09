@@ -43,7 +43,8 @@ export function getAuthSession(): AuthResponse | null { return session; }
 export function isAuthenticated(): boolean { return session !== null; }
 
 export async function refreshAuthSession(activity = false): Promise<void> {
-  if (pending) return pending;
+  if (pending)
+    return pending;
   const current = generation;
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), SESSION_REQUEST_TIMEOUT_MS);
@@ -52,9 +53,11 @@ export async function refreshAuthSession(activity = false): Promise<void> {
       credentials: "include", cache: "no-store", signal: controller.signal,
       headers: { "X-Checkout-Request": "1", ...(activity ? { "X-Session-Activity": "1" } : {}) },
     });
-    if (!response.ok) throw new Error("A munkamenet ellenőrzése nem sikerült.");
+    if (!response.ok)
+      throw new Error("A munkamenet ellenőrzése nem sikerült.");
     const next = response.status === 204 ? null : parseAuthSession(await response.text());
-    if (generation === current) update(next);
+    if (generation === current)
+      update(next);
   })().finally(() => { clearTimeout(timeout); pending = null; });
   return pending;
 }
@@ -64,7 +67,8 @@ export async function logout(): Promise<void> {
     method: "POST", credentials: "include",
     headers: { "X-Checkout-Request": "1", "X-Browser-Session": session?.sessionId ?? "guest" },
   });
-  if (!response.ok) throw new Error("A kijelentkezés nem sikerült. Kérjük, próbáld újra.");
+  if (!response.ok)
+    throw new Error("A kijelentkezés nem sikerült. Kérjük, próbáld újra.");
   update(null);
   channel?.postMessage("changed");
 }
@@ -86,27 +90,36 @@ export function startAuthSessionSync(): () => void {
       clearTimeout(retryTimer);
       retryIndex = 0;
     }).catch(() => {
-      if (stopped || generation !== current) return;
+      if (stopped || generation !== current)
+        return;
       // An unreachable server is not evidence that an expired session is still valid.
-      if (session && Date.parse(session.expiresAtUtc) <= Date.now()) clearAuthSession();
+      if (session && Date.parse(session.expiresAtUtc) <= Date.now())
+        clearAuthSession();
       clearTimeout(retryTimer);
       const delay = SESSION_RETRY_DELAYS_MS[retryIndex++];
-      if (delay !== undefined) retryTimer = setTimeout(() => verify(), delay);
+      if (delay !== undefined)
+        retryTimer = setTimeout(() => verify(), delay);
     });
   };
   const reconnect = () => { retryIndex = 0; verify(); };
   const schedule = () => {
     clearTimeout(timer);
     clearTimeout(retryTimer);
-    if (session) timer = setTimeout(() => verify(), Math.max(1000, Date.parse(session.expiresAtUtc) - Date.now()));
+    if (session)
+      timer = setTimeout(() => verify(), Math.max(1000, Date.parse(session.expiresAtUtc) - Date.now()));
   };
   const activity = (event: Event) => {
-    if (!event.isTrusted || document.visibilityState !== "visible" || !session || Date.now() - lastActivity < 60_000) return;
+    if (!event.isTrusted || document.visibilityState !== "visible" || !session || Date.now() - lastActivity < 60_000)
+      return;
     lastActivity = Date.now();
     verify(true);
   };
   const events = ["pointerdown", "keydown", "scroll"];
-  for (const event of events) window.addEventListener(event, activity, { passive: true, capture: true });
+  for (const event of events) window.addEventListener(
+    event,
+    activity,
+    { passive: true, capture: true }
+  );
   window.addEventListener("focus", reconnect);
   window.addEventListener("online", reconnect);
   window.addEventListener(AUTH_CHANGED_EVENT, schedule);

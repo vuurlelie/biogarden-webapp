@@ -19,21 +19,20 @@ public sealed class CartServiceTests
         _carts.Setup(repository => repository.AcquireOwnerLockAsync(It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new TestOwnerLock());
         _products.Setup(repository => repository.GuardStockReservation(It.IsAny<Product>()));
-        _carts.Setup(repository => repository.GetActiveReservedQuantitiesAsync(
-            It.IsAny<IReadOnlyCollection<int>>(), It.IsAny<Guid?>(), It.IsAny<Guid?>(), It.IsAny<CancellationToken>()))
+        _carts.Setup(repository => repository.GetActiveReservedQuantitiesAsync(It.IsAny<IReadOnlyCollection<int>>(), It.IsAny<Guid?>(), It.IsAny<Guid?>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new Dictionary<int, int>());
-        _unitOfWork.SetupGet(x => x.CartRepository).Returns(_carts.Object);
-        _unitOfWork.SetupGet(x => x.ProductRepository).Returns(_products.Object);
+        _unitOfWork.SetupGet(unitOfWork => unitOfWork.CartRepository).Returns(_carts.Object);
+        _unitOfWork.SetupGet(unitOfWork => unitOfWork.ProductRepository).Returns(_products.Object);
         _service = new CartService(_unitOfWork.Object, _timeProvider);
     }
 
     [Fact]
     public async Task AddItemAsync_WithNonPositiveQuantity_ThrowsBeforeRepositoryAccess()
     {
-        var dto = new AddCartItemDto { ProductId = 1, Quantity = 0 };
+        var addCartItem = new AddCartItemDto { ProductId = 1, Quantity = 0 };
 
         await Assert.ThrowsAsync<ArgumentException>(() =>
-            _service.AddItemAsync(Guid.NewGuid(), null, dto));
+            _service.AddItemAsync(Guid.NewGuid(), null, addCartItem));
 
         _unitOfWork.VerifyNoOtherCalls();
     }
@@ -45,15 +44,15 @@ public sealed class CartServiceTests
         var now = _timeProvider.GetUtcNow().UtcDateTime;
         var previousExpiry = now.AddMinutes(2);
         var cart = new Cart { Id = Guid.NewGuid(), UserId = userId, ExpiresAtUtc = previousExpiry };
-        _carts.Setup(x => x.GetActiveByUserIdAsync(userId, It.IsAny<CancellationToken>())).ReturnsAsync(cart);
-        _unitOfWork.Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
+        _carts.Setup(cartRepository => cartRepository.GetActiveByUserIdAsync(userId, It.IsAny<CancellationToken>())).ReturnsAsync(cart);
+        _unitOfWork.Setup(unitOfWork => unitOfWork.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
 
         var result = await _service.GetCartAsync(userId, null);
 
         Assert.True(result.ExpiresAtUtc > previousExpiry);
         Assert.Equal(now, cart.LastActivityAtUtc);
         Assert.Equal(now.AddMinutes(30), result.ExpiresAtUtc);
-        _unitOfWork.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
+        _unitOfWork.Verify(unitOfWork => unitOfWork.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
@@ -62,9 +61,9 @@ public sealed class CartServiceTests
         var userId = Guid.NewGuid();
         var product = new Product { Id = 8, Name = "Uborka", Available = true, StockQuantity = 12 };
         var cart = CreateCart(userId, product.Id, quantity: 3);
-        _products.Setup(x => x.GetByIdAsync(product.Id, It.IsAny<CancellationToken>())).ReturnsAsync(product);
-        _carts.Setup(x => x.GetActiveByUserIdAsync(userId, It.IsAny<CancellationToken>())).ReturnsAsync(cart);
-        _carts.Setup(x => x.GetActiveReservedQuantityForProductAsync(product.Id, cart.Id, It.IsAny<CancellationToken>())).ReturnsAsync(4);
+        _products.Setup(productRepository => productRepository.GetByIdAsync(product.Id, It.IsAny<CancellationToken>())).ReturnsAsync(product);
+        _carts.Setup(cartRepository => cartRepository.GetActiveByUserIdAsync(userId, It.IsAny<CancellationToken>())).ReturnsAsync(cart);
+        _carts.Setup(cartRepository => cartRepository.GetActiveReservedQuantityForProductAsync(product.Id, cart.Id, It.IsAny<CancellationToken>())).ReturnsAsync(4);
 
         var available = await _service.GetAvailableQuantityToAddAsync(userId, null, product.Id);
 
@@ -85,24 +84,23 @@ public sealed class CartServiceTests
         };
 
         _carts
-            .Setup(x => x.GetActiveByUserIdAsync(userId, It.IsAny<CancellationToken>()))
+            .Setup(cartRepository => cartRepository.GetActiveByUserIdAsync(userId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(cart);
         _products
-            .Setup(x => x.GetByIdAsync(product.Id, It.IsAny<CancellationToken>()))
+            .Setup(productRepository => productRepository.GetByIdAsync(product.Id, It.IsAny<CancellationToken>()))
             .ReturnsAsync(product);
         _carts
-            .Setup(x => x.GetActiveReservedQuantityForProductAsync(
-                product.Id, cart.Id, It.IsAny<CancellationToken>()))
+            .Setup(cartRepository => cartRepository.GetActiveReservedQuantityForProductAsync(product.Id, cart.Id, It.IsAny<CancellationToken>()))
             .ReturnsAsync(0);
         _unitOfWork
-            .Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()))
+            .Setup(unitOfWork => unitOfWork.SaveChangesAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(1);
         _carts
-            .Setup(x => x.AddItemAsync(It.IsAny<CartItem>(), It.IsAny<CancellationToken>()))
+            .Setup(cartRepository => cartRepository.AddItemAsync(It.IsAny<CartItem>(), It.IsAny<CancellationToken>()))
             .Callback<CartItem, CancellationToken>((item, _) => cart.Items.Add(item))
             .Returns(Task.CompletedTask);
         _carts
-            .Setup(x => x.GetByIdWithItemsAsync(cart.Id, It.IsAny<CancellationToken>()))
+            .Setup(cartRepository => cartRepository.GetByIdWithItemsAsync(cart.Id, It.IsAny<CancellationToken>()))
             .ReturnsAsync(() =>
             {
                 cart.Items.Single().Product = product;
@@ -122,8 +120,8 @@ public sealed class CartServiceTests
         Assert.Equal(now.AddMinutes(30), cart.ExpiresAtUtc);
         Assert.Equal(now, createdItem.CreatedAtUtc);
         Assert.Equal(now, createdItem.UpdatedAtUtc);
-        _carts.Verify(x => x.Update(It.IsAny<Cart>()), Times.Never);
-        _unitOfWork.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
+        _carts.Verify(cartRepository => cartRepository.Update(It.IsAny<Cart>()), Times.Never);
+        _unitOfWork.Verify(unitOfWork => unitOfWork.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
@@ -131,7 +129,7 @@ public sealed class CartServiceTests
     {
         var userId = Guid.NewGuid();
         _carts
-            .Setup(x => x.GetActiveByUserIdAsync(userId, It.IsAny<CancellationToken>()))
+            .Setup(cartRepository => cartRepository.GetActiveByUserIdAsync(userId, It.IsAny<CancellationToken>()))
             .ReturnsAsync((Cart?)null);
 
         var result = await _service.ValidateCartForCheckoutAsync(userId, null);
@@ -155,15 +153,13 @@ public sealed class CartServiceTests
         };
 
         _carts
-            .Setup(x => x.GetActiveByUserIdAsync(userId, It.IsAny<CancellationToken>()))
+            .Setup(cartRepository => cartRepository.GetActiveByUserIdAsync(userId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(cart);
         _products
-            .Setup(x => x.GetByIdAsync(product.Id, It.IsAny<CancellationToken>()))
+            .Setup(productRepository => productRepository.GetByIdAsync(product.Id, It.IsAny<CancellationToken>()))
             .ReturnsAsync(product);
         _carts
-            .Setup(x => x.GetActiveReservedQuantitiesAsync(
-                It.Is<IReadOnlyCollection<int>>(ids => ids.Count == 1 && ids.Contains(product.Id)),
-                cart.Id, null, It.IsAny<CancellationToken>()))
+            .Setup(cartRepository => cartRepository.GetActiveReservedQuantitiesAsync(It.Is<IReadOnlyCollection<int>>(ids => ids.Count == 1 && ids.Contains(product.Id)), cart.Id, null, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new Dictionary<int, int> { [product.Id] = 1 });
 
         var result = await _service.ValidateCartForCheckoutAsync(userId, null);
@@ -204,28 +200,25 @@ public sealed class CartServiceTests
         });
 
         _carts
-            .Setup(x => x.GetActiveByUserIdAsync(userId, It.IsAny<CancellationToken>()))
+            .Setup(cartRepository => cartRepository.GetActiveByUserIdAsync(userId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(userCart);
         _carts
-            .Setup(x => x.GetActiveBySessionIdAsync(guestSessionId.Trim(), It.IsAny<CancellationToken>()))
+            .Setup(cartRepository => cartRepository.GetActiveBySessionIdAsync(guestSessionId.Trim(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(guestCart);
         _products
-            .Setup(x => x.GetByIdAsync(product.Id, It.IsAny<CancellationToken>()))
+            .Setup(productRepository => productRepository.GetByIdAsync(product.Id, It.IsAny<CancellationToken>()))
             .ReturnsAsync(product);
         _carts
-            .Setup(x => x.GetActiveReservedQuantityForProductAsync(
-                product.Id,
-                userCart.Id,
-                It.IsAny<CancellationToken>()))
+            .Setup(cartRepository => cartRepository.GetActiveReservedQuantityForProductAsync(product.Id, userCart.Id, It.IsAny<CancellationToken>()))
             .ReturnsAsync(0);
         _unitOfWork
-            .Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()))
+            .Setup(unitOfWork => unitOfWork.SaveChangesAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(1);
         _carts
-            .Setup(x => x.GetByIdWithItemsAsync(userCart.Id, It.IsAny<CancellationToken>()))
+            .Setup(cartRepository => cartRepository.GetByIdWithItemsAsync(userCart.Id, It.IsAny<CancellationToken>()))
             .ReturnsAsync(userCart);
 
-        _carts.Setup(x => x.GetActiveReservedQuantityForProductAsync(product.Id, userCart.Id, guestCart.Id, It.IsAny<CancellationToken>())).ReturnsAsync(0);
+        _carts.Setup(cartRepository => cartRepository.GetActiveReservedQuantityForProductAsync(product.Id, userCart.Id, guestCart.Id, It.IsAny<CancellationToken>())).ReturnsAsync(0);
 
         var result = await _service.MergeGuestCartIntoUserCartAsync(userId, guestSessionId);
 
@@ -237,8 +230,8 @@ public sealed class CartServiceTests
         Assert.Equal(5, userCart.Items.Single().Quantity);
         Assert.Equal(5, result.TotalItemCount);
         Assert.Equal(4500, result.TotalPrice);
-        _carts.Verify(x => x.AddItemAsync(It.IsAny<CartItem>(), It.IsAny<CancellationToken>()), Times.Never);
-        _unitOfWork.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
+        _carts.Verify(cartRepository => cartRepository.AddItemAsync(It.IsAny<CartItem>(), It.IsAny<CancellationToken>()), Times.Never);
+        _unitOfWork.Verify(unitOfWork => unitOfWork.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
@@ -271,22 +264,19 @@ public sealed class CartServiceTests
         });
 
         _carts
-            .Setup(x => x.GetActiveByUserIdAsync(userId, It.IsAny<CancellationToken>()))
+            .Setup(cartRepository => cartRepository.GetActiveByUserIdAsync(userId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(userCart);
         _carts
-            .Setup(x => x.GetActiveBySessionIdAsync(guestSessionId, It.IsAny<CancellationToken>()))
+            .Setup(cartRepository => cartRepository.GetActiveBySessionIdAsync(guestSessionId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(guestCart);
         _products
-            .Setup(x => x.GetByIdAsync(product.Id, It.IsAny<CancellationToken>()))
+            .Setup(productRepository => productRepository.GetByIdAsync(product.Id, It.IsAny<CancellationToken>()))
             .ReturnsAsync(product);
         _carts
-            .Setup(x => x.GetActiveReservedQuantityForProductAsync(
-                product.Id,
-                userCart.Id,
-                It.IsAny<CancellationToken>()))
+            .Setup(cartRepository => cartRepository.GetActiveReservedQuantityForProductAsync(product.Id, userCart.Id, It.IsAny<CancellationToken>()))
             .ReturnsAsync(0);
 
-        _carts.Setup(x => x.GetActiveReservedQuantityForProductAsync(product.Id, userCart.Id, guestCart.Id, It.IsAny<CancellationToken>())).ReturnsAsync(0);
+        _carts.Setup(cartRepository => cartRepository.GetActiveReservedQuantityForProductAsync(product.Id, userCart.Id, guestCart.Id, It.IsAny<CancellationToken>())).ReturnsAsync(0);
 
         var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
             _service.MergeGuestCartIntoUserCartAsync(userId, guestSessionId));
@@ -295,7 +285,75 @@ public sealed class CartServiceTests
         Assert.False(guestCart.IsCheckedOut);
         Assert.Null(guestCart.CheckedOutAtUtc);
         Assert.Equal(2, userCart.Items.Single().Quantity);
-        _unitOfWork.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
+        _unitOfWork.Verify(unitOfWork => unitOfWork.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task CheckoutReportsDeletedAndUnavailableProductsWithoutSaving()
+    {
+        var userId = Guid.NewGuid();
+        var cart = CreateCart(userId, productId: 1, quantity: 1);
+        cart.Items.Add(new CartItem { Id = Guid.NewGuid(), CartId = cart.Id, ProductId = 2, Quantity = 1 });
+        _carts.Setup(repository => repository.GetActiveByUserIdAsync(userId, It.IsAny<CancellationToken>())).ReturnsAsync(cart);
+        _products.Setup(repository => repository.GetByIdAsync(1, It.IsAny<CancellationToken>())).ReturnsAsync((Product?)null);
+        _products.Setup(repository => repository.GetByIdAsync(2, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Product { Id = 2, Name = "Unavailable product", Available = false, StockQuantity = 10 });
+
+        var result = await _service.ValidateCartForCheckoutAsync(userId, null);
+
+        Assert.False(result.IsValid);
+        Assert.Equal(2, result.Issues.Count);
+        Assert.Contains(result.Issues, issue => issue.ProductId == 1 && issue.Message == "A termék már nem létezik.");
+        Assert.Contains(result.Issues, issue => issue.ProductId == 2 && issue.Message == "A termék jelenleg nem elérhető.");
+        _unitOfWork.Verify(unitOfWork => unitOfWork.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task EmptyCartCannotBeCheckedOut()
+    {
+        var userId = Guid.NewGuid();
+        _carts.Setup(repository => repository.GetActiveByUserIdAsync(userId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Cart { Id = Guid.NewGuid(), UserId = userId });
+
+        var result = await _service.ValidateCartForCheckoutAsync(userId, null);
+
+        Assert.False(result.IsValid);
+        Assert.Equal("A kosár üres.", Assert.Single(result.Issues).Message);
+        _unitOfWork.Verify(unitOfWork => unitOfWork.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task ZeroQuantityRemovesTheItemAndRefreshesTheReservation()
+    {
+        var userId = Guid.NewGuid();
+        var cart = CreateCart(userId, productId: 1, quantity: 2);
+        var itemId = Assert.Single(cart.Items).Id;
+        _carts.Setup(repository => repository.GetActiveByUserIdAsync(userId, It.IsAny<CancellationToken>())).ReturnsAsync(cart);
+        _carts.Setup(repository => repository.GetByIdWithItemsAsync(cart.Id, It.IsAny<CancellationToken>())).ReturnsAsync(cart);
+        _unitOfWork.Setup(unitOfWork => unitOfWork.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
+
+        var result = await _service.UpdateItemQuantityAsync(userId, null, itemId, new UpdateCartItemQuantityDto { Quantity = 0 });
+
+        Assert.Empty(cart.Items);
+        Assert.Empty(result.Items);
+        Assert.Equal(_timeProvider.GetUtcNow().UtcDateTime.AddMinutes(30), result.ExpiresAtUtc);
+        _products.VerifyNoOtherCalls();
+        _unitOfWork.Verify(unitOfWork => unitOfWork.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task UnknownCartItemCannotBeChangedOrRemoved()
+    {
+        var userId = Guid.NewGuid();
+        var cart = CreateCart(userId, productId: 1, quantity: 2);
+        _carts.Setup(repository => repository.GetActiveByUserIdAsync(userId, It.IsAny<CancellationToken>())).ReturnsAsync(cart);
+        var otherItemId = Guid.NewGuid();
+
+        await Assert.ThrowsAsync<KeyNotFoundException>(() => _service.UpdateItemQuantityAsync(userId, null, otherItemId, new UpdateCartItemQuantityDto { Quantity = 3 }));
+        await Assert.ThrowsAsync<KeyNotFoundException>(() => _service.RemoveItemAsync(userId, null, otherItemId));
+
+        Assert.Equal(2, Assert.Single(cart.Items).Quantity);
+        _unitOfWork.Verify(unitOfWork => unitOfWork.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
     }
 
     private static Cart CreateCart(Guid userId, int productId, int quantity)

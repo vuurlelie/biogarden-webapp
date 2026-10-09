@@ -1,3 +1,5 @@
+import { POST_IMAGE_ASPECT_CLASS } from "../../../shared/constants/imageLayout";
+import { budapestDateTimeInput, budapestInputToUtc } from "../../../shared/utils/dateTime";
 import { normalizeImage, MAX_IMAGE_UPLOAD_BYTES } from "../../../shared/utils/normalizeImage";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import type { Post, PostCategory } from "../../posts/types/post.types";
@@ -39,12 +41,6 @@ type Props = {
   onSaved: (message: string) => void;
 };
 
-function formatDateTimeLocal(value: string | null | undefined): string {
-  const date = value ? new Date(value) : new Date();
-  const offset = date.getTimezoneOffset();
-  const local = new Date(date.getTime() - offset * 60_000);
-  return local.toISOString().slice(0, 16);
-}
 
 function initialState(post: Post | null): FormState {
   if (!post) {
@@ -53,7 +49,7 @@ function initialState(post: Post | null): FormState {
       category: 0,
       article: "",
       image: "",
-      publishedAt: formatDateTimeLocal(null),
+      publishedAt: budapestDateTimeInput(null),
       draft: true,
     };
   }
@@ -63,7 +59,7 @@ function initialState(post: Post | null): FormState {
     category: post.category,
     article: post.article,
     image: post.image,
-    publishedAt: formatDateTimeLocal(post.publishedAt),
+    publishedAt: budapestDateTimeInput(post.publishedAt),
     draft: post.draft,
   };
 }
@@ -87,48 +83,58 @@ export default function AdminPostFormModal({ post, onClose, onSaved }: Props) {
 
   const previewUrl = selectedImagePreviewUrl || imageUrl(form.image);
 
-  useModalFocus(modalRef, {
-    isOpen: true,
-    onClose: () => {
-      if (!saving) onClose();
-    },
-  });
-
-  useEffect(() => {
-    setPreviewFailed(false);
-  }, [previewUrl]);
-
-  useEffect(() => {
-    if (!imageFile) {
-      setSelectedImagePreviewUrl("");
-      return;
+  useModalFocus(
+    modalRef,
+    {
+      isOpen: true,
+      onClose: () => {
+        if (!saving)
+          onClose();
+      },
     }
+  );
 
-    let cancelled = false;
-    const reader = new FileReader();
+  useEffect(
+    () => {
+      setPreviewFailed(false);
+    },
+    [previewUrl]
+  );
 
-    reader.onload = () => {
-      if (!cancelled && typeof reader.result === "string") {
-        setSelectedImagePreviewUrl(reader.result);
-      }
-    };
-
-    reader.onerror = () => {
-      if (!cancelled) {
+  useEffect(
+    () => {
+      if (!imageFile) {
         setSelectedImagePreviewUrl("");
-        setPreviewFailed(true);
+        return;
       }
-    };
 
-    reader.readAsDataURL(imageFile);
+      let cancelled = false;
+      const reader = new FileReader();
 
-    return () => {
-      cancelled = true;
-      if (reader.readyState === FileReader.LOADING) {
-        reader.abort();
-      }
-    };
-  }, [imageFile]);
+      reader.onload = () => {
+        if (!cancelled && typeof reader.result === "string") {
+          setSelectedImagePreviewUrl(reader.result);
+        }
+      };
+
+      reader.onerror = () => {
+        if (!cancelled) {
+          setSelectedImagePreviewUrl("");
+          setPreviewFailed(true);
+        }
+      };
+
+      reader.readAsDataURL(imageFile);
+
+      return () => {
+        cancelled = true;
+        if (reader.readyState === FileReader.LOADING) {
+          reader.abort();
+        }
+      };
+    },
+    [imageFile]
+  );
 
   function update<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((current) => ({ ...current, [key]: value }));
@@ -149,10 +155,11 @@ export default function AdminPostFormModal({ post, onClose, onSaved }: Props) {
   }
 
   function renderFieldError(field: PostInvalidField) {
-    if (!fieldErrors[field]) return null;
+    if (!fieldErrors[field])
+      return null;
 
     return (
-      <p id={getErrorId(field)} className="mt-1 text-xs font-semibold text-site-danger">
+      <p id={getErrorId(field)} className="mt-1 text-xs font-normal text-site-danger">
         {fieldErrors[field]}
       </p>
     );
@@ -160,7 +167,8 @@ export default function AdminPostFormModal({ post, onClose, onSaved }: Props) {
 
   function clearFieldError(field: PostInvalidField) {
     setFieldErrors((current) => {
-      if (!current[field]) return current;
+      if (!current[field])
+        return current;
       const next = { ...current };
       delete next[field];
       return next;
@@ -194,8 +202,8 @@ export default function AdminPostFormModal({ post, onClose, onSaved }: Props) {
       return;
     }
 
-    if (!form.publishedAt || Number.isNaN(new Date(form.publishedAt).getTime())) {
-      markInvalid("publishedAt", "Adj meg érvényes megjelenési dátumot.");
+    if (!form.publishedAt || !budapestInputToUtc(form.publishedAt)) {
+      markInvalid("publishedAt", "Adj meg érvényes budapesti időpontot. Óraátállításkor válassz egy nem ismétlődő, létező időpontot.");
       return;
     }
 
@@ -215,7 +223,7 @@ export default function AdminPostFormModal({ post, onClose, onSaved }: Props) {
         category: form.category,
         article: form.article.trim(),
         image: uploadedImage ?? (post ? form.image.trim() : form.image.trim() || null),
-        publishedAt: new Date(form.publishedAt).toISOString(),
+        publishedAt: budapestInputToUtc(form.publishedAt)!,
         draft: form.draft,
       };
 
@@ -227,7 +235,10 @@ export default function AdminPostFormModal({ post, onClose, onSaved }: Props) {
 
       onSaved(post ? "A bejegyzés módosítása sikerült." : "Az új bejegyzés létrehozása sikerült.");
     } catch (saveError) {
-      setFieldErrors(getServerFieldErrors(saveError, ["title", "article", "publishedAt", "image"] as const));
+      setFieldErrors(getServerFieldErrors(
+        saveError,
+        ["title", "article", "publishedAt", "image"] as const
+      ));
       setFormError(getErrorMessage(saveError, "A mentés nem sikerült."));
     } finally {
       setSaving(false);
@@ -305,7 +316,7 @@ export default function AdminPostFormModal({ post, onClose, onSaved }: Props) {
                 </label>
 
                 <label className="text-sm font-semibold">
-                  Megjelenés dátuma <span className="text-site-danger">*</span>
+                  Megjelenés dátuma (budapesti idő) <span className="text-site-danger">*</span>
                   <input
                     ref={publishedAtInputRef}
                     className={getInputClassName("publishedAt")}
@@ -338,14 +349,15 @@ export default function AdminPostFormModal({ post, onClose, onSaved }: Props) {
             <aside className="space-y-4">
               <div className="overflow-hidden rounded-sm border border-site-border bg-site-surface-soft">
                 {previewUrl && !previewFailed ? (
-                  <img src={previewUrl} alt="Bejegyzés képe" className="aspect-[4/3] w-full object-cover" />
+                  <img src={previewUrl} alt="Bejegyzés képe" className={`${POST_IMAGE_ASPECT_CLASS} w-full object-cover`} />
                 ) : (
-                  <div className="grid aspect-[4/3] place-items-center px-4 text-center text-sm text-site-muted">
+                  <div className={`grid ${POST_IMAGE_ASPECT_CLASS} place-items-center px-4 text-center text-sm text-site-muted`}>
                     Nincs kiválasztott kép
                   </div>
                 )}
               </div>
 
+              <p className="text-xs text-site-muted">A bejegyzésben látható képkivágás előnézete.</p>
               <label className="block text-sm font-semibold">
                 Kép
                 <input

@@ -15,7 +15,7 @@ public sealed class ProductServiceTests
 
     public ProductServiceTests()
     {
-        _unitOfWork.SetupGet(x => x.ProductRepository).Returns(_products.Object);
+        _unitOfWork.SetupGet(unitOfWork => unitOfWork.ProductRepository).Returns(_products.Object);
         _service = new ProductService(_unitOfWork.Object);
     }
 

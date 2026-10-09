@@ -56,10 +56,11 @@ export default function AccountProfilePage() {
   }
 
   function renderFieldError(field: ProfileInvalidField) {
-    if (!fieldErrors[field]) return null;
+    if (!fieldErrors[field])
+      return null;
 
     return (
-      <p id={getErrorId(field)} className="mt-1 text-xs font-semibold text-site-danger">
+      <p id={getErrorId(field)} className="mt-1 text-xs font-normal text-site-danger">
         {fieldErrors[field]}
       </p>
     );
@@ -67,42 +68,47 @@ export default function AccountProfilePage() {
 
   function clearFieldError(field: ProfileInvalidField) {
     setFieldErrors((current) => {
-      if (!current[field]) return current;
+      if (!current[field])
+        return current;
       const next = { ...current };
       delete next[field];
       return next;
     });
   }
 
-  useEffect(() => {
-    let shouldIgnoreResult = false;
+  useEffect(
+    () => {
+      let shouldIgnoreResult = false;
 
-    async function loadProfile() {
-      try {
-        setIsLoading(true);
-        setPageError("");
-        const loadedProfile = await getProfile();
-        if (!shouldIgnoreResult) setProfile(loadedProfile);
-      } catch (loadError) {
-        if (shouldIgnoreResult) return;
-        setPageError(handleAccountError(loadError, "A profil betöltése nem sikerült.") ?? "");
-      } finally {
-        if (!shouldIgnoreResult) setIsLoading(false);
+      async function loadProfile() {
+        try {
+          setIsLoading(true);
+          setPageError("");
+          const loadedProfile = await getProfile();
+          if (!shouldIgnoreResult)
+            setProfile(loadedProfile);
+        } catch (loadError) {
+          if (shouldIgnoreResult)
+            return;
+          setPageError(handleAccountError(loadError, "A profil betöltése nem sikerült.") ?? "");
+        } finally {
+          if (!shouldIgnoreResult)
+            setIsLoading(false);
+        }
       }
-    }
 
-    void loadProfile();
-    return () => {
-      shouldIgnoreResult = true;
-    };
-  }, [handleAccountError]);
+      void loadProfile();
+      return () => {
+        shouldIgnoreResult = true;
+      };
+    },
+    [handleAccountError]
+  );
 
-  function updateField(
-    field: "firstName" | "lastName" | "phoneNumber" | "companyName" | "taxNumber",
-    value: string,
-  ) {
+  function updateField(field: "firstName" | "lastName" | "phoneNumber" | "companyName" | "taxNumber", value: string) {
     setProfile((currentProfile) => ({ ...currentProfile, [field]: value }));
-    if (field === "companyName" || field === "taxNumber") clearFieldError(field);
+    if (field === "companyName" || field === "taxNumber")
+      clearFieldError(field);
     setFormError("");
     setSuccess("");
   }
@@ -161,7 +167,10 @@ export default function AccountProfilePage() {
       });
       setSuccess("A személyes adatok mentése sikerült.");
     } catch (saveError) {
-      setFieldErrors(getServerFieldErrors(saveError, ["companyName", "taxNumber"] as const));
+      setFieldErrors(getServerFieldErrors(
+        saveError,
+        ["companyName", "taxNumber"] as const
+      ));
       setFormError(handleAccountError(saveError, "A mentés nem sikerült.") ?? "");
     } finally {
       setIsSaving(false);

@@ -113,11 +113,13 @@ export default function AdminProductFormModal({ product, onClose, onSaved }: Pro
   const [conflict, setConflict] = useState(false);
   const [previousForm, setPreviousForm] = useState<FormState | null>(null);
   async function reloadCurrent() {
-    if (!product) return;
+    if (!product)
+      return;
     setSaving(true);
     try {
       const current = await getProductById(product.id);
-      if (!current) throw new Error("A termék már nem érhető el.");
+      if (!current)
+        throw new Error("A termék már nem érhető el.");
       setPreviousForm(form); setForm(initialState(current)); setVersion(current.version);
       setImageFile(null); setConflict(false); setFormError(null); setFieldErrors({});
     } catch (error) { setFormError(getErrorMessage(error, "A frissítés nem sikerült.")); }
@@ -145,49 +147,59 @@ export default function AdminProductFormModal({ product, onClose, onSaved }: Pro
   const shouldShowPreview = Boolean(previewUrl) && (isSelectedImagePreview || !previewFailed);
   const shouldShowDefaultPreview = Boolean(savedImagePreviewUrl) && !isSelectedImagePreview && previewFailed && !defaultPreviewFailed;
 
-  useEffect(() => {
-    setPreviewFailed(false);
-    setDefaultPreviewFailed(false);
-  }, [previewUrl]);
-
-  useModalFocus(modalRef, {
-    isOpen: true,
-    onClose: () => {
-      if (!saving) onClose();
+  useEffect(
+    () => {
+      setPreviewFailed(false);
+      setDefaultPreviewFailed(false);
     },
-  });
+    [previewUrl]
+  );
 
-  useEffect(() => {
-    if (!imageFile) {
-      setSelectedImagePreviewUrl("");
-      return;
+  useModalFocus(
+    modalRef,
+    {
+      isOpen: true,
+      onClose: () => {
+        if (!saving)
+          onClose();
+      },
     }
+  );
 
-    let cancelled = false;
-    const reader = new FileReader();
-
-    reader.onload = () => {
-      if (!cancelled && typeof reader.result === "string") {
-        setSelectedImagePreviewUrl(reader.result);
-      }
-    };
-
-    reader.onerror = () => {
-      if (!cancelled) {
+  useEffect(
+    () => {
+      if (!imageFile) {
         setSelectedImagePreviewUrl("");
-        setPreviewFailed(true);
+        return;
       }
-    };
 
-    reader.readAsDataURL(imageFile);
+      let cancelled = false;
+      const reader = new FileReader();
 
-    return () => {
-      cancelled = true;
-      if (reader.readyState === FileReader.LOADING) {
-        reader.abort();
-      }
-    };
-  }, [imageFile]);
+      reader.onload = () => {
+        if (!cancelled && typeof reader.result === "string") {
+          setSelectedImagePreviewUrl(reader.result);
+        }
+      };
+
+      reader.onerror = () => {
+        if (!cancelled) {
+          setSelectedImagePreviewUrl("");
+          setPreviewFailed(true);
+        }
+      };
+
+      reader.readAsDataURL(imageFile);
+
+      return () => {
+        cancelled = true;
+        if (reader.readyState === FileReader.LOADING) {
+          reader.abort();
+        }
+      };
+    },
+    [imageFile]
+  );
 
   function update<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((current) => ({ ...current, [key]: value }));
@@ -208,10 +220,11 @@ export default function AdminProductFormModal({ product, onClose, onSaved }: Pro
   }
 
   function renderFieldError(field: ProductInvalidField) {
-    if (!fieldErrors[field]) return null;
+    if (!fieldErrors[field])
+      return null;
 
     return (
-      <p id={getErrorId(field)} className="mt-1 text-xs font-semibold text-site-danger">
+      <p id={getErrorId(field)} className="mt-1 text-xs font-normal text-site-danger">
         {fieldErrors[field]}
       </p>
     );
@@ -219,7 +232,8 @@ export default function AdminProductFormModal({ product, onClose, onSaved }: Pro
 
   function clearFieldError(field: ProductInvalidField) {
     setFieldErrors((current) => {
-      if (!current[field]) return current;
+      if (!current[field])
+        return current;
       const next = { ...current };
       delete next[field];
       return next;
@@ -263,7 +277,8 @@ export default function AdminProductFormModal({ product, onClose, onSaved }: Pro
 
   async function submit(event: FormEvent) {
     event.preventDefault();
-    if (saving || conflict) return;
+    if (saving || conflict)
+      return;
     setFormError(null);
     setFieldErrors({});
 
@@ -331,8 +346,12 @@ export default function AdminProductFormModal({ product, onClose, onSaved }: Pro
 
       onSaved(product ? "A termék módosítása sikerült." : "Az új termék létrehozása sikerült.");
     } catch (saveError) {
-      if (hasErrorStatus(saveError, 409)) setConflict(true);
-      setFieldErrors(getServerFieldErrors(saveError, ["name", "price", "stockQuantity", "unitAmount", "image"] as const));
+      if (hasErrorStatus(saveError, 409))
+        setConflict(true);
+      setFieldErrors(getServerFieldErrors(
+        saveError,
+        ["name", "price", "stockQuantity", "unitAmount", "image"] as const
+      ));
       setFormError(getErrorMessage(saveError, "A mentés nem sikerült. Kérjük, ellenőrizd a megadott adatokat."));
     } finally {
       setSaving(false);

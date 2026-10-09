@@ -2,14 +2,12 @@ using Biogarden.BusinessLogic.Services;
 
 namespace Biogarden.WebApi.Services;
 
-public sealed class NotificationEmailWorker(
-    IServiceScopeFactory scopeFactory,
-    IConfiguration configuration,
-    ILogger<NotificationEmailWorker> logger) : BackgroundService
+public sealed class NotificationEmailWorker(IServiceScopeFactory scopeFactory, IConfiguration configuration, ILogger<NotificationEmailWorker> logger) : BackgroundService
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        if (!configuration.GetValue("NotificationEmailOutbox:Enabled", true)) return;
+        if (!configuration.GetValue("NotificationEmailOutbox:Enabled", true))
+            return;
 
         while (!stoppingToken.IsCancellationRequested)
         {
@@ -17,7 +15,8 @@ public sealed class NotificationEmailWorker(
             {
                 using var scope = scopeFactory.CreateScope();
                 var dispatcher = scope.ServiceProvider.GetRequiredService<NotificationEmailDispatcher>();
-                if (await dispatcher.DispatchNextAsync(stoppingToken)) continue;
+                if (await dispatcher.DispatchNextAsync(stoppingToken))
+                    continue;
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
             {

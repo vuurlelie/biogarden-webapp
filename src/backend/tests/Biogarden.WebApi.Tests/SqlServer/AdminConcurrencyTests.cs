@@ -21,12 +21,12 @@ public sealed class AdminConcurrencyTests : IAsyncLifetime
     private async Task<(int ProductId, OrderDto Order, string ProductVersion)> PurchaseAsync()
     {
         using var client = _app.Factory.CreateClient();
-        await using var db = _app.OpenDatabase();
+        await using var databaseContext = _app.OpenDatabase();
         var product = new Product { Name = "Concurrency tea", Price = 900, Available = true, StockQuantity = 3 };
-        db.Products.Add(product);
-        await db.SaveChangesAsync();
+        databaseContext.Products.Add(product);
+        await databaseContext.SaveChangesAsync();
         (await client.PostAsJsonAsync("/api/cart/items", new AddCartItemDto { ProductId = product.Id, Quantity = 1 })).EnsureSuccessStatusCode();
-        var beforeCheckout = Convert.ToBase64String((await db.Products.AsNoTracking().SingleAsync()).RowVersion);
+        var beforeCheckout = Convert.ToBase64String((await databaseContext.Products.AsNoTracking().SingleAsync()).RowVersion);
         var request = new PlaceOrderDto
         {
             IdempotencyKey = Guid.NewGuid().ToString("N"),
@@ -56,16 +56,16 @@ public sealed class AdminConcurrencyTests : IAsyncLifetime
         else
             await Assert.ThrowsAsync<InvalidOperationException>(() => scope.ServiceProvider.GetRequiredService<IProductService>()
                 .UpdateAsync(id, new ProductEditDto { Version = version, Name = "Old form", Price = 900, StockQuantity = 3, Available = true }));
-        await using var db = _app.OpenDatabase();
-        Assert.Equal(2, (await db.Products.SingleAsync()).StockQuantity);
+        await using var databaseContext = _app.OpenDatabase();
+        Assert.Equal(2, (await databaseContext.Products.SingleAsync()).StockQuantity);
     }
 
     [SqlServerFact]
     public async Task FormOpenedBeforeVerifiedPaymentCannotErasePaymentAndFreshVersionCanAdvanceStatus()
     {
         var (_, order, _) = await PurchaseAsync();
-        await using var db = _app.OpenDatabase();
-        await db.Orders.Where(x => x.Id == order.Id).ExecuteUpdateAsync(x => x.SetProperty(o => o.SumUpCheckoutId, "verified-checkout"));
+        await using var databaseContext = _app.OpenDatabase();
+        await databaseContext.Orders.Where(candidateOrder => candidateOrder.Id == order.Id).ExecuteUpdateAsync(updateSettersBuilder => updateSettersBuilder.SetProperty(orderToUpdate => orderToUpdate.SumUpCheckoutId, "verified-checkout"));
         using (var paymentScope = _app.Factory.Services.CreateScope())
             await paymentScope.ServiceProvider.GetRequiredService<IOrderService>().ConfirmSumUpCheckoutAsync("verified-checkout", "transaction", order.TotalPrice, "HUF");
         using var scope = _app.Factory.Services.CreateScope();
@@ -79,15 +79,15 @@ public sealed class AdminConcurrencyTests : IAsyncLifetime
         Assert.Equal(PaymentStatus.Paid, saved.PaymentStatus);
         await Assert.ThrowsAsync<InvalidOperationException>(() => service.UpdateAsync(order.Id,
             new AdminOrderUpdateDto { Version = fresh.Version, Status = OrderStatus.Completed, PaymentStatus = PaymentStatus.Paid }));
-        Assert.Equal(OrderStatus.Shipped, (await db.Orders.AsNoTracking().SingleAsync()).Status);
+        Assert.Equal(OrderStatus.Shipped, (await databaseContext.Orders.AsNoTracking().SingleAsync()).Status);
     }
 
     [SqlServerFact]
     public async Task PaymentCorrectionRequiresActorReasonAndCommitsAuditAtomically()
     {
         var (_, order, _) = await PurchaseAsync();
-        await using var db = _app.OpenDatabase();
-        await db.Orders.Where(x => x.Id == order.Id).ExecuteUpdateAsync(x => x.SetProperty(o => o.PaymentMethod, OrderPaymentMethod.PayAtPickup));
+        await using var databaseContext = _app.OpenDatabase();
+        await databaseContext.Orders.Where(candidateOrder => candidateOrder.Id == order.Id).ExecuteUpdateAsync(updateSettersBuilder => updateSettersBuilder.SetProperty(orderToUpdate => orderToUpdate.PaymentMethod, OrderPaymentMethod.PayAtPickup));
         var actor = Guid.NewGuid();
         async Task<OrderDto> CorrectAsync(Guid? actorId, string? reason, bool advanceStatus)
         {
@@ -106,17 +106,17 @@ public sealed class AdminConcurrencyTests : IAsyncLifetime
         await Assert.ThrowsAsync<ArgumentException>(() => CorrectAsync(actor, " ", false));
         _app.QueueFailure.Enabled = true;
         await Assert.ThrowsAsync<InvalidOperationException>(() => CorrectAsync(actor, "Cash received", true));
-        Assert.Empty(await db.OrderPaymentCorrections.ToListAsync());
-        Assert.Equal(PaymentStatus.Pending, (await db.Orders.AsNoTracking().SingleAsync()).PaymentStatus);
+        Assert.Empty(await databaseContext.OrderPaymentCorrections.ToListAsync());
+        Assert.Equal(PaymentStatus.Pending, (await databaseContext.Orders.AsNoTracking().SingleAsync()).PaymentStatus);
         _app.QueueFailure.Enabled = false;
         await CorrectAsync(actor, "Cash received", true);
         await CorrectAsync(actor, "Retry", true);
-        var audit = Assert.Single(await db.OrderPaymentCorrections.ToListAsync());
+        var audit = Assert.Single(await databaseContext.OrderPaymentCorrections.ToListAsync());
         Assert.Equal(actor, audit.ActorId);
         Assert.Equal("Cash received", audit.Reason);
         Assert.Equal(PaymentStatus.Pending, audit.PreviousStatus);
         Assert.Equal(PaymentStatus.Paid, audit.NewStatus);
-        Assert.Equal(PaymentStatus.Paid, (await db.Orders.AsNoTracking().SingleAsync()).PaymentStatus);
+        Assert.Equal(PaymentStatus.Paid, (await databaseContext.Orders.AsNoTracking().SingleAsync()).PaymentStatus);
     }
 
     [SqlServerTheory]
@@ -128,7 +128,7 @@ public sealed class AdminConcurrencyTests : IAsyncLifetime
         if (paid)
         {
             await using var setup = _app.OpenDatabase();
-            await setup.Orders.Where(x => x.Id == order.Id).ExecuteUpdateAsync(x => x.SetProperty(o => o.PaymentStatus, PaymentStatus.Paid));
+            await setup.Orders.Where(candidateOrder => candidateOrder.Id == order.Id).ExecuteUpdateAsync(updateSettersBuilder => updateSettersBuilder.SetProperty(orderToUpdate => orderToUpdate.PaymentStatus, PaymentStatus.Paid));
             using var scope = _app.Factory.Services.CreateScope();
             order = (await scope.ServiceProvider.GetRequiredService<IAdminOrderService>().GetPageAsync(new())).Items.Single();
         }
@@ -153,20 +153,20 @@ public sealed class AdminConcurrencyTests : IAsyncLifetime
         var results = await Task.WhenAll(first, second);
         Assert.Single(results, result => result is null);
         Assert.Single(results, result => result is DbUpdateConcurrencyException);
-        await using var db = _app.OpenDatabase();
-        Assert.Equal(3, (await db.Products.SingleAsync()).StockQuantity);
-        Assert.False((await db.Orders.SingleAsync()).StockCommitted);
-        Assert.Equal(1, await db.OrderEmails.CountAsync(x => x.Kind == "status"));
-        Assert.Equal(paid ? 1 : 0, await db.OrderPaymentCorrections.CountAsync());
-        Assert.Equal(paid ? PaymentStatus.RefundPending : PaymentStatus.Pending, (await db.Orders.SingleAsync()).PaymentStatus);
+        await using var databaseContext = _app.OpenDatabase();
+        Assert.Equal(3, (await databaseContext.Products.SingleAsync()).StockQuantity);
+        Assert.False((await databaseContext.Orders.SingleAsync()).StockCommitted);
+        Assert.Equal(1, await databaseContext.OrderEmails.CountAsync(orderEmail => orderEmail.Kind == "status"));
+        Assert.Equal(paid ? 1 : 0, await databaseContext.OrderPaymentCorrections.CountAsync());
+        Assert.Equal(paid ? PaymentStatus.RefundPending : PaymentStatus.Pending, (await databaseContext.Orders.SingleAsync()).PaymentStatus);
     }
 
     [SqlServerFact]
     public async Task LegacyUncommittedOrderCannotConsumeAnotherCartsReservation()
     {
         var (id, order, _) = await PurchaseAsync();
-        await using var db = _app.OpenDatabase();
-        await db.Orders.Where(x => x.Id == order.Id).ExecuteUpdateAsync(x => x.SetProperty(o => o.StockCommitted, false));
+        await using var databaseContext = _app.OpenDatabase();
+        await databaseContext.Orders.Where(candidateOrder => candidateOrder.Id == order.Id).ExecuteUpdateAsync(updateSettersBuilder => updateSettersBuilder.SetProperty(orderToUpdate => orderToUpdate.StockCommitted, false));
         using var customer = _app.Factory.CreateClient();
         (await customer.PostAsJsonAsync("/api/cart/items", new AddCartItemDto { ProductId = id, Quantity = 2 })).EnsureSuccessStatusCode();
         using var scope = _app.Factory.Services.CreateScope();
@@ -174,19 +174,19 @@ public sealed class AdminConcurrencyTests : IAsyncLifetime
         var fresh = (await service.GetPageAsync(new())).Items.Single();
         await Assert.ThrowsAsync<InvalidOperationException>(() => service.UpdateAsync(order.Id,
             new AdminOrderUpdateDto { Version = fresh.Version, Status = OrderStatus.Confirmed, PaymentStatus = PaymentStatus.Pending }));
-        Assert.Equal(2, (await db.Products.SingleAsync()).StockQuantity);
-        Assert.Equal(OrderStatus.Pending, (await db.Orders.AsNoTracking().SingleAsync()).Status);
-        Assert.Equal(2, await db.OrderEmails.CountAsync());
+        Assert.Equal(2, (await databaseContext.Products.SingleAsync()).StockQuantity);
+        Assert.Equal(OrderStatus.Pending, (await databaseContext.Orders.AsNoTracking().SingleAsync()).Status);
+        Assert.Equal(2, await databaseContext.OrderEmails.CountAsync());
     }
 
     [SqlServerFact]
     public async Task CancelledPartialRefundCanBeCompletedWithoutReopeningRefundOrRestoringStockAgain()
     {
         var (_, order, _) = await PurchaseAsync();
-        await using var db = _app.OpenDatabase();
-        await db.Orders.Where(x => x.Id == order.Id).ExecuteUpdateAsync(x => x
-            .SetProperty(o => o.Status, OrderStatus.Cancelled).SetProperty(o => o.PaymentStatus, PaymentStatus.PartiallyRefunded)
-            .SetProperty(o => o.StockCommitted, false));
+        await using var databaseContext = _app.OpenDatabase();
+        await databaseContext.Orders.Where(candidateOrder => candidateOrder.Id == order.Id).ExecuteUpdateAsync(updateSettersBuilder => updateSettersBuilder
+            .SetProperty(orderToUpdate => orderToUpdate.Status, OrderStatus.Cancelled).SetProperty(orderToUpdate => orderToUpdate.PaymentStatus, PaymentStatus.PartiallyRefunded)
+            .SetProperty(orderToUpdate => orderToUpdate.StockCommitted, false));
         using var scope = _app.Factory.Services.CreateScope();
         var service = scope.ServiceProvider.GetRequiredService<IAdminOrderService>();
         var fresh = (await service.GetPageAsync(new())).Items.Single();
@@ -198,8 +198,8 @@ public sealed class AdminConcurrencyTests : IAsyncLifetime
             PaymentCorrectionReason = "Remaining refund completed"
         }, actorId: Guid.NewGuid());
         Assert.Equal(PaymentStatus.Refunded, saved.PaymentStatus);
-        Assert.Equal(2, (await db.Products.SingleAsync()).StockQuantity);
-        Assert.Single(await db.OrderPaymentCorrections.ToListAsync());
-        Assert.Equal(2, await db.OrderEmails.CountAsync());
+        Assert.Equal(2, (await databaseContext.Products.SingleAsync()).StockQuantity);
+        Assert.Single(await databaseContext.OrderPaymentCorrections.ToListAsync());
+        Assert.Equal(2, await databaseContext.OrderEmails.CountAsync());
     }
 }

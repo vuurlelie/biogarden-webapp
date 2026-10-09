@@ -27,30 +27,30 @@ public sealed class CheckoutDraftsController(CheckoutDraftService drafts) : Cont
     [HttpGet("{cartId:guid}")]
     [ProducesResponseType(typeof(CheckoutDraftDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public Task<CheckoutDraftDto> Read(Guid cartId, CancellationToken ct)
-        => drafts.ReadAsync(cartId, UserId, GuestId, Session, ct);
+    public Task<CheckoutDraftDto> Read(Guid cartId, CancellationToken cancellationToken)
+        => drafts.ReadAsync(cartId, UserId, GuestId, Session, cancellationToken);
 
     [HttpPut("{cartId:guid}")]
     [ProducesResponseType(typeof(CheckoutDraftDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
-    public Task<CheckoutDraftDto> Save(Guid cartId, SaveCheckoutDraftDto request, CancellationToken ct)
-        => drafts.SaveAsync(cartId, UserId, GuestId, Session, request, ct);
+    public Task<CheckoutDraftDto> Save(Guid cartId, SaveCheckoutDraftDto request, CancellationToken cancellationToken)
+        => drafts.SaveAsync(cartId, UserId, GuestId, Session, request, cancellationToken);
 
     [HttpDelete("{cartId:guid}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
-    public async Task<IActionResult> Delete(Guid cartId, [FromQuery] Guid? version, CancellationToken ct)
+    public async Task<IActionResult> Delete(Guid cartId, [FromQuery] Guid? version, CancellationToken cancellationToken)
     {
-        await drafts.DeleteAsync(cartId, UserId, GuestId, Session, version, ct);
+        await drafts.DeleteAsync(cartId, UserId, GuestId, Session, version, cancellationToken);
         return NoContent();
     }
 
     [Authorize]
     [HttpDelete("session")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
-    public async Task<IActionResult> EndSession(CancellationToken ct)
+    public async Task<IActionResult> EndSession(CancellationToken cancellationToken)
     {
-        await drafts.ClearSessionAsync(UserId!.Value, Session, ct);
+        await drafts.ClearSessionAsync(UserId!.Value, Session, cancellationToken);
         return NoContent();
     }
 }

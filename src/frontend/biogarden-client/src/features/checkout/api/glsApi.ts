@@ -18,10 +18,12 @@ export async function resolveGlsPoint(id: string, type: GlsPointMethod, signal: 
     cache: "no-store", signal, fallbackMessage: "A GLS átvételi pont ellenőrzése nem sikerült. Próbáld újra, vagy válassz másik átvételi módot.",
   });
   const point = await response.json() as GlsDeliveryPoint;
+
   if (!point || point.id !== id || point.type !== type || point.countryCode !== "HU"
     || ![point.name, point.postalCode, point.city, point.address].every(value => typeof value === "string" && value.length > 0)
     || typeof point.acceptsCash !== "boolean" || typeof point.acceptsCard !== "boolean") {
     throw new Error("A GLS átvételi pont adatai nem érvényesek. Válassz új pontot.");
   }
+
   return point;
 }

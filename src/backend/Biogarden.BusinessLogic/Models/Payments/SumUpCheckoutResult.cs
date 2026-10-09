@@ -8,4 +8,5 @@ public sealed record SumUpCheckoutResult(
     decimal? Amount = null,
     string? Currency = null,
     string? CheckoutReference = null,
-    string? MerchantCode = null);
+    string? MerchantCode = null
+);

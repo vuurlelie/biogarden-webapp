@@ -3,7 +3,10 @@ import { PRICE } from "../utils/checkoutFormatting";
 export type PriceSnapshot = { subtotal?: number | null; deliveryFee?: number | null; paymentFee?: number | null; totalPrice: number; currency?: string | null };
 export function PriceBreakdown({ price }: { price: PriceSnapshot }) {
   const format = (value: number) => price.currency && price.currency !== "HUF"
-    ? new Intl.NumberFormat("hu-HU", { style: "currency", currency: price.currency }).format(value) : PRICE.format(value);
+    ? new Intl.NumberFormat(
+      "hu-HU",
+      { style: "currency", currency: price.currency }
+    ).format(value) : PRICE.format(value);
   return <dl className="space-y-2" aria-label="Árösszesítés">
     {price.subtotal != null && <div className="flex justify-between gap-3"><dt>Termékek összege</dt><dd>{format(price.subtotal)}</dd></div>}
     {price.deliveryFee != null && <div className="flex justify-between gap-3"><dt>Szállítási díj</dt><dd>{format(price.deliveryFee)}</dd></div>}

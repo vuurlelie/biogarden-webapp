@@ -4,13 +4,7 @@ import type { CheckoutDraft, FulfillmentMethod } from "../types/checkout.types";
 import { FULFILLMENT, isGlsMethod } from "../constants/fulfillment";
 import type { CheckoutQuote } from "../api/checkoutPricingApi";
 
-export function buildCheckoutOrderRequest(
-  draft: CheckoutDraft,
-  effectiveCustomerType: 0 | 1,
-  method: FulfillmentMethod,
-  cartId: string,
-  quote: CheckoutQuote,
-): CreateOrderRequest {
+export function buildCheckoutOrderRequest(draft: CheckoutDraft, effectiveCustomerType: 0 | 1, method: FulfillmentMethod, cartId: string, quote: CheckoutQuote): CreateOrderRequest {
   return {
     idempotencyKey: cartId.replaceAll("-", ""),
     fulfillmentMethod: method,

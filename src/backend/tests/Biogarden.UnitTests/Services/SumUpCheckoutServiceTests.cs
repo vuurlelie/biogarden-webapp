@@ -26,16 +26,9 @@ public sealed class SumUpCheckoutServiceTests
         SumUpCreateCheckoutRequest? capturedRequest = null;
 
         _checkoutClient
-            .Setup(client => client.CreateAsync(
-                It.IsAny<SumUpCreateCheckoutRequest>(),
-                "sumup_api_key",
-                It.Is<Uri>(uri => uri.ToString() == "https://api.sumup.com/"),
-                It.IsAny<CancellationToken>()))
+            .Setup(client => client.CreateAsync(It.IsAny<SumUpCreateCheckoutRequest>(), "sumup_api_key", It.Is<Uri>(uri => uri.ToString() == "https://api.sumup.com/"), It.IsAny<CancellationToken>()))
             .Callback<SumUpCreateCheckoutRequest, string, Uri, CancellationToken>((request, _, _, _) => capturedRequest = request)
-            .ReturnsAsync(new SumUpCheckoutResult(
-                "checkout_123",
-                "PENDING",
-                "https://checkout.sumup.com/pay/checkout_123"));
+            .ReturnsAsync(new SumUpCheckoutResult("checkout_123", "PENDING", "https://checkout.sumup.com/pay/checkout_123"));
 
         var service = CreateService(new SumUpOptions
         {
@@ -74,13 +67,7 @@ public sealed class SumUpCheckoutServiceTests
             service.CreateCheckoutAsync(CreateOrder()));
 
         Assert.Equal("SumUp checkout is not enabled.", exception.Message);
-        _checkoutClient.Verify(
-            client => client.CreateAsync(
-                It.IsAny<SumUpCreateCheckoutRequest>(),
-                It.IsAny<string>(),
-                It.IsAny<Uri>(),
-                It.IsAny<CancellationToken>()),
-            Times.Never);
+        _checkoutClient.Verify(client => client.CreateAsync(It.IsAny<SumUpCreateCheckoutRequest>(), It.IsAny<string>(), It.IsAny<Uri>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]
@@ -123,18 +110,63 @@ public sealed class SumUpCheckoutServiceTests
     public async Task LegacyOrderKeepsExistingOnlinePaymentPath()
     {
         var order = CreateOrder();
-        _checkoutClient.Setup(client => client.CreateAsync(It.Is<SumUpCreateCheckoutRequest>(request => request.Amount == order.TotalPrice && request.Currency == "HUF"),
-            It.IsAny<string>(), It.IsAny<Uri>(), It.IsAny<CancellationToken>()))
+        _checkoutClient.Setup(client => client.CreateAsync(
+            It.Is<SumUpCreateCheckoutRequest>(request => request.Amount == order.TotalPrice && request.Currency == "HUF"),
+            It.IsAny<string>(),
+            It.IsAny<Uri>(),
+            It.IsAny<CancellationToken>()
+        ))
             .ReturnsAsync(new SumUpCheckoutResult("legacy", "PENDING", "https://example.com/pay"));
         await CreateService(new SumUpOptions { Enabled = true }).CreateCheckoutAsync(order);
         _checkoutClient.VerifyAll();
     }
 
+    [Fact]
+    public async Task EmptyOrderCannotStartProviderCheckout()
+    {
+        var order = CreateOrder();
+        order.Items.Clear();
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => CreateService(new SumUpOptions { Enabled = true }).CreateCheckoutAsync(order));
+
+        _checkoutClient.VerifyNoOtherCalls();
+    }
+
+    [Fact]
+    public async Task MissingHostedUrlIsRejectedInsteadOfReturningAnUnusableCheckout()
+    {
+        _checkoutClient.Setup(client => client.CreateAsync(It.IsAny<SumUpCreateCheckoutRequest>(), It.IsAny<string>(), It.IsAny<Uri>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new SumUpCheckoutResult("checkout-without-url", "PENDING", ""));
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => CreateService(new SumUpOptions { Enabled = true }).CreateCheckoutAsync(CreateOrder()));
+
+        _checkoutClient.VerifyAll();
+    }
+
+    [Fact]
+    public async Task DisabledProviderCannotBeQueriedForStatusOrRecovery()
+    {
+        var service = CreateService(new SumUpOptions { Enabled = false });
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => service.GetCheckoutAsync("checkout-id"));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => service.FindCheckoutsAsync("reference"));
+
+        _checkoutClient.VerifyNoOtherCalls();
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("  ")]
+    public async Task EmptyCheckoutIdIsRejectedBeforeProviderAccess(string checkoutId)
+    {
+        await Assert.ThrowsAsync<ArgumentException>(() => CreateService(new SumUpOptions { Enabled = true }).GetCheckoutAsync(checkoutId));
+
+        _checkoutClient.VerifyNoOtherCalls();
+    }
+
     private SumUpCheckoutService CreateService(SumUpOptions options)
     {
-        return new SumUpCheckoutService(
-            Options.Create(options),
-            _checkoutClient.Object);
+        return new SumUpCheckoutService(Options.Create(options), _checkoutClient.Object);
     }
 
     private static OrderDto CreateOrder()

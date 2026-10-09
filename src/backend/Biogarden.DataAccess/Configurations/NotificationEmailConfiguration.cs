@@ -6,17 +6,17 @@ namespace Biogarden.DataAccess.Configurations;
 
 public sealed class NotificationEmailConfiguration : IEntityTypeConfiguration<NotificationEmail>
 {
-    public void Configure(EntityTypeBuilder<NotificationEmail> builder)
+    public void Configure(EntityTypeBuilder<NotificationEmail> notificationEmailBuilder)
     {
-        builder.HasKey(x => x.Id);
-        builder.Property(x => x.Kind).HasMaxLength(40);
-        builder.Property(x => x.RequestHash).HasMaxLength(64);
-        builder.Property(x => x.SecurityStamp).HasMaxLength(256);
-        builder.Property(x => x.Recipient).HasMaxLength(320);
-        builder.Property(x => x.Subject).HasMaxLength(998);
-        builder.Property(x => x.Outcome).HasMaxLength(20);
-        builder.HasIndex(x => new { x.EventId, x.Kind }).IsUnique();
-        builder.HasIndex(x => new { x.CompletedAtUtc, x.NextAttemptAtUtc });
+        notificationEmailBuilder.HasKey(notificationEmail => notificationEmail.Id);
+        notificationEmailBuilder.Property(notificationEmail => notificationEmail.Kind).HasMaxLength(40);
+        notificationEmailBuilder.Property(notificationEmail => notificationEmail.RequestHash).HasMaxLength(64);
+        notificationEmailBuilder.Property(notificationEmail => notificationEmail.SecurityStamp).HasMaxLength(256);
+        notificationEmailBuilder.Property(notificationEmail => notificationEmail.Recipient).HasMaxLength(320);
+        notificationEmailBuilder.Property(notificationEmail => notificationEmail.Subject).HasMaxLength(998);
+        notificationEmailBuilder.Property(notificationEmail => notificationEmail.Outcome).HasMaxLength(20);
+        notificationEmailBuilder.HasIndex(notificationEmail => new { notificationEmail.EventId, notificationEmail.Kind }).IsUnique();
+        notificationEmailBuilder.HasIndex(notificationEmail => new { notificationEmail.CompletedAtUtc, notificationEmail.NextAttemptAtUtc });
         // No user FK: the final deletion notification must survive deletion of the account.
     }
 }

@@ -70,11 +70,16 @@ public sealed class ManagedImageStorage(IWebHostEnvironment environment)
             var hasWarning = false;
             decoded.Warning += (_, _) => hasWarning = true;
             decoded.Ping(data, settings);
+
             if (decoded.Width == 0 || decoded.Height == 0 || decoded.Width > MaximumDimension ||
                 decoded.Height > MaximumDimension || (ulong)decoded.Width * decoded.Height > MaximumPixels)
+            {
                 throw new ArgumentException("A kép legfeljebb 4096 × 4096 képpont és 16 megapixel lehet.");
+            }
+
             decoded.Read(data, settings);
-            if (hasWarning) throw new ArgumentException("A kép sérült vagy nem teljes.");
+            if (hasWarning)
+                throw new ArgumentException("A kép sérült vagy nem teljes.");
             decoded.AutoOrient();
             decoded.Strip();
 
@@ -83,7 +88,7 @@ public sealed class ManagedImageStorage(IWebHostEnvironment environment)
             var fileName = $"{imageId}-r{decoded.Width}{extension}";
             // The -r<width> marker guarantees that these bounded variants exist.
             // Legacy filenames have no marker and remain single-source images.
-            foreach (var width in new uint[] { 480, 960, 1600 }.Select(x => Math.Min(x, decoded.Width)).Distinct())
+            foreach (var width in new uint[] { 480, 960, 1600 }.Select(targetWidth => Math.Min(targetWidth, decoded.Width)).Distinct())
             {
                 using var variant = decoded.Clone();
                 variant.Resize(width, 0);
@@ -124,8 +129,10 @@ public sealed class ManagedImageStorage(IWebHostEnvironment environment)
         {
             try
             {
-                if (temporaryPath is not null) File.Delete(temporaryPath);
-                if (!completed) foreach (var path in publishedVariants) File.Delete(path);
+                if (temporaryPath is not null)
+                    File.Delete(temporaryPath);
+                if (!completed)
+                    foreach (var path in publishedVariants) File.Delete(path);
             }
             finally { DecodeGate.Release(); }
         }

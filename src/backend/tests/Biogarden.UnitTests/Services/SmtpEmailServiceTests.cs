@@ -11,10 +11,7 @@ public sealed class SmtpEmailServiceTests
     [Fact]
     public async Task SendAsync_WhenEmailSendingIsDisabled_WritesPreviewWithoutSmtpConfiguration()
     {
-        var previewDirectory = Path.Combine(
-            Path.GetTempPath(),
-            "biogarden-email-tests",
-            Guid.NewGuid().ToString("N"));
+        var previewDirectory = Path.Combine(Path.GetTempPath(), "biogarden-email-tests", Guid.NewGuid().ToString("N"));
 
         var service = CreateService(new EmailOptions
         {
@@ -35,9 +32,7 @@ public sealed class SmtpEmailServiceTests
 
         Assert.True(File.Exists(latestHtmlPath));
         Assert.True(File.Exists(latestTextPath));
-        Assert.Contains(
-            "Ez egy teszt email.",
-            await File.ReadAllTextAsync(latestTextPath));
+        Assert.Contains("Ez egy teszt email.", await File.ReadAllTextAsync(latestTextPath));
     }
 
     [Fact]
@@ -59,9 +54,7 @@ public sealed class SmtpEmailServiceTests
                 PlainTextBody = "Ez egy teszt email."
             }));
 
-        Assert.Equal(
-            "Email sending is enabled, but Email:SmtpHost is not configured.",
-            exception.Message);
+        Assert.Equal("Email sending is enabled, but Email:SmtpHost is not configured.", exception.Message);
     }
 
     [Fact]
@@ -106,9 +99,7 @@ public sealed class SmtpEmailServiceTests
         var exception = Assert.Throws<InvalidOperationException>(
             options.ValidateForStartup);
 
-        Assert.Equal(
-            "Email sending is disabled, but Email:DisabledDeliveryPreviewDirectory is not configured.",
-            exception.Message);
+        Assert.Equal("Email sending is disabled, but Email:DisabledDeliveryPreviewDirectory is not configured.", exception.Message);
     }
 
     [Fact]
@@ -122,9 +113,7 @@ public sealed class SmtpEmailServiceTests
         var exception = Assert.Throws<InvalidOperationException>(
             options.ValidateForStartup);
 
-        Assert.Equal(
-            "AuthEmail:ClientBaseUrl must be an absolute HTTP or HTTPS URL.",
-            exception.Message);
+        Assert.Equal("AuthEmail:ClientBaseUrl must be an absolute HTTP or HTTPS URL.", exception.Message);
     }
 
     [Fact]
@@ -138,15 +127,11 @@ public sealed class SmtpEmailServiceTests
         var exception = Assert.Throws<InvalidOperationException>(
             options.ValidateForStartup);
 
-        Assert.Equal(
-            "EmailBranding:ContactEmail must be a valid email address.",
-            exception.Message);
+        Assert.Equal("EmailBranding:ContactEmail must be a valid email address.", exception.Message);
     }
 
     private static SmtpEmailService CreateService(EmailOptions options)
     {
-        return new SmtpEmailService(
-            Options.Create(options),
-            NullLogger<SmtpEmailService>.Instance);
+        return new SmtpEmailService(Options.Create(options), NullLogger<SmtpEmailService>.Instance);
     }
 }

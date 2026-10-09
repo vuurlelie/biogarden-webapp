@@ -24,8 +24,8 @@ public sealed class ResponseStatusTests
     [InlineData("reset-password", "{\"userId\":\"00000000-0000-0000-0000-000000000001\",\"token\":\"test-token\",\"password\":\"Password123!\",\"confirmPassword\":\"Password123!\"}", HttpStatusCode.NoContent)]
     public async Task SuccessfulAuthCommand_ReturnsExpectedStatusWithoutBody(string action, string json, HttpStatusCode status)
     {
-        using var factory = new BiogardenWebApiFactory().WithWebHostBuilder(builder =>
-            builder.ConfigureTestServices(services =>
+        using var factory = new BiogardenWebApiFactory().WithWebHostBuilder(webHostBuilder =>
+            webHostBuilder.ConfigureTestServices(services =>
             {
                 services.RemoveAll<IAuthService>();
                 services.AddSingleton<IAuthService, SuccessfulAuthService>();
@@ -70,9 +70,9 @@ public sealed class ResponseStatusTests
     private sealed class LifecycleService(AccountLifecycleRequestStatus state) : IUserService
     {
         public Task<UserProfileDto?> GetProfileAsync(Guid userId) => throw new NotSupportedException();
-        public Task UpdateProfileAsync(Guid userId, UpdateUserProfileDto dto) => throw new NotSupportedException();
+        public Task UpdateProfileAsync(Guid userId, UpdateUserProfileDto updateUserProfile) => throw new NotSupportedException();
         public Task<UserAddressesDto?> GetAddressesAsync(Guid userId) => throw new NotSupportedException();
-        public Task UpdateAddressesAsync(Guid userId, UpdateUserAddressesDto dto) => throw new NotSupportedException();
+        public Task UpdateAddressesAsync(Guid userId, UpdateUserAddressesDto updateUserAddresses) => throw new NotSupportedException();
         public Task<AccountLifecycleResultDto> RequestAccountLifecycleAsync(Guid userId, AccountLifecycleRequestDto request, CancellationToken cancellationToken = default)
             => Task.FromResult(new AccountLifecycleResultDto { Status = state, Message = "Test outcome" });
     }

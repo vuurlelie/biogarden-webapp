@@ -22,9 +22,12 @@ const UNIT_LABELS: Record<UnitOfMeasure, string> = {
   6: "üveg",
 };
 
-const PRICE_FORMATTER = new Intl.NumberFormat("hu-HU", {
-  maximumFractionDigits: 2,
-});
+const PRICE_FORMATTER = new Intl.NumberFormat(
+  "hu-HU",
+  {
+    maximumFractionDigits: 2,
+  }
+);
 
 export function getProductCategoryLabel(category: ProductCategory): string {
   return CATEGORY_LABELS[category];

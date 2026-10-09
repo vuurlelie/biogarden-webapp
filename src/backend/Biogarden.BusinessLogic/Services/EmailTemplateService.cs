@@ -11,6 +11,12 @@ namespace Biogarden.BusinessLogic.Services;
 
 public sealed class EmailTemplateService : IEmailTemplateService
 {
+    private static readonly TimeZoneInfo BudapestTimeZone = TimeZoneInfo.FindSystemTimeZoneById("Europe/Budapest");
+
+    private static string FormatBudapestTime(DateTime value) =>
+        TimeZoneInfo.ConvertTimeFromUtc(DateTime.SpecifyKind(value, DateTimeKind.Utc), BudapestTimeZone)
+            .ToString("yyyy. MM. dd. HH:mm", System.Globalization.CultureInfo.InvariantCulture);
+
     private readonly EmailBrandingOptions _brandingOptions;
 
     public EmailTemplateService(IOptions<EmailBrandingOptions> brandingOptions)
@@ -18,9 +24,7 @@ public sealed class EmailTemplateService : IEmailTemplateService
         _brandingOptions = brandingOptions.Value;
     }
 
-    public EmailMessage BuildEmailConfirmationMessage(
-        string recipientEmail,
-        string confirmationUrl)
+    public EmailMessage BuildEmailConfirmationMessage(string recipientEmail, string confirmationUrl)
     {
         const string title = "Email cím megerősítése";
         const string preheader = "Erősítsd meg az email címedet a fiókod aktiválásához.";
@@ -36,7 +40,8 @@ public sealed class EmailTemplateService : IEmailTemplateService
             ],
             actionText: buttonText,
             actionUrl: confirmationUrl,
-            note: "Ha nem te regisztráltál, ezt az üzenetet nyugodtan figyelmen kívül hagyhatod.");
+            note: "Ha nem te regisztráltál, ezt az üzenetet nyugodtan figyelmen kívül hagyhatod."
+        );
 
         var htmlBody = BuildHtmlBody(
             title: title,
@@ -50,14 +55,13 @@ public sealed class EmailTemplateService : IEmailTemplateService
             ],
             actionText: buttonText,
             actionUrl: confirmationUrl,
-            note: "Ha nem te kezdeményezted a regisztrációt, nincs további teendőd.");
+            note: "Ha nem te kezdeményezted a regisztrációt, nincs további teendőd."
+        );
 
         return CreateMessage(recipientEmail, BuildBrandedSubject(title), plainTextBody, htmlBody);
     }
 
-    public EmailMessage BuildPasswordResetMessage(
-        string recipientEmail,
-        string resetUrl)
+    public EmailMessage BuildPasswordResetMessage(string recipientEmail, string resetUrl)
     {
         const string title = "Jelszó visszaállítása";
         const string preheader = "Állítsd be az új jelszavadat a Bakony Kincse Biokertészet fiókodhoz.";
@@ -73,7 +77,8 @@ public sealed class EmailTemplateService : IEmailTemplateService
             ],
             actionText: buttonText,
             actionUrl: resetUrl,
-            note: "Ha nem te kérted a jelszó visszaállítását, ezt az üzenetet hagyd figyelmen kívül. A jelszavad nem változik meg.");
+            note: "Ha nem te kérted a jelszó visszaállítását, ezt az üzenetet hagyd figyelmen kívül. A jelszavad nem változik meg."
+        );
 
         var htmlBody = BuildHtmlBody(
             title: title,
@@ -87,7 +92,8 @@ public sealed class EmailTemplateService : IEmailTemplateService
             ],
             actionText: buttonText,
             actionUrl: resetUrl,
-            note: "Ha nem te kérted a jelszó visszaállítását, nincs további teendőd. A jelszavad nem változik meg.");
+            note: "Ha nem te kérted a jelszó visszaállítását, nincs további teendőd. A jelszavad nem változik meg."
+        );
 
         return CreateMessage(recipientEmail, BuildBrandedSubject(title), plainTextBody, htmlBody);
     }
@@ -117,9 +123,7 @@ public sealed class EmailTemplateService : IEmailTemplateService
         return BuildAccountNotificationMessage(recipientEmail, BuildAccountAnonymizedContent());
     }
 
-    public EmailMessage BuildContactBusinessNotificationMessage(
-        string recipientEmail,
-        ContactMessageRequestDto request)
+    public EmailMessage BuildContactBusinessNotificationMessage(string recipientEmail, ContactMessageRequestDto request)
     {
         var subject = string.IsNullOrWhiteSpace(request.Subject)
             ? "Új kapcsolatfelvételi üzenet"
@@ -139,14 +143,13 @@ public sealed class EmailTemplateService : IEmailTemplateService
             actionText: "Válasz emailben",
             actionUrl: $"mailto:{request.Email}",
             note: "A válaszhoz használd a megadott email címet, vagy keresd a látogatót telefonon, ha adott meg telefonszámot.",
-            extraHtmlContent: BuildContactBusinessHtmlSummary(request));
+            extraHtmlContent: BuildContactBusinessHtmlSummary(request)
+        );
 
         return CreateMessage(recipientEmail, BuildBrandedSubject(subject), plainTextBody, htmlBody);
     }
 
-    public EmailMessage BuildContactVisitorConfirmationMessage(
-        string recipientEmail,
-        ContactMessageRequestDto request)
+    public EmailMessage BuildContactVisitorConfirmationMessage(string recipientEmail, ContactMessageRequestDto request)
     {
         const string title = "Megkaptuk az üzenetedet";
         var submittedDetails = FormatContactSubmittedDetails(request);
@@ -164,7 +167,8 @@ public sealed class EmailTemplateService : IEmailTemplateService
             actionText: "Weboldal megnyitása",
             actionUrl: _brandingOptions.WebsiteUrl,
             note: "Ez egy automatikus visszaigazolás, válaszolnod nem szükséges.",
-            extraHtmlContent: BuildContactVisitorHtmlSummary(request));
+            extraHtmlContent: BuildContactVisitorHtmlSummary(request)
+        );
 
         return CreateMessage(recipientEmail, BuildBrandedSubject(title), plainTextBody, htmlBody);
     }
@@ -179,7 +183,8 @@ public sealed class EmailTemplateService : IEmailTemplateService
             bodyLines: bodyLines,
             actionText: "Weboldal megnyitása",
             actionUrl: _brandingOptions.WebsiteUrl,
-            note: "A rendelés feldolgozásáról és állapotváltozásairól emailben értesítünk.");
+            note: "A rendelés feldolgozásáról és állapotváltozásairól emailben értesítünk."
+        );
 
         var htmlBody = BuildHtmlBody(
             title: title,
@@ -192,7 +197,8 @@ public sealed class EmailTemplateService : IEmailTemplateService
             actionText: "Weboldal megnyitása",
             actionUrl: _brandingOptions.WebsiteUrl,
             note: "A rendelés feldolgozásáról és állapotváltozásairól emailben értesítünk.",
-            extraHtmlContent: BuildOrderConfirmationHtmlSummary(order));
+            extraHtmlContent: BuildOrderConfirmationHtmlSummary(order)
+        );
 
         return CreateMessage(recipientEmail, BuildBrandedSubject(title), plainTextBody, htmlBody);
     }
@@ -207,7 +213,8 @@ public sealed class EmailTemplateService : IEmailTemplateService
             bodyLines: bodyLines,
             actionText: "Admin felület megnyitása",
             actionUrl: adminUrl,
-            note: "Ellenőrizd az átvételi módot, a fizetési módot és a kiállítandó bizonylat típusát.");
+            note: "Ellenőrizd az átvételi módot, a fizetési módot és a kiállítandó bizonylat típusát."
+        );
 
         var htmlBody = BuildInternalHtmlBody(
             title: "Új rendelés érkezett",
@@ -221,13 +228,10 @@ public sealed class EmailTemplateService : IEmailTemplateService
             actionText: "Admin felület megnyitása",
             actionUrl: adminUrl,
             note: "Ellenőrizd az átvételi módot, a fizetési módot és a kiállítandó bizonylat típusát.",
-            extraHtmlContent: BuildOrderBusinessHtmlSummary(order));
+            extraHtmlContent: BuildOrderBusinessHtmlSummary(order)
+        );
 
-        return CreateMessage(
-            recipientEmail,
-            BuildBrandedSubject("Új rendelés érkezett"),
-            plainTextBody,
-            htmlBody);
+        return CreateMessage(recipientEmail, BuildBrandedSubject("Új rendelés érkezett"), plainTextBody, htmlBody);
     }
 
     public EmailMessage BuildOrderStatusChangedMessage(string recipientEmail, OrderDto order)
@@ -240,7 +244,8 @@ public sealed class EmailTemplateService : IEmailTemplateService
             bodyLines: bodyLines,
             actionText: "Kapcsolat",
             actionUrl: $"mailto:{_brandingOptions.ContactEmail}",
-            note: "Ha kérdésed van a rendeléseddel kapcsolatban, válaszolj erre az emailre vagy vedd fel velünk a kapcsolatot.");
+            note: "Ha kérdésed van a rendeléseddel kapcsolatban, válaszolj erre az emailre vagy vedd fel velünk a kapcsolatot."
+        );
 
         var htmlBody = BuildHtmlBody(
             title: title,
@@ -253,15 +258,13 @@ public sealed class EmailTemplateService : IEmailTemplateService
             actionText: "Kapcsolatfelvétel",
             actionUrl: $"mailto:{_brandingOptions.ContactEmail}",
             note: "Ha kérdésed van a rendeléseddel kapcsolatban, válaszolj erre az emailre vagy vedd fel velünk a kapcsolatot.",
-            extraHtmlContent: BuildOrderStatusChangedHtmlSummary(order));
+            extraHtmlContent: BuildOrderStatusChangedHtmlSummary(order)
+        );
 
         return CreateMessage(recipientEmail, BuildBrandedSubject(title), plainTextBody, htmlBody);
     }
 
-    public EmailMessage BuildOrderWithdrawalBusinessNotificationMessage(
-        string recipientEmail,
-        OrderDto order,
-        OrderWithdrawalRequestDto request)
+    public EmailMessage BuildOrderWithdrawalBusinessNotificationMessage(string recipientEmail, OrderDto order, OrderWithdrawalRequestDto request)
     {
         var adminUrl = BuildAdminDashboardUrl();
         var bodyLines = BuildWithdrawalBusinessBodyLines(order, request);
@@ -270,29 +273,29 @@ public sealed class EmailTemplateService : IEmailTemplateService
             recipientEmail,
             BuildBrandedSubject($"Elállási vagy fogyasztói kérés - {order.OrderNumber}"),
             BuildInternalPlainTextBody(
-                greeting: "Új kérés érkezett",
-                bodyLines: bodyLines,
-                actionText: "Admin felület megnyitása",
-                actionUrl: adminUrl,
-                note: "A kérést az admin felületen, a rendelés részleteinél látod."),
+                            greeting: "Új kérés érkezett",
+                            bodyLines: bodyLines,
+                            actionText: "Admin felület megnyitása",
+                            actionUrl: adminUrl,
+                            note: "A kérést az admin felületen, a rendelés részleteinél látod."
+                        ),
             BuildInternalHtmlBody(
-                title: "Új elállási vagy fogyasztói kérés",
-                preheader: $"Új kérés érkezett: {order.OrderNumber}.",
-                greeting: "Új kérés érkezett",
-                bodyParagraphs:
-                [
-                    "Új elállási vagy fogyasztói kérés érkezett."
-                ],
-                actionText: "Admin felület megnyitása",
-                actionUrl: adminUrl,
-                note: "A kérést az admin felületen, a rendelés részleteinél látod.",
-                extraHtmlContent: BuildWithdrawalBusinessHtmlSummary(order, request)));
+                        title: "Új elállási vagy fogyasztói kérés",
+                        preheader: $"Új kérés érkezett: {order.OrderNumber}.",
+                        greeting: "Új kérés érkezett",
+                        bodyParagraphs:
+                        [
+                            "Új elállási vagy fogyasztói kérés érkezett."
+                        ],
+                        actionText: "Admin felület megnyitása",
+                        actionUrl: adminUrl,
+                        note: "A kérést az admin felületen, a rendelés részleteinél látod.",
+                        extraHtmlContent: BuildWithdrawalBusinessHtmlSummary(order, request)
+                    )
+        );
     }
 
-    public EmailMessage BuildOrderWithdrawalCustomerConfirmationMessage(
-        string recipientEmail,
-        OrderDto order,
-        OrderWithdrawalRequestDto request)
+    public EmailMessage BuildOrderWithdrawalCustomerConfirmationMessage(string recipientEmail, OrderDto order, OrderWithdrawalRequestDto request)
     {
         var bodyLines = BuildWithdrawalCustomerBodyLines(order, request);
 
@@ -300,36 +303,32 @@ public sealed class EmailTemplateService : IEmailTemplateService
             recipientEmail,
             BuildBrandedSubject($"Megkaptuk a rendeléshez kapcsolódó kérésedet - {order.OrderNumber}"),
             BuildPlainTextBody(
-                greeting: $"Kedves {order.CustomerName}!",
-                bodyLines: bodyLines,
-                actionText: "Kapcsolat",
-                actionUrl: $"mailto:{_brandingOptions.ContactEmail}",
-                note: "Ez az email a kérés rögzítését igazolja, nem jelenti automatikusan annak elfogadását."),
+                            greeting: $"Kedves {order.CustomerName}!",
+                            bodyLines: bodyLines,
+                            actionText: "Kapcsolat",
+                            actionUrl: $"mailto:{_brandingOptions.ContactEmail}",
+                            note: "Ez az email a kérés rögzítését igazolja, nem jelenti automatikusan annak elfogadását."
+                        ),
             BuildHtmlBody(
-                title: "Megkaptuk a kérésedet",
-                preheader: $"Rögzítettük a(z) {order.OrderNumber} rendeléshez kapcsolódó kérésedet.",
-                greeting: $"Kedves {order.CustomerName}!",
-                bodyParagraphs:
-                [
-                    $"Megkaptuk a(z) {order.OrderNumber} számú rendeléshez kapcsolódó kérésedet.",
-                    "A kérésedet rögzítettük, és a feldolgozásáról a megadott elérhetőségen egyeztetünk."
-                ],
-                actionText: "Kapcsolat",
-                actionUrl: $"mailto:{_brandingOptions.ContactEmail}",
-                note: "Ez az email a kérés rögzítését igazolja, nem jelenti automatikusan annak elfogadását.",
-                extraHtmlContent: BuildWithdrawalCustomerHtmlSummary(order, request)));
+                        title: "Megkaptuk a kérésedet",
+                        preheader: $"Rögzítettük a(z) {order.OrderNumber} rendeléshez kapcsolódó kérésedet.",
+                        greeting: $"Kedves {order.CustomerName}!",
+                        bodyParagraphs:
+                        [
+                            $"Megkaptuk a(z) {order.OrderNumber} számú rendeléshez kapcsolódó kérésedet.",
+                            "A kérésedet rögzítettük, és a feldolgozásáról a megadott elérhetőségen egyeztetünk."
+                        ],
+                        actionText: "Kapcsolat",
+                        actionUrl: $"mailto:{_brandingOptions.ContactEmail}",
+                        note: "Ez az email a kérés rögzítését igazolja, nem jelenti automatikusan annak elfogadását.",
+                        extraHtmlContent: BuildWithdrawalCustomerHtmlSummary(order, request)
+                    )
+        );
     }
 
-    private string BuildPlainTextBody(
-        string greeting,
-        IReadOnlyList<string> bodyLines,
-        string actionText,
-        string actionUrl,
-        string note)
+    private string BuildPlainTextBody(string greeting, IReadOnlyList<string> bodyLines, string actionText, string actionUrl, string note)
     {
-        var body = string.Join(
-            $"{Environment.NewLine}{Environment.NewLine}",
-            bodyLines);
+        var body = string.Join($"{Environment.NewLine}{Environment.NewLine}", bodyLines);
 
         return $"""
             {greeting}
@@ -351,16 +350,9 @@ public sealed class EmailTemplateService : IEmailTemplateService
             """;
     }
 
-    private static string BuildInternalPlainTextBody(
-        string greeting,
-        IReadOnlyList<string> bodyLines,
-        string actionText,
-        string actionUrl,
-        string note)
+    private static string BuildInternalPlainTextBody(string greeting, IReadOnlyList<string> bodyLines, string actionText, string actionUrl, string note)
     {
-        var body = string.Join(
-            $"{Environment.NewLine}{Environment.NewLine}",
-            bodyLines);
+        var body = string.Join($"{Environment.NewLine}{Environment.NewLine}", bodyLines);
 
         return $"""
             {greeting}
@@ -383,7 +375,8 @@ public sealed class EmailTemplateService : IEmailTemplateService
                 "Ezúton jelezzük, hogy a Bakony Kincse Biokertészet fiókod jelszava sikeresen megváltozott.",
                 "Ha te végezted a műveletet, nincs további teendőd."
             ],
-            Note: "Ha nem te kezdeményezted a jelszóváltoztatást, kérj jelszó-visszaállítást, és minél előbb vedd fel velünk a kapcsolatot.");
+            Note: "Ha nem te kezdeményezted a jelszóváltoztatást, kérj jelszó-visszaállítást, és minél előbb vedd fel velünk a kapcsolatot."
+        );
 
     private static AccountNotificationContent BuildAccountDeactivatedContent() =>
         new(
@@ -395,7 +388,8 @@ public sealed class EmailTemplateService : IEmailTemplateService
                 "A fiókba jelenleg nem lehet bejelentkezni, de az adatok megmaradnak, ezért a fiók később újraaktiválható.",
                 "Ha folyamatban lévő rendelésed van, annak teljesítéséről továbbra is egyeztetünk."
             ],
-            Note: "Ha szeretnéd újraaktiválni a fiókodat, kérjük, vedd fel velünk a kapcsolatot.");
+            Note: "Ha szeretnéd újraaktiválni a fiókodat, kérjük, vedd fel velünk a kapcsolatot."
+        );
 
     private static AccountNotificationContent BuildAccountReactivatedContent() =>
         new(
@@ -407,7 +401,8 @@ public sealed class EmailTemplateService : IEmailTemplateService
                 "Mostantól ismét be tudsz jelentkezni a fiókodba.",
                 "A korábban mentett adataid a fiókodban ismét elérhetők."
             ],
-            Note: "Ha nem te kérted a fiók újraaktiválását, kérjük, jelezd felénk.");
+            Note: "Ha nem te kérted a fiók újraaktiválását, kérjük, jelezd felénk."
+        );
 
     private static AccountNotificationContent BuildAccountDeletedContent() =>
         new(
@@ -418,7 +413,8 @@ public sealed class EmailTemplateService : IEmailTemplateService
                 "A Bakony Kincse Biokertészet fiókod törlésre került.",
                 "Mivel nem tartozott hozzá rendelési előzmény, a fiókot és a mentett személyes adatokat töröltük."
             ],
-            Note: "Ha kérdésed van a törléssel kapcsolatban, kérjük, vedd fel velünk a kapcsolatot.");
+            Note: "Ha kérdésed van a törléssel kapcsolatban, kérjük, vedd fel velünk a kapcsolatot."
+        );
 
     private static AccountNotificationContent BuildAccountAnonymizedContent() =>
         new(
@@ -429,18 +425,18 @@ public sealed class EmailTemplateService : IEmailTemplateService
                 "A Bakony Kincse Biokertészet fiókod mentett személyes adatait anonimizáltuk.",
                 "A korábbi rendelési és számlázási adatok a jogszabályi megőrzési kötelezettségek miatt megmaradnak."
             ],
-            Note: "Az anonimizált fiók már nem használható bejelentkezésre.");
+            Note: "Az anonimizált fiók már nem használható bejelentkezésre."
+        );
 
-    private EmailMessage BuildAccountNotificationMessage(
-        string recipientEmail,
-        AccountNotificationContent content)
+    private EmailMessage BuildAccountNotificationMessage(string recipientEmail, AccountNotificationContent content)
     {
         var plainTextBody = BuildPlainTextBody(
             greeting: "Kedves Felhasználónk!",
             bodyLines: content.BodyLines,
             actionText: "Kapcsolat",
             actionUrl: $"mailto:{_brandingOptions.ContactEmail}",
-            note: content.Note);
+            note: content.Note
+        );
 
         var htmlBody = BuildHtmlBody(
             title: content.Title,
@@ -449,22 +445,15 @@ public sealed class EmailTemplateService : IEmailTemplateService
             bodyParagraphs: content.BodyLines,
             actionText: "Kapcsolatfelvétel",
             actionUrl: $"mailto:{_brandingOptions.ContactEmail}",
-            note: content.Note);
+            note: content.Note
+        );
 
         return CreateMessage(recipientEmail, BuildBrandedSubject(content.Title), plainTextBody, htmlBody);
     }
 
-    private sealed record AccountNotificationContent(
-        string Title,
-        string Preheader,
-        IReadOnlyList<string> BodyLines,
-        string Note);
+    private sealed record AccountNotificationContent(string Title, string Preheader, IReadOnlyList<string> BodyLines, string Note);
 
-    private EmailMessage CreateMessage(
-        string recipientEmail,
-        string subject,
-        string plainTextBody,
-        string htmlBody) =>
+    private EmailMessage CreateMessage(string recipientEmail, string subject, string plainTextBody, string htmlBody) =>
         new()
         {
             To = recipientEmail,
@@ -484,12 +473,14 @@ public sealed class EmailTemplateService : IEmailTemplateService
         string actionText,
         string actionUrl,
         string note,
-        string? extraHtmlContent = null)
+        string? extraHtmlContent = null
+    )
     {
         var paragraphs = string.Join(
             Environment.NewLine,
             bodyParagraphs.Select(paragraph =>
-                $"""<p style="margin:0 0 16px;color:#4f584b;font-size:16px;line-height:1.65;">{FormatHtmlParagraph(paragraph)}</p>"""));
+                $"""<p style="margin:0 0 16px;color:#4f584b;font-size:16px;line-height:1.65;">{FormatHtmlParagraph(paragraph)}</p>""")
+        );
 
         return $$"""
             <!doctype html>
@@ -553,10 +544,14 @@ public sealed class EmailTemplateService : IEmailTemplateService
             OrderPaymentMethod.CashOnDelivery => "Utánvét",
             _ => "Korábbi rendelés – nincs rögzítve"
         });
-        if (order.Currency is not null) yield return ("Pénznem", order.Currency);
-        if (order.Subtotal.HasValue) yield return ("Termékek összege", FormatPrice(order.Subtotal.Value));
-        if (order.DeliveryFee.HasValue) yield return ("Szállítási díj", FormatPrice(order.DeliveryFee.Value));
-        if (order.PaymentFee.HasValue) yield return ("Fizetési díj", FormatPrice(order.PaymentFee.Value));
+        if (order.Currency is not null)
+            yield return ("Pénznem", order.Currency);
+        if (order.Subtotal.HasValue)
+            yield return ("Termékek összege", FormatPrice(order.Subtotal.Value));
+        if (order.DeliveryFee.HasValue)
+            yield return ("Szállítási díj", FormatPrice(order.DeliveryFee.Value));
+        if (order.PaymentFee.HasValue)
+            yield return ("Fizetési díj", FormatPrice(order.PaymentFee.Value));
         if (order.Subtotal is null || order.DeliveryFee is null || order.PaymentFee is null)
             yield return ("Díjbontás", "A korábbi rendelés díjbontása nem áll rendelkezésre.");
         if (order.GlsDeliveryPointId is not null)
@@ -592,15 +587,7 @@ public sealed class EmailTemplateService : IEmailTemplateService
             {
                 ("Cégnév", order.BillingCompanyName ?? "Nincs megadva"),
                 ("Adószám", order.BillingTaxNumber ?? "Nincs megadva"),
-                ("Számlázási cím", FormatAddress(
-                    order.PostalCode,
-                    order.City,
-                    order.Street,
-                    order.HouseNumber,
-                    order.Building,
-                    order.Floor,
-                    order.Door,
-                    order.Doorbell)),
+                ("Számlázási cím", FormatAddress(order.PostalCode, order.City, order.Street, order.HouseNumber, order.Building, order.Floor, order.Door, order.Doorbell)),
                 ("Számla átvétele", order.PrintedInvoiceRequested
                     ? "Elektronikus számlát küldünk emailben, és nyomtatott számlát is mellékelünk."
                     : "Elektronikus számlát küldünk emailben.")
@@ -621,7 +608,8 @@ public sealed class EmailTemplateService : IEmailTemplateService
                     order.DeliveryBuilding,
                     order.DeliveryFloor,
                     order.DeliveryDoor,
-                    order.DeliveryDoorbell))
+                    order.DeliveryDoorbell
+                ))
             };
 
         return string.Join(
@@ -667,15 +655,7 @@ public sealed class EmailTemplateService : IEmailTemplateService
                     : "Elektronikus számla szükséges."),
                 ("Cégnév", order.BillingCompanyName ?? "Nincs megadva"),
                 ("Adószám", order.BillingTaxNumber ?? "Nincs megadva"),
-                ("Számlázási cím", FormatAddress(
-                    order.PostalCode,
-                    order.City,
-                    order.Street,
-                    order.HouseNumber,
-                    order.Building,
-                    order.Floor,
-                    order.Door,
-                    order.Doorbell))
+                ("Számlázási cím", FormatAddress(order.PostalCode, order.City, order.Street, order.HouseNumber, order.Building, order.Floor, order.Door, order.Doorbell))
             };
 
         return string.Join(
@@ -701,7 +681,8 @@ public sealed class EmailTemplateService : IEmailTemplateService
                 ("Átvétel módja", FormatFulfillmentMethod(order.FulfillmentMethod)),
                 ("Végösszeg", FormatPrice(order.TotalPrice)),
                 .. PurchaseRows(order)
-            ]));
+            ])
+        );
 
     private static string BuildContactBusinessHtmlSummary(ContactMessageRequestDto request) =>
         string.Join(
@@ -716,13 +697,9 @@ public sealed class EmailTemplateService : IEmailTemplateService
                         ("Email", request.Email),
                         ("Telefon", request.Phone ?? "Nincs megadva"),
                         ("Tárgy", request.Subject ?? "Nincs megadva")
-                    ])),
-                BuildHtmlSection(
-                    "Üzenet",
-                    BuildHtmlDetailsTable(
-                    [
-                        ("Üzenet", request.Message)
-                    ]))
+                    ])
+                ),
+                BuildHtmlSection("Üzenet", BuildHtmlDetailsTable([("Üzenet", request.Message)]))
             });
 
     private static string BuildContactVisitorHtmlSummary(ContactMessageRequestDto request)
@@ -743,18 +720,11 @@ public sealed class EmailTemplateService : IEmailTemplateService
             new[]
             {
                 BuildHtmlSection("Megadott adataid", BuildHtmlDetailsTable(rows)),
-                BuildHtmlSection(
-                    "Elküldött üzeneted",
-                    BuildHtmlDetailsTable(
-                    [
-                        ("Üzenet", request.Message)
-                    ]))
+                BuildHtmlSection("Elküldött üzeneted", BuildHtmlDetailsTable([("Üzenet", request.Message)]))
             });
     }
 
-    private static string BuildWithdrawalBusinessHtmlSummary(
-        OrderDto order,
-        OrderWithdrawalRequestDto request) =>
+    private static string BuildWithdrawalBusinessHtmlSummary(OrderDto order, OrderWithdrawalRequestDto request) =>
         BuildHtmlSection(
             "Kérés adatai",
             BuildHtmlDetailsTable(
@@ -762,21 +732,21 @@ public sealed class EmailTemplateService : IEmailTemplateService
                 ("Rendelésszám", order.OrderNumber),
                 ("Vevő", request.CustomerName),
                 ("Email", request.CustomerEmail),
-                ("Kérés ideje", $"{request.RequestedAtUtc:yyyy. MM. dd. HH:mm}"),
+                ("Kérés ideje", $"{FormatBudapestTime(request.RequestedAtUtc)}"),
                 ("Üzenet", request.Reason)
-            ]));
+            ])
+        );
 
-    private static string BuildWithdrawalCustomerHtmlSummary(
-        OrderDto order,
-        OrderWithdrawalRequestDto request) =>
+    private static string BuildWithdrawalCustomerHtmlSummary(OrderDto order, OrderWithdrawalRequestDto request) =>
         BuildHtmlSection(
             "Rögzített kérés",
             BuildHtmlDetailsTable(
             [
                 ("Rendelésszám", order.OrderNumber),
-                ("Kérés ideje", $"{request.RequestedAtUtc:yyyy. MM. dd. HH:mm}"),
+                ("Kérés ideje", $"{FormatBudapestTime(request.RequestedAtUtc)}"),
                 ("Megadott üzenet", request.Reason)
-            ]));
+            ])
+        );
 
     private static string BuildHtmlSection(string title, string content) =>
         $"""
@@ -866,12 +836,14 @@ public sealed class EmailTemplateService : IEmailTemplateService
         string actionText,
         string actionUrl,
         string note,
-        string? extraHtmlContent = null)
+        string? extraHtmlContent = null
+    )
     {
         var paragraphs = string.Join(
             Environment.NewLine,
             bodyParagraphs.Select(paragraph =>
-                $"""<p style="margin:0 0 16px;color:#4f584b;font-size:16px;line-height:1.65;">{FormatHtmlParagraph(paragraph)}</p>"""));
+                $"""<p style="margin:0 0 16px;color:#4f584b;font-size:16px;line-height:1.65;">{FormatHtmlParagraph(paragraph)}</p>""")
+        );
 
         return $$"""
             <!doctype html>
@@ -987,18 +959,14 @@ public sealed class EmailTemplateService : IEmailTemplateService
         {request.Message}
         """;
 
-    private static IReadOnlyList<string> BuildContactVisitorBodyLines(
-        ContactMessageRequestDto request,
-        string submittedDetails) =>
+    private static IReadOnlyList<string> BuildContactVisitorBodyLines(ContactMessageRequestDto request, string submittedDetails) =>
     [
         "Köszönjük, hogy írtál nekünk. Megkaptuk az üzenetedet, és hamarosan válaszolunk a megadott elérhetőségeden.",
         submittedDetails,
         $"Az elküldött üzeneted: {request.Message}"
     ];
 
-    private string BuildContactVisitorPlainTextBody(
-        ContactMessageRequestDto request,
-        string submittedDetails) =>
+    private string BuildContactVisitorPlainTextBody(ContactMessageRequestDto request, string submittedDetails) =>
         $"""
         Kedves {request.Name}!
 
@@ -1057,21 +1025,17 @@ public sealed class EmailTemplateService : IEmailTemplateService
         $"Végösszeg: {FormatPrice(order.TotalPrice)}"
     ];
 
-    private static IReadOnlyList<string> BuildWithdrawalBusinessBodyLines(
-        OrderDto order,
-        OrderWithdrawalRequestDto request) =>
+    private static IReadOnlyList<string> BuildWithdrawalBusinessBodyLines(OrderDto order, OrderWithdrawalRequestDto request) =>
     [
         "Új elállási vagy fogyasztói kérés érkezett.",
         $"Rendelésszám: {order.OrderNumber}",
         $"Vevő: {request.CustomerName}",
         $"Email: {request.CustomerEmail}",
-        $"Kérés ideje: {request.RequestedAtUtc:yyyy. MM. dd. HH:mm}",
+        $"Kérés ideje: {FormatBudapestTime(request.RequestedAtUtc)}",
         $"Üzenet: {request.Reason}"
     ];
 
-    private static IReadOnlyList<string> BuildWithdrawalCustomerBodyLines(
-        OrderDto order,
-        OrderWithdrawalRequestDto request) =>
+    private static IReadOnlyList<string> BuildWithdrawalCustomerBodyLines(OrderDto order, OrderWithdrawalRequestDto request) =>
     [
         $"Megkaptuk a(z) {order.OrderNumber} számú rendeléshez kapcsolódó kérésedet.",
         "A kérésedet rögzítettük, és a feldolgozásáról a megadott elérhetőségen egyeztetünk.",
@@ -1106,15 +1070,7 @@ public sealed class EmailTemplateService : IEmailTemplateService
             lines.Add($"- Adószám: {order.BillingTaxNumber}");
         }
 
-        lines.Add($"- Cím: {FormatAddress(
-            order.PostalCode,
-            order.City,
-            order.Street,
-            order.HouseNumber,
-            order.Building,
-            order.Floor,
-            order.Door,
-            order.Doorbell)}");
+        lines.Add($"- Cím: {FormatAddress(order.PostalCode, order.City, order.Street, order.HouseNumber, order.Building, order.Floor, order.Door, order.Doorbell)}");
 
         return string.Join(Environment.NewLine, lines);
     }
@@ -1139,15 +1095,7 @@ public sealed class EmailTemplateService : IEmailTemplateService
             "Számlázási adatok:",
             $"- Cégnév: {order.BillingCompanyName ?? "Nincs megadva"}",
             $"- Adószám: {order.BillingTaxNumber ?? "Nincs megadva"}",
-            $"- Cím: {FormatAddress(
-                order.PostalCode,
-                order.City,
-                order.Street,
-                order.HouseNumber,
-                order.Building,
-                order.Floor,
-                order.Door,
-                order.Doorbell)}",
+            $"- Cím: {FormatAddress(order.PostalCode, order.City, order.Street, order.HouseNumber, order.Building, order.Floor, order.Door, order.Doorbell)}",
             $"- Számla átvétele: {invoiceMode}"
         });
     }
@@ -1174,15 +1122,7 @@ public sealed class EmailTemplateService : IEmailTemplateService
             $"- Admin teendő: {invoiceTask}",
             $"- Cégnév: {order.BillingCompanyName ?? "Nincs megadva"}",
             $"- Adószám: {order.BillingTaxNumber ?? "Nincs megadva"}",
-            $"- Számlázási cím: {FormatAddress(
-                order.PostalCode,
-                order.City,
-                order.Street,
-                order.HouseNumber,
-                order.Building,
-                order.Floor,
-                order.Door,
-                order.Doorbell)}"
+            $"- Számlázási cím: {FormatAddress(order.PostalCode, order.City, order.Street, order.HouseNumber, order.Building, order.Floor, order.Door, order.Doorbell)}"
         });
     }
 
@@ -1208,19 +1148,12 @@ public sealed class EmailTemplateService : IEmailTemplateService
                 order.DeliveryBuilding,
                 order.DeliveryFloor,
                 order.DeliveryDoor,
-                order.DeliveryDoorbell)}"
+                order.DeliveryDoorbell
+            )}"
         });
     }
 
-    private static string FormatAddress(
-        string? postalCode,
-        string? city,
-        string? street,
-        string? houseNumber,
-        string? building,
-        string? floor,
-        string? door,
-        string? doorbell)
+    private static string FormatAddress(string? postalCode, string? city, string? street, string? houseNumber, string? building, string? floor, string? door, string? doorbell)
     {
         var streetLine = string.Join(
             " ",
@@ -1301,10 +1234,7 @@ public sealed class EmailTemplateService : IEmailTemplateService
             return "Nincs termékadat.";
         }
 
-        return string.Join(
-            "; ",
-            order.Items.Select(item =>
-                $"{item.ProductName} - {item.Quantity} {FormatUnit(item.Unit)}, {FormatPrice(item.LineTotal)}"));
+        return string.Join("; ", order.Items.Select(item => $"{item.ProductName} - {item.Quantity} {FormatUnit(item.Unit)}, {FormatPrice(item.LineTotal)}"));
     }
 
     private static string FormatOrderStatus(OrderStatus status) => status switch

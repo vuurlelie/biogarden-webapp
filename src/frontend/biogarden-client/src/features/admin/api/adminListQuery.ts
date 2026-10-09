@@ -11,7 +11,8 @@ export type AdminListQuery = {
 export function adminListQuery(query: AdminListQuery): string {
   const parameters = new URLSearchParams();
   for (const [key, value] of Object.entries(query)) {
-    if (value !== undefined && value !== "all" && String(value).trim() !== "") parameters.set(key, String(value).trim());
+    if (value !== undefined && value !== "all" && String(value).trim() !== "")
+      parameters.set(key, String(value).trim());
   }
   return `?${parameters}`;
 }

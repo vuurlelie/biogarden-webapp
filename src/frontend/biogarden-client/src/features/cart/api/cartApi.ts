@@ -15,7 +15,10 @@ export class CartApiError extends Error {
 const CART_FALLBACK_MESSAGE = "A művelet nem sikerült. Kérjük, próbáld újra.";
 const toCartError = (message: string, status: number) => new CartApiError(message, status);
 
-async function cartRequest(path = "", init: Partial<ApiRequestOptions> = {}): Promise<Response> {
+async function cartRequest(
+  path = "",
+  init: Partial<ApiRequestOptions> = {}
+): Promise<Response> {
   const auth = getAuthSession();
   return apiRequest(`/api/cart${path}`, {
     fallbackMessage: CART_FALLBACK_MESSAGE,
@@ -38,10 +41,13 @@ export async function getCart(): Promise<Cart> {
 }
 
 export function addCartItem(productId: number, quantity: number): Promise<Cart> {
-  return cartMutation("/items", {
-    method: "POST",
-    jsonBody: { productId, quantity },
-  });
+  return cartMutation(
+    "/items",
+    {
+      method: "POST",
+      jsonBody: { productId, quantity },
+    }
+  );
 }
 
 export async function getAvailableQuantityToAdd(productId: number, signal?: AbortSignal): Promise<number> {
@@ -62,11 +68,17 @@ export function removeCartItem(cartItemId: string): Promise<Cart> {
 }
 
 export function clearCart(): Promise<Cart> {
-  return cartMutation("", { method: "DELETE" });
+  return cartMutation(
+    "",
+    { method: "DELETE" }
+  );
 }
 
 export function mergeGuestCart(): Promise<Cart> {
-  return cartMutation("/merge", { method: "POST" });
+  return cartMutation(
+    "/merge",
+    { method: "POST" }
+  );
 }
 
 export async function validateCart(): Promise<CartValidationResult> {

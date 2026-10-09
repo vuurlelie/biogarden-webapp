@@ -12,9 +12,7 @@ public class CartItemConfiguration : IEntityTypeConfiguration<CartItem>
             "CartItems",
             tableBuilder =>
             {
-                tableBuilder.HasCheckConstraint(
-                    "CK_CartItems_Quantity_Positive",
-                    "[Quantity] > 0");
+                tableBuilder.HasCheckConstraint("CK_CartItems_Quantity_Positive", "[Quantity] > 0");
             });
 
         cartItemBuilder.HasKey(cartItem => cartItem.Id);

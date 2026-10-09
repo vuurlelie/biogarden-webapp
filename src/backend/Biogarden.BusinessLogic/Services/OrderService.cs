@@ -1,3 +1,4 @@
+using Biogarden.BusinessLogic.DTOs.Common;
 using Biogarden.BusinessLogic.Abstractions;
 using Biogarden.BusinessLogic.DTOs.Orders;
 using Biogarden.BusinessLogic.DTOs.Payments;
@@ -39,7 +40,8 @@ public class OrderService : IOrderService
         IOptions<EmailBrandingOptions> emailBrandingOptions,
         IOptions<SumUpOptions> sumUpOptions,
         CheckoutPricingService pricing,
-        IGlsDeliveryPointDirectory gls)
+        IGlsDeliveryPointDirectory gls
+    )
     {
         _unitOfWork = unitOfWork;
         _cartService = cartService;
@@ -54,8 +56,7 @@ public class OrderService : IOrderService
         _gls = gls;
     }
 
-    public async Task<CheckoutQuoteDto> GetCheckoutQuoteAsync(Guid? userId, string? sessionId,
-        CheckoutQuoteRequest request, CancellationToken cancellationToken = default)
+    public async Task<CheckoutQuoteDto> GetCheckoutQuoteAsync(Guid? userId, string? sessionId, CheckoutQuoteRequest request, CancellationToken cancellationToken = default)
     {
         var cart = userId.HasValue
             ? await _unitOfWork.CartRepository.GetActiveByUserIdAsync(userId.Value, cancellationToken)
@@ -64,14 +65,19 @@ public class OrderService : IOrderService
         if (cart is null || cart.IsCheckedOut || cart.ExpiresAtUtc <= GetUtcNow())
             throw new KeyNotFoundException("Aktív kosár nem található.");
         var validation = await _cartService.ValidateCartForCheckoutAsync(userId, sessionId, cancellationToken);
-        if (!validation.IsValid) throw new InvalidOperationException("A kosár ellenőrzése nem sikerült.");
+        if (!validation.IsValid)
+            throw new InvalidOperationException("A kosár ellenőrzése nem sikerült.");
         var items = new List<OrderItemDto>();
         foreach (var item in cart.Items)
         {
             var product = await _unitOfWork.ProductRepository.GetByIdAsync(item.ProductId, cancellationToken);
+
             if (product is null || !product.Available || product.StockQuantity < item.Quantity ||
                 (request.FulfillmentMethod != FulfillmentMethod.PersonalPickup && !product.DeliveryAvailable))
+            {
                 throw new InvalidOperationException("A termék nem elérhető a választott átvételi móddal.");
+            }
+
             items.Add(new()
             {
                 ProductId = product.Id,
@@ -85,30 +91,24 @@ public class OrderService : IOrderService
         return _pricing.Calculate(cart.Id, request.FulfillmentMethod, request.PaymentMethod, items, point);
     }
 
-    private async Task<GlsDeliveryPointDto?> ResolveDeliveryPointAsync(FulfillmentMethod method, string? id,
-        OrderPaymentMethod? payment, CancellationToken ct)
+    private async Task<GlsDeliveryPointDto?> ResolveDeliveryPointAsync(FulfillmentMethod method, string? id, OrderPaymentMethod? payment, CancellationToken cancellationToken)
     {
         if (method is not (FulfillmentMethod.ParcelLocker or FulfillmentMethod.ParcelShop))
         {
-            if (id is not null) throw new ArgumentException("Ehhez az átvételi módhoz nem választható GLS pont.");
+            if (id is not null)
+                throw new ArgumentException("Ehhez az átvételi módhoz nem választható GLS pont.");
             return null;
         }
-        var point = await _gls.ResolveAsync(id ?? "", method, ct);
+        var point = await _gls.ResolveAsync(id ?? "", method, cancellationToken);
         if (payment == OrderPaymentMethod.CashOnDelivery && !point.AcceptsCash && !point.AcceptsCard)
             throw new InvalidOperationException("A kiválasztott átvételi ponton nem érhető el utánvétes fizetés.");
         return point;
     }
 
-    public async Task<OrderCreationResult> CreateOrderFromCartAsync(
-        Guid? userId,
-        string? sessionId,
-        PlaceOrderDto dto,
-        CancellationToken cancellationToken = default)
+    public async Task<OrderCreationResult> CreateOrderFromCartAsync(Guid? userId, string? sessionId, PlaceOrderDto placeOrder, CancellationToken cancellationToken = default)
     {
-        var idempotencyKey = NormalizeIdempotencyKey(dto.IdempotencyKey);
-        var existingOrderByKey = await _unitOfWork.OrderRepository.GetByIdempotencyKeyWithItemsAsync(
-            idempotencyKey,
-            cancellationToken);
+        var idempotencyKey = NormalizeIdempotencyKey(placeOrder.IdempotencyKey);
+        var existingOrderByKey = await _unitOfWork.OrderRepository.GetByIdempotencyKeyWithItemsAsync(idempotencyKey, cancellationToken);
         if (existingOrderByKey is not null)
         {
             EnsureCanAccessOrder(existingOrderByKey, userId, sessionId);
@@ -134,9 +134,7 @@ public class OrderService : IOrderService
 
         if (cart.IsCheckedOut)
         {
-            var existingOrder = await _unitOfWork.OrderRepository.GetByCartIdWithItemsAsync(
-                cart.Id,
-                cancellationToken);
+            var existingOrder = await _unitOfWork.OrderRepository.GetByCartIdWithItemsAsync(cart.Id, cancellationToken);
             if (existingOrder is not null)
             {
                 return new(existingOrder.ToDto(), Created: false);
@@ -150,35 +148,36 @@ public class OrderService : IOrderService
             throw new InvalidOperationException("Cart is empty.");
         }
 
-        if (!Enum.IsDefined(dto.FulfillmentMethod))
+        if (!Enum.IsDefined(placeOrder.FulfillmentMethod))
         {
             throw new InvalidOperationException("Invalid fulfillment method.");
         }
 
-        if (dto.FulfillmentMethod != FulfillmentMethod.PersonalPickup &&
+        if (placeOrder.FulfillmentMethod != FulfillmentMethod.PersonalPickup &&
             cart.Items.Any(item => item.Product?.DeliveryAvailable == false))
         {
             throw new InvalidOperationException(
                 "The cart contains a product that is available only for personal pickup.");
         }
 
-        ValidateAcceptedLegalVersions(dto);
+        ValidateAcceptedLegalVersions(placeOrder);
 
-        var validationResult = await _cartService.ValidateCartForCheckoutAsync(
-            userId,
-            sessionId,
-            cancellationToken);
+        var validationResult = await _cartService.ValidateCartForCheckoutAsync(userId, sessionId, cancellationToken);
 
         if (!validationResult.IsValid)
         {
             throw new InvalidOperationException("Cart validation failed.");
         }
 
-        var point = await ResolveDeliveryPointAsync(dto.FulfillmentMethod, dto.GlsDeliveryPointId, dto.PaymentMethod, cancellationToken);
-        var customerSnapshot = await BuildOrderCustomerSnapshotAsync(userId, dto, cancellationToken);
-        if (dto.PaymentMethod is null || !Enum.IsDefined(dto.PaymentMethod.Value) ||
-            string.IsNullOrWhiteSpace(dto.QuoteVersion) || dto.QuoteVersion.Length != 64)
+        var point = await ResolveDeliveryPointAsync(placeOrder.FulfillmentMethod, placeOrder.GlsDeliveryPointId, placeOrder.PaymentMethod, cancellationToken);
+        var customerSnapshot = await BuildOrderCustomerSnapshotAsync(userId, placeOrder, cancellationToken);
+
+        if (placeOrder.PaymentMethod is null || !Enum.IsDefined(placeOrder.PaymentMethod.Value) ||
+            string.IsNullOrWhiteSpace(placeOrder.QuoteVersion) || placeOrder.QuoteVersion.Length != 64)
+        {
             throw new ArgumentException("Válassz fizetési módot, és kérj új árajánlatot a rendelés áttekintéséhez.");
+        }
+
         OrderDto createdOrderDto;
 
         try
@@ -223,7 +222,7 @@ public class OrderService : IOrderService
                     CreatedAtUtc = now,
                     Status = OrderStatus.Pending,
                     PaymentStatus = PaymentStatus.Pending,
-                    FulfillmentMethod = dto.FulfillmentMethod
+                    FulfillmentMethod = placeOrder.FulfillmentMethod
                 };
                 if (point is not null)
                 {
@@ -238,12 +237,8 @@ public class OrderService : IOrderService
                     order.DeliveryBuilding = order.DeliveryFloor = order.DeliveryDoor = order.DeliveryDoorbell = null;
                 }
 
-                await AddOrderItemsAndCommitStockAsync(
-                    order,
-                    cart.Items,
-                    dto.FulfillmentMethod,
-                    transactionToken);
-                var quote = _pricing.Calculate(cart.Id, dto.FulfillmentMethod, dto.PaymentMethod.Value,
+                await AddOrderItemsAndCommitStockAsync(order, cart.Items, placeOrder.FulfillmentMethod, transactionToken);
+                var quote = _pricing.Calculate(cart.Id, placeOrder.FulfillmentMethod, placeOrder.PaymentMethod.Value,
                     order.Items.Select(item => new OrderItemDto
                     {
                         ProductId = item.ProductId,
@@ -252,7 +247,7 @@ public class OrderService : IOrderService
                         Unit = item.Unit,
                         Quantity = item.Quantity
                     }), point);
-                if (!string.Equals(dto.QuoteVersion, quote.Version, StringComparison.Ordinal))
+                if (!string.Equals(placeOrder.QuoteVersion, quote.Version, StringComparison.Ordinal))
                     throw new InvalidOperationException("A kosár vagy az árak megváltoztak. Kérjük, tekintsd át újra a rendelést.");
                 order.Subtotal = quote.Subtotal;
                 order.DeliveryFee = quote.DeliveryFee;
@@ -269,9 +264,7 @@ public class OrderService : IOrderService
                 await _unitOfWork.OrderRepository.AddAsync(order, transactionToken);
                 await _unitOfWork.SaveChangesAsync(transactionToken);
 
-                var createdOrder = await ReloadOrderWithItemsAsync(
-                    order.Id,
-                    transactionToken);
+                var createdOrder = await ReloadOrderWithItemsAsync(order.Id, transactionToken);
 
                 var result = createdOrder.ToDto();
                 QueueOrderCreatedEmails(result);
@@ -281,15 +274,11 @@ public class OrderService : IOrderService
         }
         catch (DbUpdateConcurrencyException exception)
         {
-            throw new InvalidOperationException(
-                "A kosárban lévő készlet időközben megváltozott. Kérjük, ellenőrizd újra a kosarat.",
-                exception);
+            throw new InvalidOperationException("A kosárban lévő készlet időközben megváltozott. Kérjük, ellenőrizd újra a kosarat.", exception);
         }
         catch (DbUpdateException exception)
         {
-            var existingOrder = await _unitOfWork.OrderRepository.GetByIdempotencyKeyWithItemsAsync(
-                idempotencyKey,
-                cancellationToken);
+            var existingOrder = await _unitOfWork.OrderRepository.GetByIdempotencyKeyWithItemsAsync(idempotencyKey, cancellationToken);
             existingOrder ??= await GetLatestCheckedOutOrderAsync(userId, sessionId, cancellationToken);
             if (existingOrder is not null)
             {
@@ -297,9 +286,7 @@ public class OrderService : IOrderService
                 return new(existingOrder.ToDto(), Created: false);
             }
 
-            throw new InvalidOperationException(
-                "A rendelés mentése nem sikerült. Kérjük, próbáld újra.",
-                exception);
+            throw new InvalidOperationException("A rendelés mentése nem sikerült. Kérjük, próbáld újra.", exception);
         }
 
         return new(createdOrderDto, Created: true);
@@ -322,16 +309,10 @@ public class OrderService : IOrderService
         return order.ToDto();
     }
 
-    public async Task<SumUpCheckoutDto> CreateSumUpCheckoutAsync(
-        Guid? userId,
-        string? sessionId,
-        Guid orderId,
-        CancellationToken cancellationToken = default)
+    public async Task<SumUpCheckoutDto> CreateSumUpCheckoutAsync(Guid? userId, string? sessionId, Guid orderId, CancellationToken cancellationToken = default)
     {
         await using var paymentLock = await _unitOfWork.PaymentAttemptRepository.AcquireLockAsync(orderId, cancellationToken);
-        var order = await _unitOfWork.OrderRepository.GetByIdWithItemsAndCartAsync(
-            orderId,
-            cancellationToken)
+        var order = await _unitOfWork.OrderRepository.GetByIdWithItemsAndCartAsync(orderId, cancellationToken)
             ?? throw new KeyNotFoundException("Order not found.");
 
         EnsureCanAccessOrder(order, userId, sessionId);
@@ -356,7 +337,9 @@ public class OrderService : IOrderService
         // Reject local preconditions before recording an intent that would need provider reconciliation.
         if (order.Items.Count == 0 || order.TotalPrice <= 0 ||
             (order.Currency is not null && !string.Equals(order.Currency, _sumUpOptions.Currency, StringComparison.OrdinalIgnoreCase)))
+        {
             throw new InvalidOperationException("The order is not eligible for online payment.");
+        }
 
         var attempts = _unitOfWork.PaymentAttemptRepository;
         var attempt = await attempts.GetLatestAsync(order.Id, cancellationToken);
@@ -390,7 +373,11 @@ public class OrderService : IOrderService
                 await ConfirmSumUpCheckoutAsync(checkout.CheckoutId, checkout.TransactionCode, checkout.Amount, checkout.Currency, cancellationToken);
                 throw new InvalidOperationException("A rendelés már ki van fizetve. Ellenőrizd a rendelés állapotát.");
             }
-            if (attempt.Status == "EXPIRED") { attempt = null; checkout = null; }
+            if (attempt.Status == "EXPIRED")
+            {
+                attempt = null;
+                checkout = null;
+            }
         }
         if (attempt is null)
         {
@@ -413,9 +400,12 @@ public class OrderService : IOrderService
             attempt.CheckoutId = checkout.CheckoutId;
             attempt.Status = checkout.Status.ToUpperInvariant();
         }
+
         if (checkout is null || attempt.Status is not ("PENDING" or "FAILED") ||
             !Uri.TryCreate(checkout.HostedCheckoutUrl, UriKind.Absolute, out var hostedUrl) || hostedUrl.Scheme != "https")
+        {
             throw new PaymentRecoveryException();
+        }
 
         order.SumUpCheckoutId = checkout.CheckoutId;
         order.SumUpTransactionId = checkout.TransactionCode;
@@ -435,20 +425,27 @@ public class OrderService : IOrderService
     private async Task<SumUpCheckoutResult> RecoverCheckoutAsync(PaymentAttempt attempt, CancellationToken token)
     {
         var candidates = await _sumUpCheckoutService.FindCheckoutsAsync(attempt.Reference, token);
-        if (candidates.Count != 1) throw new PaymentRecoveryException();
+        if (candidates.Count != 1)
+            throw new PaymentRecoveryException();
         return candidates[0];
     }
 
     private void ValidateAttemptCheckout(Order order, PaymentAttempt attempt, SumUpCheckoutResult checkout)
     {
         EnsureSumUpCheckoutMatchesOrder(order, checkout.Amount, checkout.Currency);
+
         if (checkout.Status is not ("PENDING" or "FAILED" or "PAID" or "EXPIRED") ||
             (checkout.Status == "PAID" && string.IsNullOrWhiteSpace(checkout.TransactionCode)))
+        {
             throw new PaymentRecoveryException();
+        }
+
         if (string.IsNullOrWhiteSpace(checkout.CheckoutId) || checkout.CheckoutId.Length > 100 ||
             (attempt.CheckoutId is not null && attempt.CheckoutId != checkout.CheckoutId) ||
             checkout.CheckoutReference != attempt.Reference || checkout.MerchantCode != _sumUpOptions.MerchantCode)
+        {
             throw new PaymentRecoveryException();
+        }
     }
 
     // Only call with a checkout fetched using the server's SumUp credentials, never webhook fields.
@@ -466,7 +463,8 @@ public class OrderService : IOrderService
         if (attempt is null)
         {
             // Existing orders predate attempt tracking, but still have a server-owned checkout ID.
-            if (order.SumUpCheckoutId != checkout.CheckoutId) throw new PaymentRecoveryException();
+            if (order.SumUpCheckoutId != checkout.CheckoutId)
+                throw new PaymentRecoveryException();
             attempt = new PaymentAttempt
             {
                 Id = Guid.NewGuid(),
@@ -478,7 +476,8 @@ public class OrderService : IOrderService
             };
             attempts.Add(attempt);
         }
-        if (attempt.OrderId != order.Id) throw new PaymentRecoveryException();
+        if (attempt.OrderId != order.Id)
+            throw new PaymentRecoveryException();
         ValidateAttemptCheckout(order, attempt, checkout);
         attempt.CheckoutId = checkout.CheckoutId;
         attempt.Status = checkout.Status.Trim().ToUpperInvariant();
@@ -486,7 +485,8 @@ public class OrderService : IOrderService
 
         if (attempt.Status == "PAID")
         {
-            if (string.IsNullOrWhiteSpace(checkout.TransactionCode)) throw new PaymentRecoveryException();
+            if (string.IsNullOrWhiteSpace(checkout.TransactionCode))
+                throw new PaymentRecoveryException();
             await ConfirmSumUpCheckoutAsync(checkout.CheckoutId, checkout.TransactionCode, checkout.Amount, checkout.Currency, cancellationToken);
         }
         else if (attempt.Status is "FAILED" or "EXPIRED")
@@ -497,16 +497,9 @@ public class OrderService : IOrderService
         }
     }
 
-    public async Task<OrderDto> ConfirmSumUpCheckoutAsync(
-        string sumUpCheckoutId,
-        string? sumUpTransactionId,
-        decimal? amount = null,
-        string? currency = null,
-        CancellationToken cancellationToken = default)
+    public async Task<OrderDto> ConfirmSumUpCheckoutAsync(string sumUpCheckoutId, string? sumUpTransactionId, decimal? amount = null, string? currency = null, CancellationToken cancellationToken = default)
     {
-        var order = await _unitOfWork.OrderRepository.GetBySumUpCheckoutIdAsync(
-            sumUpCheckoutId,
-            cancellationToken)
+        var order = await _unitOfWork.OrderRepository.GetBySumUpCheckoutIdAsync(sumUpCheckoutId, cancellationToken)
             ?? throw new KeyNotFoundException("Order not found.");
 
         EnsureSumUpCheckoutMatchesOrder(order, amount, currency);
@@ -515,7 +508,9 @@ public class OrderService : IOrderService
             ((!string.IsNullOrWhiteSpace(order.SumUpCheckoutId) && order.SumUpCheckoutId != sumUpCheckoutId) ||
              (!string.IsNullOrWhiteSpace(order.SumUpTransactionId) && !string.IsNullOrWhiteSpace(sumUpTransactionId) &&
               order.SumUpTransactionId != sumUpTransactionId)))
-            throw new PaymentRecoveryException(); // Possible second payment: retain the original transaction for reconciliation.
+        {
+            throw new PaymentRecoveryException();
+        } // Possible second payment: retain the original transaction for reconciliation.
 
         if (order.Status == OrderStatus.Cancelled)
         {
@@ -526,7 +521,8 @@ public class OrderService : IOrderService
         else if (order.PaymentStatus is not PaymentStatus.RefundPending and not PaymentStatus.Refunded and not PaymentStatus.PartiallyRefunded)
         {
             order.PaymentStatus = PaymentStatus.Paid;
-            if (order.Status == OrderStatus.Pending) order.Status = OrderStatus.Confirmed;
+            if (order.Status == OrderStatus.Pending)
+                order.Status = OrderStatus.Confirmed;
             order.ConfirmedAtUtc ??= GetUtcNow();
         }
 
@@ -539,20 +535,13 @@ public class OrderService : IOrderService
         return order.ToDto();
     }
 
-    public async Task<OrderDto?> MarkSumUpPaymentFailedAsync(
-        string sumUpCheckoutId,
-        string? sumUpTransactionId,
-        CancellationToken cancellationToken = default)
+    public async Task<OrderDto?> MarkSumUpPaymentFailedAsync(string sumUpCheckoutId, string? sumUpTransactionId, CancellationToken cancellationToken = default)
     {
-        var order = await _unitOfWork.OrderRepository.GetBySumUpCheckoutIdAsync(
-            sumUpCheckoutId,
-            cancellationToken);
+        var order = await _unitOfWork.OrderRepository.GetBySumUpCheckoutIdAsync(sumUpCheckoutId, cancellationToken);
 
         if (order is null && !string.IsNullOrWhiteSpace(sumUpTransactionId))
         {
-            order = await _unitOfWork.OrderRepository.GetBySumUpTransactionIdAsync(
-                sumUpTransactionId,
-                cancellationToken);
+            order = await _unitOfWork.OrderRepository.GetBySumUpTransactionIdAsync(sumUpTransactionId, cancellationToken);
         }
 
         if (order is null)
@@ -574,15 +563,9 @@ public class OrderService : IOrderService
         return order.ToDto();
     }
 
-    public async Task<OrderDto> CancelOrderAsync(
-        Guid userId,
-        Guid orderId,
-        CancelOrderDto dto,
-        CancellationToken cancellationToken = default)
+    public async Task<OrderDto> CancelOrderAsync(Guid userId, Guid orderId, CancelOrderDto cancelOrder, CancellationToken cancellationToken = default)
     {
-        var order = await _unitOfWork.OrderRepository.GetByIdWithItemsAsync(
-            orderId,
-            cancellationToken);
+        var order = await _unitOfWork.OrderRepository.GetByIdWithItemsAsync(orderId, cancellationToken);
 
         if (order is null || order.UserId != userId)
         {
@@ -612,73 +595,51 @@ public class OrderService : IOrderService
         order.Status = OrderStatus.Cancelled;
         order.CancelledAtUtc = GetUtcNow();
         order.DeletedAtUtc = order.CancelledAtUtc;
-        order.CancellationReason = string.IsNullOrWhiteSpace(dto.Reason)
+        order.CancellationReason = string.IsNullOrWhiteSpace(cancelOrder.Reason)
             ? null
-            : dto.Reason.Trim();
+            : cancelOrder.Reason.Trim();
 
         _unitOfWork.OrderRepository.Update(order);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
-        var cancelledOrder = await ReloadOrderWithItemsAsync(
-            order.Id,
-            cancellationToken);
+        var cancelledOrder = await ReloadOrderWithItemsAsync(order.Id, cancellationToken);
 
         return cancelledOrder.ToDto();
     }
 
-    public async Task<OrderWithdrawalRequestDto> RequestWithdrawalAsync(
-        Guid userId,
-        Guid orderId,
-        CreateOrderWithdrawalRequestDto dto,
-        CancellationToken cancellationToken = default)
+    public async Task<OrderWithdrawalRequestDto> RequestWithdrawalAsync(Guid userId, Guid orderId, CreateOrderWithdrawalRequestDto createOrderWithdrawalRequest, CancellationToken cancellationToken = default)
     {
-        var order = await _unitOfWork.OrderRepository.GetByIdWithItemsAsync(
-            orderId,
-            cancellationToken);
+        var order = await _unitOfWork.OrderRepository.GetByIdWithItemsAsync(orderId, cancellationToken);
 
         if (order is null || order.UserId != userId)
         {
             throw new KeyNotFoundException("Order not found.");
         }
 
-        return await CreateWithdrawalRequestAsync(order, userId, dto.Reason, cancellationToken);
+        return await CreateWithdrawalRequestAsync(order, userId, createOrderWithdrawalRequest.Reason, cancellationToken);
     }
 
-    public async Task<OrderWithdrawalRequestDto> RequestWithdrawalByOrderLookupAsync(
-        PublicOrderWithdrawalRequestDto dto,
-        CancellationToken cancellationToken = default)
+    public async Task<OrderWithdrawalRequestDto> RequestWithdrawalByOrderLookupAsync(PublicOrderWithdrawalRequestDto publicOrderWithdrawalRequest, CancellationToken cancellationToken = default)
     {
-        var orderNumber = NormalizeRequired(dto.OrderNumber, "A rendelés azonosítója", 3, 32).ToUpperInvariant();
-        var customerEmail = NormalizeRequired(dto.CustomerEmail, "Az email cím", 5, 256).ToLowerInvariant();
+        var orderNumber = NormalizeRequired(publicOrderWithdrawalRequest.OrderNumber, "A rendelés azonosítója", 3, 32).ToUpperInvariant();
+        var customerEmail = NormalizeRequired(publicOrderWithdrawalRequest.CustomerEmail, "Az email cím", 5, 256).ToLowerInvariant();
         if (!System.Net.Mail.MailAddress.TryCreate(customerEmail, out _))
         {
             throw new ArgumentException("Az email cím formátuma hibás.");
         }
 
-        var order = await _unitOfWork.OrderRepository.GetByOrderNumberAndEmailWithItemsAsync(
-            orderNumber,
-            customerEmail,
-            cancellationToken);
+        var order = await _unitOfWork.OrderRepository.GetByOrderNumberAndEmailWithItemsAsync(orderNumber, customerEmail, cancellationToken);
 
         if (order is null)
         {
             throw new KeyNotFoundException("Nem találtunk ilyen rendelést ezzel az email címmel.");
         }
 
-        return await CreateWithdrawalRequestAsync(order, order.UserId, dto.Reason, cancellationToken);
+        return await CreateWithdrawalRequestAsync(order, order.UserId, publicOrderWithdrawalRequest.Reason, cancellationToken);
     }
 
-    private async Task<OrderWithdrawalRequestDto> CreateWithdrawalRequestAsync(
-        Order order,
-        Guid? userId,
-        string reasonValue,
-        CancellationToken cancellationToken)
+    private async Task<OrderWithdrawalRequestDto> CreateWithdrawalRequestAsync(Order order, Guid? userId, string reasonValue, CancellationToken cancellationToken)
     {
-        if (order.WithdrawalRequests.Any(request => request.Status == OrderWithdrawalRequestStatus.Pending))
-        {
-            throw new InvalidOperationException("Ehhez a rendeléshez már van folyamatban lévő elállási vagy fogyasztói kérés.");
-        }
-
         var reason = NormalizeRequired(reasonValue, "Az elállási vagy fogyasztói kérés leírása", 10, 1000);
         var request = new OrderWithdrawalRequest
         {
@@ -693,51 +654,45 @@ public class OrderService : IOrderService
 
         return await _unitOfWork.ExecuteInTransactionAsync(async token =>
         {
+            var pendingCount = await _unitOfWork.OrderRepository.CountPendingWithdrawalRequestsForUpdateAsync(order.Id, token);
+            if (pendingCount >= BusinessRules.MaximumPendingOrderRequests)
+                throw new InvalidOperationException($"Ehhez a rendeléshez már {BusinessRules.MaximumPendingOrderRequests} feldolgozásra váró üzenet tartozik. Újabb üzenetet a korábbiak feldolgozása után küldhetsz.");
             await _unitOfWork.OrderRepository.AddWithdrawalRequestAsync(request, token);
             await _unitOfWork.SaveChangesAsync(token);
 
-            if (!order.WithdrawalRequests.Contains(request)) order.WithdrawalRequests.Add(request);
+            if (!order.WithdrawalRequests.Contains(request))
+                order.WithdrawalRequests.Add(request);
             var orderDto = order.ToDto();
             var requestDto = orderDto.WithdrawalRequests.First(item => item.Id == request.Id);
             var eventId = Guid.NewGuid();
-            QueueOrderEmail(order.Id, "withdrawal-business",
-                _emailTemplateService.BuildOrderWithdrawalBusinessNotificationMessage(
-                    _emailBrandingOptions.ContactEmail, orderDto, requestDto), eventId);
-            QueueOrderEmail(order.Id, "withdrawal-customer",
-                _emailTemplateService.BuildOrderWithdrawalCustomerConfirmationMessage(
-                    order.CustomerEmail, orderDto, requestDto), eventId);
+            QueueOrderEmail(
+                order.Id,
+                "withdrawal-business",
+                _emailTemplateService.BuildOrderWithdrawalBusinessNotificationMessage(_emailBrandingOptions.ContactEmail, orderDto, requestDto),
+                eventId
+            );
+            QueueOrderEmail(
+                order.Id,
+                "withdrawal-customer",
+                _emailTemplateService.BuildOrderWithdrawalCustomerConfirmationMessage(order.CustomerEmail, orderDto, requestDto),
+                eventId
+            );
             await _unitOfWork.SaveChangesAsync(token);
             return requestDto;
         }, cancellationToken);
     }
 
-    public async Task<List<OrderDto>> GetMyOrdersAsync(
-        Guid userId,
-        CancellationToken cancellationToken = default)
+    public async Task<PagedResultDto<OrderDto>> GetMyOrdersAsync(Guid userId, CustomerOrderListQuery query, CancellationToken cancellationToken = default)
     {
-        var orders = await _unitOfWork.OrderRepository.GetByUserIdAsync(
-            userId,
-            cancellationToken);
-
-        var visibleFromUtc = GetUtcNow().AddDays(-7);
-
-        return orders
-            .Where(order => IsVisibleInUserHistory(order, visibleFromUtc))
-            .Select(order => order.ToDto())
-            .ToList();
+        var result = await _unitOfWork.OrderRepository.GetByUserIdAsync(userId, query.View, query.Search, query.Year, query.Page, query.PageSize, GetUtcNow(), cancellationToken);
+        return new(result.Items.Select(order => order.ToDto()).ToList(), result.Page, query.PageSize, result.TotalCount);
     }
 
-    public async Task<OrderDto> GetOrderByIdAsync(
-        Guid userId,
-        Guid orderId,
-        CancellationToken cancellationToken = default)
+    public async Task<OrderDto> GetOrderByIdAsync(Guid userId, Guid orderId, CancellationToken cancellationToken = default)
     {
-        var order = await _unitOfWork.OrderRepository.GetByIdWithItemsAsync(
-            orderId,
-            cancellationToken);
+        var order = await _unitOfWork.OrderRepository.GetByIdWithItemsAsync(orderId, cancellationToken);
 
-        if (order is null || order.UserId != userId ||
-            !IsVisibleInUserHistory(order, GetUtcNow().AddDays(-7)))
+        if (order is null || order.UserId != userId)
         {
             throw new KeyNotFoundException("Order not found.");
         }
@@ -745,10 +700,7 @@ public class OrderService : IOrderService
         return order.ToDto();
     }
 
-    public async Task<PublicOrderPaymentStatusDto> GetPublicOrderPaymentStatusAsync(
-        Guid orderId,
-        string sumUpCheckoutReference,
-        CancellationToken cancellationToken = default)
+    public async Task<PublicOrderPaymentStatusDto> GetPublicOrderPaymentStatusAsync(Guid orderId, string sumUpCheckoutReference, CancellationToken cancellationToken = default)
     {
         var normalizedCheckoutReference = NormalizeOptional(sumUpCheckoutReference);
         if (!string.Equals(normalizedCheckoutReference, orderId.ToString("N"), StringComparison.OrdinalIgnoreCase))
@@ -756,9 +708,7 @@ public class OrderService : IOrderService
             throw new KeyNotFoundException("Order not found.");
         }
 
-        var order = await _unitOfWork.OrderRepository.GetByIdAsync(
-            orderId,
-            cancellationToken)
+        var order = await _unitOfWork.OrderRepository.GetByIdAsync(orderId, cancellationToken)
             ?? throw new KeyNotFoundException("Order not found.");
 
         return new PublicOrderPaymentStatusDto
@@ -769,17 +719,6 @@ public class OrderService : IOrderService
             PaymentStatus = order.PaymentStatus,
             ConfirmedAtUtc = order.ConfirmedAtUtc
         };
-    }
-
-    private static bool IsVisibleInUserHistory(Order order, DateTime visibleFromUtc)
-    {
-        if (order.Status != OrderStatus.Cancelled)
-        {
-            return true;
-        }
-
-        var deletedAtUtc = order.DeletedAtUtc ?? order.CancelledAtUtc;
-        return deletedAtUtc.HasValue && deletedAtUtc.Value >= visibleFromUtc;
     }
 
     private static void EnsureCanAccessOrder(Order order, Guid? userId, string? sessionId)
@@ -800,19 +739,13 @@ public class OrderService : IOrderService
         }
     }
 
-    private async Task<decimal> AddOrderItemsAndCommitStockAsync(
-        Order order,
-        IEnumerable<CartItem> cartItems,
-        FulfillmentMethod fulfillmentMethod,
-        CancellationToken cancellationToken)
+    private async Task<decimal> AddOrderItemsAndCommitStockAsync(Order order, IEnumerable<CartItem> cartItems, FulfillmentMethod fulfillmentMethod, CancellationToken cancellationToken)
     {
         decimal totalPrice = 0m;
 
         foreach (var cartItem in cartItems)
         {
-            var product = await _unitOfWork.ProductRepository.GetByIdAsync(
-                cartItem.ProductId,
-                cancellationToken);
+            var product = await _unitOfWork.ProductRepository.GetByIdAsync(cartItem.ProductId, cancellationToken);
 
             if (product is null)
             {
@@ -859,9 +792,7 @@ public class OrderService : IOrderService
     {
         foreach (var orderItem in order.Items)
         {
-            var product = await _unitOfWork.ProductRepository.GetByIdAsync(
-                orderItem.ProductId,
-                cancellationToken);
+            var product = await _unitOfWork.ProductRepository.GetByIdAsync(orderItem.ProductId, cancellationToken);
 
             if (product is null)
             {
@@ -882,9 +813,7 @@ public class OrderService : IOrderService
     {
         foreach (var orderItem in order.Items)
         {
-            var product = await _unitOfWork.ProductRepository.GetByIdAsync(
-                orderItem.ProductId,
-                cancellationToken);
+            var product = await _unitOfWork.ProductRepository.GetByIdAsync(orderItem.ProductId, cancellationToken);
 
             if (product is not null)
             {
@@ -895,10 +824,7 @@ public class OrderService : IOrderService
         order.StockCommitted = false;
     }
 
-    private async Task<OrderCustomerSnapshot> BuildOrderCustomerSnapshotAsync(
-        Guid? userId,
-        PlaceOrderDto dto,
-        CancellationToken cancellationToken)
+    private async Task<OrderCustomerSnapshot> BuildOrderCustomerSnapshotAsync(Guid? userId, PlaceOrderDto placeOrder, CancellationToken cancellationToken)
     {
         ApplicationUser? user = userId.HasValue
             ? await _userManager.FindByIdAsync(userId.Value.ToString())
@@ -908,12 +834,12 @@ public class OrderService : IOrderService
             throw new InvalidOperationException("User not found.");
         }
 
-        var useManualContact = !string.IsNullOrWhiteSpace(dto.CustomerName) ||
-            !string.IsNullOrWhiteSpace(dto.CustomerEmail) ||
-            !string.IsNullOrWhiteSpace(dto.CustomerPhone);
-        var customerContact = BuildCustomerContact(user, useManualContact, dto);
+        var useManualContact = !string.IsNullOrWhiteSpace(placeOrder.CustomerName) ||
+            !string.IsNullOrWhiteSpace(placeOrder.CustomerEmail) ||
+            !string.IsNullOrWhiteSpace(placeOrder.CustomerPhone);
+        var customerContact = BuildCustomerContact(user, useManualContact, placeOrder);
 
-        var customerType = user?.CustomerType ?? dto.CustomerType;
+        var customerType = user?.CustomerType ?? placeOrder.CustomerType;
         if (!Enum.IsDefined(customerType))
         {
             throw new InvalidOperationException("Invalid customer type.");
@@ -921,29 +847,27 @@ public class OrderService : IOrderService
 
         var billingCompanyName = user is not null && !useManualContact
             ? user.CompanyName
-            : dto.BillingCompanyName;
+            : placeOrder.BillingCompanyName;
         var billingTaxNumber = user is not null && !useManualContact
             ? user.TaxNumber
-            : dto.BillingTaxNumber;
+            : placeOrder.BillingTaxNumber;
         var printedInvoiceRequested = customerType == CustomerType.Company &&
-            (user?.PrintedInvoiceRequested ?? dto.PrintedInvoiceRequested);
+            (user?.PrintedInvoiceRequested ?? placeOrder.PrintedInvoiceRequested);
 
         Address? billingAddress = null;
         if (customerType == CustomerType.Company)
         {
-            if (dto.AddressId.HasValue)
+            if (placeOrder.AddressId.HasValue)
             {
-                billingAddress = await _unitOfWork.AddressRepository.GetByIdAsync(
-                    dto.AddressId.Value,
-                    cancellationToken);
-                if (user is null || billingAddress is null || user.BillingAddressId != dto.AddressId)
+                billingAddress = await _unitOfWork.AddressRepository.GetByIdAsync(placeOrder.AddressId.Value, cancellationToken);
+                if (user is null || billingAddress is null || user.BillingAddressId != placeOrder.AddressId)
                 {
                     throw new InvalidOperationException("The selected billing address does not belong to the user.");
                 }
             }
             else
             {
-                ValidateManualAddress(dto.PostalCode, dto.City, dto.Street, dto.HouseNumber, "billing");
+                ValidateManualAddress(placeOrder.PostalCode, placeOrder.City, placeOrder.Street, placeOrder.HouseNumber, "billing");
             }
 
             ValidateCompanyBilling(billingCompanyName, billingTaxNumber);
@@ -955,69 +879,60 @@ public class OrderService : IOrderService
         }
 
         Address? deliveryAddress = null;
-        if (dto.FulfillmentMethod == FulfillmentMethod.HomeDelivery)
+        if (placeOrder.FulfillmentMethod == FulfillmentMethod.HomeDelivery)
         {
-            if (dto.DeliveryAddressId.HasValue)
+            if (placeOrder.DeliveryAddressId.HasValue)
             {
-                deliveryAddress = await _unitOfWork.AddressRepository.GetByIdAsync(
-                    dto.DeliveryAddressId.Value,
-                    cancellationToken);
-                if (user is null || deliveryAddress is null || user.ShippingAddressId != dto.DeliveryAddressId)
+                deliveryAddress = await _unitOfWork.AddressRepository.GetByIdAsync(placeOrder.DeliveryAddressId.Value, cancellationToken);
+                if (user is null || deliveryAddress is null || user.ShippingAddressId != placeOrder.DeliveryAddressId)
                 {
                     throw new InvalidOperationException("The selected delivery address does not belong to the user.");
                 }
             }
             else
             {
-                ValidateManualAddress(
-                    dto.DeliveryPostalCode,
-                    dto.DeliveryCity,
-                    dto.DeliveryStreet,
-                    dto.DeliveryHouseNumber,
-                    "delivery");
+                ValidateManualAddress(placeOrder.DeliveryPostalCode, placeOrder.DeliveryCity, placeOrder.DeliveryStreet, placeOrder.DeliveryHouseNumber, "delivery");
             }
         }
 
         return new OrderCustomerSnapshot(
-            AddressId: customerType == CustomerType.Company ? dto.AddressId : null,
+            AddressId: customerType == CustomerType.Company ? placeOrder.AddressId : null,
             CustomerName: customerContact.Name,
             CustomerEmail: customerContact.Email,
             CustomerPhone: customerContact.Phone,
-            PostalCode: billingAddress?.PostalCode ?? NormalizeOptional(dto.PostalCode) ?? string.Empty,
-            City: billingAddress?.City ?? NormalizeOptional(dto.City) ?? string.Empty,
-            Street: billingAddress?.Street ?? NormalizeOptional(dto.Street) ?? string.Empty,
-            HouseNumber: billingAddress?.HouseNumber ?? NormalizeOptional(dto.HouseNumber) ?? string.Empty,
-            Building: billingAddress?.Building ?? NormalizeOptional(dto.Building),
-            Floor: billingAddress?.Floor ?? NormalizeOptional(dto.Floor),
-            Door: billingAddress?.Door ?? NormalizeOptional(dto.Door),
-            Doorbell: billingAddress?.Doorbell ?? NormalizeOptional(dto.Doorbell),
+            PostalCode: billingAddress?.PostalCode ?? NormalizeOptional(placeOrder.PostalCode) ?? string.Empty,
+            City: billingAddress?.City ?? NormalizeOptional(placeOrder.City) ?? string.Empty,
+            Street: billingAddress?.Street ?? NormalizeOptional(placeOrder.Street) ?? string.Empty,
+            HouseNumber: billingAddress?.HouseNumber ?? NormalizeOptional(placeOrder.HouseNumber) ?? string.Empty,
+            Building: billingAddress?.Building ?? NormalizeOptional(placeOrder.Building),
+            Floor: billingAddress?.Floor ?? NormalizeOptional(placeOrder.Floor),
+            Door: billingAddress?.Door ?? NormalizeOptional(placeOrder.Door),
+            Doorbell: billingAddress?.Doorbell ?? NormalizeOptional(placeOrder.Doorbell),
             BillingCompanyName: NormalizeOptional(billingCompanyName),
             BillingTaxNumber: NormalizeOptional(billingTaxNumber),
             CustomerType: customerType,
             PrintedInvoiceRequested: printedInvoiceRequested,
-            DeliveryPostalCode: deliveryAddress?.PostalCode ?? NormalizeOptional(dto.DeliveryPostalCode),
-            DeliveryCity: deliveryAddress?.City ?? NormalizeOptional(dto.DeliveryCity),
-            DeliveryStreet: deliveryAddress?.Street ?? NormalizeOptional(dto.DeliveryStreet),
-            DeliveryHouseNumber: deliveryAddress?.HouseNumber ?? NormalizeOptional(dto.DeliveryHouseNumber),
-            DeliveryBuilding: deliveryAddress?.Building ?? NormalizeOptional(dto.DeliveryBuilding),
-            DeliveryFloor: deliveryAddress?.Floor ?? NormalizeOptional(dto.DeliveryFloor),
-            DeliveryDoor: deliveryAddress?.Door ?? NormalizeOptional(dto.DeliveryDoor),
-            DeliveryDoorbell: deliveryAddress?.Doorbell ?? NormalizeOptional(dto.DeliveryDoorbell));
+            DeliveryPostalCode: deliveryAddress?.PostalCode ?? NormalizeOptional(placeOrder.DeliveryPostalCode),
+            DeliveryCity: deliveryAddress?.City ?? NormalizeOptional(placeOrder.DeliveryCity),
+            DeliveryStreet: deliveryAddress?.Street ?? NormalizeOptional(placeOrder.DeliveryStreet),
+            DeliveryHouseNumber: deliveryAddress?.HouseNumber ?? NormalizeOptional(placeOrder.DeliveryHouseNumber),
+            DeliveryBuilding: deliveryAddress?.Building ?? NormalizeOptional(placeOrder.DeliveryBuilding),
+            DeliveryFloor: deliveryAddress?.Floor ?? NormalizeOptional(placeOrder.DeliveryFloor),
+            DeliveryDoor: deliveryAddress?.Door ?? NormalizeOptional(placeOrder.DeliveryDoor),
+            DeliveryDoorbell: deliveryAddress?.Doorbell ?? NormalizeOptional(placeOrder.DeliveryDoorbell)
+        );
     }
 
-    private static OrderCustomerContact BuildCustomerContact(
-        ApplicationUser? user,
-        bool useManualContact,
-        PlaceOrderDto dto) =>
+    private static OrderCustomerContact BuildCustomerContact(ApplicationUser? user, bool useManualContact, PlaceOrderDto placeOrder) =>
         user is null || useManualContact
-            ? BuildGuestContact(dto)
+            ? BuildGuestContact(placeOrder)
             : BuildAccountContact(user);
 
-    private static OrderCustomerContact BuildGuestContact(PlaceOrderDto dto)
+    private static OrderCustomerContact BuildGuestContact(PlaceOrderDto placeOrder)
     {
-        var customerName = NormalizeOptional(dto.CustomerName);
-        var customerEmail = NormalizeOptional(dto.CustomerEmail);
-        var customerPhone = NormalizeOptional(dto.CustomerPhone);
+        var customerName = NormalizeOptional(placeOrder.CustomerName);
+        var customerEmail = NormalizeOptional(placeOrder.CustomerEmail);
+        var customerPhone = NormalizeOptional(placeOrder.CustomerPhone);
         if (customerName is null || customerEmail is null || customerPhone is null)
         {
             throw new ArgumentException("Guest customer and address details are required.");
@@ -1028,20 +943,17 @@ public class OrderService : IOrderService
             throw new ArgumentException("Invalid email address.");
         }
 
-        return new OrderCustomerContact(
-            customerName,
-            customerEmail,
-            customerPhone);
+        return new OrderCustomerContact(customerName, customerEmail, customerPhone);
     }
 
-    private static void ValidateAcceptedLegalVersions(PlaceOrderDto dto)
+    private static void ValidateAcceptedLegalVersions(PlaceOrderDto placeOrder)
     {
-        if (dto.AcceptedTermsVersion != LegalDocumentVersions.CurrentTermsVersion)
+        if (placeOrder.AcceptedTermsVersion != LegalDocumentVersions.CurrentTermsVersion)
         {
             throw new InvalidOperationException("Az aktuális Általános Szerződési Feltételek elfogadása kötelező.");
         }
 
-        if (dto.AcceptedPrivacyPolicyVersion != LegalDocumentVersions.CurrentPrivacyPolicyVersion)
+        if (placeOrder.AcceptedPrivacyPolicyVersion != LegalDocumentVersions.CurrentPrivacyPolicyVersion)
         {
             throw new InvalidOperationException("Az aktuális Adatkezelési Tájékoztató elfogadása kötelező.");
         }
@@ -1059,9 +971,12 @@ public class OrderService : IOrderService
         var normalizedTaxNumber = NormalizeOptional(taxNumber);
         if ((normalizedCompanyName is null) != (normalizedTaxNumber is null))
             throw new ArgumentException("Céges számlázáshoz a cégnév és az adószám együttes megadása szükséges.");
+
         if (normalizedTaxNumber is not null &&
             !System.Text.RegularExpressions.Regex.IsMatch(normalizedTaxNumber, @"^\d{8}(-\d-\d{2})?$"))
+        {
             throw new ArgumentException("Az adószám formátuma hibás. Példa: 12345678-1-12.");
+        }
     }
 
     private static OrderCustomerContact BuildAccountContact(ApplicationUser user)
@@ -1076,10 +991,7 @@ public class OrderService : IOrderService
                 "A fiók személyes adatai hiányosak. Töltsd ki a nevet, email címet és telefonszámot, vagy válaszd a Más adatok megadása lehetőséget.");
         }
 
-        return new OrderCustomerContact(
-            $"{lastName} {firstName}".Trim(),
-            email,
-            phone);
+        return new OrderCustomerContact($"{lastName} {firstName}".Trim(), email, phone);
     }
 
     private static string? NormalizeOptional(string? value) =>
@@ -1148,10 +1060,7 @@ public class OrderService : IOrderService
         return $"BK-{GetUtcNow():yyyyMMdd}-{Guid.NewGuid().ToString("N")[..8].ToUpperInvariant()}";
     }
 
-    private async Task<Order?> GetLatestCheckedOutOrderAsync(
-        Guid? userId,
-        string? sessionId,
-        CancellationToken cancellationToken)
+    private async Task<Order?> GetLatestCheckedOutOrderAsync(Guid? userId, string? sessionId, CancellationToken cancellationToken)
     {
         var checkedOutCart = userId.HasValue
             ? await _unitOfWork.CartRepository.GetLatestCheckedOutByUserIdAsync(userId.Value, cancellationToken)
@@ -1161,32 +1070,23 @@ public class OrderService : IOrderService
 
         return checkedOutCart is null
             ? null
-            : await _unitOfWork.OrderRepository.GetByCartIdWithItemsAsync(
-                checkedOutCart.Id,
-                cancellationToken);
+            : await _unitOfWork.OrderRepository.GetByCartIdWithItemsAsync(checkedOutCart.Id, cancellationToken);
     }
 
-    private async Task<Order> ReloadOrderWithItemsAsync(
-        Guid orderId,
-        CancellationToken cancellationToken) =>
+    private async Task<Order> ReloadOrderWithItemsAsync(Guid orderId, CancellationToken cancellationToken) =>
         await _unitOfWork.OrderRepository.GetByIdWithItemsAsync(orderId, cancellationToken)
             ?? throw new InvalidOperationException("Order reload failed after saving changes.");
 
     private void QueueOrderCreatedEmails(OrderDto order)
     {
-        var customerMessage = _emailTemplateService.BuildOrderConfirmationMessage(
-            order.CustomerEmail,
-            order);
+        var customerMessage = _emailTemplateService.BuildOrderConfirmationMessage(order.CustomerEmail, order);
         QueueOrderEmail(order.Id, "customer", customerMessage);
 
-        var businessMessage = _emailTemplateService.BuildOrderBusinessNotificationMessage(
-            _emailBrandingOptions.ContactEmail,
-            order);
+        var businessMessage = _emailTemplateService.BuildOrderBusinessNotificationMessage(_emailBrandingOptions.ContactEmail, order);
         QueueOrderEmail(order.Id, "business", businessMessage);
     }
 
-    private void QueueOrderEmail(Guid orderId, string kind, Biogarden.BusinessLogic.Models.Email.EmailMessage message,
-        Guid eventId = default)
+    private void QueueOrderEmail(Guid orderId, string kind, Biogarden.BusinessLogic.Models.Email.EmailMessage message, Guid eventId = default)
     {
         _unitOfWork.OrderEmailRepository.Add(new OrderEmail
         {
@@ -1226,10 +1126,8 @@ public class OrderService : IOrderService
         string? DeliveryBuilding,
         string? DeliveryFloor,
         string? DeliveryDoor,
-        string? DeliveryDoorbell);
+        string? DeliveryDoorbell
+    );
 
-    private sealed record OrderCustomerContact(
-        string Name,
-        string Email,
-        string Phone);
+    private sealed record OrderCustomerContact(string Name, string Email, string Phone);
 }

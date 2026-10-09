@@ -151,7 +151,7 @@ public sealed class CheckoutPricingServiceTests
         var first = service.Calculate(Guid.Empty, FulfillmentMethod.PersonalPickup, OrderPaymentMethod.OnlineCard, items);
         var reordered = service.Calculate(Guid.Empty, FulfillmentMethod.PersonalPickup, OrderPaymentMethod.OnlineCard, items.Reverse());
         Assert.Equal(31, first.Subtotal);
-        Assert.Equal(new decimal[] { 10, 21 }, first.Items.Select(x => x.LineTotal));
+        Assert.Equal(new decimal[] { 10, 21 }, first.Items.Select(orderItem => orderItem.LineTotal));
         Assert.Equal(first.Version, reordered.Version);
     }
 }

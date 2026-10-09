@@ -28,14 +28,19 @@ export type AdminProductListQuery = {
 function buildProductQuery(query: AdminProductListQuery = {}) {
   const params = new URLSearchParams();
 
-  if (query.page) params.set("page", String(query.page));
-  if (query.pageSize) params.set("pageSize", String(query.pageSize));
-  if (query.search?.trim()) params.set("search", query.search.trim());
+  if (query.page)
+    params.set("page", String(query.page));
+  if (query.pageSize)
+    params.set("pageSize", String(query.pageSize));
+  if (query.search?.trim())
+    params.set("search", query.search.trim());
   if (query.category !== undefined && query.category !== "all") {
     params.set("category", String(query.category));
   }
-  if (query.availability === "available") params.set("availableOnly", "true");
-  if (query.availability === "unavailable") params.set("unavailableOnly", "true");
+  if (query.availability === "available")
+    params.set("availableOnly", "true");
+  if (query.availability === "unavailable")
+    params.set("unavailableOnly", "true");
 
   const queryString = params.toString();
   return queryString ? `?${queryString}` : "";
@@ -52,10 +57,13 @@ export async function getAdminProductPage(
 }
 
 export async function createAdminProduct(product: AdminProductInput): Promise<number> {
-  const response = await adminRequest("/products", {
-    method: "POST",
-    jsonBody: product,
-  });
+  const response = await adminRequest(
+    "/products",
+    {
+      method: "POST",
+      jsonBody: product,
+    }
+  );
   return response.json() as Promise<number>;
 }
 
@@ -75,10 +83,13 @@ export async function deleteAdminProduct(productId: number): Promise<void> {
 export async function uploadAdminProductImage(image: File): Promise<string> {
   const data = new FormData();
   data.append("image", image);
-  const response = await adminRequest("/products/image", {
-    method: "POST",
-    body: data,
-  });
+  const response = await adminRequest(
+    "/products/image",
+    {
+      method: "POST",
+      body: data,
+    }
+  );
   const result = await response.json() as { path: string };
   return result.path;
 }

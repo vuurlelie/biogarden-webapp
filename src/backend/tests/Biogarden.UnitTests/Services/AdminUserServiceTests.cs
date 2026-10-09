@@ -30,8 +30,8 @@ public sealed class AdminUserServiceTests
         _service = new AdminUserService(
             _databaseContext.Object,
             _userManager.Object,
-            new AccountLifecycleOperations(_userManager.Object, _databaseContext.Object,
-                _emailService.Object, _emailTemplateService.Object));
+            new AccountLifecycleOperations(_userManager.Object, _databaseContext.Object, _emailService.Object, _emailTemplateService.Object)
+        );
     }
 
     [Fact]
@@ -114,10 +114,7 @@ public sealed class AdminUserServiceTests
             .Returns(requests.Object);
 
         var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            _service.CompleteErasureRequestAsync(
-                12,
-                currentAdminId,
-                new()));
+            _service.CompleteErasureRequestAsync(12, currentAdminId, new()));
 
         Assert.Equal("A saját fiókodat nem törölheted vagy anonimizálhatod az admin felületről.", exception.Message);
         _databaseContext.VerifyGet(context => context.AccountLifecycleRequests, Times.Once);
@@ -156,8 +153,7 @@ public sealed class AdminUserServiceTests
             new UpperInvariantLookupNormalizer(),
             new IdentityErrorDescriber(),
             // Identity 10 resolves an optional metrics factory during construction.
-            Mock.Of<IServiceProvider>(provider =>
-                provider.GetService(typeof(System.Diagnostics.Metrics.IMeterFactory)) == null, MockBehavior.Strict),
+            Mock.Of<IServiceProvider>(provider => provider.GetService(typeof(System.Diagnostics.Metrics.IMeterFactory)) == null, MockBehavior.Strict),
             NullLogger<UserManager<ApplicationUser>>.Instance);
 
     private sealed class TestAsyncQueryProvider<TEntity> : IAsyncQueryProvider
@@ -193,10 +189,7 @@ public sealed class AdminUserServiceTests
         {
             var expectedResultType = typeof(TResult).GetGenericArguments()[0];
             var executionResult = typeof(IQueryProvider)
-                .GetMethod(
-                    nameof(IQueryProvider.Execute),
-                    1,
-                    [typeof(Expression)])
+                .GetMethod(nameof(IQueryProvider.Execute), 1, [typeof(Expression)])
                 ?? throw new InvalidOperationException("IQueryProvider.Execute method was not found.");
             var typedExecutionResult = executionResult
                 .MakeGenericMethod(expectedResultType)

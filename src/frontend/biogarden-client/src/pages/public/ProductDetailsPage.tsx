@@ -56,16 +56,21 @@ export default function ProductDetailsPage() {
   const [availabilityRefreshFailed, setAvailabilityRefreshFailed] = useState(false);
   const [isRefreshingAvailability, setIsRefreshingAvailability] = useState(false);
   const productRequests = useRef<AbortController | null>(null);
-  const [quantity, setQuantity] = useState(1);
+  const [quantity, setQuantity] = useState("");
+  const [quantityError, setQuantityError] = useState<string | null>(null);
+  const quantityInputRef = useRef<HTMLInputElement | null>(null);
   const [availableToAdd, setAvailableToAdd] = useState(0);
   const [isImageOpen, setIsImageOpen] = useState(false);
   const imageModalRef = useRef<HTMLDivElement | null>(null);
   const { track } = useAnalytics();
 
-  useModalFocus(imageModalRef, {
-    isOpen: isImageOpen,
-    onClose: () => setIsImageOpen(false),
-  });
+  useModalFocus(
+    imageModalRef,
+    {
+      isOpen: isImageOpen,
+      onClose: () => setIsImageOpen(false),
+    }
+  );
   const { addItem } = useCart();
 
   useEffect(() => {
@@ -93,7 +98,8 @@ export default function ProductDetailsPage() {
 
         const loadedProduct = await getProductById(parsedProductId, controller.signal);
 
-        if (shouldIgnoreResult) return;
+        if (shouldIgnoreResult)
+          return;
 
         if (loadedProduct === null) {
           setNotFound(true);
@@ -104,7 +110,8 @@ export default function ProductDetailsPage() {
         setProduct(loadedProduct);
         // Recommendations are optional and must not delay availability or block purchasing.
         void getProducts(controller.signal).then(products => {
-          if (shouldIgnoreResult) return;
+          if (shouldIgnoreResult)
+            return;
           const otherProducts = products.filter((item) => item.id !== loadedProduct.id);
           const sameCategoryProducts = otherProducts.filter((item) => item.category === loadedProduct.category);
           const fallbackProducts = otherProducts.filter((item) => item.category !== loadedProduct.category);
@@ -114,15 +121,19 @@ export default function ProductDetailsPage() {
         });
 
         const availableQuantity = await getAvailableQuantityToAdd(loadedProduct.id, controller.signal);
-        if (shouldIgnoreResult) return;
+        if (shouldIgnoreResult)
+          return;
         setAvailableToAdd(availableQuantity);
-        setQuantity(availableQuantity > 0 ? 1 : 0);
+        setQuantity("");
+        setQuantityError(null);
       } catch (error) {
-        if (shouldIgnoreResult) return;
+        if (shouldIgnoreResult)
+          return;
         console.error(error);
         setHasError(true);
       } finally {
-        if (!shouldIgnoreResult) setIsLoading(false);
+        if (!shouldIgnoreResult)
+          setIsLoading(false);
       }
     }
 
@@ -133,13 +144,20 @@ export default function ProductDetailsPage() {
     };
   }, [productId]);
 
-  useEffect(() => {
-    if (!product) return;
-    track("product_view", {
-      productId: product.id,
-      category: String(product.category),
-    });
-  }, [product, track]);
+  useEffect(
+    () => {
+      if (!product)
+        return;
+      track(
+        "product_view",
+        {
+          productId: product.id,
+          category: String(product.category),
+        }
+      );
+    },
+    [product, track]
+  );
 
   if (isLoading) {
     return (
@@ -199,33 +217,55 @@ export default function ProductDetailsPage() {
     setIsRefreshingAvailability(true);
     try {
       const remaining = await getAvailableQuantityToAdd(currentProduct.id, signal);
-      if (signal?.aborted) return;
+      if (signal?.aborted)
+        return;
       setAvailableToAdd(remaining);
-      setQuantity(remaining > 0 ? 1 : 0);
       setAvailabilityRefreshFailed(false);
     } catch {
-      if (!signal?.aborted) setAvailabilityRefreshFailed(true);
+      if (!signal?.aborted)
+        setAvailabilityRefreshFailed(true);
     } finally {
-      if (!signal?.aborted) setIsRefreshingAvailability(false);
+      if (!signal?.aborted)
+        setIsRefreshingAvailability(false);
     }
   }
 
   async function handleAddToCart() {
     const currentProduct = product;
-    if (!currentProduct || isAddingToCart || isRefreshingAvailability || availabilityRefreshFailed) return;
+    if (!currentProduct || isAddingToCart || isRefreshingAvailability || availabilityRefreshFailed)
+      return;
     const signal = productRequests.current?.signal;
 
+    const amount = Number(quantity);
+    const error = !quantity.trim()
+      ? "Add meg a rendelni kívánt mennyiséget."
+      : !Number.isSafeInteger(amount) || amount < 1
+        ? "Adj meg legalább 1 egész számú mennyiséget."
+        : amount > availableToAdd
+          ? `Legfeljebb ${availableToAdd} ${getUnitLabel(currentProduct.unit)} rendelhető.`
+          : null;
+    if (error) {
+      setQuantityError(error);
+      setCartMessage(null);
+      quantityInputRef.current?.focus();
+      return;
+    }
+    setQuantityError(null);
     setIsAddingToCart(true);
     setCartMessage(null);
     try {
-      await addItem(currentProduct.id, quantity);
-      if (signal?.aborted) return;
-      setCartMessage(`${quantity} ${getUnitLabel(currentProduct.unit)} bekerült a kosárba.`);
+      await addItem(currentProduct.id, amount);
+      if (signal?.aborted)
+        return;
+      setQuantity("");
+      setCartMessage(`${amount} ${getUnitLabel(currentProduct.unit)} bekerült a kosárba.`);
       await refreshAvailability(currentProduct);
     } catch (error) {
-      if (!signal?.aborted) setCartMessage(getErrorMessage(error, "A terméket nem sikerült kosárba tenni."));
+      if (!signal?.aborted)
+        setCartMessage(getErrorMessage(error, "A terméket nem sikerült kosárba tenni."));
     } finally {
-      if (!signal?.aborted) setIsAddingToCart(false);
+      if (!signal?.aborted)
+        setIsAddingToCart(false);
     }
   }
 
@@ -335,13 +375,18 @@ export default function ProductDetailsPage() {
               <label className="flex items-center gap-2 text-sm font-semibold text-site-heading">
                 Mennyiség
                 <input
+                  ref={quantityInputRef}
                   type="number"
+                  step={1}
+                  aria-invalid={Boolean(quantityError)}
+                  aria-describedby={quantityError ? "product-quantity-error" : undefined}
                   min={availableToAdd > 0 ? 1 : 0}
                   max={availableToAdd}
                   value={quantity}
                   onChange={(event) => {
-                    const next = Number(event.target.value);
-                    setQuantity(Math.min(availableToAdd, Math.max(1, Number.isFinite(next) ? next : 1)));
+                    setQuantity(event.target.value);
+                    setQuantityError(null);
+                    setCartMessage(null);
                   }}
                   disabled={availableToAdd === 0 || isAddingToCart || isRefreshingAvailability || availabilityRefreshFailed}
                   className="w-20 rounded-sm border border-site-border px-3 py-2 text-center"
@@ -351,7 +396,7 @@ export default function ProductDetailsPage() {
               <button
                 type="button"
                 onClick={() => void handleAddToCart()}
-                disabled={!isAvailable || availableToAdd === 0 || quantity < 1 || isAddingToCart || isRefreshingAvailability || availabilityRefreshFailed}
+                disabled={!isAvailable || availableToAdd === 0 || isAddingToCart || isRefreshingAvailability || availabilityRefreshFailed}
                 className="inline-flex rounded-sm bg-site-green px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-site-green-hover disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {isAddingToCart ? "Kosárba helyezés..." : "Kosárba teszem"}
@@ -364,6 +409,7 @@ export default function ProductDetailsPage() {
                 Vissza a termékekhez
               </Link>
             </div>
+            {quantityError && <p id="product-quantity-error" role="alert" className="mt-3 text-xs font-normal text-site-danger">{quantityError}</p>}
             {isAvailable && availableToAdd === 0 && <p className="mt-3 text-sm font-semibold text-site-danger">A teljes készlet jelenleg más kosarakban van lefoglalva vagy már a kosaradban található.</p>}
             {cartMessage && <p className="mt-3 text-sm font-semibold text-site-green-dark" role="status">{cartMessage}</p>}
             {availabilityRefreshFailed && (

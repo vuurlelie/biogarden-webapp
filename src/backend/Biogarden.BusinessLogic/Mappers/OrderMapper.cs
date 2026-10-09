@@ -80,6 +80,7 @@ public static class OrderMapper
                     Reason = request.Reason,
                     Status = request.Status,
                     RequestedAtUtc = request.RequestedAtUtc,
+                    AdminResponse = request.AdminResponse,
                     HandledAtUtc = request.HandledAtUtc
                 })
                 .ToList()

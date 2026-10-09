@@ -41,7 +41,10 @@ export default function AccountLayout() {
       window.alert(error instanceof Error ? error.message : "A kijelentkezés nem sikerült.");
       return;
     }
-    navigate(ROUTES.home, { replace: true });
+    navigate(
+      ROUTES.home,
+      { replace: true }
+    );
   }
 
   return (

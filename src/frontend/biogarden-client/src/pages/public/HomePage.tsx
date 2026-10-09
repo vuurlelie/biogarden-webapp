@@ -42,17 +42,17 @@ export default function HomePage() {
       {/* CAROUSEL */}
       <div className="w-full px-0 mt-2 sm:mt-3 shadow-lg">
         <Carousel auto interval={5000}>
-          {slides.map((slide, i) => (
+          {slides.map((slide, slideIndex) => (
             <img
-              key={i}
+              key={slideIndex}
               {...slide}
               sizes="100vw"
-              fetchPriority={i === 0 ? "high" : "auto"}
-              alt={`Biogarden slide ${i + 1}`}
+              fetchPriority={slideIndex === 0 ? "high" : "auto"}
+              alt={`Biogarden slide ${slideIndex + 1}`}
               className="w-full object-cover object-center"
               width={1667}
               height={600}
-              loading={i > 0 ? "lazy" : "eager"}
+              loading={slideIndex > 0 ? "lazy" : "eager"}
               decoding="async"
             />
           ))}

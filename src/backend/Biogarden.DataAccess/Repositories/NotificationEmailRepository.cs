@@ -14,8 +14,7 @@ public sealed class NotificationEmailRepository(IAppDbContext database) : INotif
         // A duplicate pair can deadlock while inserting its two unique event/kind rows.
         // Retry the whole idempotent acceptance, including the persisted replay check.
         // Keep this policy local: order/payment transactions have their own recovery rules.
-        var strategy = new SqlServerRetryingExecutionStrategy(context,
-            maxRetryCount: 3, maxRetryDelay: TimeSpan.FromSeconds(1), errorNumbersToAdd: [1205]);
+        var strategy = new SqlServerRetryingExecutionStrategy(context, maxRetryCount: 3, maxRetryDelay: TimeSpan.FromSeconds(1), errorNumbersToAdd: [1205]);
         await strategy.ExecuteAsync(async cancellationToken =>
         {
             foreach (var email in emails) context.Entry(email).State = EntityState.Detached;
@@ -33,15 +32,19 @@ public sealed class NotificationEmailRepository(IAppDbContext database) : INotif
     {
         var first = emails[0];
         var existing = await database.NotificationEmails.AsNoTracking()
-            .FirstOrDefaultAsync(x => x.EventId == first.EventId && x.Kind == first.Kind, token);
-        if (existing is not null) { CheckReplay(existing, first); return; }
+            .FirstOrDefaultAsync(notificationEmail => notificationEmail.EventId == first.EventId && notificationEmail.Kind == first.Kind, token);
+        if (existing is not null)
+        {
+            CheckReplay(existing, first);
+            return;
+        }
         database.NotificationEmails.AddRange(emails);
         try { await database.SaveChangesAsync(token); }
         catch (DbUpdateException exception) when (exception.InnerException is SqlException { Number: 2601 or 2627 })
         {
             foreach (var email in emails) ((DbContext)database).Entry(email).State = EntityState.Detached;
             existing = await database.NotificationEmails.AsNoTracking()
-                .SingleAsync(x => x.EventId == first.EventId && x.Kind == first.Kind, token);
+                .SingleAsync(notificationEmail => notificationEmail.EventId == first.EventId && notificationEmail.Kind == first.Kind, token);
             CheckReplay(existing, first);
         }
     }
@@ -54,42 +57,56 @@ public sealed class NotificationEmailRepository(IAppDbContext database) : INotif
 
     public async Task<NotificationEmail?> TryClaimAsync(DateTime now, CancellationToken token)
     {
-        var due = database.NotificationEmails.Where(x => x.CompletedAtUtc == null && x.ExpiresAtUtc > now &&
-            x.NextAttemptAtUtc <= now && (x.LeaseUntilUtc == null || x.LeaseUntilUtc <= now));
-        var email = await due.AsNoTracking().OrderBy(x => x.NextAttemptAtUtc).ThenBy(x => x.CreatedAtUtc).ThenBy(x => x.Id).FirstOrDefaultAsync(token);
-        if (email is null) return null;
+        var due = database.NotificationEmails.Where(notificationEmail => notificationEmail.CompletedAtUtc == null && notificationEmail.ExpiresAtUtc > now &&
+            notificationEmail.NextAttemptAtUtc <= now && (notificationEmail.LeaseUntilUtc == null || notificationEmail.LeaseUntilUtc <= now));
+        var email = await due.AsNoTracking().OrderBy(notificationEmail => notificationEmail.NextAttemptAtUtc).ThenBy(notificationEmail => notificationEmail.CreatedAtUtc).ThenBy(notificationEmail => notificationEmail.Id).FirstOrDefaultAsync(token);
+        if (email is null)
+            return null;
         var leaseId = Guid.NewGuid();
-        var count = await due.Where(x => x.Id == email.Id).ExecuteUpdateAsync(s => s
-            .SetProperty(x => x.LeaseId, leaseId).SetProperty(x => x.LeaseUntilUtc, now.AddMinutes(2))
-            .SetProperty(x => x.Attempts, x => x.Attempts + 1), token);
-        if (count == 0) return null;
+        var count = await due.Where(notificationEmail => notificationEmail.Id == email.Id).ExecuteUpdateAsync(
+            updateSettersBuilder => updateSettersBuilder
+                .SetProperty(notificationEmail => notificationEmail.LeaseId, leaseId).SetProperty(notificationEmail => notificationEmail.LeaseUntilUtc, now.AddMinutes(2))
+                .SetProperty(notificationEmail => notificationEmail.Attempts, notificationEmail => notificationEmail.Attempts + 1),
+            token
+        );
+        if (count == 0)
+            return null;
         email.LeaseId = leaseId;
         email.Attempts++;
         return email;
     }
 
     public Task CompleteAsync(Guid id, Guid leaseId, DateTime now, string outcome, CancellationToken token)
-        => database.NotificationEmails.Where(x => x.Id == id && x.LeaseId == leaseId).ExecuteUpdateAsync(s => s
-            .SetProperty(x => x.CompletedAtUtc, now).SetProperty(x => x.Outcome, outcome)
-            .SetProperty(x => x.LeaseId, (Guid?)null).SetProperty(x => x.LeaseUntilUtc, (DateTime?)null)
-            .SetProperty(x => x.Recipient, string.Empty).SetProperty(x => x.Subject, string.Empty)
-            .SetProperty(x => x.HtmlBody, (string?)null).SetProperty(x => x.PlainTextBody, (string?)null)
-            .SetProperty(x => x.SecurityStamp, (string?)null).SetProperty(x => x.UserId, (Guid?)null), token);
+        => database.NotificationEmails.Where(notificationEmail => notificationEmail.Id == id && notificationEmail.LeaseId == leaseId).ExecuteUpdateAsync(
+            updateSettersBuilder => updateSettersBuilder
+                        .SetProperty(notificationEmail => notificationEmail.CompletedAtUtc, now).SetProperty(notificationEmail => notificationEmail.Outcome, outcome)
+                        .SetProperty(notificationEmail => notificationEmail.LeaseId, (Guid?)null).SetProperty(notificationEmail => notificationEmail.LeaseUntilUtc, (DateTime?)null)
+                        .SetProperty(notificationEmail => notificationEmail.Recipient, string.Empty).SetProperty(notificationEmail => notificationEmail.Subject, string.Empty)
+                        .SetProperty(notificationEmail => notificationEmail.HtmlBody, (string?)null).SetProperty(notificationEmail => notificationEmail.PlainTextBody, (string?)null)
+                        .SetProperty(notificationEmail => notificationEmail.SecurityStamp, (string?)null).SetProperty(notificationEmail => notificationEmail.UserId, (Guid?)null),
+            token
+        );
 
     public Task RetryAsync(Guid id, Guid leaseId, DateTime nextAttempt, CancellationToken token)
-        => database.NotificationEmails.Where(x => x.Id == id && x.LeaseId == leaseId).ExecuteUpdateAsync(s => s
-            .SetProperty(x => x.NextAttemptAtUtc, nextAttempt)
-            .SetProperty(x => x.LeaseId, (Guid?)null).SetProperty(x => x.LeaseUntilUtc, (DateTime?)null), token);
+        => database.NotificationEmails.Where(notificationEmail => notificationEmail.Id == id && notificationEmail.LeaseId == leaseId).ExecuteUpdateAsync(
+            updateSettersBuilder => updateSettersBuilder
+                        .SetProperty(notificationEmail => notificationEmail.NextAttemptAtUtc, nextAttempt)
+                        .SetProperty(notificationEmail => notificationEmail.LeaseId, (Guid?)null).SetProperty(notificationEmail => notificationEmail.LeaseUntilUtc, (DateTime?)null),
+            token
+        );
 
     public Task ExpireAsync(DateTime now, CancellationToken token)
     {
-        var ids = database.NotificationEmails.Where(x => x.CompletedAtUtc == null && x.ExpiresAtUtc <= now &&
-            (x.LeaseUntilUtc == null || x.LeaseUntilUtc <= now)).OrderBy(x => x.ExpiresAtUtc).Take(100).Select(x => x.Id);
-        return database.NotificationEmails.Where(x => ids.Contains(x.Id)).ExecuteUpdateAsync(s => s
-            .SetProperty(x => x.CompletedAtUtc, now).SetProperty(x => x.Outcome, "expired")
-            .SetProperty(x => x.LeaseId, (Guid?)null).SetProperty(x => x.LeaseUntilUtc, (DateTime?)null)
-            .SetProperty(x => x.Recipient, string.Empty).SetProperty(x => x.Subject, string.Empty)
-            .SetProperty(x => x.HtmlBody, (string?)null).SetProperty(x => x.PlainTextBody, (string?)null)
-            .SetProperty(x => x.SecurityStamp, (string?)null).SetProperty(x => x.UserId, (Guid?)null), token);
+        var ids = database.NotificationEmails.Where(notificationEmail => notificationEmail.CompletedAtUtc == null && notificationEmail.ExpiresAtUtc <= now &&
+            (notificationEmail.LeaseUntilUtc == null || notificationEmail.LeaseUntilUtc <= now)).OrderBy(notificationEmail => notificationEmail.ExpiresAtUtc).Take(100).Select(notificationEmail => notificationEmail.Id);
+        return database.NotificationEmails.Where(notificationEmail => ids.Contains(notificationEmail.Id)).ExecuteUpdateAsync(
+            updateSettersBuilder => updateSettersBuilder
+                        .SetProperty(notificationEmail => notificationEmail.CompletedAtUtc, now).SetProperty(notificationEmail => notificationEmail.Outcome, "expired")
+                        .SetProperty(notificationEmail => notificationEmail.LeaseId, (Guid?)null).SetProperty(notificationEmail => notificationEmail.LeaseUntilUtc, (DateTime?)null)
+                        .SetProperty(notificationEmail => notificationEmail.Recipient, string.Empty).SetProperty(notificationEmail => notificationEmail.Subject, string.Empty)
+                        .SetProperty(notificationEmail => notificationEmail.HtmlBody, (string?)null).SetProperty(notificationEmail => notificationEmail.PlainTextBody, (string?)null)
+                        .SetProperty(notificationEmail => notificationEmail.SecurityStamp, (string?)null).SetProperty(notificationEmail => notificationEmail.UserId, (Guid?)null),
+            token
+        );
     }
 }

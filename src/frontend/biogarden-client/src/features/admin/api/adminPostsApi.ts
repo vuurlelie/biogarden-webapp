@@ -22,14 +22,19 @@ export type AdminPostListQuery = {
 function buildPostQuery(query: AdminPostListQuery = {}) {
   const params = new URLSearchParams();
 
-  if (query.page) params.set("page", String(query.page));
-  if (query.pageSize) params.set("pageSize", String(query.pageSize));
-  if (query.search?.trim()) params.set("search", query.search.trim());
+  if (query.page)
+    params.set("page", String(query.page));
+  if (query.pageSize)
+    params.set("pageSize", String(query.pageSize));
+  if (query.search?.trim())
+    params.set("search", query.search.trim());
   if (query.category !== undefined && query.category !== "all") {
     params.set("category", String(query.category));
   }
-  if (query.status === "published") params.set("draft", "false");
-  if (query.status === "draft") params.set("draft", "true");
+  if (query.status === "published")
+    params.set("draft", "false");
+  if (query.status === "draft")
+    params.set("draft", "true");
 
   const queryString = params.toString();
   return queryString ? `?${queryString}` : "";
@@ -46,10 +51,13 @@ export async function getAdminPostPage(
 }
 
 export async function createAdminPost(post: AdminPostInput): Promise<number> {
-  const response = await adminRequest("/posts", {
-    method: "POST",
-    jsonBody: post,
-  });
+  const response = await adminRequest(
+    "/posts",
+    {
+      method: "POST",
+      jsonBody: post,
+    }
+  );
   return response.json() as Promise<number>;
 }
 
@@ -70,10 +78,13 @@ export async function uploadAdminPostImage(image: File): Promise<string> {
   const data = new FormData();
   data.append("image", image);
 
-  const response = await adminRequest("/posts/image", {
-    method: "POST",
-    body: data,
-  });
+  const response = await adminRequest(
+    "/posts/image",
+    {
+      method: "POST",
+      body: data,
+    }
+  );
 
   const result = await response.json() as { path: string };
   return result.path;

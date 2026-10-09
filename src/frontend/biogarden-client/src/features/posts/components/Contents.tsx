@@ -1,3 +1,4 @@
+import { SITE_TIME_ZONE, parseApiDate } from "../../../shared/utils/dateTime";
 import { useMemo, useState } from "react";
 import { NavLink } from "react-router";
 import type { Post } from "../types/post.types";
@@ -11,12 +12,20 @@ function groupPostsByYearAndMonth(posts: Post[]) {
   const grouped: Record<string, Record<string, Post[]>> = {};
 
   posts.forEach((post) => {
-    const date = new Date(post.publishedAt);
-    const year = date.getFullYear().toString();
-    const month = date.toLocaleString("hu-HU", { month: "long" });
+    const date = parseApiDate(post.publishedAt);
+    const year = new Intl.DateTimeFormat(
+      "hu-HU",
+      { timeZone: SITE_TIME_ZONE, year: "numeric" }
+    ).format(date).replace(/\D/g, "");
+    const month = date.toLocaleString(
+      "hu-HU",
+      { timeZone: SITE_TIME_ZONE, month: "long" }
+    );
 
-    if (!grouped[year]) grouped[year] = {};
-    if (!grouped[year][month]) grouped[year][month] = [];
+    if (!grouped[year])
+      grouped[year] = {};
+    if (!grouped[year][month])
+      grouped[year][month] = [];
 
     grouped[year][month].push(post);
   });
@@ -25,16 +34,20 @@ function groupPostsByYearAndMonth(posts: Post[]) {
 }
 
 export default function Contents({ posts }: ContentsProps) {
-  const groupedPosts = useMemo(() => groupPostsByYearAndMonth(posts), [posts]);
+  const groupedPosts = useMemo(
+    () => groupPostsByYearAndMonth(posts),
+    [posts]
+  );
   const years = useMemo(
-    () => Object.keys(groupedPosts).sort((a, b) => Number(b) - Number(a)),
+    () => Object.keys(groupedPosts).sort((firstYear, secondYear) => Number(secondYear) - Number(firstYear)),
     [groupedPosts]
   );
 
   const [yearOpenOverrides, setYearOpenOverrides] = useState<Record<string, boolean>>({});
   const [openMonths, setOpenMonths] = useState<Record<string, boolean>>({});
 
-  if (posts.length === 0) return null;
+  if (posts.length === 0)
+    return null;
 
   function toggleYear(year: string) {
     setYearOpenOverrides((prev) => ({

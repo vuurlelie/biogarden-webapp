@@ -121,18 +121,21 @@ export default function AdminLayout() {
   const navigate = useNavigate();
   const auth = getAuthSession();
 
-  useEffect(() => {
-    if (!mobileMenuOpen) {
-      return;
-    }
+  useEffect(
+    () => {
+      if (!mobileMenuOpen) {
+        return;
+      }
 
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
+      const previousOverflow = document.body.style.overflow;
+      document.body.style.overflow = "hidden";
 
-    return () => {
-      document.body.style.overflow = previousOverflow;
-    };
-  }, [mobileMenuOpen]);
+      return () => {
+        document.body.style.overflow = previousOverflow;
+      };
+    },
+    [mobileMenuOpen]
+  );
 
   async function logout() {
     try {
@@ -141,7 +144,10 @@ export default function AdminLayout() {
       window.alert(error instanceof Error ? error.message : "A kijelentkezés nem sikerült.");
       return;
     }
-    navigate(ROUTES.login, { replace: true });
+    navigate(
+      ROUTES.login,
+      { replace: true }
+    );
   }
 
   return (

@@ -21,7 +21,8 @@ public interface IPostRepository
         string sort,
         int page,
         int pageSize,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken = default
+    );
 
     Task AddAsync(Post post, CancellationToken cancellationToken = default);
     void Update(Post post);

@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { Link, useNavigate } from "react-router";
 import { useCart } from "../../features/cart/context/useCart";
 import { useCheckoutForm } from "../../features/checkout/hooks/useCheckoutForm";
 import { useCheckoutFlow } from "../../features/checkout/hooks/useCheckoutFlow";
@@ -20,6 +20,9 @@ import { ROUTES } from "../../shared/constants/routes";
 import AddressFields from "../../shared/components/forms/AddressFields";
 
 export default function CheckoutPage() {
+  const headingRef = useRef<HTMLHeadingElement | null>(null);
+  const navigate = useNavigate();
+  const [leaving, setLeaving] = useState(false);
   const cartState = useCart();
   const { cart, isLoading: cartLoading } = cartState;
   const form = useCheckoutForm(cart?.items.length ? cart.id : undefined);
@@ -34,21 +37,45 @@ export default function CheckoutPage() {
     () => Boolean(cart?.items.length && cart.items.every((item) => item.deliveryAvailable)),
     [cart],
   );
-  const pricing = useCheckoutPricing(cart, method, paymentMethod, isGlsMethod(method) ? draft.glsDeliveryPointId : null,
-    draftReady && (method === FULFILLMENT.PersonalPickup || deliveryAllowed) && (!isGlsMethod(method) || Boolean(gls.point)));
+  const pricing = useCheckoutPricing(
+    cart,
+    method,
+    paymentMethod,
+    isGlsMethod(method) ? draft.glsDeliveryPointId : null,
+    draftReady && (method === FULFILLMENT.PersonalPickup || deliveryAllowed) && (!isGlsMethod(method) || Boolean(gls.point))
+  );
   const quote = pricing.quote;
   const availablePayments = pricing.methods?.find(choice => choice.fulfillmentMethod === method)?.paymentMethods ?? [];
   const { submitting, showReview, setShowReview, termsAccepted, setTermsAccepted,
     privacyAccepted, setPrivacyAccepted, step, setStep, reviewModalRef, reviewButtonRef,
-    cancelledSumUpOrderId, checkoutKey, submit, discardDraft, placeOrder } = useCheckoutFlow({
+    cancelledSumUpOrderId, checkoutKey, submit, placeOrder } = useCheckoutFlow({
       form, cartState, pricing, gls, paymentMethod, setPaymentMethod,
     });
 
-  useEffect(() => {
-    if (!cartLoading && draftReady && !deliveryAllowed && method !== FULFILLMENT.PersonalPickup) {
-      setDraft(current => ({ ...current, fulfillmentMethod: FULFILLMENT.PersonalPickup, glsDeliveryPointId: null }));
-    }
-  }, [cartLoading, draftReady, deliveryAllowed, method, setDraft]);
+  const previousStep = useRef(step);
+  useLayoutEffect(
+    () => {
+      if (previousStep.current === step)
+        return;
+      previousStep.current = step;
+      headingRef.current?.focus({ preventScroll: true });
+      window.scrollTo({
+        top: 0,
+        left: 0,
+        behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth",
+      });
+    },
+    [step]
+  );
+
+  useEffect(
+    () => {
+      if (!cartLoading && draftReady && !deliveryAllowed && method !== FULFILLMENT.PersonalPickup) {
+        setDraft(current => ({ ...current, fulfillmentMethod: FULFILLMENT.PersonalPickup, glsDeliveryPointId: null }));
+      }
+    },
+    [cartLoading, draftReady, deliveryAllowed, method, setDraft]
+  );
 
   if (!submitting && (cancelledSumUpOrderId || checkoutKey)) {
     return <CheckoutRecoveryView orderId={cancelledSumUpOrderId} checkoutKey={checkoutKey} busy={submitting} error={error} />;
@@ -57,7 +84,7 @@ export default function CheckoutPage() {
   if (cart?.items.length && !draftReady && draftStorage.error) {
     return <div className="mx-auto max-w-2xl p-8">
       <p role="alert">{draftStorage.error}</p>
-      <button type="button" onClick={draftStorage.load}>Piszkozat betöltése újra</button>
+      <button type="button" onClick={draftStorage.load}>Adatok betöltése újra</button>
     </div>;
   }
 
@@ -71,24 +98,19 @@ export default function CheckoutPage() {
 
   return (
     <div className="mx-auto w-full max-w-6xl px-4 py-8">
-      <h1 className="text-3xl font-bold text-site-heading">Pénztár</h1>
-      <div className="my-4 text-sm text-site-muted">
-        <p>A piszkozat legfeljebb 30 percig, a kosár lejártáig állítható vissza. A mentés nem hosszabbítja meg a készletfoglalást.</p>
-        <p role="status">{draftStorage.saving ? "Piszkozat mentése..." : "Az adatok automatikus mentése bekapcsolva."}</p>
-        <button type="button" disabled={submitting} onClick={() => void discardDraft()} className="mt-2 underline">Piszkozat törlése</button>
-        {draftStorage.error && <div role="alert" className="mt-2 text-site-danger">
-          <p>{draftStorage.error} A módosításaid az oldalon megmaradtak.</p>
-          <button type="button" onClick={draftStorage.retry} className="mr-4 underline">Mentés újrapróbálása</button>
-          <button type="button" onClick={draftStorage.load} className="underline">Mentett változat betöltése (helyi módosítások elvetése)</button>
-        </div>}
-      </div>
+      <h1 ref={headingRef} tabIndex={-1} className="text-3xl font-bold text-site-heading">Pénztár</h1>
+      {draftStorage.error && <div role="alert" className="mt-4 text-sm text-site-danger">
+        <p>{draftStorage.error} A megadott adatok ezen az oldalon megmaradtak.</p>
+        <button type="button" onClick={draftStorage.retry} className="mr-4 underline">Mentés újrapróbálása</button>
+        <button type="button" onClick={draftStorage.load} className="underline">Mentett adatok betöltése (a mostani módosítások elvesznek)</button>
+      </div>}
       {error && (
         <div role="alert" className="mt-5 rounded-sm bg-site-danger-soft p-4 text-site-danger">
           {error}
         </div>
       )}
 
-      <form onSubmit={submit} inert={submitting} className="mt-7 grid items-start gap-7 lg:grid-cols-[minmax(0,1fr)_22rem]">
+      <form onSubmit={submit} noValidate inert={submitting || leaving} className="mt-7 grid items-start gap-7 lg:grid-cols-[minmax(0,1fr)_22rem]">
         <div className={`order-1 space-y-6 ${step === "payment" ? "hidden" : ""}`}>
           {!authenticated && (
             <fieldset className="rounded-sm border border-site-border bg-white p-6 shadow-md">
@@ -148,7 +170,16 @@ export default function CheckoutPage() {
           {!authenticated && (
             <p className="rounded-sm bg-site-surface-soft p-4 text-sm">
               Felhasználói fiókból történő rendeléshez jelentkezz be itt:{" "}
-              <Link to={ROUTES.login} state={{ from: ROUTES.checkout }} className="font-semibold underline">
+              <Link to={ROUTES.login} state={{ from: ROUTES.checkout }} onClick={async event => {
+                if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey)
+                  return;
+                event.preventDefault();
+                if (await draftStorage.flush())
+                  navigate(
+                    ROUTES.login,
+                    { state: { from: ROUTES.checkout } }
+                  );
+              }} className="font-semibold underline">
                 Bejelentkezés
               </Link>
             </p>
@@ -180,7 +211,7 @@ export default function CheckoutPage() {
                     className={fieldClass(key)}
                   />
                   {fieldErrors[key] && (
-                    <span className="mt-1 block text-xs text-site-danger">{fieldErrors[key]}</span>
+                    <span className="mt-1 block text-xs font-normal text-site-danger">{fieldErrors[key]}</span>
                   )}
                 </label>
               ))}
@@ -205,7 +236,7 @@ export default function CheckoutPage() {
                   disabled={!addresses?.billingAddress}
                   onChange={(event) => handleAccountBillingChange(event.target.checked)}
                 />
-                Fiókban mentett számlázási cím használata
+                Fiókban mentett számlázási cím betöltése
               </label>
             )}
             {authenticated && !addresses?.billingAddress && (
@@ -223,14 +254,13 @@ export default function CheckoutPage() {
                   {label} <span className="text-site-danger">*</span>
                   <input
                     value={draft[key]}
-                    disabled={!billingManual}
                     onChange={(event) => update(key, event.target.value)}
                     autoComplete={autoComplete}
                     aria-invalid={Boolean(fieldErrors[key])}
                     className={fieldClass(key)}
                   />
                   {fieldErrors[key] && (
-                    <span className="mt-1 block text-xs text-site-danger">{fieldErrors[key]}</span>
+                    <span className="mt-1 block text-xs font-normal text-site-danger">{fieldErrors[key]}</span>
                   )}
                 </label>
               ))}
@@ -240,7 +270,6 @@ export default function CheckoutPage() {
                 idPrefix="checkout-billing"
                 value={billingAddress}
                 onChange={handleBillingAddressChange}
-                disabled={!billingManual}
                 required
                 autoCompleteScope="billing"
                 invalidFields={{
@@ -294,7 +323,7 @@ export default function CheckoutPage() {
                     disabled={!addresses?.shippingAddress}
                     onChange={(event) => handleAccountDeliveryChange(event.target.checked)}
                   />
-                  Fiókban mentett szállítási cím használata
+                  Fiókban mentett szállítási cím betöltése
                 </label>
               )}
               {authenticated && !addresses?.shippingAddress && (
@@ -307,7 +336,6 @@ export default function CheckoutPage() {
                 idPrefix="checkout-delivery"
                 value={deliveryAddress}
                 onChange={handleDeliveryAddressChange}
-                disabled={!deliveryManual}
                 required
                 autoCompleteScope="shipping"
                 invalidFields={{
@@ -329,14 +357,6 @@ export default function CheckoutPage() {
 
         {step === "payment" && (
           <section className="order-3 space-y-6 lg:order-1">
-            <button
-              type="button"
-              onClick={() => setStep("details")}
-              className="text-sm font-semibold text-site-green-dark underline"
-            >
-              ← Vissza az adatokhoz
-            </button>
-
             <fieldset className="rounded-sm border border-site-border bg-white p-6 shadow-md">
               <legend className="px-2 text-xl font-bold">Fizetési mód</legend>
                             <div className="grid gap-3">
@@ -373,7 +393,18 @@ export default function CheckoutPage() {
           reviewButtonRef={reviewButtonRef}
           className="order-2 lg:order-2"
           step={step}
-          submitting={submitting}
+          submitting={submitting || leaving}
+          onBack={async () => {
+            if (step === "payment") {
+              setStep("details");
+              return;
+            }
+            setLeaving(true);
+            try {
+              if (await draftStorage.flush())
+                navigate(ROUTES.cart);
+            } finally { setLeaving(false); }
+          }}
         />
       </form>
 
@@ -385,7 +416,10 @@ export default function CheckoutPage() {
           fieldErrors={fieldErrors}
           quote={quote}
           method={method}
-          onClose={() => { if (!submitting) setShowReview(false); }}
+          onClose={() => {
+            if (!submitting)
+              setShowReview(false);
+          }}
           deliveryPoint={quote.deliveryPoint}
           onFieldErrorsChange={setFieldErrors}
           onPlaceOrder={() => void placeOrder()}

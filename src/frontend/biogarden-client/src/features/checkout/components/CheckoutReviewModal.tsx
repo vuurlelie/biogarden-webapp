@@ -174,7 +174,7 @@ export function CheckoutReviewModal({
                 </span>
               </label>
               {fieldErrors.terms && (
-                <p id="review-terms-error" role="alert" className="mt-1 text-xs text-site-danger">{fieldErrors.terms}</p>
+                <p id="review-terms-error" role="alert" className="mt-1 text-xs font-normal text-site-danger">{fieldErrors.terms}</p>
               )}
             </div>
 
@@ -207,7 +207,7 @@ export function CheckoutReviewModal({
                 </span>
               </label>
               {fieldErrors.privacy && (
-                <p id="review-privacy-error" role="alert" className="mt-1 text-xs text-site-danger">{fieldErrors.privacy}</p>
+                <p id="review-privacy-error" role="alert" className="mt-1 text-xs font-normal text-site-danger">{fieldErrors.privacy}</p>
               )}
             </div>
           </div>

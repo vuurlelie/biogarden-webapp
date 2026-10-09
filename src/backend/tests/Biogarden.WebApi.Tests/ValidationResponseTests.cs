@@ -61,8 +61,7 @@ public sealed class ValidationResponseTests : IClassFixture<BiogardenWebApiFacto
     [Fact]
     public async Task MalformedJson_ReturnsValidationProblemInsteadOfServerError()
     {
-        using var response = await _client.PostAsync("/api/auth/forgot-password",
-            new StringContent("{", System.Text.Encoding.UTF8, "application/json"));
+        using var response = await _client.PostAsync("/api/auth/forgot-password", new StringContent("{", System.Text.Encoding.UTF8, "application/json"));
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         var body = await response.Content.ReadFromJsonAsync<JsonElement>();
         Assert.NotEmpty(body.GetProperty("errors").EnumerateObject());

@@ -41,9 +41,7 @@ public sealed class UnitOfWork : IUnitOfWork
     public IPaymentProviderEventRepository PaymentProviderEventRepository =>
         _paymentProviderEventRepository ??= new PaymentProviderEventRepository(_databaseContext);
 
-    public async Task<TResult> ExecuteInTransactionAsync<TResult>(
-        Func<CancellationToken, Task<TResult>> operation,
-        CancellationToken cancellationToken = default)
+    public async Task<TResult> ExecuteInTransactionAsync<TResult>(Func<CancellationToken, Task<TResult>> operation, CancellationToken cancellationToken = default)
     {
         if (_databaseContext is not DbContext dbContext)
         {

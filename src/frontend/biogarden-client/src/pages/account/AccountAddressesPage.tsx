@@ -29,7 +29,8 @@ const EMPTY_ADDRESS: AddressFormData = {
 type AddressFieldErrors = Partial<Record<keyof AddressFormData, string>>;
 
 function toFormData(address: AddressDetails | null): AddressFormData {
-  if (!address) return { ...EMPTY_ADDRESS };
+  if (!address)
+    return { ...EMPTY_ADDRESS };
   return {
     postalCode: address.postalCode,
     city: address.city,
@@ -60,12 +61,7 @@ function hasAddressValue(address: AddressFormData) {
   return Object.values(address).some((value) => typeof value === "string" && value.trim().length > 0);
 }
 
-function getAddressSaveSuccessMessage(
-  customerType: 0 | 1,
-  useShippingAsBilling: boolean,
-  hasShippingAddress: boolean,
-  hasBillingAddress: boolean,
-) {
+function getAddressSaveSuccessMessage(customerType: 0 | 1, useShippingAsBilling: boolean, hasShippingAddress: boolean, hasBillingAddress: boolean) {
   if (!hasShippingAddress && !hasBillingAddress) {
     return "Nincs mentett cím a fiókodban.";
   }
@@ -103,34 +99,40 @@ export default function AccountAddressesPage() {
   const [shippingErrors, setShippingErrors] = useState<AddressFieldErrors>({});
   const [billingErrors, setBillingErrors] = useState<AddressFieldErrors>({});
 
-  useEffect(() => {
-    let shouldIgnoreResult = false;
+  useEffect(
+    () => {
+      let shouldIgnoreResult = false;
 
-    async function loadAddresses() {
-      try {
-        const [addresses, profile] = await Promise.all([getAddresses(), getProfile()]);
-        if (shouldIgnoreResult) return;
+      async function loadAddresses() {
+        try {
+          const [addresses, profile] = await Promise.all([getAddresses(), getProfile()]);
+          if (shouldIgnoreResult)
+            return;
 
-        setCustomerType(profile.customerType);
-        setShippingAddress(toFormData(addresses.shippingAddress));
-        setBillingAddress(toFormData(addresses.billingAddress));
-        setUseShippingAsBilling(
-          addresses.billingAddress === null ||
-            addresses.shippingAddress?.id === addresses.billingAddress.id,
-        );
-      } catch (loadError) {
-        if (shouldIgnoreResult) return;
-        setPageError(handleAccountError(loadError, "A címek betöltése nem sikerült.") ?? "");
-      } finally {
-        if (!shouldIgnoreResult) setIsLoading(false);
+          setCustomerType(profile.customerType);
+          setShippingAddress(toFormData(addresses.shippingAddress));
+          setBillingAddress(toFormData(addresses.billingAddress));
+          setUseShippingAsBilling(
+            addresses.billingAddress === null ||
+              addresses.shippingAddress?.id === addresses.billingAddress.id,
+          );
+        } catch (loadError) {
+          if (shouldIgnoreResult)
+            return;
+          setPageError(handleAccountError(loadError, "A címek betöltése nem sikerült.") ?? "");
+        } finally {
+          if (!shouldIgnoreResult)
+            setIsLoading(false);
+        }
       }
-    }
 
-    void loadAddresses();
-    return () => {
-      shouldIgnoreResult = true;
-    };
-  }, [handleAccountError]);
+      void loadAddresses();
+      return () => {
+        shouldIgnoreResult = true;
+      };
+    },
+    [handleAccountError]
+  );
 
   function validateAddress(address: AddressFormData, label: "shipping" | "billing") {
     const errors: AddressFieldErrors = {};
@@ -140,16 +142,20 @@ export default function AccountAddressesPage() {
       return errors;
     }
 
-    if (!address.postalCode.trim()) errors.postalCode = `${prefix} irányítószám megadása kötelező.`;
+    if (!address.postalCode.trim())
+      errors.postalCode = `${prefix} irányítószám megadása kötelező.`;
     else if (!/^\d{4}$/.test(address.postalCode.trim())) {
       errors.postalCode = `${prefix} irányítószámként 4 számjegyet adj meg.`;
     }
-    if (!address.city.trim()) errors.city = `${prefix} település megadása kötelező.`;
+    if (!address.city.trim())
+      errors.city = `${prefix} település megadása kötelező.`;
     else if (!errors.postalCode && !isPostalCodeCityPairValid(address.postalCode, address.city)) {
       errors.city = `${prefix} település nem tartozik ehhez az irányítószámhoz.`;
     }
-    if (!address.street.trim()) errors.street = `${prefix} közterület megadása kötelező.`;
-    if (!address.houseNumber.trim()) errors.houseNumber = `${prefix} házszám megadása kötelező.`;
+    if (!address.street.trim())
+      errors.street = `${prefix} közterület megadása kötelező.`;
+    if (!address.houseNumber.trim())
+      errors.houseNumber = `${prefix} házszám megadása kötelező.`;
 
     return errors;
   }
@@ -158,7 +164,8 @@ export default function AccountAddressesPage() {
     const firstInvalidField = (["postalCode", "city", "street", "houseNumber"] as const).find(
       (field) => Boolean(errors[field]),
     );
-    if (!firstInvalidField) return;
+    if (!firstInvalidField)
+      return;
 
     const inputIdByField: Record<typeof firstInvalidField, string> = {
       postalCode: `${prefix}-postal-code`,
@@ -217,12 +224,7 @@ export default function AccountAddressesPage() {
         useShippingAsBilling: customerType === 1 && useShippingAsBilling && shouldSaveShippingAddress,
       });
       setSuccess(
-        getAddressSaveSuccessMessage(
-          customerType,
-          useShippingAsBilling,
-          shouldSaveShippingAddress,
-          shouldSaveBillingAddress,
-        ),
+        getAddressSaveSuccessMessage(customerType, useShippingAsBilling, shouldSaveShippingAddress, shouldSaveBillingAddress),
       );
     } catch (saveError) {
       setFormError(handleAccountError(saveError, "A címek mentése nem sikerült.") ?? "");

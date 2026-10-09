@@ -14,11 +14,7 @@ public sealed class ErrorAlertService : IErrorAlertService
     private readonly ErrorAlertThrottleStore _throttleStore;
     private readonly TimeProvider _timeProvider;
 
-    public ErrorAlertService(
-        IOptions<ErrorAlertOptions> options,
-        IEmailService emailService,
-        ErrorAlertThrottleStore throttleStore,
-        TimeProvider timeProvider)
+    public ErrorAlertService(IOptions<ErrorAlertOptions> options, IEmailService emailService, ErrorAlertThrottleStore throttleStore, TimeProvider timeProvider)
     {
         _options = options.Value;
         _emailService = emailService;
@@ -26,9 +22,7 @@ public sealed class ErrorAlertService : IErrorAlertService
         _timeProvider = timeProvider;
     }
 
-    public async Task NotifyAsync(
-        ErrorAlert alert,
-        CancellationToken cancellationToken = default)
+    public async Task NotifyAsync(ErrorAlert alert, CancellationToken cancellationToken = default)
     {
         if (!_options.Enabled || alert.Level < _options.MinimumLevel)
         {
@@ -36,7 +30,8 @@ public sealed class ErrorAlertService : IErrorAlertService
         }
 
         var throttleKey = $"{alert.Level}:{NormalizeKey(alert.AlertKey)}";
-        if (!_throttleStore.TryAcquire(throttleKey, _timeProvider.GetUtcNow())) return;
+        if (!_throttleStore.TryAcquire(throttleKey, _timeProvider.GetUtcNow()))
+            return;
 
         var sent = false;
         try
@@ -48,9 +43,13 @@ public sealed class ErrorAlertService : IErrorAlertService
         }
         finally
         {
-            _throttleStore.Complete(throttleKey, _timeProvider.GetUtcNow(), sent
-                ? TimeSpan.FromMinutes(_options.ThrottleWindowMinutes)
-                : TimeSpan.FromSeconds(_options.FailureRetrySeconds));
+            _throttleStore.Complete(
+                throttleKey,
+                _timeProvider.GetUtcNow(),
+                sent
+                    ? TimeSpan.FromMinutes(_options.ThrottleWindowMinutes)
+                    : TimeSpan.FromSeconds(_options.FailureRetrySeconds)
+            );
         }
     }
 

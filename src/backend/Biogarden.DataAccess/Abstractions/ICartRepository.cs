@@ -17,18 +17,11 @@ public interface ICartRepository
     void Update(Cart cart);
     void Remove(Cart cart);
 
-    Task<int> GetActiveReservedQuantityForProductAsync(
-        int productId,
-        Guid? excludedCartId = null,
-        CancellationToken cancellationToken = default);
+    Task<int> GetActiveReservedQuantityForProductAsync(int productId, Guid? excludedCartId = null, CancellationToken cancellationToken = default);
 
-    Task<IReadOnlyDictionary<int, int>> GetActiveReservedQuantitiesAsync(
-        IReadOnlyCollection<int> productIds, Guid? excludedCartId = null, Guid? additionalExcludedCartId = null,
-        CancellationToken cancellationToken = default);
+    Task<IReadOnlyDictionary<int, int>> GetActiveReservedQuantitiesAsync(IReadOnlyCollection<int> productIds, Guid? excludedCartId = null, Guid? additionalExcludedCartId = null, CancellationToken cancellationToken = default);
 
     Task<int> DeleteExpiredBatchAsync(DateTime cutoffUtc, int batchSize, CancellationToken cancellationToken = default);
 
-    Task<int> GetActiveReservedQuantityForProductAsync(
-        int productId, Guid excludedCartId, Guid additionalExcludedCartId,
-        CancellationToken cancellationToken = default);
+    Task<int> GetActiveReservedQuantityForProductAsync(int productId, Guid excludedCartId, Guid additionalExcludedCartId, CancellationToken cancellationToken = default);
 }

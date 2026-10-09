@@ -51,8 +51,7 @@ public sealed class SessionRevocationTests : IAsyncLifetime
     {
         var user = await CreateUserAsync();
         using var client = await ClientAsync(user);
-        Assert.Equal(HttpStatusCode.OK,
-            (await client.PostAsJsonAsync("/api/profile/account-lifecycle", new { type = 2 })).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await client.PostAsJsonAsync("/api/profile/account-lifecycle", new { type = 2 })).StatusCode);
         Assert.Equal(HttpStatusCode.Unauthorized, (await client.GetAsync("/api/profile")).StatusCode);
     }
 
@@ -130,13 +129,11 @@ public sealed class SessionRevocationTests : IAsyncLifetime
         var target = await CreateUserAsync(admin: true);
         using var actorClient = await ClientAsync(actor);
         using var oldAdmin = await ClientAsync(target);
-        Assert.Equal(HttpStatusCode.OK,
-            (await actorClient.PostAsync($"/api/admin/users/{target}/admin-role?isAdmin=false", null)).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await actorClient.PostAsync($"/api/admin/users/{target}/admin-role?isAdmin=false", null)).StatusCode);
         Assert.Equal(HttpStatusCode.Unauthorized, (await oldAdmin.GetAsync("/api/admin/orders")).StatusCode);
         using var customer = await ClientAsync(target);
         Assert.Equal(HttpStatusCode.Forbidden, (await customer.GetAsync("/api/admin/orders")).StatusCode);
-        Assert.Equal(HttpStatusCode.OK,
-            (await actorClient.PostAsync($"/api/admin/users/{target}/admin-role?isAdmin=true", null)).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await actorClient.PostAsync($"/api/admin/users/{target}/admin-role?isAdmin=true", null)).StatusCode);
         Assert.Equal(HttpStatusCode.Unauthorized, (await customer.GetAsync("/api/profile")).StatusCode);
         using var newAdmin = await ClientAsync(target);
         Assert.Equal(HttpStatusCode.OK, (await newAdmin.GetAsync("/api/admin/orders")).StatusCode);
@@ -172,10 +169,8 @@ public sealed class SessionRevocationTests : IAsyncLifetime
             Assert.True((await users.UpdateAsync(unavailable)).Succeeded);
         }
         using var client = await ClientAsync(id);
-        Assert.Equal(HttpStatusCode.BadRequest,
-            (await client.PostAsync($"/api/admin/users/{id}/admin-role?isAdmin=false", null)).StatusCode);
-        Assert.Equal(HttpStatusCode.Conflict,
-            (await client.PostAsJsonAsync("/api/profile/account-lifecycle", new { type = 1 })).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await client.PostAsync($"/api/admin/users/{id}/admin-role?isAdmin=false", null)).StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict, (await client.PostAsJsonAsync("/api/profile/account-lifecycle", new { type = 1 })).StatusCode);
         Assert.Equal(HttpStatusCode.OK, (await client.GetAsync("/api/admin/orders")).StatusCode);
     }
 
@@ -196,7 +191,7 @@ public sealed class SessionRevocationTests : IAsyncLifetime
         var first = await CreateUserAsync(admin: true);
         var second = await CreateUserAsync(admin: true);
         var gate = new ActionGate();
-        await using var factory = _app.Factory.WithWebHostBuilder(builder => builder.ConfigureTestServices(services =>
+        await using var factory = _app.Factory.WithWebHostBuilder(webHostBuilder => webHostBuilder.ConfigureTestServices(services =>
             services.AddScoped<AccountSecurityMutationFilter>(_ => new CoordinatedAccountFilter(gate))));
         using var firstClient = await ClientAsync(first, factory);
         using var secondClient = await ClientAsync(second, factory);
@@ -205,7 +200,8 @@ public sealed class SessionRevocationTests : IAsyncLifetime
             self ? firstClient.PostAsJsonAsync("/api/profile/account-lifecycle", new { type = 1 })
                 : firstClient.PostAsync($"/api/admin/users/{second}/{action}", null),
             self ? secondClient.PostAsJsonAsync("/api/profile/account-lifecycle", new { type = 1 })
-                : secondClient.PostAsync($"/api/admin/users/{first}/{action}", null));
+                : secondClient.PostAsync($"/api/admin/users/{first}/{action}", null)
+        );
         Assert.Single(results, result => result.StatusCode == HttpStatusCode.OK);
         Assert.Single(results, result => result.StatusCode == (self ? HttpStatusCode.Conflict : HttpStatusCode.Unauthorized));
         using var scope = _app.Factory.Services.CreateScope();
@@ -221,7 +217,8 @@ public sealed class SessionRevocationTests : IAsyncLifetime
         private readonly TaskCompletionSource _ready = new(TaskCreationOptions.RunContinuationsAsynchronously);
         public Task ArriveAsync()
         {
-            if (Interlocked.Increment(ref _arrivals) == 2) _ready.TrySetResult();
+            if (Interlocked.Increment(ref _arrivals) == 2)
+                _ready.TrySetResult();
             return _ready.Task.WaitAsync(TimeSpan.FromSeconds(15));
         }
     }

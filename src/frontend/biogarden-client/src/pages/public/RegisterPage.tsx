@@ -29,9 +29,9 @@ export default function RegisterPage() {
   const termsInputRef = useRef<HTMLInputElement | null>(null);
 
   const inputClassName =
-    "mt-2 block w-full rounded-sm border border-site-border bg-white px-3 py-2.5 text-site-heading outline-none transition focus:border-site-green focus:ring-2 focus:ring-site-green/20";
+    "mt-2 block w-full rounded-sm border border-site-border bg-white px-3 py-2.5 text-site-heading outline-none transition focus:border-gray-600";
   const invalidInputClassName =
-    "mt-2 block w-full rounded-sm border border-site-danger bg-site-danger-soft px-3 py-2.5 text-site-heading outline-none transition focus:border-site-danger focus:ring-2 focus:ring-site-danger/20";
+    "mt-2 block w-full rounded-sm border border-site-danger bg-site-danger-soft px-3 py-2.5 text-site-heading outline-none transition focus:border-gray-600";
 
   function getInputClassName(field: RegisterInvalidField) {
     return fieldErrors[field] ? invalidInputClassName : inputClassName;
@@ -42,10 +42,11 @@ export default function RegisterPage() {
   }
 
   function renderFieldError(field: RegisterInvalidField) {
-    if (!fieldErrors[field]) return null;
+    if (!fieldErrors[field])
+      return null;
 
     return (
-      <p id={getErrorId(field)} className="mt-1 text-xs font-semibold text-site-danger">
+      <p id={getErrorId(field)} className="mt-1 text-xs font-normal text-site-danger">
         {fieldErrors[field]}
       </p>
     );
@@ -53,7 +54,8 @@ export default function RegisterPage() {
 
   function clearFieldError(field: RegisterInvalidField) {
     setFieldErrors((current) => {
-      if (!current[field]) return current;
+      if (!current[field])
+        return current;
       const next = { ...current };
       delete next[field];
       return next;
@@ -74,8 +76,10 @@ export default function RegisterPage() {
 
   function getServerField(message: string): RegisterInvalidField | null {
     const normalizedMessage = message.toLocaleLowerCase("hu-HU");
-    if (normalizedMessage.includes("email")) return "email";
-    if (normalizedMessage.includes("jelsz")) return "password";
+    if (normalizedMessage.includes("email"))
+      return "email";
+    if (normalizedMessage.includes("jelsz"))
+      return "password";
     return null;
   }
 
@@ -116,13 +120,19 @@ export default function RegisterPage() {
         billingAddress: null,
         printedInvoiceRequested: false,
       });
-      navigate(ROUTES.login, {
-        replace: true,
-        state: { registrationRequiresConfirmation: true },
-      });
+      navigate(
+        ROUTES.login,
+        {
+          replace: true,
+          state: { registrationRequiresConfirmation: true },
+        }
+      );
     } catch (submitError) {
       const message = getErrorMessage(submitError, "A regisztráció nem sikerült.");
-      const structuredErrors = getServerFieldErrors(submitError, ["email", "password", "confirmPassword"] as const);
+      const structuredErrors = getServerFieldErrors(
+        submitError,
+        ["email", "password", "confirmPassword"] as const
+      );
       if (Object.keys(structuredErrors).length) {
         setFieldErrors(structuredErrors);
         setFormError(message);

@@ -1,3 +1,5 @@
+import { POST_IMAGE_ASPECT_CLASS } from "../../../shared/constants/imageLayout";
+import { SITE_TIME_ZONE, parseApiDate } from "../../../shared/utils/dateTime";
 import { managedImage } from "../../../shared/utils/managedImage";
 import parse from "html-react-parser";
 import type { PostDetails } from "../types/post.types";
@@ -35,10 +37,13 @@ export default function PostDetailsContent({
       <div className="mx-auto max-w-6xl px-4">
         <div className="mb-4 text-center">
           <p className="text-sm font-bold text-site-green-dark md:text-base">
-            {new Date(post.publishedAt).toLocaleString("hu-HU", {
-              dateStyle: "short",
-              timeStyle: "short",
-            })}
+            {parseApiDate(post.publishedAt).toLocaleString(
+              "hu-HU",
+              { timeZone: SITE_TIME_ZONE,
+                dateStyle: "short",
+                timeStyle: "short",
+              }
+            )}
             <span className="px-2 text-site-green-dark">/</span>
             <span className="uppercase text-site-green-dark">
               {getPostCategoryLabel(post.category)}
@@ -54,23 +59,25 @@ export default function PostDetailsContent({
           </div>
         </div>
 
-        <div className="relative overflow-hidden rounded-sm shadow-lg">
-          <img
-            {...managedImage(post.image)}
-            sizes="(min-width: 1152px) 1120px, 100vw"
-            alt={post.title}
-            className="h-[260px] w-full object-cover md:h-[420px] lg:h-[520px]"
-            width={1600}
-            height={1200}
-            decoding="async"
-          />
-        </div>
+        <div className="grid">
+          <div className="col-start-1 row-start-1 self-start overflow-hidden rounded-sm shadow-lg">
+            <img
+              {...managedImage(post.image)}
+              sizes="(min-width: 1152px) 1120px, 100vw"
+              alt={post.title}
+              className={`${POST_IMAGE_ASPECT_CLASS} w-full object-cover`}
+              width={1600}
+              height={1200}
+              decoding="async"
+            />
+          </div>
 
-        <div className="relative mx-auto max-w-5xl px-2">
-          <div className="relative z-10 -mt-[220px] md:-mt-[350px] lg:-mt-[450px]">
-            <div className="rounded-sm bg-white/95 p-6 text-sm leading-7 text-site-text shadow-xl md:p-10 md:text-base">
-              <div className="rich-text-content max-w-none">
-                {parse(post.article)}
+          <div className="relative col-start-1 row-start-1 mx-auto mt-10 w-full max-w-5xl self-start px-2 md:mt-[70px]">
+            <div className="relative z-10">
+              <div className="rounded-sm bg-white/95 p-6 text-sm leading-7 text-site-text shadow-xl md:p-10 md:text-base">
+                <div className="rich-text-content max-w-none">
+                  {parse(post.article)}
+                </div>
               </div>
             </div>
           </div>

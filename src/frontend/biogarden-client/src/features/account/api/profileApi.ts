@@ -27,10 +27,7 @@ export class ProfileApiError extends Error {
 const PROFILE_FALLBACK_MESSAGE = "A művelet nem sikerült. Kérjük, próbáld újra.";
 const toProfileError = (message: string, status: number) => new ProfileApiError(message, status);
 
-async function profileRequest(
-  path = "",
-  init?: Partial<ApiRequestOptions>,
-): Promise<Response> {
+async function profileRequest(path = "", init?: Partial<ApiRequestOptions>): Promise<Response> {
   const auth = getAuthSession();
 
   if (!auth) {
@@ -54,7 +51,10 @@ export async function getProfile(): Promise<UserProfile> {
 export async function updateProfile(
   profile: UpdateUserProfile,
 ): Promise<void> {
-  await profileRequest("", { method: "PUT", jsonBody: profile });
+  await profileRequest(
+    "",
+    { method: "PUT", jsonBody: profile }
+  );
 }
 
 export async function getAddresses(): Promise<UserAddresses> {
@@ -65,18 +65,24 @@ export async function getAddresses(): Promise<UserAddresses> {
 export async function updateAddresses(
   addresses: UpdateUserAddresses,
 ): Promise<void> {
-  await profileRequest("/addresses", {
-    method: "PUT",
-    jsonBody: addresses,
-  });
+  await profileRequest(
+    "/addresses",
+    {
+      method: "PUT",
+      jsonBody: addresses,
+    }
+  );
 }
 
 export async function requestAccountLifecycle(
   request: AccountLifecycleRequest,
 ): Promise<AccountLifecycleResult> {
-  const response = await profileRequest("/account-lifecycle", {
-    method: "POST",
-    jsonBody: request,
-  });
+  const response = await profileRequest(
+    "/account-lifecycle",
+    {
+      method: "POST",
+      jsonBody: request,
+    }
+  );
   return response.json() as Promise<AccountLifecycleResult>;
 }

@@ -20,15 +20,15 @@ public sealed class OrderEmailDispatcherTests
         var failed = Message();
         var business = Message();
         business.Recipient = "business@example.com";
-        _repository.SetupSequence(x => x.TryClaimAsync(_now, It.IsAny<CancellationToken>()))
+        _repository.SetupSequence(orderEmailRepository => orderEmailRepository.TryClaimAsync(_now, It.IsAny<CancellationToken>()))
             .ReturnsAsync(failed).ReturnsAsync(business).ReturnsAsync((OrderEmail?)null);
-        _sender.Setup(x => x.SendAsync(It.Is<EmailMessage>(m => m.To == failed.Recipient), It.IsAny<CancellationToken>()))
+        _sender.Setup(emailService => emailService.SendAsync(It.Is<EmailMessage>(emailMessage => emailMessage.To == failed.Recipient), It.IsAny<CancellationToken>()))
             .ThrowsAsync(new System.Net.Mail.SmtpException("Unavailable"));
-        _sender.Setup(x => x.SendAsync(It.Is<EmailMessage>(m => m.To == business.Recipient), It.IsAny<CancellationToken>()))
+        _sender.Setup(emailService => emailService.SendAsync(It.Is<EmailMessage>(emailMessage => emailMessage.To == business.Recipient), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
-        _repository.Setup(x => x.RetryAsync(failed.Id, failed.LeaseId!.Value, _now.AddMinutes(1), It.IsAny<CancellationToken>()))
+        _repository.Setup(orderEmailRepository => orderEmailRepository.RetryAsync(failed.Id, failed.LeaseId!.Value, _now.AddMinutes(1), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
-        _repository.Setup(x => x.CompleteAsync(business.Id, business.LeaseId!.Value, _now, It.IsAny<CancellationToken>()))
+        _repository.Setup(orderEmailRepository => orderEmailRepository.CompleteAsync(business.Id, business.LeaseId!.Value, _now, It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
         var dispatcher = Dispatcher();
@@ -36,7 +36,10 @@ public sealed class OrderEmailDispatcherTests
         Assert.True(await dispatcher.DispatchNextAsync(default));
         Assert.False(await dispatcher.DispatchNextAsync(default));
         _repository.VerifyAll();
-        _repository.Verify(x => x.CompleteAsync(failed.Id, It.IsAny<Guid>(), It.IsAny<DateTime>(), It.IsAny<CancellationToken>()), Times.Never);
+        _repository.Verify(
+            orderEmailRepository => orderEmailRepository.CompleteAsync(failed.Id, It.IsAny<Guid>(), It.IsAny<DateTime>(), It.IsAny<CancellationToken>()),
+            Times.Never
+        );
     }
 
     [Fact]
@@ -44,10 +47,13 @@ public sealed class OrderEmailDispatcherTests
     {
         var email = Message();
         email.Attempts = 2;
-        _repository.Setup(x => x.TryClaimAsync(_now, It.IsAny<CancellationToken>())).ReturnsAsync(email);
-        _sender.Setup(x => x.SendAsync(It.Is<EmailMessage>(m => m.To == email.Recipient && m.Subject == email.Subject && m.HtmlBody == email.HtmlBody), It.IsAny<CancellationToken>()))
+        _repository.Setup(orderEmailRepository => orderEmailRepository.TryClaimAsync(_now, It.IsAny<CancellationToken>())).ReturnsAsync(email);
+        _sender.Setup(emailService => emailService.SendAsync(
+            It.Is<EmailMessage>(emailMessage => emailMessage.To == email.Recipient && emailMessage.Subject == email.Subject && emailMessage.HtmlBody == email.HtmlBody),
+            It.IsAny<CancellationToken>()
+        ))
             .Returns(Task.CompletedTask);
-        _repository.Setup(x => x.CompleteAsync(email.Id, email.LeaseId!.Value, _now, It.IsAny<CancellationToken>()))
+        _repository.Setup(orderEmailRepository => orderEmailRepository.CompleteAsync(email.Id, email.LeaseId!.Value, _now, It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
         Assert.True(await Dispatcher().DispatchNextAsync(default));
@@ -60,18 +66,17 @@ public sealed class OrderEmailDispatcherTests
     {
         using var cancellation = new CancellationTokenSource();
         var email = Message();
-        _repository.Setup(x => x.TryClaimAsync(_now, It.IsAny<CancellationToken>())).ReturnsAsync(email);
-        _sender.Setup(x => x.SendAsync(It.IsAny<EmailMessage>(), It.IsAny<CancellationToken>()))
+        _repository.Setup(orderEmailRepository => orderEmailRepository.TryClaimAsync(_now, It.IsAny<CancellationToken>())).ReturnsAsync(email);
+        _sender.Setup(emailService => emailService.SendAsync(It.IsAny<EmailMessage>(), It.IsAny<CancellationToken>()))
             .Callback(() => cancellation.Cancel())
             .ThrowsAsync(new OperationCanceledException());
 
         await Assert.ThrowsAsync<OperationCanceledException>(() => Dispatcher().DispatchNextAsync(cancellation.Token));
-        _repository.Verify(x => x.TryClaimAsync(_now, cancellation.Token), Times.Once);
+        _repository.Verify(orderEmailRepository => orderEmailRepository.TryClaimAsync(_now, cancellation.Token), Times.Once);
         _repository.VerifyNoOtherCalls();
     }
 
-    private OrderEmailDispatcher Dispatcher() => new(_repository.Object, _sender.Object,
-        new FixedTimeProvider(_now), NullLogger<OrderEmailDispatcher>.Instance);
+    private OrderEmailDispatcher Dispatcher() => new(_repository.Object, _sender.Object, new FixedTimeProvider(_now), NullLogger<OrderEmailDispatcher>.Instance);
 
     [Theory]
     [InlineData(2, 2)]
@@ -81,10 +86,10 @@ public sealed class OrderEmailDispatcherTests
     {
         var email = Message();
         email.Attempts = attempts;
-        _repository.Setup(x => x.TryClaimAsync(_now, It.IsAny<CancellationToken>())).ReturnsAsync(email);
-        _sender.Setup(x => x.SendAsync(It.IsAny<EmailMessage>(), It.IsAny<CancellationToken>()))
+        _repository.Setup(orderEmailRepository => orderEmailRepository.TryClaimAsync(_now, It.IsAny<CancellationToken>())).ReturnsAsync(email);
+        _sender.Setup(emailService => emailService.SendAsync(It.IsAny<EmailMessage>(), It.IsAny<CancellationToken>()))
             .ThrowsAsync(new TimeoutException());
-        _repository.Setup(x => x.RetryAsync(email.Id, email.LeaseId!.Value, _now.AddMinutes(delayMinutes), It.IsAny<CancellationToken>()))
+        _repository.Setup(orderEmailRepository => orderEmailRepository.RetryAsync(email.Id, email.LeaseId!.Value, _now.AddMinutes(delayMinutes), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
         Assert.True(await Dispatcher().DispatchNextAsync(default));
@@ -95,10 +100,10 @@ public sealed class OrderEmailDispatcherTests
     public async Task CompletionSaveFailure_PropagatesWithoutDiscardingTheLease()
     {
         var email = Message();
-        _repository.Setup(x => x.TryClaimAsync(_now, It.IsAny<CancellationToken>())).ReturnsAsync(email);
-        _sender.Setup(x => x.SendAsync(It.IsAny<EmailMessage>(), It.IsAny<CancellationToken>()))
+        _repository.Setup(orderEmailRepository => orderEmailRepository.TryClaimAsync(_now, It.IsAny<CancellationToken>())).ReturnsAsync(email);
+        _sender.Setup(emailService => emailService.SendAsync(It.IsAny<EmailMessage>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
-        _repository.Setup(x => x.CompleteAsync(email.Id, email.LeaseId!.Value, _now, It.IsAny<CancellationToken>()))
+        _repository.Setup(orderEmailRepository => orderEmailRepository.CompleteAsync(email.Id, email.LeaseId!.Value, _now, It.IsAny<CancellationToken>()))
             .ThrowsAsync(new InvalidOperationException("Database unavailable"));
 
         await Assert.ThrowsAsync<InvalidOperationException>(() => Dispatcher().DispatchNextAsync(default));

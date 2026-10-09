@@ -1,3 +1,4 @@
+import { SITE_TIME_ZONE, parseApiDate } from "../../../shared/utils/dateTime";
 import type {
   OrderStatus,
   PaymentStatus,
@@ -21,19 +22,25 @@ const PAYMENT_STATUS_LABELS: Record<PaymentStatus, string> = {
   6: "Részben visszatérítve",
 };
 
-const PRICE_FORMATTER = new Intl.NumberFormat("hu-HU", {
-  style: "currency",
-  currency: "HUF",
-  maximumFractionDigits: 0,
-});
+const PRICE_FORMATTER = new Intl.NumberFormat(
+  "hu-HU",
+  {
+    style: "currency",
+    currency: "HUF",
+    maximumFractionDigits: 0,
+  }
+);
 
-const DATE_FORMATTER = new Intl.DateTimeFormat("hu-HU", {
-  year: "numeric",
-  month: "long",
-  day: "numeric",
-  hour: "2-digit",
-  minute: "2-digit",
-});
+const DATE_FORMATTER = new Intl.DateTimeFormat(
+  "hu-HU",
+  { timeZone: SITE_TIME_ZONE,
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }
+);
 
 export function getOrderStatusLabel(status: OrderStatus): string {
   return ORDER_STATUS_LABELS[status];
@@ -48,12 +55,14 @@ export function formatOrderPrice(price: number): string {
 }
 
 export function formatOrderDate(date: string): string {
-  return DATE_FORMATTER.format(new Date(date));
+  return DATE_FORMATTER.format(parseApiDate(date));
 }
 
 export function getOrderStatusClass(status: OrderStatus): string {
-  if (status === 4) return "bg-site-danger-soft text-site-danger";
-  if (status === 3) return "bg-site-surface-soft text-site-green-dark";
+  if (status === 4)
+    return "bg-site-danger-soft text-site-danger";
+  if (status === 3)
+    return "bg-site-surface-soft text-site-green-dark";
   return "bg-site-surface-warm text-site-heading";
 }
 

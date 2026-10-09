@@ -23,38 +23,19 @@ public sealed class PostService : IPostService
         return items;
     }
 
-    public async Task<PagedResultDto<PostListItemDto>> GetPagedAsync(
-        PostListQueryDto query,
-        CancellationToken cancellationToken = default)
+    public async Task<PagedResultDto<PostListItemDto>> GetPagedAsync(PostListQueryDto query, CancellationToken cancellationToken = default)
         => await GetPagedAsync(query, publicOnly: true, cancellationToken);
 
-    public async Task<PagedResultDto<PostListItemDto>> GetAdminPagedAsync(
-        PostListQueryDto query,
-        CancellationToken cancellationToken = default)
+    public async Task<PagedResultDto<PostListItemDto>> GetAdminPagedAsync(PostListQueryDto query, CancellationToken cancellationToken = default)
         => await GetPagedAsync(query, publicOnly: false, cancellationToken);
 
-    private async Task<PagedResultDto<PostListItemDto>> GetPagedAsync(
-        PostListQueryDto query,
-        bool publicOnly,
-        CancellationToken cancellationToken)
+    private async Task<PagedResultDto<PostListItemDto>> GetPagedAsync(PostListQueryDto query, bool publicOnly, CancellationToken cancellationToken)
     {
         var page = query.NormalizedPage;
         var pageSize = query.NormalizedPageSize;
-        var posts = await _unitOfWork.PostRepository.GetPagedAsync(
-            query.Search,
-            query.Category,
-            publicOnly,
-            query.Draft,
-            query.Sort ?? string.Empty,
-            page,
-            pageSize,
-            cancellationToken);
+        var posts = await _unitOfWork.PostRepository.GetPagedAsync(query.Search, query.Category, publicOnly, query.Draft, query.Sort ?? string.Empty, page, pageSize, cancellationToken);
 
-        return new PagedResultDto<PostListItemDto>(
-            posts.Items.ToListItemDtos(),
-            posts.Page,
-            posts.PageSize,
-            posts.TotalCount);
+        return new PagedResultDto<PostListItemDto>(posts.Items.ToListItemDtos(), posts.Page, posts.PageSize, posts.TotalCount);
     }
 
     public async Task<PostDetailsDto?> GetDetailsAsync(int postId, CancellationToken cancellationToken = default)

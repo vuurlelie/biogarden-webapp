@@ -26,16 +26,16 @@ public static class PostMapper
             Draft = post.Draft
         };
 
-    public static Post ToEntity(this PostCreateDto dto)
+    public static Post ToEntity(this PostCreateDto postCreate)
     {
         return new Post
         {
-            Title = dto.Title.Trim(),
-            Category = dto.Category,
-            Article = ArticleHtml.ValidateAndSanitize(dto.Article),
-            Image = string.IsNullOrWhiteSpace(dto.Image) ? BusinessRules.DefaultPostImagePath : dto.Image,
-            PublishedAt = dto.PublishedAt ?? DateTime.UtcNow,
-            Draft = dto.Draft
+            Title = postCreate.Title.Trim(),
+            Category = postCreate.Category,
+            Article = ArticleHtml.ValidateAndSanitize(postCreate.Article),
+            Image = string.IsNullOrWhiteSpace(postCreate.Image) ? BusinessRules.DefaultPostImagePath : postCreate.Image,
+            PublishedAt = postCreate.PublishedAt ?? DateTime.UtcNow,
+            Draft = postCreate.Draft
         };
     }
 

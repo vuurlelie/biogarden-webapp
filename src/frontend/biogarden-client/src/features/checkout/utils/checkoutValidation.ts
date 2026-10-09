@@ -28,11 +28,7 @@ export function isCheckoutFieldValid(field: CheckoutDraftTextField, draft: Check
     : value.length > 0;
 }
 
-export function validateCheckoutFields(
-  draft: CheckoutDraft,
-  effectiveCustomerType: 0 | 1,
-  method: FulfillmentMethod,
-): CheckoutFieldErrors {
+export function validateCheckoutFields(draft: CheckoutDraft, effectiveCustomerType: 0 | 1, method: FulfillmentMethod): CheckoutFieldErrors {
   const errors: CheckoutFieldErrors = {};
 
   if (draft.customerName.trim().length < 2) {

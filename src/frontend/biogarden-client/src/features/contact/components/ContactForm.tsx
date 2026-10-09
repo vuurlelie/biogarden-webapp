@@ -3,6 +3,9 @@ import { sendContactMessage } from "../api/contactApi";
 import { useAnalytics } from "../../analytics/context/AnalyticsContextCore";
 import { getErrorMessage } from "../../../shared/utils/errorHandling";
 
+const MIN_MESSAGE_LENGTH = 10;
+const MAX_MESSAGE_LENGTH = 2000;
+
 const initialForm = {
   name: "",
   email: "",
@@ -15,9 +18,9 @@ type ContactField = keyof typeof initialForm;
 type ContactFieldErrors = Partial<Record<ContactField, string>>;
 
 const fieldClassName =
-  "mt-1.5 block w-full rounded-sm border border-site-border bg-white px-3 py-2 text-site-heading outline-none transition focus:border-site-green focus:ring-2 focus:ring-site-green/20";
+  "mt-1.5 block w-full rounded-sm border border-site-border bg-white px-3 py-2 text-site-heading outline-none transition focus:border-gray-600";
 const invalidFieldClassName =
-  "mt-1.5 block w-full rounded-sm border border-site-danger bg-site-danger-soft px-3 py-2 text-site-heading outline-none transition focus:border-site-danger focus:ring-2 focus:ring-site-danger/20";
+  "mt-1.5 block w-full rounded-sm border border-site-danger bg-site-danger-soft px-3 py-2 text-site-heading outline-none transition focus:border-gray-600";
 
 type ContactFormProps = {
   className?: string;
@@ -59,7 +62,8 @@ export default function ContactForm({
 
   function clearFieldError(field: ContactField) {
     setFieldErrors((currentErrors) => {
-      if (!currentErrors[field]) return currentErrors;
+      if (!currentErrors[field])
+        return currentErrors;
       const nextErrors = { ...currentErrors };
       delete nextErrors[field];
       return nextErrors;
@@ -75,13 +79,14 @@ export default function ContactForm({
     return extraClassName ? `${baseClassName} ${extraClassName}` : baseClassName;
   }
 
-  function renderFieldError(field: ContactField) {
+  function renderFieldError(field: ContactField, className = "mt-1.5") {
     const fieldError = fieldErrors[field];
 
-    if (!fieldError) return null;
+    if (!fieldError)
+      return null;
 
     return (
-      <p id={getErrorId(field)} className="mt-1.5 text-sm text-site-danger" role="alert">
+      <p id={getErrorId(field)} className={`${className} text-xs font-normal text-site-danger`} role="alert">
         {fieldError}
       </p>
     );
@@ -103,8 +108,8 @@ export default function ContactForm({
       return;
     }
 
-    if (form.message.trim().length < 10) {
-      markInvalid("message", "Kérjük, írj legalább néhány mondatot, hogy segíteni tudjunk.");
+    if (form.message.trim().length < MIN_MESSAGE_LENGTH) {
+      markInvalid("message", `Kérjük, írj legalább ${MIN_MESSAGE_LENGTH} karaktert. Az elején és a végén lévő szóközök nem számítanak bele.`);
       return;
     }
 
@@ -118,11 +123,15 @@ export default function ContactForm({
         message: form.message.trim(),
       };
       const serialized = JSON.stringify(payload);
-      if (submissionRef.current?.payload !== serialized) submissionRef.current = { payload: serialized, id: crypto.randomUUID() };
+      if (submissionRef.current?.payload !== serialized)
+        submissionRef.current = { payload: serialized, id: crypto.randomUUID() };
       await sendContactMessage({ ...payload, submissionId: submissionRef.current.id });
       submissionRef.current = null;
-      track("contact_form_submitted", { source: "footer" });
-      setSuccess("Köszönjük, rögzítettük az üzenetedet. Az emailes visszaigazolás később érkezhet.");
+      track(
+        "contact_form_submitted",
+        { source: "footer" }
+      );
+      setSuccess("Köszönjük, rögzítettük az üzeneted! A visszaigazoló email megérkezése néhány percet igénybe vehet. Kérjük, ellenőrizd a Spam és a Promóciók mappát is.");
       setFieldErrors({});
       setForm(initialForm);
     } catch (submitError) {
@@ -224,12 +233,18 @@ export default function ContactForm({
           onChange={(event) => updateField("message", event.target.value)}
           className={getFieldClassName("message", "min-h-32 resize-y")}
           aria-invalid={Boolean(fieldErrors.message)}
-          aria-describedby={fieldErrors.message ? getErrorId("message") : undefined}
+          aria-describedby={`contact-message-count${fieldErrors.message ? ` ${getErrorId("message")}` : ""}`}
           required
-          minLength={10}
-          maxLength={2000}
+          minLength={MIN_MESSAGE_LENGTH}
+          maxLength={MAX_MESSAGE_LENGTH}
         />
-        {renderFieldError("message")}
+        <div className="mt-1 flex items-baseline justify-between gap-4 text-sm text-site-muted">
+          {renderFieldError("message", "min-w-0 flex-1")}
+          <span id="contact-message-count" className="ml-auto whitespace-nowrap tabular-nums">
+            <span aria-hidden="true">{form.message.trim().length} / {MAX_MESSAGE_LENGTH}</span>
+            <span className="sr-only">{form.message.trim().length} karakter a megengedett {MAX_MESSAGE_LENGTH} karakterből, a kezdő és záró szóközök nélkül.</span>
+          </span>
+        </div>
       </div>
 
       {success && (

@@ -41,7 +41,8 @@ export default function ResetPasswordPage() {
 
   function clearFieldError(field: PasswordField) {
     setFieldErrors((currentErrors) => {
-      if (!currentErrors[field]) return currentErrors;
+      if (!currentErrors[field])
+        return currentErrors;
       const nextErrors = { ...currentErrors };
       delete nextErrors[field];
       return nextErrors;
@@ -59,10 +60,11 @@ export default function ResetPasswordPage() {
   function renderFieldError(field: PasswordField) {
     const fieldError = fieldErrors[field];
 
-    if (!fieldError) return null;
+    if (!fieldError)
+      return null;
 
     return (
-      <p id={getErrorId(field)} className="mt-1.5 text-sm text-site-danger" role="alert">
+      <p id={getErrorId(field)} className="mt-1.5 text-xs font-normal text-site-danger" role="alert">
         {fieldError}
       </p>
     );
@@ -102,7 +104,10 @@ export default function ResetPasswordPage() {
       setFieldErrors({});
       setMessage("Sikeresen beállítottad az új jelszavadat. Most már bejelentkezhetsz.");
     } catch (submitError) {
-      setFieldErrors(getServerFieldErrors(submitError, ["password", "confirmPassword"] as const));
+      setFieldErrors(getServerFieldErrors(
+        submitError,
+        ["password", "confirmPassword"] as const
+      ));
       setError(getErrorMessage(submitError, "A jelszó visszaállítása nem sikerült."));
     } finally {
       setIsSubmitting(false);

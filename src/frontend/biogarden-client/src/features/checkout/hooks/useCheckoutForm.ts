@@ -5,7 +5,7 @@ import type { UserAddresses } from "../../account/types/address.types";
 import type { UserProfile } from "../../account/types/profile.types";
 import { getAuthSession } from "../../auth/utils/authStorage";
 import { useCheckoutDraft } from "./useCheckoutDraft";
-import { isGlsMethod } from "../constants/fulfillment";
+import { FULFILLMENT, isGlsMethod } from "../constants/fulfillment";
 import type { CheckoutDraftTextField, CheckoutFieldErrors, FulfillmentMethod } from "../types/checkout.types";
 import { billingAddressDraft, buildCustomerName, deliveryAddressDraft, emptyBillingDraft, emptyCustomerDraft, emptyDeliveryDraft } from "../utils/checkoutDraft";
 import { isCheckoutFieldValid } from "../utils/checkoutValidation";
@@ -50,14 +50,17 @@ export function useCheckoutForm(cartId: string | undefined) {
     doorbell: draft.deliveryDoorbell,
   };
   useEffect(() => {
-    if (!authenticated || profile) return;
-    if (!draftReady) return;
+    if (!authenticated || profile)
+      return;
+    if (!draftReady)
+      return;
 
     let ignore = false;
 
     void Promise.all([getAddresses(), getProfile()])
       .then(([loadedAddresses, loadedProfile]) => {
-        if (ignore) return;
+        if (ignore)
+          return;
 
         setAddresses(loadedAddresses);
         setProfile(loadedProfile);
@@ -88,14 +91,18 @@ export function useCheckoutForm(cartId: string | undefined) {
       .catch((loadError) => {
         if (!ignore) {
           if (hasErrorStatus(loadError, 401)) {
-            navigate(ROUTES.login, { replace: true });
+            navigate(
+              ROUTES.login,
+              { replace: true }
+            );
             return;
           }
           setError(getErrorMessage(loadError, "A fiókadatok betöltése nem sikerült."));
         }
       })
       .finally(() => {
-        if (!ignore) setLoading(false);
+        if (!ignore)
+          setLoading(false);
       });
 
     return () => {
@@ -105,7 +112,9 @@ export function useCheckoutForm(cartId: string | undefined) {
 
   function setMethod(next: FulfillmentMethod) {
     setDraft(current => ({ ...current, fulfillmentMethod: next, glsDeliveryPointId: null,
-      ...(isGlsMethod(next) ? emptyDeliveryDraft() : {}) }));
+      ...(isGlsMethod(next) ? emptyDeliveryDraft()
+        : next === FULFILLMENT.HomeDelivery && !deliveryManual && addresses?.shippingAddress
+          ? deliveryAddressDraft(addresses.shippingAddress) : {}) }));
     setFieldErrors({});
   }
 
@@ -116,7 +125,8 @@ export function useCheckoutForm(cartId: string | undefined) {
 
   function fieldClass(field: CheckoutDraftTextField): string {
     const base = "mt-2 block w-full rounded-sm border px-3 py-2.5 disabled:cursor-default";
-    if (fieldErrors[field]) return `${base} border-site-danger bg-white`;
+    if (fieldErrors[field])
+      return `${base} border-site-danger bg-white`;
 
     return isCheckoutFieldValid(field, draft)
       ? `${base} border-site-green bg-site-surface-soft`
@@ -134,6 +144,7 @@ export function useCheckoutForm(cartId: string | undefined) {
   }
 
   function handleBillingAddressChange(address: AddressFormData) {
+    setBillingManual(true);
     clearFieldErrors(["postalCode", "city", "street", "houseNumber", "billingAddress"]);
     setDraft((current) => ({
       ...current,
@@ -149,6 +160,7 @@ export function useCheckoutForm(cartId: string | undefined) {
   }
 
   function handleDeliveryAddressChange(address: AddressFormData) {
+    setDeliveryManual(true);
     clearFieldErrors([
       "deliveryPostalCode",
       "deliveryCity",
@@ -227,19 +239,10 @@ export function useCheckoutForm(cartId: string | undefined) {
     ));
   }
 
-  async function discard() {
-    if (!await draftStorage.discard()) return false;
-    setContactManual(true);
-    setBillingManual(true);
-    setDeliveryManual(true);
-    setFieldErrors({});
-    return true;
-  }
-
   return { draftStorage, draft, setDraft, draftReady, method, authenticated, addresses,
     contactManual, billingManual, deliveryManual, loading: authenticated && !profile && loading,
     error, setError, fieldErrors, setFieldErrors,
     effectiveCustomerType, billingAddress, deliveryAddress, setMethod, update, fieldClass, clearFieldErrors,
     handleBillingAddressChange, handleDeliveryAddressChange, handleAccountContactChange,
-    handleAccountBillingChange, handleAccountDeliveryChange, discard };
+    handleAccountBillingChange, handleAccountDeliveryChange };
 }

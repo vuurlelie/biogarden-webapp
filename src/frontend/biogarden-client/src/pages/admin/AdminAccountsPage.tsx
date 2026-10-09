@@ -44,12 +44,16 @@ function AdminUserActionConfirmationModal({
   const dialogRef = useRef<HTMLElement | null>(null);
   const titleId = useId();
 
-  useModalFocus(dialogRef, {
-    isOpen: true,
-    onClose: () => {
-      if (!busy) onCancel();
-    },
-  });
+  useModalFocus(
+    dialogRef,
+    {
+      isOpen: true,
+      onClose: () => {
+        if (!busy)
+          onCancel();
+      },
+    }
+  );
 
   return (
     <div className="fixed inset-0 z-[90] grid place-items-center bg-black/55 p-4" role="alertdialog" aria-modal="true" aria-labelledby={titleId}>
@@ -84,7 +88,8 @@ function isTerminalDeletedUser(user: AdminUser) {
 }
 
 function fullName(user: AdminUser) {
-  if (isTerminalDeletedUser(user)) return "Törölt felhasználó";
+  if (isTerminalDeletedUser(user))
+    return "Törölt felhasználó";
 
   return [user.lastName, user.firstName].filter(Boolean).join(" ") || "Nincs név";
 }
@@ -148,7 +153,8 @@ function UserCard({ user, onUpdate, onErase, onMessage }: {
   }
 
   async function confirmPendingAction() {
-    if (!pendingAction) return;
+    if (!pendingAction)
+      return;
 
     try {
       await pendingAction.onConfirm();
@@ -209,7 +215,8 @@ function UserCard({ user, onUpdate, onErase, onMessage }: {
                 disabled={busy !== null}
                 onClick={() => {
                   const pendingRequest = user.pendingRequest;
-                  if (!pendingRequest) return;
+                  if (!pendingRequest)
+                    return;
                   if (isCurrentUser) {
                     showSelfActionWarning();
                     return;
@@ -233,7 +240,8 @@ function UserCard({ user, onUpdate, onErase, onMessage }: {
               disabled={busy !== null}
               onClick={() => {
                 const pendingRequest = user.pendingRequest;
-                if (!pendingRequest) return;
+                if (!pendingRequest)
+                  return;
                 setPendingAction({
                   title: "Kérelem elutasítása",
                   question: `Biztosan elutasítod ${user.email} kérelmét?`,
@@ -399,41 +407,59 @@ export default function AdminAccountsPage() {
   const requestId = useRef(0);
   const mounted = useRef(true);
 
-  const load = useCallback(async (signal?: AbortSignal, background = false) => {
-    if (!mounted.current) return;
-    const id = ++requestId.current;
-    if (!background) setLoading(true);
-    setError(null);
-    try {
-      const result = await getAdminUsers({ page, pageSize: PAGE_SIZE, search, role, status }, signal);
-      if (!mounted.current || signal?.aborted || id !== requestId.current) return;
-      setUsers(result.items);
-      setTotalPages(result.totalPages);
-      if (result.page !== page) setPage(result.page);
-    } catch (loadError) {
-      if (mounted.current && !signal?.aborted && id === requestId.current && !isAbortError(loadError)) {
-        setError(getErrorMessage(loadError, "A felhasználók betöltése nem sikerült."));
+  const load = useCallback(
+    async (signal?: AbortSignal, background = false) => {
+      if (!mounted.current)
+        return;
+      const id = ++requestId.current;
+      if (!background)
+        setLoading(true);
+      setError(null);
+      try {
+        const result = await getAdminUsers(
+          { page, pageSize: PAGE_SIZE, search, role, status },
+          signal
+        );
+        if (!mounted.current || signal?.aborted || id !== requestId.current)
+          return;
+        setUsers(result.items);
+        setTotalPages(result.totalPages);
+        if (result.page !== page)
+          setPage(result.page);
+      } catch (loadError) {
+        if (mounted.current && !signal?.aborted && id === requestId.current && !isAbortError(loadError)) {
+          setError(getErrorMessage(loadError, "A felhasználók betöltése nem sikerült."));
+        }
+      } finally {
+        if (mounted.current && !signal?.aborted && id === requestId.current)
+          setLoading(false);
       }
-    } finally {
-      if (mounted.current && !signal?.aborted && id === requestId.current) setLoading(false);
-    }
-  }, [page, search, role, status]);
+    },
+    [page, search, role, status]
+  );
 
   const latestLoad = useRef(load);
-  useEffect(() => {
-    latestLoad.current = load;
-    mounted.current = true;
-    ++requestId.current;
-    const controller = new AbortController();
-    const timer = window.setTimeout(() => void load(controller.signal), search.trim() ? 250 : 0);
-    return () => { mounted.current = false; window.clearTimeout(timer); controller.abort(); };
-  }, [load, search]);
+  useEffect(
+    () => {
+      latestLoad.current = load;
+      mounted.current = true;
+      ++requestId.current;
+      const controller = new AbortController();
+      const timer = window.setTimeout(() => void load(controller.signal), search.trim() ? 250 : 0);
+      return () => { mounted.current = false; window.clearTimeout(timer); controller.abort(); };
+    },
+    [load, search]
+  );
 
-  useEffect(() => {
-    if (!message) return;
-    const timer = window.setTimeout(() => setMessage(null), 3500);
-    return () => clearTimeout(timer);
-  }, [message]);
+  useEffect(
+    () => {
+      if (!message)
+        return;
+      const timer = window.setTimeout(() => setMessage(null), 3500);
+      return () => clearTimeout(timer);
+    },
+    [message]
+  );
 
   const current = page;
   const shown = users;

@@ -22,23 +22,24 @@ public sealed class AdminInventoryService : IAdminInventoryService
     {
         var query = InventoryQuery();
         var search = filter.Search?.Trim();
-        if (!string.IsNullOrEmpty(search)) query = query.Where(x => x.Name.Contains(search));
+        if (!string.IsNullOrEmpty(search))
+            query = query.Where(adminInventoryItem => adminInventoryItem.Name.Contains(search));
         query = filter.Stock switch
         {
-            "low" => query.Where(x => x.AvailableQuantity > 0 && x.AvailableQuantity <= 5),
-            "empty" => query.Where(x => x.AvailableQuantity == 0),
-            "reserved" => query.Where(x => x.ReservedQuantity > 0),
+            "low" => query.Where(adminInventoryItem => adminInventoryItem.AvailableQuantity > 0 && adminInventoryItem.AvailableQuantity <= 5),
+            "empty" => query.Where(adminInventoryItem => adminInventoryItem.AvailableQuantity == 0),
+            "reserved" => query.Where(adminInventoryItem => adminInventoryItem.ReservedQuantity > 0),
             _ => query
         };
         var count = await query.CountAsync(cancellationToken);
         var page = AdminPaging.Page(filter, count);
-        var items = await query.OrderBy(x => x.Name).ThenBy(x => x.ProductId)
+        var items = await query.OrderBy(adminInventoryItem => adminInventoryItem.Name).ThenBy(adminInventoryItem => adminInventoryItem.ProductId)
             .Skip((page - 1) * filter.NormalizedPageSize).Take(filter.NormalizedPageSize).ToListAsync(cancellationToken);
         return new(items, page, filter.NormalizedPageSize, count);
     }
 
     public Task<AdminInventoryItemDto?> GetByIdAsync(int id, CancellationToken cancellationToken = default)
-        => InventoryQuery().SingleOrDefaultAsync(x => x.ProductId == id, cancellationToken);
+        => InventoryQuery().SingleOrDefaultAsync(adminInventoryItem => adminInventoryItem.ProductId == id, cancellationToken);
 
     private IQueryable<AdminInventoryItemDto> InventoryQuery()
     {

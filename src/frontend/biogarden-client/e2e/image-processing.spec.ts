@@ -11,11 +11,23 @@ test("admin image processing crops without upscaling and rejects oversized sourc
     canvas.width = 400; canvas.height = 300;
     canvas.getContext("2d")!.fillRect(0, 0, 400, 300);
     const blob = await new Promise<Blob>(resolve => canvas.toBlob(value => resolve(value!), "image/png"));
-    const file = new File([blob], "small.png", { type: "image/png" });
+    const file = new File(
+      [blob],
+      "small.png",
+      { type: "image/png" }
+    );
     const product = await createImageBitmap(await normalizeImage(file, 1200, 1200));
     const post = await createImageBitmap(await normalizeImage(file, 1600, 1200));
     let error = "";
-    try { await normalizeImage(new File([new Uint8Array(20 * 1024 * 1024 + 1)], "large.jpg", { type: "image/jpeg" }), 1200, 1200); }
+    try { await normalizeImage(
+      new File(
+        [new Uint8Array(20 * 1024 * 1024 + 1)],
+        "large.jpg",
+        { type: "image/jpeg" }
+      ),
+      1200,
+      1200
+    ); }
     catch (failure) { error = (failure as Error).message; }
     return { product: [product.width, product.height], post: [post.width, post.height], error };
   });
@@ -42,14 +54,20 @@ test("responsive image paths distinguish new uploads from legacy files", async (
 });
 
 for (const width of [390, 1440]) {
-  test(`homepage uses decoded responsive images at ${width}px`, async ({ page }) => {
-    await mockPublicShopApi(page);
-    await page.setViewportSize({ width, height: 900 });
-    await page.goto("/");
-    const first = page.getByRole("img", { name: "Biogarden slide 1", exact: true });
-    await expect(first).toHaveAttribute("fetchpriority", "high");
-    await expect.poll(() => first.evaluate((img: HTMLImageElement) => img.naturalWidth)).toBeGreaterThan(0);
-    expect(await first.evaluate((img: HTMLImageElement) => img.currentSrc)).toContain(width < 768 ? "firstcarousel-768w.webp" : "firstcarousel-1664w.webp");
-    await page.screenshot({ path: `test-results/home-images-${width}.png`, fullPage: true });
-  });
+  test(
+    `homepage uses decoded responsive images at ${width}px`,
+    async ({ page }) => {
+      await mockPublicShopApi(page);
+      await page.setViewportSize({ width, height: 900 });
+      await page.goto("/");
+      const first = page.getByRole(
+        "img",
+        { name: "Biogarden slide 1", exact: true }
+      );
+      await expect(first).toHaveAttribute("fetchpriority", "high");
+      await expect.poll(() => first.evaluate((img: HTMLImageElement) => img.naturalWidth)).toBeGreaterThan(0);
+      expect(await first.evaluate((img: HTMLImageElement) => img.currentSrc)).toContain(width < 768 ? "firstcarousel-768w.webp" : "firstcarousel-1664w.webp");
+      await page.screenshot({ path: `test-results/home-images-${width}.png`, fullPage: true });
+    }
+  );
 }

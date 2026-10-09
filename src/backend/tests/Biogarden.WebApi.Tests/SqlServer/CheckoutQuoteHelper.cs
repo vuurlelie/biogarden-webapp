@@ -9,8 +9,7 @@ internal static class CheckoutQuoteHelper
     public static async Task<PlaceOrderDto> WithQuoteAsync(this PlaceOrderDto request, HttpClient client)
     {
         request.PaymentMethod ??= OrderPaymentMethod.OnlineCard;
-        using var response = await client.PostAsJsonAsync("/api/orders/quote",
-            new CheckoutQuoteRequest(request.FulfillmentMethod, request.PaymentMethod.Value, request.GlsDeliveryPointId));
+        using var response = await client.PostAsJsonAsync("/api/orders/quote", new CheckoutQuoteRequest(request.FulfillmentMethod, request.PaymentMethod.Value, request.GlsDeliveryPointId));
         response.EnsureSuccessStatusCode();
         request.QuoteVersion = (await response.Content.ReadFromJsonAsync<CheckoutQuoteDto>())!.Version;
         return request;

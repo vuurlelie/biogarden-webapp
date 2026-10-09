@@ -30,8 +30,7 @@ public sealed class PaymentAuthorizationTests : IClassFixture<BiogardenWebApiFac
     {
         using var client = CreateClient(role);
 
-        using var response = await client.PostAsync(
-            $"/api/orders/{Guid.NewGuid()}/confirm-payment", null);
+        using var response = await client.PostAsync($"/api/orders/{Guid.NewGuid()}/confirm-payment", null);
 
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
@@ -41,8 +40,7 @@ public sealed class PaymentAuthorizationTests : IClassFixture<BiogardenWebApiFac
     // Legacy tokens without a session stamp are intentionally invalidated on deployment.
     // A current, real customer token is covered by SessionRevocationTests against SQL Server.
     [InlineData("Customer", HttpStatusCode.Unauthorized)]
-    public async Task ManualPaymentUpdate_RejectsNonAdministrators(
-        string? role, HttpStatusCode expectedStatus)
+    public async Task ManualPaymentUpdate_RejectsNonAdministrators(string? role, HttpStatusCode expectedStatus)
     {
         using var client = CreateClient(role);
 
@@ -70,16 +68,14 @@ public sealed class PaymentAuthorizationTests : IClassFixture<BiogardenWebApiFac
             issuer: settings.Issuer,
             audience: settings.Audience,
             claims:
-            [
-                new Claim(ClaimTypes.NameIdentifier, Guid.NewGuid().ToString()),
-                new Claim(ClaimTypes.Role, role)
-            ],
+                        [
+                            new Claim(ClaimTypes.NameIdentifier, Guid.NewGuid().ToString()),
+                            new Claim(ClaimTypes.Role, role)
+                        ],
             expires: DateTime.UtcNow.AddMinutes(5),
-            signingCredentials: new SigningCredentials(
-                new SymmetricSecurityKey(Encoding.UTF8.GetBytes(settings.SecretKey)),
-                SecurityAlgorithms.HmacSha256));
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
-            "Bearer", new JwtSecurityTokenHandler().WriteToken(token));
+            signingCredentials: new SigningCredentials(new SymmetricSecurityKey(Encoding.UTF8.GetBytes(settings.SecretKey)), SecurityAlgorithms.HmacSha256)
+        );
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", new JwtSecurityTokenHandler().WriteToken(token));
 
         return client;
     }

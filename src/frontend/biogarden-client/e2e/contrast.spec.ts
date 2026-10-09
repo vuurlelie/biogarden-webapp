@@ -19,3 +19,35 @@ test("small text theme combinations retain AA contrast", async ({ page }) => {
   });
   for (const ratio of ratios) expect(ratio).toBeGreaterThanOrEqual(4.5);
 });
+
+
+test("back-to-top changes colour only while overlapping the dark footer", async ({ page }) => {
+  await mockPublicShopApi(page);
+  await page.goto("/");
+  await page.getByRole(
+    "button",
+    { name: "Csak szükséges", exact: true }
+  ).click();
+  await page.addStyleTag({ content: "html { scroll-behavior: auto !important; }" });
+  const button = page.getByRole(
+    "button",
+    { name: "Vissza az oldal tetejére" }
+  );
+  await page.evaluate(() => window.scrollTo(0, 200));
+  await expect(button).toBeVisible();
+  await expect(button).toHaveCSS("background-color", "rgb(86, 107, 29)");
+  // Lazy-loaded homepage images can change the document height as we approach the footer.
+  await expect.poll(async () => {
+    await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+    return button.evaluate(element => getComputedStyle(element).backgroundColor);
+  }).toBe("rgb(255, 255, 255)");
+  await expect(button).toHaveCSS("color", "rgb(72, 93, 22)");
+  await button.hover();
+  await expect(button).toHaveCSS("background-color", "rgb(242, 245, 234)");
+  await page.mouse.move(0, 0);
+  await page.evaluate(() => window.scrollTo(0, 200));
+  await expect(button).toHaveCSS("background-color", "rgb(86, 107, 29)");
+  await button.click();
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0);
+  await expect(button).toHaveCount(0);
+});

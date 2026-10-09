@@ -25,6 +25,7 @@ export type OrderWithdrawalRequest = {
   status: 1 | 2;
   requestedAtUtc: string;
   handledAtUtc: string | null;
+  adminResponse?: string | null;
 };
 
 export type Order = {

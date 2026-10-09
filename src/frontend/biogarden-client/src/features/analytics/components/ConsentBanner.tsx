@@ -13,18 +13,25 @@ export default function ConsentBanner() {
   } = useAnalytics();
   const [analyticsChecked, setAnalyticsChecked] = useState(analyticsEnabled);
 
-  const openSettings = useCallback(() => {
-    setAnalyticsChecked(analyticsEnabled);
-    openPreferences();
-  }, [analyticsEnabled, openPreferences]);
+  const openSettings = useCallback(
+    () => {
+      setAnalyticsChecked(analyticsEnabled);
+      openPreferences();
+    },
+    [analyticsEnabled, openPreferences]
+  );
 
-  useEffect(() => {
-    const open = () => openSettings();
-    window.addEventListener(OPEN_CONSENT_PREFERENCES_EVENT, open);
-    return () => window.removeEventListener(OPEN_CONSENT_PREFERENCES_EVENT, open);
-  }, [openSettings]);
+  useEffect(
+    () => {
+      const open = () => openSettings();
+      window.addEventListener(OPEN_CONSENT_PREFERENCES_EVENT, open);
+      return () => window.removeEventListener(OPEN_CONSENT_PREFERENCES_EVENT, open);
+    },
+    [openSettings]
+  );
 
-  if (hasConsentChoice && !preferencesOpen) return null;
+  if (hasConsentChoice && !preferencesOpen)
+    return null;
 
   return (
     <div className="fixed inset-x-0 bottom-0 z-40 px-4 pb-4 sm:px-6" role="region" aria-label="Adatvédelmi beállítások">

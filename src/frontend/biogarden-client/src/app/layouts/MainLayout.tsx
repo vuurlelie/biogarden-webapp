@@ -17,11 +17,14 @@ export default function MainLayout() {
   const isAdmin = auth?.roles.some((role) => role.toLowerCase() === "admin") ?? false;
   const cartItemCount = cart?.totalItemCount ?? 0;
 
-  useEffect(() => {
-    const updateAuth = () => setAuth(getAuthSession());
-    window.addEventListener(AUTH_CHANGED_EVENT, updateAuth);
-    return () => window.removeEventListener(AUTH_CHANGED_EVENT, updateAuth);
-  }, []);
+  useEffect(
+    () => {
+      const updateAuth = () => setAuth(getAuthSession());
+      window.addEventListener(AUTH_CHANGED_EVENT, updateAuth);
+      return () => window.removeEventListener(AUTH_CHANGED_EVENT, updateAuth);
+    },
+    []
+  );
 
   return (
     <div className="flex min-h-screen flex-col bg-white text-site-text">

@@ -23,9 +23,7 @@ namespace Biogarden.WebApi.Extensions;
 
 public static class ServiceCollectionExtensions
 {
-    public static IServiceCollection AddAppInfrastructure(
-        this IServiceCollection services,
-        IConfiguration configuration)
+    public static IServiceCollection AddAppInfrastructure(this IServiceCollection services, IConfiguration configuration)
     {
         services.AddWebApiCore();
         services.AddBrowserSessions(configuration);
@@ -77,9 +75,7 @@ public static class ServiceCollectionExtensions
         return services;
     }
 
-    private static IServiceCollection AddAppRateLimiting(
-        this IServiceCollection services,
-        IConfiguration configuration)
+    private static IServiceCollection AddAppRateLimiting(this IServiceCollection services, IConfiguration configuration)
     {
         var abuseProtectionOptions = configuration
             .GetSection(AbuseProtectionOptions.SectionName)
@@ -95,9 +91,7 @@ public static class ServiceCollectionExtensions
             {
                 var retryAfter = TimeSpan.FromSeconds(abuseProtectionOptions.RetryAfterSeconds);
 
-                if (context.Lease.TryGetMetadata(
-                    MetadataName.RetryAfter,
-                    out var metadataRetryAfter))
+                if (context.Lease.TryGetMetadata(MetadataName.RetryAfter, out var metadataRetryAfter))
                 {
                     retryAfter = metadataRetryAfter;
                 }
@@ -117,41 +111,33 @@ public static class ServiceCollectionExtensions
             };
 
             options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(
-                httpContext => RateLimitPartition.GetFixedWindowLimiter(
-                    GetClientPartition(httpContext),
-                    _ => CreateFixedWindowOptions(abuseProtectionOptions.Global)));
+                httpContext => RateLimitPartition.GetFixedWindowLimiter(GetClientPartition(httpContext), _ => CreateFixedWindowOptions(abuseProtectionOptions.Global)));
 
             options.AddPolicy(
                 RateLimitPolicyNames.SensitiveAuth,
-                httpContext => RateLimitPartition.GetFixedWindowLimiter(
-                    GetClientPartition(httpContext),
-                    _ => CreateFixedWindowOptions(abuseProtectionOptions.SensitiveAuth)));
+                httpContext => RateLimitPartition.GetFixedWindowLimiter(GetClientPartition(httpContext), _ => CreateFixedWindowOptions(abuseProtectionOptions.SensitiveAuth))
+            );
 
             options.AddPolicy(
                 RateLimitPolicyNames.PublicForm,
-                httpContext => RateLimitPartition.GetFixedWindowLimiter(
-                    GetClientPartition(httpContext),
-                    _ => CreateFixedWindowOptions(abuseProtectionOptions.PublicForm)));
+                httpContext => RateLimitPartition.GetFixedWindowLimiter(GetClientPartition(httpContext), _ => CreateFixedWindowOptions(abuseProtectionOptions.PublicForm))
+            );
 
             options.AddPolicy(
                 RateLimitPolicyNames.CartMutation,
-                httpContext => RateLimitPartition.GetFixedWindowLimiter(
-                    GetClientPartition(httpContext),
-                    _ => CreateFixedWindowOptions(abuseProtectionOptions.CartMutation)));
+                httpContext => RateLimitPartition.GetFixedWindowLimiter(GetClientPartition(httpContext), _ => CreateFixedWindowOptions(abuseProtectionOptions.CartMutation))
+            );
 
             options.AddPolicy(
                 RateLimitPolicyNames.Payment,
-                httpContext => RateLimitPartition.GetFixedWindowLimiter(
-                    GetClientPartition(httpContext),
-                    _ => CreateFixedWindowOptions(abuseProtectionOptions.Payment)));
+                httpContext => RateLimitPartition.GetFixedWindowLimiter(GetClientPartition(httpContext), _ => CreateFixedWindowOptions(abuseProtectionOptions.Payment))
+            );
         });
 
         return services;
     }
 
-    private static IServiceCollection AddFrontendCors(
-        this IServiceCollection services,
-        IConfiguration configuration)
+    private static IServiceCollection AddFrontendCors(this IServiceCollection services, IConfiguration configuration)
     {
         var allowedOrigins = GetFrontendAllowedOrigins(configuration);
 
@@ -199,9 +185,7 @@ public static class ServiceCollectionExtensions
         return ["http://localhost:5173"];
     }
 
-    private static IServiceCollection AddDataAccess(
-        this IServiceCollection services,
-        IConfiguration configuration)
+    private static IServiceCollection AddDataAccess(this IServiceCollection services, IConfiguration configuration)
     {
         services.AddDbContext<AppDbContext>(options =>
             options.UseSqlServer(
@@ -224,55 +208,24 @@ public static class ServiceCollectionExtensions
         return services;
     }
 
-    private static IServiceCollection AddValidatedOptions(
-        this IServiceCollection services,
-        IConfiguration configuration)
+    private static IServiceCollection AddValidatedOptions(this IServiceCollection services, IConfiguration configuration)
     {
-        services.AddValidatedOptions<AbuseProtectionOptions>(
-            configuration,
-            AbuseProtectionOptions.SectionName,
-            options => options.ValidateForStartup());
-        services.AddValidatedOptions<JwtSettings>(
-            configuration,
-            JwtSettings.SectionName,
-            options => options.ValidateForStartup());
-        services.AddValidatedOptions<EmailOptions>(
-            configuration,
-            EmailOptions.SectionName,
-            options => options.ValidateForStartup());
-        services.AddValidatedOptions<AuthEmailOptions>(
-            configuration,
-            AuthEmailOptions.SectionName,
-            options => options.ValidateForStartup());
-        services.AddValidatedOptions<EmailBrandingOptions>(
-            configuration,
-            EmailBrandingOptions.SectionName,
-            options => options.ValidateForStartup());
-        services.AddValidatedOptions<OperationalMonitoringOptions>(configuration,
-            OperationalMonitoringOptions.SectionName, options => options.ValidateForStartup());
-        services.AddValidatedOptions<ErrorAlertOptions>(
-            configuration,
-            ErrorAlertOptions.SectionName,
-            options => options.ValidateForStartup());
-        services.AddValidatedOptions<SumUpOptions>(
-            configuration,
-            SumUpOptions.SectionName,
-            options => options.ValidateForStartup());
-        services.AddValidatedOptions<CheckoutPricingOptions>(configuration,
-            CheckoutPricingOptions.SectionName, options => options.ValidateForStartup());
-        services.AddValidatedOptions<CartCleanupOptions>(configuration,
-            CartCleanupOptions.SectionName, options => options.ValidateForStartup());
-        services.AddValidatedOptions<GlsOptions>(configuration,
-            GlsOptions.SectionName, options => options.ValidateForStartup());
+        services.AddValidatedOptions<AbuseProtectionOptions>(configuration, AbuseProtectionOptions.SectionName, options => options.ValidateForStartup());
+        services.AddValidatedOptions<JwtSettings>(configuration, JwtSettings.SectionName, options => options.ValidateForStartup());
+        services.AddValidatedOptions<EmailOptions>(configuration, EmailOptions.SectionName, options => options.ValidateForStartup());
+        services.AddValidatedOptions<AuthEmailOptions>(configuration, AuthEmailOptions.SectionName, options => options.ValidateForStartup());
+        services.AddValidatedOptions<EmailBrandingOptions>(configuration, EmailBrandingOptions.SectionName, options => options.ValidateForStartup());
+        services.AddValidatedOptions<OperationalMonitoringOptions>(configuration, OperationalMonitoringOptions.SectionName, options => options.ValidateForStartup());
+        services.AddValidatedOptions<ErrorAlertOptions>(configuration, ErrorAlertOptions.SectionName, options => options.ValidateForStartup());
+        services.AddValidatedOptions<SumUpOptions>(configuration, SumUpOptions.SectionName, options => options.ValidateForStartup());
+        services.AddValidatedOptions<CheckoutPricingOptions>(configuration, CheckoutPricingOptions.SectionName, options => options.ValidateForStartup());
+        services.AddValidatedOptions<CartCleanupOptions>(configuration, CartCleanupOptions.SectionName, options => options.ValidateForStartup());
+        services.AddValidatedOptions<GlsOptions>(configuration, GlsOptions.SectionName, options => options.ValidateForStartup());
 
         return services;
     }
 
-    private static IServiceCollection AddValidatedOptions<TOptions>(
-        this IServiceCollection services,
-        IConfiguration configuration,
-        string sectionName,
-        Action<TOptions> validate)
+    private static IServiceCollection AddValidatedOptions<TOptions>(this IServiceCollection services, IConfiguration configuration, string sectionName, Action<TOptions> validate)
         where TOptions : class
     {
         services.AddOptions<TOptions>()
@@ -287,9 +240,7 @@ public static class ServiceCollectionExtensions
         return services;
     }
 
-    private static IServiceCollection AddAppIdentityAndAuthentication(
-        this IServiceCollection services,
-        IConfiguration configuration)
+    private static IServiceCollection AddAppIdentityAndAuthentication(this IServiceCollection services, IConfiguration configuration)
     {
         var jwtSettings = configuration
             .GetSection(JwtSettings.SectionName)
@@ -328,17 +279,20 @@ public static class ServiceCollectionExtensions
             options.DefaultScheme =
                 "SessionOrBearer";
         })
-        .AddPolicyScheme("SessionOrBearer", "Browser session or explicit API bearer", options =>
-            options.ForwardDefaultSelector = context => context.Request.Headers.Authorization.ToString().StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase)
-                ? JwtBearerDefaults.AuthenticationScheme : BrowserAuthentication.Scheme)
+        .AddPolicyScheme(
+            "SessionOrBearer",
+            "Browser session or explicit API bearer",
+            options =>
+                options.ForwardDefaultSelector = context => context.Request.Headers.Authorization.ToString().StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase)
+                    ? JwtBearerDefaults.AuthenticationScheme : BrowserAuthentication.Scheme
+        )
         .AddJwtBearer(options =>
         {
             options.Events = new JwtBearerEvents
             {
                 OnTokenValidated = async context =>
                 {
-                    if (context.Principal is null || !await Authentication.SessionAuthentication.IsCurrentAsync(
-                        context.Principal, context.HttpContext.RequestServices, context.HttpContext.RequestAborted))
+                    if (context.Principal is null || !await Authentication.SessionAuthentication.IsCurrentAsync(context.Principal, context.HttpContext.RequestServices, context.HttpContext.RequestAborted))
                         context.Fail("The session is no longer valid.");
                 }
             };
@@ -444,7 +398,8 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IGlsDeliveryPointDirectory>(provider => new GlsDeliveryPointDirectory(
             () => provider.GetRequiredService<IHttpClientFactory>().CreateClient(GlsOptions.HttpClientName),
             provider.GetRequiredService<Microsoft.Extensions.Options.IOptions<GlsOptions>>(),
-            provider.GetRequiredService<TimeProvider>()));
+            provider.GetRequiredService<TimeProvider>()
+        ));
         services.AddScoped<ISumUpCheckoutService, SumUpCheckoutService>();
         services.AddScoped<ISumUpCheckoutStatusService, SumUpCheckoutStatusService>();
 

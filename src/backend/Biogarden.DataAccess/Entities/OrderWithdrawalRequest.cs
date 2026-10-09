@@ -13,5 +13,6 @@ public sealed class OrderWithdrawalRequest
     public string Reason { get; set; } = string.Empty;
     public OrderWithdrawalRequestStatus Status { get; set; } = OrderWithdrawalRequestStatus.Pending;
     public DateTime RequestedAtUtc { get; set; } = DateTime.UtcNow;
+    public string? AdminResponse { get; set; }
     public DateTime? HandledAtUtc { get; set; }
 }

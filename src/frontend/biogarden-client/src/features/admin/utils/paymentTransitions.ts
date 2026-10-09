@@ -11,7 +11,8 @@ export function manualPaymentChoices(order: Order): PaymentStatus[] {
     case PAYMENT_STATUS.Pending:
     case PAYMENT_STATUS.Authorized:
     case PAYMENT_STATUS.Failed:
-      if (order.paymentMethod !== PAYMENT.OnlineCard && order.status !== ORDER_STATUS.Cancelled) choices.push(PAYMENT_STATUS.Paid);
+      if (order.paymentMethod !== PAYMENT.OnlineCard && order.status !== ORDER_STATUS.Cancelled)
+        choices.push(PAYMENT_STATUS.Paid);
       break;
     case PAYMENT_STATUS.Paid: choices.push(PAYMENT_STATUS.RefundPending); break;
     case PAYMENT_STATUS.RefundPending: choices.push(PAYMENT_STATUS.PartiallyRefunded, PAYMENT_STATUS.Refunded); break;

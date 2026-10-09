@@ -21,7 +21,10 @@ public sealed class GlsDeliveryPointDirectory(Func<HttpClient> createClient, IOp
     {
         if (string.IsNullOrWhiteSpace(id) || id.Length > 100 ||
             type is not (FulfillmentMethod.ParcelLocker or FulfillmentMethod.ParcelShop))
+        {
             throw new ArgumentException("Válassz egy GLS átvételi pontot.");
+        }
+
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         timeout.CancelAfter(TimeSpan.FromSeconds(_options.TimeoutSeconds));
         try
@@ -35,16 +38,18 @@ public sealed class GlsDeliveryPointDirectory(Func<HttpClient> createClient, IOp
                     cache = _cache;
                     if (cache is null || cache.Expires <= clock.GetUtcNow())
                     {
-                        if (_retryAfter > clock.GetUtcNow()) throw new GlsDirectoryUnavailableException();
+                        if (_retryAfter > clock.GetUtcNow())
+                            throw new GlsDirectoryUnavailableException();
                         try
                         {
                             var points = await DownloadAsync(timeout.Token);
                             cache = new(points, clock.GetUtcNow().AddMinutes(_options.CacheMinutes));
                             Volatile.Write(ref _cache, cache);
                         }
-                        catch (Exception ex) when (ex is HttpRequestException or IOException or JsonException or OperationCanceledException)
+                        catch (Exception exception) when (exception is HttpRequestException or IOException or JsonException or OperationCanceledException)
                         {
-                            if (cancellationToken.IsCancellationRequested) throw;
+                            if (cancellationToken.IsCancellationRequested)
+                                throw;
                             _retryAfter = clock.GetUtcNow().AddSeconds(_options.RetryDelaySeconds);
                             throw new GlsDirectoryUnavailableException();
                         }
@@ -62,19 +67,21 @@ public sealed class GlsDeliveryPointDirectory(Func<HttpClient> createClient, IOp
         }
     }
 
-    private async Task<IReadOnlyDictionary<string, GlsDeliveryPointDto>> DownloadAsync(CancellationToken ct)
+    private async Task<IReadOnlyDictionary<string, GlsDeliveryPointDto>> DownloadAsync(CancellationToken cancellationToken)
     {
         using var client = createClient();
-        using var response = await client.GetAsync(_options.DirectoryUrl, HttpCompletionOption.ResponseHeadersRead, ct);
+        using var response = await client.GetAsync(_options.DirectoryUrl, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
         response.EnsureSuccessStatusCode();
-        if (response.Content.Headers.ContentLength > _options.MaximumResponseBytes) throw new JsonException("Directory too large.");
-        await using var stream = await response.Content.ReadAsStreamAsync(ct);
+        if (response.Content.Headers.ContentLength > _options.MaximumResponseBytes)
+            throw new JsonException("Directory too large.");
+        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
         using var buffer = new MemoryStream();
         var chunk = new byte[8192];
         int read;
-        while ((read = await stream.ReadAsync(chunk, ct)) > 0)
+        while ((read = await stream.ReadAsync(chunk, cancellationToken)) > 0)
         {
-            if (buffer.Length + read > _options.MaximumResponseBytes) throw new JsonException("Directory too large.");
+            if (buffer.Length + read > _options.MaximumResponseBytes)
+                throw new JsonException("Directory too large.");
             buffer.Write(chunk, 0, read);
         }
         using var json = JsonDocument.Parse(buffer.ToArray());
@@ -89,19 +96,32 @@ public sealed class GlsDeliveryPointDirectory(Func<HttpClient> createClient, IOp
                 "parcel-shop" => FulfillmentMethod.ParcelShop,
                 _ => (FulfillmentMethod?)null
             };
+
             if (type is null || !item.TryGetProperty("contact", out var contact) ||
                 Text(contact, "countryCode") != _options.CountryCode ||
-                !item.TryGetProperty("features", out var features) || features.ValueKind != JsonValueKind.Array) continue;
-            var featureSet = features.EnumerateArray().Where(x => x.ValueKind == JsonValueKind.String).Select(x => x.GetString()).ToHashSet();
-            if (!featureSet.Contains("delivery")) continue;
+                !item.TryGetProperty("features", out var features) || features.ValueKind != JsonValueKind.Array)
+            {
+                continue;
+            }
+
+            var featureSet = features.EnumerateArray().Where(jsonElement => jsonElement.ValueKind == JsonValueKind.String).Select(jsonElement => jsonElement.GetString()).ToHashSet();
+            if (!featureSet.Contains("delivery"))
+                continue;
             var id = Text(item, "id"); var name = Text(item, "name");
             var postal = Text(contact, "postalCode"); var city = Text(contact, "city"); var address = Text(contact, "address");
-            if (!Valid(id, 100) || !Valid(name, 200) || !Valid(postal, 20) || !Valid(city, 100) || !Valid(address, 200)) continue;
-            if (!points.TryAdd(id!, new(id!, type.Value, name!, _options.CountryCode, postal!, city!, address!,
-                featureSet.Contains("acceptsCash"), featureSet.Contains("acceptsCard"))))
+            if (!Valid(id, 100) || !Valid(name, 200) || !Valid(postal, 20) || !Valid(city, 100) || !Valid(address, 200))
+                continue;
+
+            if (!points.TryAdd(
+                id!,
+                new(id!, type.Value, name!, _options.CountryCode, postal!, city!, address!, featureSet.Contains("acceptsCash"), featureSet.Contains("acceptsCard"))
+            ))
+            {
                 throw new JsonException("Duplicate GLS point identity.");
+            }
         }
-        if (points.Count == 0) throw new JsonException("No usable GLS delivery points.");
+        if (points.Count == 0)
+            throw new JsonException("No usable GLS delivery points.");
         return points;
     }
 

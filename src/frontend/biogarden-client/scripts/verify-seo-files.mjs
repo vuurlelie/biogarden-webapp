@@ -42,4 +42,5 @@ if (!robots.includes(`Sitemap: ${siteUrl}/sitemap.xml`)) {
 
 const index = await readFile(resolve("dist", "index.html"), "utf8");
 const expectedRobots = environment.VITE_INDEXING_ENABLED === "true" ? "index, follow" : "noindex, nofollow";
-if (!index.includes(`name="robots" content="${expectedRobots}"`)) throw new Error("Incorrect built indexing policy.");
+if (!index.includes(`name="robots" content="${expectedRobots}"`))
+  throw new Error("Incorrect built indexing policy.");

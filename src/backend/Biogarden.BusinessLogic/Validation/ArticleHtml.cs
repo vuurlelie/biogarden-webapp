@@ -11,7 +11,8 @@ public static class ArticleHtml
 
     public static string Sanitize(string? html)
     {
-        if (string.IsNullOrWhiteSpace(html)) return string.Empty;
+        if (string.IsNullOrWhiteSpace(html))
+            return string.Empty;
 
         var sanitizer = new HtmlSanitizer();
         sanitizer.AllowedTags.Clear();
@@ -39,9 +40,12 @@ public static class ArticleHtml
         var sanitized = Sanitize(html);
         using var document = new HtmlParser().ParseDocument(sanitized);
         var text = document.Body?.TextContent ?? string.Empty;
+
         if (text.Count(character => !char.IsWhiteSpace(character) &&
                 char.GetUnicodeCategory(character) != System.Globalization.UnicodeCategory.Format) < MinimumTextLength)
+        {
             throw new ArgumentException("A bejegyzés szövege legalább 20 látható karakter legyen.");
+        }
 
         return sanitized;
     }

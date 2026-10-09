@@ -6,10 +6,10 @@ namespace Biogarden.DataAccess.Configurations;
 
 public sealed class BrowserSessionConfiguration : IEntityTypeConfiguration<BrowserSession>
 {
-    public void Configure(EntityTypeBuilder<BrowserSession> builder)
+    public void Configure(EntityTypeBuilder<BrowserSession> browserSessionBuilder)
     {
-        builder.HasKey(x => x.KeyHash);
-        builder.Property(x => x.KeyHash).HasMaxLength(64).IsUnicode(false);
-        builder.HasIndex(x => x.ExpiresAtUtc);
+        browserSessionBuilder.HasKey(browserSession => browserSession.KeyHash);
+        browserSessionBuilder.Property(browserSession => browserSession.KeyHash).HasMaxLength(64).IsUnicode(false);
+        browserSessionBuilder.HasIndex(browserSession => browserSession.ExpiresAtUtc);
     }
 }

@@ -15,7 +15,8 @@ export type SeoProps = {
 };
 
 function absoluteUrl(path: string) {
-  if (/^https?:\/\//i.test(path)) return path;
+  if (/^https?:\/\//i.test(path))
+    return path;
   const origin = SITE_URL ?? window.location.origin;
   return `${origin}${path.startsWith("/") ? path : `/${path}`}`;
 }

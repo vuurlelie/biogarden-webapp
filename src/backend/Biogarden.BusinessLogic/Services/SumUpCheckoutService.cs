@@ -14,17 +14,13 @@ public sealed class SumUpCheckoutService : ISumUpCheckoutService
     private readonly SumUpOptions _options;
     private readonly ISumUpCheckoutClient _checkoutClient;
 
-    public SumUpCheckoutService(
-        IOptions<SumUpOptions> options,
-        ISumUpCheckoutClient checkoutClient)
+    public SumUpCheckoutService(IOptions<SumUpOptions> options, ISumUpCheckoutClient checkoutClient)
     {
         _options = options.Value;
         _checkoutClient = checkoutClient;
     }
 
-    public async Task<SumUpCheckoutResult> CreateCheckoutAsync(
-        OrderDto order,
-        CancellationToken cancellationToken = default, string? reference = null)
+    public async Task<SumUpCheckoutResult> CreateCheckoutAsync(OrderDto order, CancellationToken cancellationToken = default, string? reference = null)
     {
         if (!_options.Enabled)
         {
@@ -46,16 +42,18 @@ public sealed class SumUpCheckoutService : ISumUpCheckoutService
 
         var result = await _checkoutClient.CreateAsync(
             new SumUpCreateCheckoutRequest(
-                CheckoutReference: reference ?? checkoutReference,
-                Amount: order.TotalPrice,
-                Currency: (order.Currency ?? _options.Currency).ToUpperInvariant(),
-                MerchantCode: _options.MerchantCode,
-                Description: $"Bakony Kincse rendelés {order.OrderNumber}",
-                RedirectUrl: provisionalRedirectUrl,
-                ReturnUrl: _options.ReturnUrl),
+                            CheckoutReference: reference ?? checkoutReference,
+                            Amount: order.TotalPrice,
+                            Currency: (order.Currency ?? _options.Currency).ToUpperInvariant(),
+                            MerchantCode: _options.MerchantCode,
+                            Description: $"Bakony Kincse rendelés {order.OrderNumber}",
+                            RedirectUrl: provisionalRedirectUrl,
+                            ReturnUrl: _options.ReturnUrl
+                        ),
             _options.ApiKey,
             BuildApiBaseUri(),
-            cancellationToken);
+            cancellationToken
+        );
 
         if (string.IsNullOrWhiteSpace(result.HostedCheckoutUrl))
         {
@@ -65,9 +63,7 @@ public sealed class SumUpCheckoutService : ISumUpCheckoutService
         return result;
     }
 
-    public Task<SumUpCheckoutResult> GetCheckoutAsync(
-        string checkoutId,
-        CancellationToken cancellationToken = default)
+    public Task<SumUpCheckoutResult> GetCheckoutAsync(string checkoutId, CancellationToken cancellationToken = default)
     {
         if (!_options.Enabled)
         {
@@ -79,25 +75,19 @@ public sealed class SumUpCheckoutService : ISumUpCheckoutService
             throw new ArgumentException("SumUp checkout id is required.", nameof(checkoutId));
         }
 
-        return _checkoutClient.GetAsync(
-            checkoutId.Trim(),
-            _options.ApiKey,
-            BuildApiBaseUri(),
-            cancellationToken);
+        return _checkoutClient.GetAsync(checkoutId.Trim(), _options.ApiKey, BuildApiBaseUri(), cancellationToken);
     }
 
     public Task<IReadOnlyList<SumUpCheckoutResult>> FindCheckoutsAsync(string reference, CancellationToken cancellationToken = default)
     {
-        if (!_options.Enabled) throw new InvalidOperationException("SumUp checkout is not enabled.");
+        if (!_options.Enabled)
+            throw new InvalidOperationException("SumUp checkout is not enabled.");
         return _checkoutClient.FindAsync(reference, _options.ApiKey, BuildApiBaseUri(), cancellationToken);
     }
 
     private string BuildRedirectUrl(string checkoutId, OrderDto order)
     {
-        var url = _options.RedirectUrl.Replace(
-            CheckoutReferencePlaceholder,
-            Uri.EscapeDataString(checkoutId),
-            StringComparison.Ordinal);
+        var url = _options.RedirectUrl.Replace(CheckoutReferencePlaceholder, Uri.EscapeDataString(checkoutId), StringComparison.Ordinal);
 
         return AppendOrderQuery(url, order);
     }

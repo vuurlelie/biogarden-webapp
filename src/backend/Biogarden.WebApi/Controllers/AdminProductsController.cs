@@ -22,9 +22,7 @@ public sealed class AdminProductsController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<ActionResult<PagedResultDto<ProductDetailsDto>>> GetAll(
-        [FromQuery] ProductListQueryDto query,
-        CancellationToken cancellationToken)
+    public async Task<ActionResult<PagedResultDto<ProductDetailsDto>>> GetAll([FromQuery] ProductListQueryDto query, CancellationToken cancellationToken)
         => Ok(await _productService.GetPagedDetailsAsync(query, cancellationToken));
 
     [HttpPost]
@@ -39,7 +37,8 @@ public sealed class AdminProductsController : ControllerBase
     public async Task<IActionResult> Update(int productId, ProductEditDto product, CancellationToken cancellationToken)
     {
         var previousProduct = await _productService.GetDetailsAsync(productId, cancellationToken);
-        if (previousProduct is null) return NotFound();
+        if (previousProduct is null)
+            return NotFound();
 
         await _productService.UpdateAsync(productId, product, cancellationToken);
         return NoContent();
@@ -49,7 +48,8 @@ public sealed class AdminProductsController : ControllerBase
     public async Task<IActionResult> Delete(int productId, CancellationToken cancellationToken)
     {
         var product = await _productService.GetDetailsAsync(productId, cancellationToken);
-        if (product is null || !await _productService.DeleteAsync(productId, cancellationToken)) return NotFound();
+        if (product is null || !await _productService.DeleteAsync(productId, cancellationToken))
+            return NotFound();
         return NoContent();
     }
 
@@ -67,7 +67,8 @@ public sealed class AdminProductsController : ControllerBase
     [HttpDelete("image")]
     public IActionResult DeleteUnusedImage([FromBody] DeleteProductImageRequest request)
     {
-        if (string.IsNullOrWhiteSpace(request.Path)) return BadRequest();
+        if (string.IsNullOrWhiteSpace(request.Path))
+            return BadRequest();
         return Conflict(new { detail = ManagedImageStorage.RetentionMessage });
     }
 }

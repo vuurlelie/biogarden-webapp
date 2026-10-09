@@ -4,11 +4,16 @@ import { apiBaseUrl, mockPublicShopApi } from "./fixtures";
 test("contact retry reuses the submission ID and edited content gets a new ID", async ({ page }) => {
   await mockPublicShopApi(page);
   const requests: { submissionId: string; message: string }[] = [];
-  await page.route(`${apiBaseUrl}/api/contact`, async route => {
-    requests.push(route.request().postDataJSON());
-    if (requests.length < 3) await route.fulfill({ status: 503, json: { detail: "Próbáld újra." } });
-    else await route.fulfill({ status: 202, json: { submissionId: requests.at(-1)!.submissionId } });
-  });
+  await page.route(
+    `${apiBaseUrl}/api/contact`,
+    async route => {
+      requests.push(route.request().postDataJSON());
+      if (requests.length < 3)
+        await route.fulfill({ status: 503, json: { detail: "Próbáld újra." } });
+      else
+        await route.fulfill({ status: 202, json: { submissionId: requests.at(-1)!.submissionId } });
+    }
+  );
   await page.goto("/");
   await page.getByRole("button", { name: /Írj nekünk itt|Irj nekunk itt/ }).click();
   await page.locator("#contact-name").fill("Visitor");
@@ -22,6 +27,6 @@ test("contact retry reuses the submission ID and edited content gets a new ID", 
   expect(requests[1].submissionId).toBe(requests[0].submissionId);
   await page.locator("#contact-message").fill("An updated question about the garden products.");
   await submit.click();
-  await expect(page.getByText("Köszönjük, rögzítettük az üzenetedet. Az emailes visszaigazolás később érkezhet.")).toBeVisible();
+  await expect(page.getByText("Köszönjük, rögzítettük az üzeneted! A visszaigazoló email megérkezése néhány percet igénybe vehet. Kérjük, ellenőrizd a Spam és a Promóciók mappát is.")).toBeVisible();
   expect(requests[2].submissionId).not.toBe(requests[0].submissionId);
 });

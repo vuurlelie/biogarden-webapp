@@ -22,9 +22,7 @@ public sealed class AdminPostsController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<ActionResult<PagedResultDto<PostListItemDto>>> GetAll(
-        [FromQuery] PostListQueryDto query,
-        CancellationToken cancellationToken)
+    public async Task<ActionResult<PagedResultDto<PostListItemDto>>> GetAll([FromQuery] PostListQueryDto query, CancellationToken cancellationToken)
         => Ok(await _postService.GetAdminPagedAsync(query, cancellationToken));
 
     [HttpPost]
@@ -39,7 +37,8 @@ public sealed class AdminPostsController : ControllerBase
     public async Task<IActionResult> Update(int postId, PostEditDto post, CancellationToken cancellationToken)
     {
         var previousPost = await _postService.GetDetailsAsync(postId, cancellationToken);
-        if (previousPost is null) return NotFound();
+        if (previousPost is null)
+            return NotFound();
 
         await _postService.UpdateAsync(postId, post, cancellationToken);
 
@@ -50,7 +49,8 @@ public sealed class AdminPostsController : ControllerBase
     public async Task<IActionResult> Delete(int postId, CancellationToken cancellationToken)
     {
         var post = await _postService.GetDetailsAsync(postId, cancellationToken);
-        if (post is null || !await _postService.DeleteAsync(postId, cancellationToken)) return NotFound();
+        if (post is null || !await _postService.DeleteAsync(postId, cancellationToken))
+            return NotFound();
 
         return NoContent();
     }
@@ -69,7 +69,8 @@ public sealed class AdminPostsController : ControllerBase
     [HttpDelete("image")]
     public IActionResult DeleteUnusedImage([FromBody] DeletePostImageRequest request)
     {
-        if (string.IsNullOrWhiteSpace(request.Path)) return BadRequest();
+        if (string.IsNullOrWhiteSpace(request.Path))
+            return BadRequest();
         return Conflict(new { detail = ManagedImageStorage.RetentionMessage });
     }
 }

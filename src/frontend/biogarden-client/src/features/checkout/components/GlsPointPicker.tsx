@@ -23,59 +23,79 @@ export function GlsPointPicker({ method, point, loading, error, onRetry, onSelec
   const host = useRef<HTMLDivElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
   const onSelectRef = useRef(onSelect);
-  useEffect(() => { onSelectRef.current = onSelect; }, [onSelect]);
+  useEffect(
+    () => { onSelectRef.current = onSelect; },
+    [onSelect]
+  );
 
-  useEffect(() => {
-    if (!open) return;
-    const element = dialog.current!;
-    const returnFocus = trigger.current;
-    element.showModal();
-    const overflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => { element.close(); document.body.style.overflow = overflow; returnFocus?.focus(); };
-  }, [open]);
-
-  useEffect(() => {
-    if (!open) return;
-    let cancelled = false;
-    let request: AbortController | undefined;
-    let widget: HTMLElement | undefined;
-    const change = (event: Event) => {
-      const detail: unknown = (event as CustomEvent<unknown>).detail;
-      request?.abort();
-      if (!detail || typeof detail !== "object" || !("id" in detail) || typeof detail.id !== "string" || !detail.id || detail.id.length > 100) {
-        setChecking(false);
-        setMapError("Nem érvényes GLS pont. Válassz új pontot a térképen.");
+  useEffect(
+    () => {
+      if (!open)
         return;
-      }
-      const controller = new AbortController();
-      request = controller;
-      setChecking(true);
-      setMapError("");
-      void resolveGlsPoint(detail.id, method, controller.signal).then(resolved => {
-        if (cancelled || controller.signal.aborted) return;
-        onSelectRef.current(resolved);
-        setOpen(false);
+      const element = dialog.current!;
+      const returnFocus = trigger.current;
+      element.showModal();
+      const overflow = document.body.style.overflow;
+      document.body.style.overflow = "hidden";
+      return () => { element.close(); document.body.style.overflow = overflow; returnFocus?.focus(); };
+    },
+    [open]
+  );
+
+  useEffect(
+    () => {
+      if (!open)
+        return;
+      let cancelled = false;
+      let request: AbortController | undefined;
+      let widget: HTMLElement | undefined;
+      const change = (event: Event) => {
+        const detail: unknown = (event as CustomEvent<unknown>).detail;
+        request?.abort();
+        if (!detail || typeof detail !== "object" || !("id" in detail) || typeof detail.id !== "string" || !detail.id || detail.id.length > 100) {
+          setChecking(false);
+          setMapError("Nem érvényes GLS pont. Válassz új pontot a térképen.");
+          return;
+        }
+        const controller = new AbortController();
+        request = controller;
+        setChecking(true);
+        setMapError("");
+        void resolveGlsPoint(detail.id, method, controller.signal).then(resolved => {
+          if (cancelled || controller.signal.aborted)
+            return;
+          onSelectRef.current(resolved);
+          setOpen(false);
+        }).catch(caught => {
+          if (!cancelled && !controller.signal.aborted)
+            setMapError(getErrorMessage(caught, "Az átvételi pont ellenőrzése nem sikerült."));
+        }).finally(() => {
+          if (!cancelled && !controller.signal.aborted)
+            setChecking(false);
+        });
+      };
+      void loadGlsWidget().then(() => {
+        if (cancelled)
+          return;
+        widget = document.createElement(GLS_WIDGET_TAG);
+        widget.setAttribute("country", "hu");
+        widget.setAttribute("language", "hu");
+        widget.setAttribute("filter-type", method === FULFILLMENT.ParcelLocker ? "parcel-locker" : "parcel-shop");
+        widget.setAttribute("filter-services", "delivery");
+        widget.setAttribute("ui-filters", "opening-hours,features");
+        widget.addEventListener("change", change);
+        host.current?.replaceChildren(widget);
+        setMapLoading(false);
       }).catch(caught => {
-        if (!cancelled && !controller.signal.aborted) setMapError(getErrorMessage(caught, "Az átvételi pont ellenőrzése nem sikerült."));
-      }).finally(() => { if (!cancelled && !controller.signal.aborted) setChecking(false); });
-    };
-    void loadGlsWidget().then(() => {
-      if (cancelled) return;
-      widget = document.createElement(GLS_WIDGET_TAG);
-      widget.setAttribute("country", "hu");
-      widget.setAttribute("language", "hu");
-      widget.setAttribute("filter-type", method === FULFILLMENT.ParcelLocker ? "parcel-locker" : "parcel-shop");
-      widget.setAttribute("filter-services", "delivery");
-      widget.setAttribute("ui-filters", "opening-hours,features");
-      widget.addEventListener("change", change);
-      host.current?.replaceChildren(widget);
-      setMapLoading(false);
-    }).catch(caught => {
-      if (!cancelled) { setMapLoading(false); setMapError(getErrorMessage(caught, "A GLS térkép nem tölthető be.")); }
-    });
-    return () => { cancelled = true; request?.abort(); widget?.removeEventListener("change", change); widget?.remove(); };
-  }, [open, method, attempt]);
+        if (!cancelled) {
+          setMapLoading(false);
+          setMapError(getErrorMessage(caught, "A GLS térkép nem tölthető be."));
+        }
+      });
+      return () => { cancelled = true; request?.abort(); widget?.removeEventListener("change", change); widget?.remove(); };
+    },
+    [open, method, attempt]
+  );
 
   return <section className="rounded-sm border border-site-border bg-white p-6 shadow-md" aria-label="GLS átvételi pont">
     <h2 className="text-xl font-bold">{FULFILLMENT_LABELS[method]} kiválasztása</h2>

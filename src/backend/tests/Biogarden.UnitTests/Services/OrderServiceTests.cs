@@ -36,29 +36,26 @@ public sealed class OrderServiceTests
 
     public OrderServiceTests()
     {
-        _unitOfWork.SetupGet(x => x.OrderRepository).Returns(_orders.Object);
-        _unitOfWork.SetupGet(x => x.PaymentAttemptRepository).Returns(_attempts.Object);
-        _attempts.Setup(x => x.AcquireLockAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+        _unitOfWork.SetupGet(unitOfWork => unitOfWork.OrderRepository).Returns(_orders.Object);
+        _unitOfWork.SetupGet(unitOfWork => unitOfWork.PaymentAttemptRepository).Returns(_attempts.Object);
+        _attempts.Setup(paymentAttemptRepository => paymentAttemptRepository.AcquireLockAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new TestPaymentLock());
-        _attempts.Setup(x => x.GetLatestAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>())).ReturnsAsync((PaymentAttempt?)null);
-        _attempts.Setup(x => x.Add(It.IsAny<PaymentAttempt>()));
-        _unitOfWork.SetupGet(x => x.OrderEmailRepository).Returns(_orderEmails.Object);
-        _unitOfWork.Setup(x => x.ExecuteInTransactionAsync(
-                It.IsAny<Func<CancellationToken, Task<OrderWithdrawalRequestDto>>>(), It.IsAny<CancellationToken>()))
+        _attempts.Setup(paymentAttemptRepository => paymentAttemptRepository.GetLatestAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>())).ReturnsAsync((PaymentAttempt?)null);
+        _attempts.Setup(paymentAttemptRepository => paymentAttemptRepository.Add(It.IsAny<PaymentAttempt>()));
+        _unitOfWork.SetupGet(unitOfWork => unitOfWork.OrderEmailRepository).Returns(_orderEmails.Object);
+        _unitOfWork.Setup(unitOfWork => unitOfWork.ExecuteInTransactionAsync(It.IsAny<Func<CancellationToken, Task<OrderWithdrawalRequestDto>>>(), It.IsAny<CancellationToken>()))
             .Returns((Func<CancellationToken, Task<OrderWithdrawalRequestDto>> action, CancellationToken token) => action(token));
-        _orderEmails.Setup(x => x.Add(It.IsAny<OrderEmail>()));
-        _unitOfWork.SetupGet(x => x.ProductRepository).Returns(_products.Object);
+        _orderEmails.Setup(orderEmailRepository => orderEmailRepository.Add(It.IsAny<OrderEmail>()));
+        _unitOfWork.SetupGet(unitOfWork => unitOfWork.ProductRepository).Returns(_products.Object);
         _unitOfWork
-            .Setup(x => x.ExecuteInTransactionAsync(
-                It.IsAny<Func<CancellationToken, Task<OrderDto>>>(),
-                It.IsAny<CancellationToken>()))
+            .Setup(unitOfWork => unitOfWork.ExecuteInTransactionAsync(It.IsAny<Func<CancellationToken, Task<OrderDto>>>(), It.IsAny<CancellationToken>()))
             .Returns<Func<CancellationToken, Task<OrderDto>>, CancellationToken>(
                 (operation, token) => operation(token));
 
         var userStore = new Mock<IUserStore<ApplicationUser>>(MockBehavior.Strict);
         _userManager = CreateUserManagerMock(userStore.Object);
         _userManager
-            .Setup(x => x.FindByEmailAsync(It.IsAny<string>()))
+            .Setup(userManager => userManager.FindByEmailAsync(It.IsAny<string>()))
             .ReturnsAsync((ApplicationUser?)null);
 
         _service = new OrderService(
@@ -86,14 +83,13 @@ public sealed class OrderServiceTests
     {
         var insideTransaction = false;
         var queuedEmails = new List<OrderEmail>();
-        _orderEmails.Setup(x => x.Add(It.IsAny<OrderEmail>()))
+        _orderEmails.Setup(orderEmailRepository => orderEmailRepository.Add(It.IsAny<OrderEmail>()))
             .Callback<OrderEmail>(email =>
             {
                 Assert.True(insideTransaction);
                 queuedEmails.Add(email);
             });
-        _unitOfWork.Setup(x => x.ExecuteInTransactionAsync(
-                It.IsAny<Func<CancellationToken, Task<OrderDto>>>(), It.IsAny<CancellationToken>()))
+        _unitOfWork.Setup(unitOfWork => unitOfWork.ExecuteInTransactionAsync(It.IsAny<Func<CancellationToken, Task<OrderDto>>>(), It.IsAny<CancellationToken>()))
             .Returns<Func<CancellationToken, Task<OrderDto>>, CancellationToken>(async (operation, token) =>
             {
                 insideTransaction = true;
@@ -107,18 +103,18 @@ public sealed class OrderServiceTests
         var cart = new Cart { Id = Guid.NewGuid(), SessionId = sessionId };
         cart.Items.Add(new CartItem { Id = Guid.NewGuid(), CartId = cart.Id, ProductId = product.Id, Product = product, Quantity = 2 });
         Order? savedOrder = null;
-        _unitOfWork.SetupGet(x => x.CartRepository).Returns(_carts.Object);
+        _unitOfWork.SetupGet(unitOfWork => unitOfWork.CartRepository).Returns(_carts.Object);
         _orders
-            .Setup(x => x.GetByIdempotencyKeyWithItemsAsync(IdempotencyKey, It.IsAny<CancellationToken>()))
+            .Setup(orderRepository => orderRepository.GetByIdempotencyKeyWithItemsAsync(IdempotencyKey, It.IsAny<CancellationToken>()))
             .ReturnsAsync((Order?)null);
-        _carts.Setup(x => x.GetActiveBySessionIdAsync(sessionId, It.IsAny<CancellationToken>())).ReturnsAsync(cart);
-        _cartService.Setup(x => x.ValidateCartForCheckoutAsync(null, sessionId, It.IsAny<CancellationToken>()))
+        _carts.Setup(cartRepository => cartRepository.GetActiveBySessionIdAsync(sessionId, It.IsAny<CancellationToken>())).ReturnsAsync(cart);
+        _cartService.Setup(cartService => cartService.ValidateCartForCheckoutAsync(null, sessionId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new Biogarden.BusinessLogic.DTOs.Carts.CartValidationResultDto { IsValid = true });
-        _products.Setup(x => x.GetByIdAsync(product.Id, It.IsAny<CancellationToken>())).ReturnsAsync(product);
-        _orders.Setup(x => x.AddAsync(It.IsAny<Order>(), It.IsAny<CancellationToken>()))
+        _products.Setup(productRepository => productRepository.GetByIdAsync(product.Id, It.IsAny<CancellationToken>())).ReturnsAsync(product);
+        _orders.Setup(orderRepository => orderRepository.AddAsync(It.IsAny<Order>(), It.IsAny<CancellationToken>()))
             .Callback<Order, CancellationToken>((order, _) => savedOrder = order).Returns(Task.CompletedTask);
-        _unitOfWork.Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
-        _orders.Setup(x => x.GetByIdWithItemsAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+        _unitOfWork.Setup(unitOfWork => unitOfWork.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
+        _orders.Setup(orderRepository => orderRepository.GetByIdWithItemsAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(() => savedOrder);
         var customerMessage = new EmailMessage
         {
@@ -131,16 +127,16 @@ public sealed class OrderServiceTests
             Subject = "Új rendelés érkezett"
         };
         _emailTemplateService
-            .Setup(x => x.BuildOrderConfirmationMessage("guest@example.com", It.IsAny<OrderDto>()))
+            .Setup(emailTemplateService => emailTemplateService.BuildOrderConfirmationMessage("guest@example.com", It.IsAny<OrderDto>()))
             .Returns(customerMessage);
         _emailTemplateService
-            .Setup(x => x.BuildOrderBusinessNotificationMessage("info@bakonykincse.hu", It.IsAny<OrderDto>()))
+            .Setup(emailTemplateService => emailTemplateService.BuildOrderBusinessNotificationMessage("info@bakonykincse.hu", It.IsAny<OrderDto>()))
             .Returns(businessMessage);
         _emailService
-            .Setup(x => x.SendAsync(customerMessage, It.IsAny<CancellationToken>()))
+            .Setup(emailService => emailService.SendAsync(customerMessage, It.IsAny<CancellationToken>()))
             .ThrowsAsync(new System.Net.Mail.SmtpException("SMTP unavailable"));
         _emailService
-            .Setup(x => x.SendAsync(businessMessage, It.IsAny<CancellationToken>()))
+            .Setup(emailService => emailService.SendAsync(businessMessage, It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
         var resultOutcome = await _service.CreateOrderFromCartAsync(null, sessionId, new PlaceOrderDto
@@ -174,25 +170,25 @@ public sealed class OrderServiceTests
         Assert.NotNull(savedOrder);
         Assert.Equal(_timeProvider.GetUtcNow().UtcDateTime, savedOrder.CreatedAtUtc);
         _emailTemplateService.Verify(
-            x => x.BuildOrderConfirmationMessage(
-                "guest@example.com",
-                It.Is<OrderDto>(order => order.OrderNumber == result.OrderNumber)),
-            Times.Once);
+            emailTemplateService => emailTemplateService.BuildOrderConfirmationMessage("guest@example.com", It.Is<OrderDto>(order => order.OrderNumber == result.OrderNumber)),
+            Times.Once
+        );
         _emailTemplateService.Verify(
-            x => x.BuildOrderBusinessNotificationMessage(
-                "info@bakonykincse.hu",
-                It.Is<OrderDto>(order => order.OrderNumber == result.OrderNumber)),
-            Times.Once);
-        _emailService.Verify(x => x.SendAsync(It.IsAny<EmailMessage>(), It.IsAny<CancellationToken>()), Times.Never);
-        _orderEmails.Verify(x => x.Add(It.Is<OrderEmail>(email =>
-            email.OrderId == result.Id && email.Kind == "customer" && email.Recipient == customerMessage.To)), Times.Once);
-        _orderEmails.Verify(x => x.Add(It.Is<OrderEmail>(email =>
-            email.OrderId == result.Id && email.Kind == "business" && email.Recipient == businessMessage.To)), Times.Once);
-        _unitOfWork.Verify(
-            x => x.ExecuteInTransactionAsync(
-                It.IsAny<Func<CancellationToken, Task<OrderDto>>>(),
-                It.IsAny<CancellationToken>()),
-            Times.Once);
+            emailTemplateService => emailTemplateService.BuildOrderBusinessNotificationMessage("info@bakonykincse.hu", It.Is<OrderDto>(order => order.OrderNumber == result.OrderNumber)),
+            Times.Once
+        );
+        _emailService.Verify(emailService => emailService.SendAsync(It.IsAny<EmailMessage>(), It.IsAny<CancellationToken>()), Times.Never);
+        _orderEmails.Verify(
+            orderEmailRepository => orderEmailRepository.Add(It.Is<OrderEmail>(email =>
+                email.OrderId == result.Id && email.Kind == "customer" && email.Recipient == customerMessage.To)),
+            Times.Once
+        );
+        _orderEmails.Verify(
+            orderEmailRepository => orderEmailRepository.Add(It.Is<OrderEmail>(email =>
+                email.OrderId == result.Id && email.Kind == "business" && email.Recipient == businessMessage.To)),
+            Times.Once
+        );
+        _unitOfWork.Verify(unitOfWork => unitOfWork.ExecuteInTransactionAsync(It.IsAny<Func<CancellationToken, Task<OrderDto>>>(), It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
@@ -204,15 +200,14 @@ public sealed class OrderServiceTests
         cart.Items.Add(new CartItem { Id = Guid.NewGuid(), CartId = cart.Id, ProductId = product.Id, Product = product, Quantity = 1 });
         SetupGuestOrderCreation(sessionId, cart, product, _ => { });
         var transactionCompleted = false;
-        _unitOfWork.Setup(x => x.ExecuteInTransactionAsync(
-                It.IsAny<Func<CancellationToken, Task<OrderDto>>>(), It.IsAny<CancellationToken>()))
+        _unitOfWork.Setup(unitOfWork => unitOfWork.ExecuteInTransactionAsync(It.IsAny<Func<CancellationToken, Task<OrderDto>>>(), It.IsAny<CancellationToken>()))
             .Returns<Func<CancellationToken, Task<OrderDto>>, CancellationToken>(async (operation, token) =>
             {
                 var result = await operation(token);
                 transactionCompleted = true;
                 return result;
             });
-        _unitOfWork.SetupSequence(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()))
+        _unitOfWork.SetupSequence(unitOfWork => unitOfWork.SaveChangesAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(1)
             .ThrowsAsync(new InvalidOperationException("Cannot persist email queue"));
 
@@ -230,8 +225,8 @@ public sealed class OrderServiceTests
         }));
 
         Assert.False(transactionCompleted);
-        _orderEmails.Verify(x => x.Add(It.IsAny<OrderEmail>()), Times.Exactly(2));
-        _emailService.Verify(x => x.SendAsync(It.IsAny<EmailMessage>(), It.IsAny<CancellationToken>()), Times.Never);
+        _orderEmails.Verify(orderEmailRepository => orderEmailRepository.Add(It.IsAny<OrderEmail>()), Times.Exactly(2));
+        _emailService.Verify(emailService => emailService.SendAsync(It.IsAny<EmailMessage>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]
@@ -245,7 +240,7 @@ public sealed class OrderServiceTests
         Order? savedOrder = null;
         SetupGuestOrderCreation(sessionId, cart, product, order => savedOrder = order);
         _userManager
-            .Setup(x => x.FindByEmailAsync("guest@example.com"))
+            .Setup(userManager => userManager.FindByEmailAsync("guest@example.com"))
             .ReturnsAsync(new ApplicationUser
             {
                 Id = userId,
@@ -276,16 +271,16 @@ public sealed class OrderServiceTests
 
         // Simulate reloading the persisted order with its original cart.
         savedOrder.Cart = cart;
-        _orders.Setup(x => x.GetByIdempotencyKeyWithItemsAsync(IdempotencyKey, It.IsAny<CancellationToken>()))
+        _orders.Setup(orderRepository => orderRepository.GetByIdempotencyKeyWithItemsAsync(IdempotencyKey, It.IsAny<CancellationToken>()))
             .ReturnsAsync(savedOrder);
         var retriedOrderOutcome = await _service.CreateOrderFromCartAsync(null, sessionId, request);
         var retriedOrder = retriedOrderOutcome.Order;
         Assert.True(resultOutcome.Created);
         Assert.False(retriedOrderOutcome.Created);
         Assert.Equal(result.Id, retriedOrder.Id);
-        _orders.Verify(x => x.AddAsync(It.IsAny<Order>(), It.IsAny<CancellationToken>()), Times.Once);
+        _orders.Verify(orderRepository => orderRepository.AddAsync(It.IsAny<Order>(), It.IsAny<CancellationToken>()), Times.Once);
 
-        _orders.Setup(x => x.GetByIdWithItemsAndCartAsync(result.Id, It.IsAny<CancellationToken>()))
+        _orders.Setup(orderRepository => orderRepository.GetByIdWithItemsAndCartAsync(result.Id, It.IsAny<CancellationToken>()))
             .ReturnsAsync(savedOrder);
         await Assert.ThrowsAsync<KeyNotFoundException>(() =>
             _service.CreateSumUpCheckoutAsync(null, "different-session", result.Id));
@@ -293,18 +288,15 @@ public sealed class OrderServiceTests
             _service.CreateSumUpCheckoutAsync(userId, null, result.Id));
         _sumUpCheckoutService.VerifyNoOtherCalls();
 
-        _sumUpCheckoutService.Setup(x => x.CreateCheckoutAsync(
-                It.Is<OrderDto>(dto => dto.Id == result.Id && dto.UserId == null),
-                It.IsAny<CancellationToken>(), It.IsAny<string?>()))
-            .ReturnsAsync((OrderDto dto, CancellationToken _, string? reference) => new SumUpCheckoutResult(
-                "checkout_123", "PENDING", "https://checkout.sumup.com/pay/checkout_123", "txn_123", dto.TotalPrice, "HUF", reference, "merchant"));
-        _orders.Setup(x => x.Update(savedOrder));
+        _sumUpCheckoutService.Setup(sumUpCheckoutService => sumUpCheckoutService.CreateCheckoutAsync(It.Is<OrderDto>(submittedOrder => submittedOrder.Id == result.Id && submittedOrder.UserId == null), It.IsAny<CancellationToken>(), It.IsAny<string?>()))
+            .ReturnsAsync((OrderDto candidateOrder, CancellationToken _, string? reference) => new SumUpCheckoutResult("checkout_123", "PENDING", "https://checkout.sumup.com/pay/checkout_123", "txn_123", candidateOrder.TotalPrice, "HUF", reference, "merchant"));
+        _orders.Setup(orderRepository => orderRepository.Update(savedOrder));
 
         var checkout = await _service.CreateSumUpCheckoutAsync(null, sessionId, result.Id);
 
         Assert.Equal(result.Id, checkout.OrderId);
         Assert.Equal("checkout_123", checkout.CheckoutId);
-        _userManager.Verify(x => x.FindByEmailAsync(It.IsAny<string>()), Times.Never);
+        _userManager.Verify(userManager => userManager.FindByEmailAsync(It.IsAny<string>()), Times.Never);
     }
 
     [Fact]
@@ -316,11 +308,11 @@ public sealed class OrderServiceTests
         cart.Items.Add(new CartItem { Id = Guid.NewGuid(), CartId = cart.Id, ProductId = product.Id, Product = product, Quantity = 1 });
         Order? savedOrder = null;
         SetupGuestOrderCreation("unused-session", cart, product, order => savedOrder = order);
-        _carts.Setup(x => x.GetActiveByUserIdAsync(userId, It.IsAny<CancellationToken>()))
+        _carts.Setup(cartRepository => cartRepository.GetActiveByUserIdAsync(userId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(cart);
-        _cartService.Setup(x => x.ValidateCartForCheckoutAsync(userId, null, It.IsAny<CancellationToken>()))
+        _cartService.Setup(cartService => cartService.ValidateCartForCheckoutAsync(userId, null, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new Biogarden.BusinessLogic.DTOs.Carts.CartValidationResultDto { IsValid = true });
-        _userManager.Setup(x => x.FindByIdAsync(userId.ToString()))
+        _userManager.Setup(userManager => userManager.FindByIdAsync(userId.ToString()))
             .ReturnsAsync(new ApplicationUser
             {
                 Id = userId,
@@ -346,8 +338,8 @@ public sealed class OrderServiceTests
         Assert.Equal(userId, result.UserId);
         Assert.Equal(userId, savedOrder.UserId);
         Assert.Equal("guest@example.com", result.CustomerEmail);
-        _userManager.Verify(x => x.FindByEmailAsync(It.IsAny<string>()), Times.Never);
-        _carts.Verify(x => x.GetActiveBySessionIdAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+        _userManager.Verify(userManager => userManager.FindByEmailAsync(It.IsAny<string>()), Times.Never);
+        _carts.Verify(cartRepository => cartRepository.GetActiveBySessionIdAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]
@@ -455,18 +447,18 @@ public sealed class OrderServiceTests
         order.CartId = cart.Id;
         order.CustomerEmail = "guest@example.com";
 
-        _unitOfWork.SetupGet(x => x.CartRepository).Returns(_carts.Object);
+        _unitOfWork.SetupGet(unitOfWork => unitOfWork.CartRepository).Returns(_carts.Object);
         _orders
-            .Setup(x => x.GetByIdempotencyKeyWithItemsAsync(IdempotencyKey, It.IsAny<CancellationToken>()))
+            .Setup(orderRepository => orderRepository.GetByIdempotencyKeyWithItemsAsync(IdempotencyKey, It.IsAny<CancellationToken>()))
             .ReturnsAsync((Order?)null);
         _carts
-            .Setup(x => x.GetActiveBySessionIdAsync(sessionId, It.IsAny<CancellationToken>()))
+            .Setup(cartRepository => cartRepository.GetActiveBySessionIdAsync(sessionId, It.IsAny<CancellationToken>()))
             .ReturnsAsync((Cart?)null);
         _carts
-            .Setup(x => x.GetLatestCheckedOutBySessionIdAsync(sessionId, It.IsAny<CancellationToken>()))
+            .Setup(cartRepository => cartRepository.GetLatestCheckedOutBySessionIdAsync(sessionId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(cart);
         _orders
-            .Setup(x => x.GetByCartIdWithItemsAsync(cart.Id, It.IsAny<CancellationToken>()))
+            .Setup(orderRepository => orderRepository.GetByCartIdWithItemsAsync(cart.Id, It.IsAny<CancellationToken>()))
             .ReturnsAsync(order);
 
         var resultOutcome = await _service.CreateOrderFromCartAsync(null, sessionId, new PlaceOrderDto
@@ -483,9 +475,9 @@ public sealed class OrderServiceTests
 
         Assert.Equal(order.Id, result.Id);
         Assert.Equal("guest@example.com", result.CustomerEmail);
-        _orders.Verify(x => x.AddAsync(It.IsAny<Order>(), It.IsAny<CancellationToken>()), Times.Never);
-        _unitOfWork.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
-        _emailService.Verify(x => x.SendAsync(It.IsAny<EmailMessage>(), It.IsAny<CancellationToken>()), Times.Never);
+        _orders.Verify(orderRepository => orderRepository.AddAsync(It.IsAny<Order>(), It.IsAny<CancellationToken>()), Times.Never);
+        _unitOfWork.Verify(unitOfWork => unitOfWork.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
+        _emailService.Verify(emailService => emailService.SendAsync(It.IsAny<EmailMessage>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]
@@ -503,7 +495,7 @@ public sealed class OrderServiceTests
         };
 
         _orders
-            .Setup(x => x.GetByIdempotencyKeyWithItemsAsync(IdempotencyKey, It.IsAny<CancellationToken>()))
+            .Setup(orderRepository => orderRepository.GetByIdempotencyKeyWithItemsAsync(IdempotencyKey, It.IsAny<CancellationToken>()))
             .ReturnsAsync(order);
 
         var resultOutcome = await _service.CreateOrderFromCartAsync(null, sessionId, new PlaceOrderDto
@@ -520,10 +512,10 @@ public sealed class OrderServiceTests
 
         Assert.Equal(order.Id, result.Id);
         Assert.Equal(IdempotencyKey, result.IdempotencyKey);
-        _orderEmails.Verify(x => x.Add(It.IsAny<OrderEmail>()), Times.Never);
-        _carts.Verify(x => x.GetActiveBySessionIdAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
-        _orders.Verify(x => x.AddAsync(It.IsAny<Order>(), It.IsAny<CancellationToken>()), Times.Never);
-        _emailService.Verify(x => x.SendAsync(It.IsAny<EmailMessage>(), It.IsAny<CancellationToken>()), Times.Never);
+        _orderEmails.Verify(orderEmailRepository => orderEmailRepository.Add(It.IsAny<OrderEmail>()), Times.Never);
+        _carts.Verify(cartRepository => cartRepository.GetActiveBySessionIdAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+        _orders.Verify(orderRepository => orderRepository.AddAsync(It.IsAny<Order>(), It.IsAny<CancellationToken>()), Times.Never);
+        _emailService.Verify(emailService => emailService.SendAsync(It.IsAny<EmailMessage>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]
@@ -539,7 +531,7 @@ public sealed class OrderServiceTests
         };
 
         _orders
-            .Setup(x => x.GetByIdempotencyKeyWithItemsAsync(IdempotencyKey, It.IsAny<CancellationToken>()))
+            .Setup(orderRepository => orderRepository.GetByIdempotencyKeyWithItemsAsync(IdempotencyKey, It.IsAny<CancellationToken>()))
             .ReturnsAsync(order);
 
         await Assert.ThrowsAsync<KeyNotFoundException>(() =>
@@ -554,9 +546,9 @@ public sealed class OrderServiceTests
                 FulfillmentMethod = FulfillmentMethod.PersonalPickup
             }));
 
-        _carts.Verify(x => x.GetActiveBySessionIdAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
-        _orders.Verify(x => x.AddAsync(It.IsAny<Order>(), It.IsAny<CancellationToken>()), Times.Never);
-        _emailService.Verify(x => x.SendAsync(It.IsAny<EmailMessage>(), It.IsAny<CancellationToken>()), Times.Never);
+        _carts.Verify(cartRepository => cartRepository.GetActiveBySessionIdAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+        _orders.Verify(orderRepository => orderRepository.AddAsync(It.IsAny<Order>(), It.IsAny<CancellationToken>()), Times.Never);
+        _emailService.Verify(emailService => emailService.SendAsync(It.IsAny<EmailMessage>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]
@@ -574,8 +566,8 @@ public sealed class OrderServiceTests
             }));
 
         Assert.Contains("azonosító kulcsa", exception.Message);
-        _carts.Verify(x => x.GetActiveBySessionIdAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
-        _orders.Verify(x => x.AddAsync(It.IsAny<Order>(), It.IsAny<CancellationToken>()), Times.Never);
+        _carts.Verify(cartRepository => cartRepository.GetActiveBySessionIdAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+        _orders.Verify(orderRepository => orderRepository.AddAsync(It.IsAny<Order>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]
@@ -586,16 +578,16 @@ public sealed class OrderServiceTests
         var cart = new Cart { Id = Guid.NewGuid(), SessionId = sessionId };
         cart.Items.Add(new CartItem { Id = Guid.NewGuid(), CartId = cart.Id, ProductId = product.Id, Product = product, Quantity = 1 });
 
-        _unitOfWork.SetupGet(x => x.CartRepository).Returns(_carts.Object);
+        _unitOfWork.SetupGet(unitOfWork => unitOfWork.CartRepository).Returns(_carts.Object);
         _orders
-            .Setup(x => x.GetByIdempotencyKeyWithItemsAsync(IdempotencyKey, It.IsAny<CancellationToken>()))
+            .Setup(orderRepository => orderRepository.GetByIdempotencyKeyWithItemsAsync(IdempotencyKey, It.IsAny<CancellationToken>()))
             .ReturnsAsync((Order?)null);
-        _carts.Setup(x => x.GetActiveBySessionIdAsync(sessionId, It.IsAny<CancellationToken>())).ReturnsAsync(cart);
-        _cartService.Setup(x => x.ValidateCartForCheckoutAsync(null, sessionId, It.IsAny<CancellationToken>()))
+        _carts.Setup(cartRepository => cartRepository.GetActiveBySessionIdAsync(sessionId, It.IsAny<CancellationToken>())).ReturnsAsync(cart);
+        _cartService.Setup(cartService => cartService.ValidateCartForCheckoutAsync(null, sessionId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new Biogarden.BusinessLogic.DTOs.Carts.CartValidationResultDto { IsValid = true });
-        _products.Setup(x => x.GetByIdAsync(product.Id, It.IsAny<CancellationToken>())).ReturnsAsync(product);
-        _orders.Setup(x => x.AddAsync(It.IsAny<Order>(), It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
-        _unitOfWork.Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()))
+        _products.Setup(productRepository => productRepository.GetByIdAsync(product.Id, It.IsAny<CancellationToken>())).ReturnsAsync(product);
+        _orders.Setup(orderRepository => orderRepository.AddAsync(It.IsAny<Order>(), It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
+        _unitOfWork.Setup(unitOfWork => unitOfWork.SaveChangesAsync(It.IsAny<CancellationToken>()))
             .ThrowsAsync(new DbUpdateConcurrencyException());
 
         var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
@@ -617,10 +609,8 @@ public sealed class OrderServiceTests
             }));
 
         Assert.Contains("készlet", exception.Message);
-        _emailTemplateService.Verify(
-            x => x.BuildOrderConfirmationMessage(It.IsAny<string>(), It.IsAny<OrderDto>()),
-            Times.Never);
-        _emailService.Verify(x => x.SendAsync(It.IsAny<EmailMessage>(), It.IsAny<CancellationToken>()), Times.Never);
+        _emailTemplateService.Verify(emailTemplateService => emailTemplateService.BuildOrderConfirmationMessage(It.IsAny<string>(), It.IsAny<OrderDto>()), Times.Never);
+        _emailService.Verify(emailService => emailService.SendAsync(It.IsAny<EmailMessage>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]
@@ -631,14 +621,14 @@ public sealed class OrderServiceTests
         var cart = new Cart { Id = Guid.NewGuid(), SessionId = sessionId };
         cart.Items.Add(new CartItem { Id = Guid.NewGuid(), CartId = cart.Id, ProductId = product.Id, Product = product, Quantity = 1 });
 
-        _unitOfWork.SetupGet(x => x.CartRepository).Returns(_carts.Object);
+        _unitOfWork.SetupGet(unitOfWork => unitOfWork.CartRepository).Returns(_carts.Object);
         _orders
-            .Setup(x => x.GetByIdempotencyKeyWithItemsAsync(IdempotencyKey, It.IsAny<CancellationToken>()))
+            .Setup(orderRepository => orderRepository.GetByIdempotencyKeyWithItemsAsync(IdempotencyKey, It.IsAny<CancellationToken>()))
             .ReturnsAsync((Order?)null);
-        _carts.Setup(x => x.GetActiveBySessionIdAsync(sessionId, It.IsAny<CancellationToken>())).ReturnsAsync(cart);
-        _cartService.Setup(x => x.ValidateCartForCheckoutAsync(null, sessionId, It.IsAny<CancellationToken>()))
+        _carts.Setup(cartRepository => cartRepository.GetActiveBySessionIdAsync(sessionId, It.IsAny<CancellationToken>())).ReturnsAsync(cart);
+        _cartService.Setup(cartService => cartService.ValidateCartForCheckoutAsync(null, sessionId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new Biogarden.BusinessLogic.DTOs.Carts.CartValidationResultDto { IsValid = true });
-        _products.Setup(x => x.GetByIdAsync(product.Id, It.IsAny<CancellationToken>())).ReturnsAsync(product);
+        _products.Setup(productRepository => productRepository.GetByIdAsync(product.Id, It.IsAny<CancellationToken>())).ReturnsAsync(product);
 
         var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
             _service.CreateOrderFromCartAsync(null, sessionId, new PlaceOrderDto
@@ -660,9 +650,9 @@ public sealed class OrderServiceTests
 
         Assert.Contains("készlet", exception.Message);
         Assert.Equal(0, product.StockQuantity);
-        _orders.Verify(x => x.AddAsync(It.IsAny<Order>(), It.IsAny<CancellationToken>()), Times.Never);
-        _unitOfWork.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
-        _emailService.Verify(x => x.SendAsync(It.IsAny<EmailMessage>(), It.IsAny<CancellationToken>()), Times.Never);
+        _orders.Verify(orderRepository => orderRepository.AddAsync(It.IsAny<Order>(), It.IsAny<CancellationToken>()), Times.Never);
+        _unitOfWork.Verify(unitOfWork => unitOfWork.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
+        _emailService.Verify(emailService => emailService.SendAsync(It.IsAny<EmailMessage>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]
@@ -673,11 +663,11 @@ public sealed class OrderServiceTests
         var cart = new Cart { Id = Guid.NewGuid(), SessionId = sessionId };
         cart.Items.Add(new CartItem { Id = Guid.NewGuid(), CartId = cart.Id, ProductId = product.Id, Product = product, Quantity = 1 });
 
-        _unitOfWork.SetupGet(x => x.CartRepository).Returns(_carts.Object);
+        _unitOfWork.SetupGet(unitOfWork => unitOfWork.CartRepository).Returns(_carts.Object);
         _orders
-            .Setup(x => x.GetByIdempotencyKeyWithItemsAsync(IdempotencyKey, It.IsAny<CancellationToken>()))
+            .Setup(orderRepository => orderRepository.GetByIdempotencyKeyWithItemsAsync(IdempotencyKey, It.IsAny<CancellationToken>()))
             .ReturnsAsync((Order?)null);
-        _carts.Setup(x => x.GetActiveBySessionIdAsync(sessionId, It.IsAny<CancellationToken>())).ReturnsAsync(cart);
+        _carts.Setup(cartRepository => cartRepository.GetActiveBySessionIdAsync(sessionId, It.IsAny<CancellationToken>())).ReturnsAsync(cart);
 
         var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
             _service.CreateOrderFromCartAsync(null, sessionId, new PlaceOrderDto
@@ -692,13 +682,8 @@ public sealed class OrderServiceTests
             }));
 
         Assert.Contains("Általános Szerződési Feltételek", exception.Message);
-        _cartService.Verify(
-            x => x.ValidateCartForCheckoutAsync(
-                It.IsAny<Guid?>(),
-                It.IsAny<string?>(),
-                It.IsAny<CancellationToken>()),
-            Times.Never);
-        _orders.Verify(x => x.AddAsync(It.IsAny<Order>(), It.IsAny<CancellationToken>()), Times.Never);
+        _cartService.Verify(cartService => cartService.ValidateCartForCheckoutAsync(It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()), Times.Never);
+        _orders.Verify(orderRepository => orderRepository.AddAsync(It.IsAny<Order>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]
@@ -707,7 +692,7 @@ public sealed class OrderServiceTests
         var requestingUserId = Guid.NewGuid();
         var order = CreateOrder(Guid.NewGuid());
         _orders
-            .Setup(x => x.GetByIdWithItemsAsync(order.Id, It.IsAny<CancellationToken>()))
+            .Setup(orderRepository => orderRepository.GetByIdWithItemsAsync(order.Id, It.IsAny<CancellationToken>()))
             .ReturnsAsync(order);
 
         await Assert.ThrowsAsync<KeyNotFoundException>(() =>
@@ -719,7 +704,7 @@ public sealed class OrderServiceTests
     {
         var userId = Guid.NewGuid();
         var order = CreateOrder(userId);
-        _orders.Setup(x => x.GetByIdWithItemsAndCartAsync(order.Id, It.IsAny<CancellationToken>())).ReturnsAsync(order);
+        _orders.Setup(orderRepository => orderRepository.GetByIdWithItemsAndCartAsync(order.Id, It.IsAny<CancellationToken>())).ReturnsAsync(order);
         Assert.Equal(order.Id, (await _service.GetCheckoutOrderAsync(userId, null, order.Id)).Id);
         await Assert.ThrowsAsync<KeyNotFoundException>(() => _service.GetCheckoutOrderAsync(Guid.NewGuid(), null, order.Id));
         await Assert.ThrowsAsync<KeyNotFoundException>(() => _service.GetCheckoutOrderAsync(null, "guest", order.Id));
@@ -733,10 +718,10 @@ public sealed class OrderServiceTests
         var userId = Guid.NewGuid();
         var order = CreateOrder(userId);
         order.PaymentMethod = method;
-        _orders.Setup(x => x.GetByIdWithItemsAndCartAsync(order.Id, It.IsAny<CancellationToken>())).ReturnsAsync(order);
+        _orders.Setup(orderRepository => orderRepository.GetByIdWithItemsAndCartAsync(order.Id, It.IsAny<CancellationToken>())).ReturnsAsync(order);
         await Assert.ThrowsAsync<InvalidOperationException>(() => _service.CreateSumUpCheckoutAsync(userId, null, order.Id));
         _sumUpCheckoutService.VerifyNoOtherCalls();
-        _unitOfWork.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
+        _unitOfWork.Verify(unitOfWork => unitOfWork.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]
@@ -764,24 +749,15 @@ public sealed class OrderServiceTests
         });
 
         _orders
-            .Setup(x => x.GetByIdWithItemsAndCartAsync(order.Id, It.IsAny<CancellationToken>()))
+            .Setup(orderRepository => orderRepository.GetByIdWithItemsAndCartAsync(order.Id, It.IsAny<CancellationToken>()))
             .ReturnsAsync(order);
         _sumUpCheckoutService
-            .Setup(x => x.CreateCheckoutAsync(
-                It.Is<OrderDto>(dto => dto.Id == order.Id),
-                It.IsAny<CancellationToken>(), It.IsAny<string?>()))
-            .ReturnsAsync((OrderDto dto, CancellationToken _, string? reference) => new SumUpCheckoutResult(
-                "checkout_123",
-                "PENDING",
-                "https://checkout.sumup.com/pay/checkout_123",
-                "txn_123", dto.TotalPrice, "HUF", reference, "merchant"));
-        _orders.Setup(x => x.Update(order));
-        _unitOfWork.Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
+            .Setup(sumUpCheckoutService => sumUpCheckoutService.CreateCheckoutAsync(It.Is<OrderDto>(submittedOrder => submittedOrder.Id == order.Id), It.IsAny<CancellationToken>(), It.IsAny<string?>()))
+            .ReturnsAsync((OrderDto candidateOrder, CancellationToken _, string? reference) => new SumUpCheckoutResult("checkout_123", "PENDING", "https://checkout.sumup.com/pay/checkout_123", "txn_123", candidateOrder.TotalPrice, "HUF", reference, "merchant"));
+        _orders.Setup(orderRepository => orderRepository.Update(order));
+        _unitOfWork.Setup(unitOfWork => unitOfWork.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
 
-        var result = await _service.CreateSumUpCheckoutAsync(
-            null,
-            sessionId,
-            order.Id);
+        var result = await _service.CreateSumUpCheckoutAsync(null, sessionId, order.Id);
 
         Assert.Equal(order.Id, result.OrderId);
         Assert.Equal("checkout_123", result.CheckoutId);
@@ -798,16 +774,12 @@ public sealed class OrderServiceTests
         order.TotalPrice = 3600;
 
         _orders
-            .Setup(x => x.GetBySumUpCheckoutIdAsync("checkout_123", It.IsAny<CancellationToken>()))
+            .Setup(orderRepository => orderRepository.GetBySumUpCheckoutIdAsync("checkout_123", It.IsAny<CancellationToken>()))
             .ReturnsAsync(order);
-        _orders.Setup(x => x.Update(order));
-        _unitOfWork.Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
+        _orders.Setup(orderRepository => orderRepository.Update(order));
+        _unitOfWork.Setup(unitOfWork => unitOfWork.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
 
-        var result = await _service.ConfirmSumUpCheckoutAsync(
-            "checkout_123",
-            "txn_123",
-            3600,
-            "HUF");
+        var result = await _service.ConfirmSumUpCheckoutAsync("checkout_123", "txn_123", 3600, "HUF");
 
         Assert.Equal(PaymentStatus.Paid, result.PaymentStatus);
         Assert.Equal(OrderStatus.Confirmed, result.Status);
@@ -823,19 +795,15 @@ public sealed class OrderServiceTests
         order.TotalPrice = 3600;
 
         _orders
-            .Setup(x => x.GetBySumUpCheckoutIdAsync("checkout_123", It.IsAny<CancellationToken>()))
+            .Setup(orderRepository => orderRepository.GetBySumUpCheckoutIdAsync("checkout_123", It.IsAny<CancellationToken>()))
             .ReturnsAsync(order);
 
         var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            _service.ConfirmSumUpCheckoutAsync(
-                "checkout_123",
-                "txn_123",
-                3500,
-                "HUF"));
+            _service.ConfirmSumUpCheckoutAsync("checkout_123", "txn_123", 3500, "HUF"));
 
         Assert.Contains("amount", exception.Message);
-        _orders.Verify(x => x.Update(It.IsAny<Order>()), Times.Never);
-        _unitOfWork.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
+        _orders.Verify(orderRepository => orderRepository.Update(It.IsAny<Order>()), Times.Never);
+        _unitOfWork.Verify(unitOfWork => unitOfWork.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Theory]
@@ -843,8 +811,7 @@ public sealed class OrderServiceTests
     [InlineData(PaymentStatus.RefundPending, PaymentStatus.RefundPending)]
     [InlineData(PaymentStatus.Refunded, PaymentStatus.Refunded)]
     [InlineData(PaymentStatus.PartiallyRefunded, PaymentStatus.PartiallyRefunded)]
-    public async Task ConfirmSumUpCheckoutAsync_AfterCancellation_PreservesCancellationAndReconcilesPayment(
-        PaymentStatus initial, PaymentStatus expected)
+    public async Task ConfirmSumUpCheckoutAsync_AfterCancellation_PreservesCancellationAndReconcilesPayment(PaymentStatus initial, PaymentStatus expected)
     {
         var order = CreateOrder(null);
         order.Status = OrderStatus.Cancelled;
@@ -852,10 +819,10 @@ public sealed class OrderServiceTests
         order.CancelledAtUtc = _timeProvider.GetUtcNow().UtcDateTime;
         order.PaymentStatus = initial;
         order.TotalPrice = 3600;
-        _orders.Setup(x => x.GetBySumUpCheckoutIdAsync("checkout_123", It.IsAny<CancellationToken>()))
+        _orders.Setup(orderRepository => orderRepository.GetBySumUpCheckoutIdAsync("checkout_123", It.IsAny<CancellationToken>()))
             .ReturnsAsync(order);
-        _orders.Setup(x => x.Update(order));
-        _unitOfWork.Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
+        _orders.Setup(orderRepository => orderRepository.Update(order));
+        _unitOfWork.Setup(unitOfWork => unitOfWork.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
 
         for (var attempt = 0; attempt < 2; attempt++)
         {
@@ -878,19 +845,15 @@ public sealed class OrderServiceTests
         order.TotalPrice = 3600;
 
         _orders
-            .Setup(x => x.GetBySumUpCheckoutIdAsync("checkout_123", It.IsAny<CancellationToken>()))
+            .Setup(orderRepository => orderRepository.GetBySumUpCheckoutIdAsync("checkout_123", It.IsAny<CancellationToken>()))
             .ReturnsAsync(order);
 
         var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            _service.ConfirmSumUpCheckoutAsync(
-                "checkout_123",
-                "txn_123",
-                3600,
-                "EUR"));
+            _service.ConfirmSumUpCheckoutAsync("checkout_123", "txn_123", 3600, "EUR"));
 
         Assert.Contains("currency", exception.Message);
-        _orders.Verify(x => x.Update(It.IsAny<Order>()), Times.Never);
-        _unitOfWork.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
+        _orders.Verify(orderRepository => orderRepository.Update(It.IsAny<Order>()), Times.Never);
+        _unitOfWork.Verify(unitOfWork => unitOfWork.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]
@@ -900,10 +863,10 @@ public sealed class OrderServiceTests
         order.SumUpCheckoutId = "checkout_123";
 
         _orders
-            .Setup(x => x.GetBySumUpCheckoutIdAsync("checkout_123", It.IsAny<CancellationToken>()))
+            .Setup(orderRepository => orderRepository.GetBySumUpCheckoutIdAsync("checkout_123", It.IsAny<CancellationToken>()))
             .ReturnsAsync(order);
-        _orders.Setup(x => x.Update(order));
-        _unitOfWork.Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
+        _orders.Setup(orderRepository => orderRepository.Update(order));
+        _unitOfWork.Setup(unitOfWork => unitOfWork.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
 
         var result = await _service.MarkSumUpPaymentFailedAsync("checkout_123", "txn_123");
 
@@ -911,8 +874,8 @@ public sealed class OrderServiceTests
         Assert.Equal(PaymentStatus.Failed, result.PaymentStatus);
         Assert.Equal(OrderStatus.Pending, result.Status);
         Assert.Equal("txn_123", order.SumUpTransactionId);
-        _orders.Verify(x => x.Update(order), Times.Once);
-        _unitOfWork.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
+        _orders.Verify(orderRepository => orderRepository.Update(order), Times.Once);
+        _unitOfWork.Verify(unitOfWork => unitOfWork.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Theory]
@@ -929,10 +892,10 @@ public sealed class OrderServiceTests
         order.SumUpTransactionId = "txn_paid";
 
         _orders
-            .Setup(x => x.GetBySumUpCheckoutIdAsync("checkout_123", It.IsAny<CancellationToken>()))
+            .Setup(orderRepository => orderRepository.GetBySumUpCheckoutIdAsync("checkout_123", It.IsAny<CancellationToken>()))
             .ReturnsAsync(order);
-        _orders.Setup(x => x.Update(order));
-        _unitOfWork.Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
+        _orders.Setup(orderRepository => orderRepository.Update(order));
+        _unitOfWork.Setup(unitOfWork => unitOfWork.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
 
         var result = await _service.MarkSumUpPaymentFailedAsync("checkout_123", "txn_late_failure");
 
@@ -940,8 +903,8 @@ public sealed class OrderServiceTests
         Assert.Equal(payment, result.PaymentStatus);
         Assert.Equal(OrderStatus.Confirmed, result.Status);
         Assert.Equal("txn_paid", order.SumUpTransactionId);
-        _orders.Verify(x => x.Update(order), Times.Once);
-        _unitOfWork.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
+        _orders.Verify(orderRepository => orderRepository.Update(order), Times.Once);
+        _unitOfWork.Verify(unitOfWork => unitOfWork.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
@@ -971,15 +934,15 @@ public sealed class OrderServiceTests
         });
 
         _orders
-            .SetupSequence(x => x.GetByIdWithItemsAsync(order.Id, It.IsAny<CancellationToken>()))
+            .SetupSequence(orderRepository => orderRepository.GetByIdWithItemsAsync(order.Id, It.IsAny<CancellationToken>()))
             .ReturnsAsync(order)
             .ReturnsAsync(order);
         _products
-            .Setup(x => x.GetByIdAsync(product.Id, It.IsAny<CancellationToken>()))
+            .Setup(productRepository => productRepository.GetByIdAsync(product.Id, It.IsAny<CancellationToken>()))
             .ReturnsAsync(product);
-        _orders.Setup(x => x.Update(order));
+        _orders.Setup(orderRepository => orderRepository.Update(order));
         _unitOfWork
-            .Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()))
+            .Setup(unitOfWork => unitOfWork.SaveChangesAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(1);
 
         var result = await _service.CancelOrderAsync(
@@ -992,7 +955,7 @@ public sealed class OrderServiceTests
         Assert.Equal("Meggondoltam magam.", order.CancellationReason);
         Assert.Equal(_timeProvider.GetUtcNow().UtcDateTime, order.CancelledAtUtc);
         Assert.Equal(_timeProvider.GetUtcNow().UtcDateTime, order.DeletedAtUtc);
-        _unitOfWork.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
+        _unitOfWork.Verify(unitOfWork => unitOfWork.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
@@ -1002,13 +965,13 @@ public sealed class OrderServiceTests
         var order = CreateOrder(userId);
         order.Status = OrderStatus.Shipped;
         _orders
-            .Setup(x => x.GetByIdWithItemsAsync(order.Id, It.IsAny<CancellationToken>()))
+            .Setup(orderRepository => orderRepository.GetByIdWithItemsAsync(order.Id, It.IsAny<CancellationToken>()))
             .ReturnsAsync(order);
 
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
             _service.CancelOrderAsync(userId, order.Id, new CancelOrderDto()));
 
-        _unitOfWork.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
+        _unitOfWork.Verify(unitOfWork => unitOfWork.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]
@@ -1023,10 +986,12 @@ public sealed class OrderServiceTests
         OrderWithdrawalRequest? savedRequest = null;
 
         _orders
-            .Setup(x => x.GetByIdWithItemsAsync(order.Id, It.IsAny<CancellationToken>()))
+            .Setup(orderRepository => orderRepository.GetByIdWithItemsAsync(order.Id, It.IsAny<CancellationToken>()))
             .ReturnsAsync(order);
+        _orders.Setup(orderRepository => orderRepository.CountPendingWithdrawalRequestsForUpdateAsync(order.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(0);
         _orders
-            .Setup(x => x.AddWithdrawalRequestAsync(It.IsAny<OrderWithdrawalRequest>(), It.IsAny<CancellationToken>()))
+            .Setup(orderRepository => orderRepository.AddWithdrawalRequestAsync(It.IsAny<OrderWithdrawalRequest>(), It.IsAny<CancellationToken>()))
             .Callback<OrderWithdrawalRequest, CancellationToken>((request, _) =>
             {
                 request.Id = 12;
@@ -1034,25 +999,19 @@ public sealed class OrderServiceTests
             })
             .Returns(Task.CompletedTask);
         _unitOfWork
-            .Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()))
+            .Setup(unitOfWork => unitOfWork.SaveChangesAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(1);
         _emailTemplateService
-            .Setup(x => x.BuildOrderWithdrawalBusinessNotificationMessage(
-                "info@bakonykincse.hu",
-                It.IsAny<OrderDto>(),
-                It.IsAny<OrderWithdrawalRequestDto>()))
+            .Setup(emailTemplateService => emailTemplateService.BuildOrderWithdrawalBusinessNotificationMessage("info@bakonykincse.hu", It.IsAny<OrderDto>(), It.IsAny<OrderWithdrawalRequestDto>()))
             .Returns(businessMessage);
         _emailTemplateService
-            .Setup(x => x.BuildOrderWithdrawalCustomerConfirmationMessage(
-                "guest@example.com",
-                It.IsAny<OrderDto>(),
-                It.IsAny<OrderWithdrawalRequestDto>()))
+            .Setup(emailTemplateService => emailTemplateService.BuildOrderWithdrawalCustomerConfirmationMessage("guest@example.com", It.IsAny<OrderDto>(), It.IsAny<OrderWithdrawalRequestDto>()))
             .Returns(customerMessage);
         _emailService
-            .Setup(x => x.SendAsync(businessMessage, It.IsAny<CancellationToken>()))
+            .Setup(emailService => emailService.SendAsync(businessMessage, It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
         _emailService
-            .Setup(x => x.SendAsync(customerMessage, It.IsAny<CancellationToken>()))
+            .Setup(emailService => emailService.SendAsync(customerMessage, It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
         var result = await _service.RequestWithdrawalAsync(
@@ -1066,8 +1025,14 @@ public sealed class OrderServiceTests
         Assert.Equal(_timeProvider.GetUtcNow().UtcDateTime, result.RequestedAtUtc);
         Assert.Equal(OrderWithdrawalRequestStatus.Pending, result.Status);
         Assert.Same(savedRequest, order.WithdrawalRequests.Single());
-        _orderEmails.Verify(x => x.Add(It.Is<OrderEmail>(email => email.Kind == "withdrawal-business" && email.EventId != Guid.Empty && email.Recipient == businessMessage.To)), Times.Once);
-        _orderEmails.Verify(x => x.Add(It.Is<OrderEmail>(email => email.Kind == "withdrawal-customer" && email.EventId != Guid.Empty && email.Recipient == customerMessage.To)), Times.Once);
+        _orderEmails.Verify(
+            orderEmailRepository => orderEmailRepository.Add(It.Is<OrderEmail>(email => email.Kind == "withdrawal-business" && email.EventId != Guid.Empty && email.Recipient == businessMessage.To)),
+            Times.Once
+        );
+        _orderEmails.Verify(
+            orderEmailRepository => orderEmailRepository.Add(It.Is<OrderEmail>(email => email.Kind == "withdrawal-customer" && email.EventId != Guid.Empty && email.Recipient == customerMessage.To)),
+            Times.Once
+        );
     }
 
     [Fact]
@@ -1081,13 +1046,12 @@ public sealed class OrderServiceTests
         OrderWithdrawalRequest? savedRequest = null;
 
         _orders
-            .Setup(x => x.GetByOrderNumberAndEmailWithItemsAsync(
-                "BK-TEST-0001",
-                "guest@example.com",
-                It.IsAny<CancellationToken>()))
+            .Setup(orderRepository => orderRepository.GetByOrderNumberAndEmailWithItemsAsync("BK-TEST-0001", "guest@example.com", It.IsAny<CancellationToken>()))
             .ReturnsAsync(order);
+        _orders.Setup(orderRepository => orderRepository.CountPendingWithdrawalRequestsForUpdateAsync(order.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(0);
         _orders
-            .Setup(x => x.AddWithdrawalRequestAsync(It.IsAny<OrderWithdrawalRequest>(), It.IsAny<CancellationToken>()))
+            .Setup(orderRepository => orderRepository.AddWithdrawalRequestAsync(It.IsAny<OrderWithdrawalRequest>(), It.IsAny<CancellationToken>()))
             .Callback<OrderWithdrawalRequest, CancellationToken>((request, _) =>
             {
                 request.Id = 13;
@@ -1095,25 +1059,19 @@ public sealed class OrderServiceTests
             })
             .Returns(Task.CompletedTask);
         _unitOfWork
-            .Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()))
+            .Setup(unitOfWork => unitOfWork.SaveChangesAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(1);
         _emailTemplateService
-            .Setup(x => x.BuildOrderWithdrawalBusinessNotificationMessage(
-                "info@bakonykincse.hu",
-                It.IsAny<OrderDto>(),
-                It.IsAny<OrderWithdrawalRequestDto>()))
+            .Setup(emailTemplateService => emailTemplateService.BuildOrderWithdrawalBusinessNotificationMessage("info@bakonykincse.hu", It.IsAny<OrderDto>(), It.IsAny<OrderWithdrawalRequestDto>()))
             .Returns(businessMessage);
         _emailTemplateService
-            .Setup(x => x.BuildOrderWithdrawalCustomerConfirmationMessage(
-                "guest@example.com",
-                It.IsAny<OrderDto>(),
-                It.IsAny<OrderWithdrawalRequestDto>()))
+            .Setup(emailTemplateService => emailTemplateService.BuildOrderWithdrawalCustomerConfirmationMessage("guest@example.com", It.IsAny<OrderDto>(), It.IsAny<OrderWithdrawalRequestDto>()))
             .Returns(customerMessage);
         _emailService
-            .Setup(x => x.SendAsync(businessMessage, It.IsAny<CancellationToken>()))
+            .Setup(emailService => emailService.SendAsync(businessMessage, It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
         _emailService
-            .Setup(x => x.SendAsync(customerMessage, It.IsAny<CancellationToken>()))
+            .Setup(emailService => emailService.SendAsync(customerMessage, It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
         var result = await _service.RequestWithdrawalByOrderLookupAsync(new PublicOrderWithdrawalRequestDto
@@ -1130,8 +1088,14 @@ public sealed class OrderServiceTests
         Assert.Equal("Szeretnék elállási kérelmet rögzíteni.", result.Reason);
         Assert.Equal(_timeProvider.GetUtcNow().UtcDateTime, result.RequestedAtUtc);
         Assert.Equal(OrderWithdrawalRequestStatus.Pending, result.Status);
-        _orderEmails.Verify(x => x.Add(It.Is<OrderEmail>(email => email.Kind == "withdrawal-business" && email.EventId != Guid.Empty && email.Recipient == businessMessage.To)), Times.Once);
-        _orderEmails.Verify(x => x.Add(It.Is<OrderEmail>(email => email.Kind == "withdrawal-customer" && email.EventId != Guid.Empty && email.Recipient == customerMessage.To)), Times.Once);
+        _orderEmails.Verify(
+            orderEmailRepository => orderEmailRepository.Add(It.Is<OrderEmail>(email => email.Kind == "withdrawal-business" && email.EventId != Guid.Empty && email.Recipient == businessMessage.To)),
+            Times.Once
+        );
+        _orderEmails.Verify(
+            orderEmailRepository => orderEmailRepository.Add(It.Is<OrderEmail>(email => email.Kind == "withdrawal-customer" && email.EventId != Guid.Empty && email.Recipient == customerMessage.To)),
+            Times.Once
+        );
     }
 
     [Fact]
@@ -1145,12 +1109,10 @@ public sealed class OrderServiceTests
         order.CustomerPhone = "+36301234567";
 
         _orders
-            .Setup(x => x.GetByIdAsync(order.Id, It.IsAny<CancellationToken>()))
+            .Setup(orderRepository => orderRepository.GetByIdAsync(order.Id, It.IsAny<CancellationToken>()))
             .ReturnsAsync(order);
 
-        var result = await _service.GetPublicOrderPaymentStatusAsync(
-            order.Id,
-            order.Id.ToString("N"));
+        var result = await _service.GetPublicOrderPaymentStatusAsync(order.Id, order.Id.ToString("N"));
 
         Assert.Equal(order.Id, result.OrderId);
         Assert.Equal(order.OrderNumber, result.OrderNumber);
@@ -1167,9 +1129,7 @@ public sealed class OrderServiceTests
         await Assert.ThrowsAsync<KeyNotFoundException>(() =>
             _service.GetPublicOrderPaymentStatusAsync(orderId, Guid.NewGuid().ToString("N")));
 
-        _orders.Verify(
-            x => x.GetByIdAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
-            Times.Never);
+        _orders.Verify(orderRepository => orderRepository.GetByIdAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     private static CheckoutPricingService Pricing() => new(Options.Create(new CheckoutPricingOptions
@@ -1179,13 +1139,13 @@ public sealed class OrderServiceTests
     }));
     private static string Quote(Cart cart) => Pricing().Calculate(cart.Id,
         FulfillmentMethod.PersonalPickup, OrderPaymentMethod.OnlineCard,
-        cart.Items.Select(x => new OrderItemDto
+        cart.Items.Select(cartItem => new OrderItemDto
         {
-            ProductId = x.ProductId,
-            ProductName = x.Product!.Name,
-            UnitPrice = x.Product.Price,
-            Unit = x.Product.Unit,
-            Quantity = x.Quantity
+            ProductId = cartItem.ProductId,
+            ProductName = cartItem.Product!.Name,
+            UnitPrice = cartItem.Product.Price,
+            Unit = cartItem.Product.Unit,
+            Quantity = cartItem.Quantity
         })).Version;
     private sealed class TestPaymentLock : IAsyncDisposable
     {
@@ -1198,11 +1158,11 @@ public sealed class OrderServiceTests
         var userId = Guid.NewGuid();
         var order = CreateOrder(userId);
         order.Cart = new Cart { SessionId = "old-guest" };
-        _orders.Setup(x => x.GetByIdempotencyKeyWithItemsAsync(IdempotencyKey, It.IsAny<CancellationToken>())).ReturnsAsync(order);
+        _orders.Setup(orderRepository => orderRepository.GetByIdempotencyKeyWithItemsAsync(IdempotencyKey, It.IsAny<CancellationToken>())).ReturnsAsync(order);
         Assert.Equal(order.Id, (await _service.RecoverCheckoutOrderAsync(userId, null, IdempotencyKey)).Id);
         await Assert.ThrowsAsync<KeyNotFoundException>(() => _service.RecoverCheckoutOrderAsync(null, "old-guest", IdempotencyKey));
         await Assert.ThrowsAsync<KeyNotFoundException>(() => _service.RecoverCheckoutOrderAsync(Guid.NewGuid(), "old-guest", IdempotencyKey));
-        _unitOfWork.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
+        _unitOfWork.Verify(unitOfWork => unitOfWork.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
     }
 
     private static Order CreateOrder(Guid? userId) => new()
@@ -1216,37 +1176,33 @@ public sealed class OrderServiceTests
         PaymentStatus = PaymentStatus.Pending
     };
 
-    private void SetupGuestOrderCreation(
-        string sessionId,
-        Cart cart,
-        Product product,
-        Action<Order> captureOrder)
+    private void SetupGuestOrderCreation(string sessionId, Cart cart, Product product, Action<Order> captureOrder)
     {
         Order? capturedOrder = null;
-        _unitOfWork.SetupGet(x => x.CartRepository).Returns(_carts.Object);
+        _unitOfWork.SetupGet(unitOfWork => unitOfWork.CartRepository).Returns(_carts.Object);
         _orders
-            .Setup(x => x.GetByIdempotencyKeyWithItemsAsync(IdempotencyKey, It.IsAny<CancellationToken>()))
+            .Setup(orderRepository => orderRepository.GetByIdempotencyKeyWithItemsAsync(IdempotencyKey, It.IsAny<CancellationToken>()))
             .ReturnsAsync((Order?)null);
         _carts
-            .Setup(x => x.GetActiveBySessionIdAsync(sessionId, It.IsAny<CancellationToken>()))
+            .Setup(cartRepository => cartRepository.GetActiveBySessionIdAsync(sessionId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(cart);
         _cartService
-            .Setup(x => x.ValidateCartForCheckoutAsync(null, sessionId, It.IsAny<CancellationToken>()))
+            .Setup(cartService => cartService.ValidateCartForCheckoutAsync(null, sessionId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new Biogarden.BusinessLogic.DTOs.Carts.CartValidationResultDto { IsValid = true });
         _products
-            .Setup(x => x.GetByIdAsync(product.Id, It.IsAny<CancellationToken>()))
+            .Setup(productRepository => productRepository.GetByIdAsync(product.Id, It.IsAny<CancellationToken>()))
             .ReturnsAsync(product);
         _orders
-            .Setup(x => x.AddAsync(It.IsAny<Order>(), It.IsAny<CancellationToken>()))
+            .Setup(orderRepository => orderRepository.AddAsync(It.IsAny<Order>(), It.IsAny<CancellationToken>()))
             .Callback<Order, CancellationToken>((order, _) =>
             {
                 capturedOrder = order;
                 captureOrder(order);
             })
             .Returns(Task.CompletedTask);
-        _unitOfWork.Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
+        _unitOfWork.Setup(unitOfWork => unitOfWork.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
         _orders
-            .Setup(x => x.GetByIdWithItemsAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .Setup(orderRepository => orderRepository.GetByIdWithItemsAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(() => capturedOrder);
         var customerMessage = new EmailMessage
         {
@@ -1259,16 +1215,16 @@ public sealed class OrderServiceTests
             Subject = "Új rendelés érkezett"
         };
         _emailTemplateService
-            .Setup(x => x.BuildOrderConfirmationMessage("guest@example.com", It.IsAny<OrderDto>()))
+            .Setup(emailTemplateService => emailTemplateService.BuildOrderConfirmationMessage("guest@example.com", It.IsAny<OrderDto>()))
             .Returns(customerMessage);
         _emailTemplateService
-            .Setup(x => x.BuildOrderBusinessNotificationMessage("info@bakonykincse.hu", It.IsAny<OrderDto>()))
+            .Setup(emailTemplateService => emailTemplateService.BuildOrderBusinessNotificationMessage("info@bakonykincse.hu", It.IsAny<OrderDto>()))
             .Returns(businessMessage);
         _emailService
-            .Setup(x => x.SendAsync(customerMessage, It.IsAny<CancellationToken>()))
+            .Setup(emailService => emailService.SendAsync(customerMessage, It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
         _emailService
-            .Setup(x => x.SendAsync(businessMessage, It.IsAny<CancellationToken>()))
+            .Setup(emailService => emailService.SendAsync(businessMessage, It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
     }
 
@@ -1288,7 +1244,6 @@ public sealed class OrderServiceTests
             new UpperInvariantLookupNormalizer(),
             new IdentityErrorDescriber(),
             // Identity 10 resolves an optional metrics factory during construction.
-            Mock.Of<IServiceProvider>(provider =>
-                provider.GetService(typeof(System.Diagnostics.Metrics.IMeterFactory)) == null, MockBehavior.Strict),
+            Mock.Of<IServiceProvider>(provider => provider.GetService(typeof(System.Diagnostics.Metrics.IMeterFactory)) == null, MockBehavior.Strict),
             NullLogger<UserManager<ApplicationUser>>.Instance);
 }

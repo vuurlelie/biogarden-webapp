@@ -14,14 +14,10 @@ public class AddressRepository : IAddressRepository
         _context = context;
     }
 
-    public async Task<Address?> GetByIdAsync(
-        int addressId,
-        CancellationToken cancellationToken = default)
+    public async Task<Address?> GetByIdAsync(int addressId, CancellationToken cancellationToken = default)
     {
         return await _context.Addresses
-            .FirstOrDefaultAsync(
-                address => address.Id == addressId,
-                cancellationToken);
+            .FirstOrDefaultAsync(address => address.Id == addressId, cancellationToken);
     }
 
     public async Task<List<Address>> GetAllAsync(
@@ -31,9 +27,7 @@ public class AddressRepository : IAddressRepository
             .ToListAsync(cancellationToken);
     }
 
-    public async Task AddAsync(
-        Address address,
-        CancellationToken cancellationToken = default)
+    public async Task AddAsync(Address address, CancellationToken cancellationToken = default)
     {
         await _context.Addresses
             .AddAsync(address, cancellationToken);

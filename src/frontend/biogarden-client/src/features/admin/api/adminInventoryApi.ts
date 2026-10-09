@@ -23,12 +23,7 @@ export async function getAdminInventory(query: AdminListQuery, signal?: AbortSig
   return response.json() as Promise<PagedResult<AdminInventoryItem>>;
 }
 
-export async function updateAdminInventory(
-  productId: number,
-  stockQuantity: number,
-  available: boolean,
-  version: string,
-): Promise<AdminInventoryItem> {
+export async function updateAdminInventory(productId: number, stockQuantity: number, available: boolean, version: string): Promise<AdminInventoryItem> {
   const response = await adminRequest(`/inventory/${productId}`, {
     method: "PUT",
     jsonBody: { stockQuantity, available, version },

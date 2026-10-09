@@ -128,9 +128,12 @@ async function fetchPublicPosts() {
 
   try {
     const postsEndpoint = apiUrl("/api/posts?page=1&pageSize=200&sort=newest");
-    const response = await fetch(postsEndpoint, {
-      signal: controller.signal,
-    });
+    const response = await fetch(
+      postsEndpoint,
+      {
+        signal: controller.signal,
+      }
+    );
 
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}`);
@@ -225,13 +228,19 @@ async function writePostPreviewPages(posts) {
   await Promise.all(
     posts.map(async (post) => {
       const directory = resolve(outputDirectory, "tudastar", String(post.id));
-      await mkdir(directory, { recursive: true });
+      await mkdir(
+        directory,
+        { recursive: true }
+      );
       await writeFile(resolve(directory, "index.html"), createPostHtml(template, post), "utf8");
     }),
   );
 }
 
-await mkdir(outputDirectory, { recursive: true });
+await mkdir(
+  outputDirectory,
+  { recursive: true }
+);
 // Apply the same policy when generating previews separately from the Vite build.
 const indexPath = resolve(outputDirectory, "index.html");
 let index = await readFile(indexPath, "utf8");

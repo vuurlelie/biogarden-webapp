@@ -21,8 +21,10 @@ public sealed class LoginProtectionTests : IAsyncLifetime
     public async Task FailedAttempts_LockAccount_AndExpiredLockAllowsRecovery(bool concurrent)
     {
         await CreateUser();
-        if (concurrent) await Task.WhenAll(Enumerable.Range(0, 5).Select(_ => Login("WrongPassword123!")));
-        else for (var i = 0; i < 5; i++) Assert.False((await Login("WrongPassword123!")).Succeeded);
+        if (concurrent)
+            await Task.WhenAll(Enumerable.Range(0, 5).Select(_ => Login("WrongPassword123!")));
+        else
+            for (var index = 0; index < 5; index++) Assert.False((await Login("WrongPassword123!")).Succeeded);
         using (var scope = _app.Factory.Services.CreateScope())
         {
             var users = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();

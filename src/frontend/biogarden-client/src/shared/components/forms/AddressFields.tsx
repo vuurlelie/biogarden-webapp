@@ -87,10 +87,11 @@ export default function AddressFields({
   }
 
   function renderError(field: keyof AddressFormData) {
-    if (!errorMessages[field]) return null;
+    if (!errorMessages[field])
+      return null;
 
     return (
-      <p id={getErrorId(field)} className="mt-1 text-xs font-semibold text-site-danger">
+      <p id={getErrorId(field)} className="mt-1 text-xs font-normal text-site-danger">
         {errorMessages[field]}
       </p>
     );
@@ -106,7 +107,10 @@ export default function AddressFields({
           id={`${idPrefix}-postal-code`}
           value={value.postalCode}
           onChange={(event) => handlePostalCodeChange(event.target.value)}
-          onBlur={() => window.setTimeout(() => setPostalCodeCityOptions([]), 100)}
+          onBlur={() => window.setTimeout(
+            () => setPostalCodeCityOptions([]),
+            100
+          )}
           autoComplete={`${autoCompletePrefix}postal-code`}
           inputMode="numeric"
           maxLength={4}
@@ -148,7 +152,10 @@ export default function AddressFields({
           id={`${idPrefix}-city`}
           value={value.city}
           onChange={(event) => handleCityChange(event.target.value)}
-          onBlur={() => window.setTimeout(() => setCitySuggestions([]), 100)}
+          onBlur={() => window.setTimeout(
+            () => setCitySuggestions([]),
+            100
+          )}
           autoComplete={`${autoCompletePrefix}address-level2`}
           className={getInputClassName("city")}
           disabled={disabled}

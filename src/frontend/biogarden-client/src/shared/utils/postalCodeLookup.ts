@@ -4,8 +4,10 @@ const MAX_CITY_SUGGESTIONS = 250;
 
 function isCustomerAddressPostalCode(code: string, city: string) {
   const numericCode = Number(code);
-  if (!Number.isInteger(numericCode) || numericCode < 1011) return false;
-  if (city === "Budapest") return numericCode >= 1011 && numericCode <= 1239;
+  if (!Number.isInteger(numericCode) || numericCode < 1011)
+    return false;
+  if (city === "Budapest")
+    return numericCode >= 1011 && numericCode <= 1239;
   return true;
 }
 
@@ -55,7 +57,8 @@ export function isPostalCodeCityPairValid(postalCode: string, city: string) {
 export function getPostalCodeSuggestions(cityQuery: string, limit = MAX_CITY_SUGGESTIONS): PostalCodeEntry[] {
   const exactCityRequested = /\s$/.test(cityQuery);
   const normalizedQuery = normalizeLookupText(cityQuery);
-  if (normalizedQuery.length < 2) return [];
+  if (normalizedQuery.length < 2)
+    return [];
 
   if (exactCityRequested) {
     return searchableEntries

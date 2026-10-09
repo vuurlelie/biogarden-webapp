@@ -48,10 +48,15 @@ public static class ApplicationBuilderExtensions
             {
                 // Only server-named uploads are immutable; defaults and other static files may be replaced.
                 var path = context.Context.Request.Path.Value ?? string.Empty;
-                if (System.Text.RegularExpressions.Regex.IsMatch(path,
+
+                if (System.Text.RegularExpressions.Regex.IsMatch(
+                    path,
                     @"^/uploads/(products|posts)/[a-f0-9]{32}(-r[1-9][0-9]{0,3}|-[1-9][0-9]{0,3}w)?\.(jpg|jpeg|png|webp)$",
-                    System.Text.RegularExpressions.RegexOptions.CultureInvariant))
+                    System.Text.RegularExpressions.RegexOptions.CultureInvariant
+                ))
+                {
                     context.Context.Response.Headers.CacheControl = "public,max-age=31536000,immutable";
+                }
             }
         });
 

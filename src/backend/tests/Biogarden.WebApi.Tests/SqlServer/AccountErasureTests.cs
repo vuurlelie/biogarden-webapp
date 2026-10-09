@@ -23,14 +23,14 @@ public sealed class AccountErasureTests : IAsyncLifetime
     public async Task AnonymizationPreservesLegacyOrderAddressEvenWhenItWasAlsoTheSavedAddress()
     {
         var user = await SeedUser(true);
-        await using (var db = _app.OpenDatabase())
+        await using (var databaseContext = _app.OpenDatabase())
         {
-            (await db.Orders.SingleAsync()).AddressId = user.ShippingAddressId;
-            await db.SaveChangesAsync();
+            (await databaseContext.Orders.SingleAsync()).AddressId = user.ShippingAddressId;
+            await databaseContext.SaveChangesAsync();
         }
         await Erase(user, admin: false);
         await using var check = _app.OpenDatabase();
-        var order = await check.Orders.Include(x => x.Address).SingleAsync();
+        var order = await check.Orders.Include(candidateOrder => candidateOrder.Address).SingleAsync();
         Assert.Equal(user.ShippingAddressId, order.AddressId);
         Assert.NotNull(order.Address);
         Assert.Equal("Saved street", order.Address.Street);
@@ -50,10 +50,10 @@ public sealed class AccountErasureTests : IAsyncLifetime
         using var oldClient = await AuthenticatedClient(user);
         await Erase(user, admin);
         Assert.Equal(HttpStatusCode.Unauthorized, (await oldClient.GetAsync("/api/profile")).StatusCode);
-        await using var db = _app.OpenDatabase();
-        Assert.Empty(await db.Addresses.ToListAsync());
-        Assert.Empty(await db.Carts.Where(x => !x.IsCheckedOut).ToListAsync());
-        var stored = await db.Users.SingleOrDefaultAsync(x => x.Id == user.Id);
+        await using var databaseContext = _app.OpenDatabase();
+        Assert.Empty(await databaseContext.Addresses.ToListAsync());
+        Assert.Empty(await databaseContext.Carts.Where(cart => !cart.IsCheckedOut).ToListAsync());
+        var stored = await databaseContext.Users.SingleOrDefaultAsync(candidateUser => candidateUser.Id == user.Id);
         if (hasOrders)
         {
             Assert.NotNull(stored);
@@ -62,17 +62,18 @@ public sealed class AccountErasureTests : IAsyncLifetime
             Assert.Null(stored.BillingAddressId);
             Assert.Null(stored.PhoneNumber);
             Assert.NotEqual(user.Email, stored.Email);
-            var order = await db.Orders.SingleAsync();
+            var order = await databaseContext.Orders.SingleAsync();
             Assert.Equal(user.Id, order.UserId);
             Assert.Equal("Historical customer", order.CustomerName);
             Assert.Equal("Historical street", order.Street);
             Assert.Equal("Historical delivery", order.DeliveryStreet);
             Assert.Equal("Historical company", order.BillingCompanyName);
             Assert.Equal(1800m, order.TotalPrice);
-            Assert.Single(await db.Carts.ToListAsync());
+            Assert.Single(await databaseContext.Carts.ToListAsync());
         }
-        else Assert.Null(stored);
-        Assert.Single(await db.NotificationEmails.ToListAsync());
+        else
+            Assert.Null(stored);
+        Assert.Single(await databaseContext.NotificationEmails.ToListAsync());
         Assert.Empty(_app.Sender.Sent);
     }
 
@@ -83,8 +84,8 @@ public sealed class AccountErasureTests : IAsyncLifetime
     {
         var user = await SeedUser(hasOrders, sameAddress: true);
         await Erase(user, admin: false);
-        await using var db = _app.OpenDatabase();
-        Assert.Empty(await db.Addresses.ToListAsync());
+        await using var databaseContext = _app.OpenDatabase();
+        Assert.Empty(await databaseContext.Addresses.ToListAsync());
     }
 
     [SqlServerTheory]
@@ -96,25 +97,25 @@ public sealed class AccountErasureTests : IAsyncLifetime
     {
         var user = await SeedUser(hasOrders);
         var other = await SeedUser(false);
-        await using (var db = _app.OpenDatabase())
+        await using (var databaseContext = _app.OpenDatabase())
         {
             if (orderReference)
-                db.Orders.Add(NewOrder(other.Id, user.ShippingAddressId));
+                databaseContext.Orders.Add(NewOrder(other.Id, user.ShippingAddressId));
             else
-                (await db.Users.SingleAsync(x => x.Id == other.Id)).BillingAddressId = user.ShippingAddressId;
-            await db.SaveChangesAsync();
+                (await databaseContext.Users.SingleAsync(candidateUser => candidateUser.Id == other.Id)).BillingAddressId = user.ShippingAddressId;
+            await databaseContext.SaveChangesAsync();
         }
         await Erase(user, admin: false);
         await using var check = _app.OpenDatabase();
-        var address = await check.Addresses.SingleAsync(x => x.Id == user.ShippingAddressId);
+        var address = await check.Addresses.SingleAsync(candidateAddress => candidateAddress.Id == user.ShippingAddressId);
         Assert.Equal("Saved street", address.Street);
         Assert.Equal("Test doorbell", address.Doorbell);
         Assert.Equal(RecordStatus.Active, address.RecordStatus);
-        Assert.False(await check.Addresses.AnyAsync(x => x.Id == user.BillingAddressId));
+        Assert.False(await check.Addresses.AnyAsync(candidateAddress => candidateAddress.Id == user.BillingAddressId));
         if (orderReference)
-            Assert.Equal(address.Id, (await check.Orders.SingleAsync(x => x.UserId == other.Id)).AddressId);
+            Assert.Equal(address.Id, (await check.Orders.SingleAsync(order => order.UserId == other.Id)).AddressId);
         else
-            Assert.Equal(address.Id, (await check.Users.SingleAsync(x => x.Id == other.Id)).BillingAddressId);
+            Assert.Equal(address.Id, (await check.Users.SingleAsync(candidateUser => candidateUser.Id == other.Id)).BillingAddressId);
     }
 
     [SqlServerTheory]
@@ -135,22 +136,21 @@ public sealed class AccountErasureTests : IAsyncLifetime
         else
         {
             using var client = await AuthenticatedClient(user);
-            Assert.Equal(HttpStatusCode.Conflict,
-                (await client.PostAsJsonAsync("/api/profile/account-lifecycle", new { type = 2 })).StatusCode);
+            Assert.Equal(HttpStatusCode.Conflict, (await client.PostAsJsonAsync("/api/profile/account-lifecycle", new { type = 2 })).StatusCode);
         }
-        await using (var db = _app.OpenDatabase())
+        await using (var databaseContext = _app.OpenDatabase())
         {
-            var stored = await db.Users.SingleAsync(x => x.Id == user.Id);
+            var stored = await databaseContext.Users.SingleAsync(candidateUser => candidateUser.Id == user.Id);
             Assert.Equal(user.Email, stored.Email);
             Assert.Equal(user.SecurityStamp, stored.SecurityStamp);
             Assert.Null(stored.AnonymizedAtUtc);
             Assert.Equal(user.ShippingAddressId, stored.ShippingAddressId);
             Assert.Equal(user.BillingAddressId, stored.BillingAddressId);
-            Assert.Equal(2, await db.Addresses.CountAsync());
-            Assert.All(await db.Addresses.ToListAsync(), x => Assert.Equal(RecordStatus.Active, x.RecordStatus));
-            Assert.Equal("synthetic draft", (await db.Carts.SingleAsync(x => !x.IsCheckedOut)).CheckoutDraftJson);
-            Assert.Empty(await db.AccountLifecycleRequests.ToListAsync());
-            Assert.Empty(await db.NotificationEmails.ToListAsync());
+            Assert.Equal(2, await databaseContext.Addresses.CountAsync());
+            Assert.All(await databaseContext.Addresses.ToListAsync(), address => Assert.Equal(RecordStatus.Active, address.RecordStatus));
+            Assert.Equal("synthetic draft", (await databaseContext.Carts.SingleAsync(cart => !cart.IsCheckedOut)).CheckoutDraftJson);
+            Assert.Empty(await databaseContext.AccountLifecycleRequests.ToListAsync());
+            Assert.Empty(await databaseContext.NotificationEmails.ToListAsync());
         }
         _app.QueueFailure.NotificationsEnabled = false;
         await Erase(user, admin);
@@ -163,24 +163,23 @@ public sealed class AccountErasureTests : IAsyncLifetime
     public async Task PendingErasureKeepsAddressesUntilOrderClosesAndAdminCompletesRequest()
     {
         var user = await SeedUser(true);
-        await using (var db = _app.OpenDatabase())
+        await using (var databaseContext = _app.OpenDatabase())
         {
-            (await db.Orders.SingleAsync()).Status = OrderStatus.Confirmed;
-            await db.SaveChangesAsync();
+            (await databaseContext.Orders.SingleAsync()).Status = OrderStatus.Confirmed;
+            await databaseContext.SaveChangesAsync();
         }
         using (var client = await AuthenticatedClient(user))
-            Assert.Equal(HttpStatusCode.Accepted,
-                (await client.PostAsJsonAsync("/api/profile/account-lifecycle", new { type = 2 })).StatusCode);
+            Assert.Equal(HttpStatusCode.Accepted, (await client.PostAsJsonAsync("/api/profile/account-lifecycle", new { type = 2 })).StatusCode);
         int requestId;
-        await using (var db = _app.OpenDatabase())
+        await using (var databaseContext = _app.OpenDatabase())
         {
-            Assert.Equal(2, await db.Addresses.CountAsync());
-            Assert.Null((await db.Users.SingleAsync()).AnonymizedAtUtc);
-            var request = await db.AccountLifecycleRequests.SingleAsync();
+            Assert.Equal(2, await databaseContext.Addresses.CountAsync());
+            Assert.Null((await databaseContext.Users.SingleAsync()).AnonymizedAtUtc);
+            var request = await databaseContext.AccountLifecycleRequests.SingleAsync();
             Assert.Equal(AccountLifecycleRequestStatus.Pending, request.Status);
             requestId = request.Id;
-            (await db.Orders.SingleAsync()).Status = OrderStatus.Completed;
-            await db.SaveChangesAsync();
+            (await databaseContext.Orders.SingleAsync()).Status = OrderStatus.Completed;
+            await databaseContext.SaveChangesAsync();
         }
         using (var scope = _app.Factory.Services.CreateScope())
         {
@@ -191,7 +190,7 @@ public sealed class AccountErasureTests : IAsyncLifetime
         }
         await using var check = _app.OpenDatabase();
         Assert.Empty(await check.Addresses.ToListAsync());
-        Assert.NotNull((await check.Users.SingleAsync(x => x.Id == user.Id)).AnonymizedAtUtc);
+        Assert.NotNull((await check.Users.SingleAsync(candidateUser => candidateUser.Id == user.Id)).AnonymizedAtUtc);
         Assert.Equal(AccountLifecycleRequestStatus.Completed, (await check.AccountLifecycleRequests.SingleAsync()).Status);
         Assert.Equal("Historical street", (await check.Orders.SingleAsync()).Street);
     }
@@ -213,10 +212,11 @@ public sealed class AccountErasureTests : IAsyncLifetime
         };
         Assert.True((await scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>()
             .CreateAsync(user, "Password123!")).Succeeded);
-        await using var db = _app.OpenDatabase();
-        db.Carts.Add(new Cart { Id = Guid.NewGuid(), UserId = user.Id, CheckoutDraftJson = "synthetic draft" });
-        if (hasOrders) db.Orders.Add(NewOrder(user.Id));
-        await db.SaveChangesAsync();
+        await using var databaseContext = _app.OpenDatabase();
+        databaseContext.Carts.Add(new Cart { Id = Guid.NewGuid(), UserId = user.Id, CheckoutDraftJson = "synthetic draft" });
+        if (hasOrders)
+            databaseContext.Orders.Add(NewOrder(user.Id));
+        await databaseContext.SaveChangesAsync();
         return user;
     }
 

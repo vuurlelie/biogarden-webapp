@@ -4,7 +4,5 @@ namespace Biogarden.BusinessLogic.Abstractions;
 
 public interface IErrorAlertService
 {
-    Task NotifyAsync(
-        ErrorAlert alert,
-        CancellationToken cancellationToken = default);
+    Task NotifyAsync(ErrorAlert alert, CancellationToken cancellationToken = default);
 }

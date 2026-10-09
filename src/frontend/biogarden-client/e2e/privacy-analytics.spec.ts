@@ -15,18 +15,30 @@ test("anonymous analytics waits for consent and can be withdrawn", async ({ page
   await mockEmptyCartApi(page);
 
   await page.goto("/");
-  await expect(page.getByRole("region", { name: "Adatvédelmi beállítások" })).toBeVisible();
+  await expect(page.getByRole(
+    "region",
+    { name: "Adatvédelmi beállítások" }
+  )).toBeVisible();
   await expect(capturedEvents(page)).resolves.toHaveLength(0);
 
-  await page.getByRole("button", { name: "Analitika engedélyezése" }).click();
+  await page.getByRole(
+    "button",
+    { name: "Analitika engedélyezése" }
+  ).click();
   await expect
     .poll(async () => (await capturedEvents(page)).some((event) => event.name === "page_view"))
     .toBe(true);
 
   const eventCountAfterConsent = (await capturedEvents(page)).length;
-  await page.getByRole("button", { name: "Adatvédelmi beállítások" }).click();
+  await page.getByRole(
+    "button",
+    { name: "Adatvédelmi beállítások" }
+  ).click();
   await page.getByLabel("Anonim látogatottsági analitika").uncheck();
-  await page.getByRole("button", { name: "Mentés" }).click();
+  await page.getByRole(
+    "button",
+    { name: "Mentés" }
+  ).click();
 
   await page.getByRole("link", { name: /Rólunk|Rolunk/ }).first().click();
   await page.waitForTimeout(250);
@@ -35,9 +47,12 @@ test("anonymous analytics waits for consent and can be withdrawn", async ({ page
 
 test("contact analytics event does not include submitted personal data", async ({ page }) => {
   await mockEmptyCartApi(page);
-  await page.route(`${apiBaseUrl}/api/contact`, async (route) => {
-    await route.fulfill({ status: 204 });
-  });
+  await page.route(
+    `${apiBaseUrl}/api/contact`,
+    async (route) => {
+      await route.fulfill({ status: 204 });
+    }
+  );
   await enableAnalyticsBeforeLoad(page);
 
   await page.goto("/");
@@ -59,6 +74,44 @@ test("contact analytics event does not include submitted personal data", async (
   expect(serializedEvent).not.toContain("Analitika teszt");
 });
 
+test("privacy choice dismisses the banner when browser storage is blocked", async ({ page }) => {
+  await mockEmptyCartApi(page);
+  await page.addInitScript(() => {
+    Object.defineProperty(window, "localStorage", {
+      get() { throw new DOMException("Storage blocked", "SecurityError"); },
+    });
+  });
+  const errors: string[] = [];
+  page.on("pageerror", error => errors.push(error.message));
+
+  await page.goto("/");
+  await page.getByRole("button", { name: "Csak szükséges", exact: true }).click();
+
+  await expect(page.getByRole("region", { name: "Adatvédelmi beállítások" })).not.toBeVisible();
+  await expect(capturedEvents(page)).resolves.toHaveLength(0);
+  expect(errors).toEqual([]);
+});
+
+test("failed consent persistence does not restore an older analytics grant", async ({ page }) => {
+  await mockEmptyCartApi(page);
+  await page.goto("/");
+  await page.getByRole("button", { name: "Analitika engedélyezése" }).click();
+  await waitForCapturedEvent(page, "page_view");
+  await page.evaluate(() => {
+    Storage.prototype.setItem = () => { throw new DOMException("Storage full", "QuotaExceededError"); };
+  });
+
+  await page.getByRole("button", { name: "Adatvédelmi beállítások", exact: true }).click();
+  await page.getByLabel("Anonim látogatottsági analitika").uncheck();
+  await page.getByRole("button", { name: "Mentés", exact: true }).click();
+
+  await expect(page.getByRole("region", { name: "Adatvédelmi beállítások" })).not.toBeVisible();
+  await expect(page.evaluate(() => localStorage.getItem("biogarden_privacy_consent"))).resolves.toBeNull();
+  await page.reload();
+  await expect(page.getByRole("region", { name: "Adatvédelmi beállítások" })).toBeVisible();
+  await expect(capturedEvents(page)).resolves.toHaveLength(0);
+});
+
 async function captureAnalyticsEvents(page: Page) {
   await page.addInitScript(() => {
     const analyticsWindow = window as typeof window & {
@@ -66,11 +119,14 @@ async function captureAnalyticsEvents(page: Page) {
     };
 
     analyticsWindow.__biogardenAnalyticsEvents = [];
-    window.addEventListener("biogarden:analytics-event", (event) => {
-      analyticsWindow.__biogardenAnalyticsEvents.push(
-        (event as CustomEvent<{ name: string; payload: Record<string, unknown> }>).detail,
-      );
-    });
+    window.addEventListener(
+      "biogarden:analytics-event",
+      (event) => {
+        analyticsWindow.__biogardenAnalyticsEvents.push(
+          (event as CustomEvent<{ name: string; payload: Record<string, unknown> }>).detail,
+        );
+      }
+    );
   });
 }
 
@@ -105,7 +161,8 @@ async function waitForCapturedEvent(page: Page, name: string): Promise<CapturedA
 
   const events = await capturedEvents(page);
   const event = events.find((candidate) => candidate.name === name);
-  if (!event) throw new Error(`Analytics event was not captured: ${name}`);
+  if (!event)
+    throw new Error(`Analytics event was not captured: ${name}`);
 
   return event;
 }

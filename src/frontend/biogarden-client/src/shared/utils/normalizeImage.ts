@@ -24,16 +24,19 @@ export async function normalizeImage(file: File, maxWidth: number, maxHeight: nu
   canvas.width = Math.max(1, Math.floor(sourceWidth * scale));
   canvas.height = Math.max(1, Math.floor(sourceHeight * scale));
   const context = canvas.getContext("2d");
-  if (!context) throw new Error("A kép feldolgozása nem támogatott ebben a böngészőben.");
+  if (!context)
+    throw new Error("A kép feldolgozása nem támogatott ebben a böngészőben.");
   context.fillStyle = "#ffffff";
   context.fillRect(0, 0, canvas.width, canvas.height);
-  context.drawImage(image, (image.naturalWidth - sourceWidth) / 2, (image.naturalHeight - sourceHeight) / 2,
-    sourceWidth, sourceHeight, 0, 0, canvas.width, canvas.height);
+  context.drawImage(image, (image.naturalWidth - sourceWidth) / 2, (image.naturalHeight - sourceHeight) / 2, sourceWidth, sourceHeight, 0, 0, canvas.width, canvas.height);
   for (const quality of [0.9, 0.82, 0.74, 0.66]) {
-    const blob = await new Promise<Blob>((resolve, reject) => canvas.toBlob(
-      result => result ? resolve(result) : reject(new Error("A kép feldolgozása nem sikerült.")), "image/jpeg", quality));
+    const blob = await new Promise<Blob>((resolve, reject) => canvas.toBlob(result => result ? resolve(result) : reject(new Error("A kép feldolgozása nem sikerült.")), "image/jpeg", quality));
     if (blob.size <= MAX_IMAGE_UPLOAD_BYTES)
-      return new File([blob], "image.jpg", { type: "image/jpeg" });
+      return new File(
+        [blob],
+        "image.jpg",
+        { type: "image/jpeg" }
+      );
   }
   throw new Error("A kép mérete feldolgozás után is túl nagy. Válassz kisebb képet.");
 }

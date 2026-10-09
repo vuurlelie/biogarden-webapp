@@ -8,14 +8,20 @@ export function getMockSession(context: BrowserContext) { return sessions.get(co
 export const test = base.extend<{ browserSession: void }>({
   browserSession: [async ({ context }, use) => {
     sessions.set(context, null);
-    await context.route("http://localhost:5097/api/auth/session", route => {
-      const session = getMockSession(context);
-      return route.fulfill(session ? { json: session } : { status: 204 });
-    });
-    await context.route("http://localhost:5097/api/auth/logout", route => {
-      sessions.set(context, null);
-      return route.fulfill({ status: 204 });
-    });
+    await context.route(
+      "http://localhost:5097/api/auth/session",
+      route => {
+        const session = getMockSession(context);
+        return route.fulfill(session ? { json: session } : { status: 204 });
+      }
+    );
+    await context.route(
+      "http://localhost:5097/api/auth/logout",
+      route => {
+        sessions.set(context, null);
+        return route.fulfill({ status: 204 });
+      }
+    );
     await use();
   }, { auto: true }],
 });

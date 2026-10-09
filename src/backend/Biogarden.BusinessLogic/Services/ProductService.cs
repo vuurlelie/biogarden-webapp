@@ -24,35 +24,21 @@ public sealed class ProductService : IProductService
         return items;
     }
 
-    public async Task<PagedResultDto<ProductListItemDto>> GetPagedAsync(
-        ProductListQueryDto query,
-        CancellationToken cancellationToken = default)
+    public async Task<PagedResultDto<ProductListItemDto>> GetPagedAsync(ProductListQueryDto query, CancellationToken cancellationToken = default)
     {
         var products = await GetPagedProductsAsync(query, cancellationToken);
 
-        return new PagedResultDto<ProductListItemDto>(
-            products.Items.ToListItemDtos(),
-            products.Page,
-            products.PageSize,
-            products.TotalCount);
+        return new PagedResultDto<ProductListItemDto>(products.Items.ToListItemDtos(), products.Page, products.PageSize, products.TotalCount);
     }
 
-    public async Task<PagedResultDto<ProductDetailsDto>> GetPagedDetailsAsync(
-        ProductListQueryDto query,
-        CancellationToken cancellationToken = default)
+    public async Task<PagedResultDto<ProductDetailsDto>> GetPagedDetailsAsync(ProductListQueryDto query, CancellationToken cancellationToken = default)
     {
         var products = await GetPagedProductsAsync(query, cancellationToken);
 
-        return new PagedResultDto<ProductDetailsDto>(
-            products.Items.Select(product => product.ToDetailsDto()).ToList(),
-            products.Page,
-            products.PageSize,
-            products.TotalCount);
+        return new PagedResultDto<ProductDetailsDto>(products.Items.Select(product => product.ToDetailsDto()).ToList(), products.Page, products.PageSize, products.TotalCount);
     }
 
-    private async Task<Biogarden.DataAccess.Models.PagedResult<Product>> GetPagedProductsAsync(
-        ProductListQueryDto query,
-        CancellationToken cancellationToken)
+    private async Task<Biogarden.DataAccess.Models.PagedResult<Product>> GetPagedProductsAsync(ProductListQueryDto query, CancellationToken cancellationToken)
     {
         var page = query.NormalizedPage;
         var pageSize = query.NormalizedPageSize;
@@ -65,7 +51,8 @@ public sealed class ProductService : IProductService
             query.Sort ?? string.Empty,
             page,
             pageSize,
-            cancellationToken);
+            cancellationToken
+        );
     }
 
     public async Task<ProductDetailsDto?> GetDetailsAsync(int productId, CancellationToken cancellationToken = default)

@@ -20,35 +20,32 @@ public sealed class SumUpCheckoutStatusService : ISumUpCheckoutStatusService
     private readonly ISumUpCheckoutService _checkoutService;
     private readonly IOrderService _orderService;
 
-    public SumUpCheckoutStatusService(
-        IUnitOfWork unitOfWork,
-        ISumUpCheckoutService checkoutService,
-        IOrderService orderService)
+    public SumUpCheckoutStatusService(IUnitOfWork unitOfWork, ISumUpCheckoutService checkoutService, IOrderService orderService)
     {
         _unitOfWork = unitOfWork;
         _checkoutService = checkoutService;
         _orderService = orderService;
     }
 
-    public async Task HandleAsync(
-        string payload,
-        CancellationToken cancellationToken = default)
+    public async Task HandleAsync(string payload, CancellationToken cancellationToken = default)
     {
         SumUpCheckoutStatusChangedEvent? statusEvent;
         try { statusEvent = JsonSerializer.Deserialize<SumUpCheckoutStatusChangedEvent>(payload); }
         catch (JsonException) { throw new ArgumentException("Invalid payment notification JSON."); }
         if (statusEvent is null || string.IsNullOrWhiteSpace(statusEvent.EventType))
             throw new ArgumentException("Payment event type is required.");
-        if (!string.Equals(statusEvent.EventType, CheckoutStatusChanged, StringComparison.Ordinal)) return;
+        if (!string.Equals(statusEvent.EventType, CheckoutStatusChanged, StringComparison.Ordinal))
+            return;
+
         if (string.IsNullOrWhiteSpace(statusEvent.Id) || statusEvent.Id.Length > 100 ||
-            statusEvent.Id.Any(c => !char.IsAsciiLetterOrDigit(c) && c != '-' && c != '_'))
+            statusEvent.Id.Any(character => !char.IsAsciiLetterOrDigit(character) && character != '-' && character != '_'))
+        {
             throw new ArgumentException("Invalid payment checkout ID.");
+        }
 
         var checkoutId = statusEvent.Id.Trim();
         var eventType = statusEvent.EventType.Trim();
-        var checkout = await _checkoutService.GetCheckoutAsync(
-            checkoutId,
-            cancellationToken);
+        var checkout = await _checkoutService.GetCheckoutAsync(checkoutId, cancellationToken);
 
         if (!string.Equals(checkout.CheckoutId, checkoutId, StringComparison.Ordinal))
         {
@@ -59,11 +56,7 @@ public sealed class SumUpCheckoutStatusService : ISumUpCheckoutStatusService
         if (normalizedStatus is not (Paid or Failed or Expired or "PENDING"))
             throw new InvalidOperationException("Unknown SumUp checkout status.");
         var eventKey = $"{eventType}:{checkoutId}:{normalizedStatus}";
-        var paymentEvent = await GetOrCreatePaymentEventAsync(
-            eventKey,
-            statusEvent,
-            normalizedStatus,
-            cancellationToken);
+        var paymentEvent = await GetOrCreatePaymentEventAsync(eventKey, statusEvent, normalizedStatus, cancellationToken);
         if (paymentEvent.ProcessedAtUtc.HasValue)
         {
             return;
@@ -98,16 +91,9 @@ public sealed class SumUpCheckoutStatusService : ISumUpCheckoutStatusService
         }
     }
 
-    private async Task<PaymentProviderEvent> GetOrCreatePaymentEventAsync(
-        string eventKey,
-        SumUpCheckoutStatusChangedEvent statusEvent,
-        string status,
-        CancellationToken cancellationToken)
+    private async Task<PaymentProviderEvent> GetOrCreatePaymentEventAsync(string eventKey, SumUpCheckoutStatusChangedEvent statusEvent, string status, CancellationToken cancellationToken)
     {
-        var existingEvent = await _unitOfWork.PaymentProviderEventRepository.GetByProviderAndEventKeyAsync(
-            Provider,
-            eventKey,
-            cancellationToken);
+        var existingEvent = await _unitOfWork.PaymentProviderEventRepository.GetByProviderAndEventKeyAsync(Provider, eventKey, cancellationToken);
         if (existingEvent is not null)
         {
             return existingEvent;
@@ -138,10 +124,7 @@ public sealed class SumUpCheckoutStatusService : ISumUpCheckoutStatusService
         {
             // Remove the losing Added entity before loading the winner of a unique-key race.
             _unitOfWork.ClearTrackedChanges();
-            var concurrentEvent = await _unitOfWork.PaymentProviderEventRepository.GetByProviderAndEventKeyAsync(
-                Provider,
-                eventKey,
-                cancellationToken);
+            var concurrentEvent = await _unitOfWork.PaymentProviderEventRepository.GetByProviderAndEventKeyAsync(Provider, eventKey, cancellationToken);
             if (concurrentEvent is not null)
             {
                 return concurrentEvent;

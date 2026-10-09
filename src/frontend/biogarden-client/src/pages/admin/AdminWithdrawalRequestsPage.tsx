@@ -1,10 +1,12 @@
+import { SITE_TIME_ZONE, parseApiDate } from "../../shared/utils/dateTime";
 import AdminPagination from "../../shared/components/admin/AdminPagination";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Link } from "react-router";
+import { Link, useSearchParams } from "react-router";
 import {
   getAdminOrderWithdrawalRequests,
   markAdminOrderWithdrawalRequestHandled,
   type AdminOrderWithdrawalRequest,
+  type AdminOrderRequestThread,
 } from "../../features/admin/api/adminOrdersApi";
 import { formatOrderPrice, getOrderStatusLabel } from "../../features/account/utils/orderLabels";
 import AdminFeedbackMessages from "../../shared/components/admin/AdminFeedbackMessages";
@@ -14,13 +16,16 @@ import AdminPageHeader from "../../shared/components/admin/AdminPageHeader";
 import { ROUTES } from "../../shared/constants/routes";
 import { getErrorMessage, isAbortError } from "../../shared/utils/errorHandling";
 
-const DATE = new Intl.DateTimeFormat("hu-HU", {
-  year: "numeric",
-  month: "short",
-  day: "numeric",
-  hour: "2-digit",
-  minute: "2-digit",
-});
+const DATE = new Intl.DateTimeFormat(
+  "hu-HU",
+  { timeZone: SITE_TIME_ZONE,
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }
+);
 
 type RequestStatusFilter = "all" | "pending" | "handled";
 
@@ -36,55 +41,89 @@ function orderSearchUrl(orderNumber: string) {
 const PAGE_SIZE = 12;
 
 export default function AdminWithdrawalRequestsPage() {
-  const [requests, setRequests] = useState<AdminOrderWithdrawalRequest[]>([]);
+  const [requests, setRequests] = useState<AdminOrderRequestThread[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
-  const [status, setStatus] = useState<RequestStatusFilter>("pending");
-  const [search, setSearch] = useState("");
+  const [params, setParams] = useSearchParams();
+  const status: RequestStatusFilter = params.get("status") === "all" ? "all"
+    : params.get("status") === "handled" ? "handled" : "pending";
+  const search = params.get("search") ?? "";
+  function setFilter(key: string, value: string) {
+    setParams(
+      current => {
+        const next = new URLSearchParams(current);
+        if (value)
+          next.set(key, value); else
+          next.delete(key);
+        return next;
+      },
+      { replace: true }
+    );
+    setPage(1);
+  }
   const [page, setPage] = useState(1);
+  const [responses, setResponses] = useState<Record<number, string>>({});
   const [handlingId, setHandlingId] = useState<number | null>(null);
 
   const [pages, setTotalPages] = useState(1);
   const requestId = useRef(0);
   const mounted = useRef(true);
 
-  const load = useCallback(async (signal?: AbortSignal, background = false) => {
-    if (!mounted.current) return;
-    const id = ++requestId.current;
-    if (!background) setLoading(true);
-    setError(null);
+  const load = useCallback(
+    async (signal?: AbortSignal, background = false) => {
+      if (!mounted.current)
+        return;
+      const id = ++requestId.current;
+      if (!background)
+        setLoading(true);
+      setError(null);
 
-    try {
-      const result = await getAdminOrderWithdrawalRequests({ page, pageSize: PAGE_SIZE, search, status: status === "all" ? undefined : status === "pending" ? 1 : 2 }, signal);
-      if (!mounted.current || signal?.aborted || id !== requestId.current) return;
-      setRequests(result.items);
-      setTotalPages(result.totalPages);
-      if (result.page !== page) setPage(result.page);
-    } catch (loadError) {
-      if (mounted.current && !signal?.aborted && id === requestId.current && !isAbortError(loadError)) {
-        setError(getErrorMessage(loadError, "Az elállási vagy fogyasztói kérések betöltése nem sikerült."));
+      try {
+        const result = await getAdminOrderWithdrawalRequests(
+          { page, pageSize: PAGE_SIZE, search, status: status === "all" ? undefined : status === "pending" ? 1 : 2 },
+          signal
+        );
+        if (!mounted.current || signal?.aborted || id !== requestId.current)
+          return;
+        setRequests(result.items);
+        setTotalPages(result.totalPages);
+        if (result.page !== page)
+          setPage(result.page);
+      } catch (loadError) {
+        if (mounted.current && !signal?.aborted && id === requestId.current && !isAbortError(loadError)) {
+          setError(getErrorMessage(loadError, "Az elállási vagy fogyasztói kérések betöltése nem sikerült."));
+        }
+      } finally {
+        if (mounted.current && !signal?.aborted && id === requestId.current)
+          setLoading(false);
       }
-    } finally {
-      if (mounted.current && !signal?.aborted && id === requestId.current) setLoading(false);
-    }
-  }, [page, search, status]);
+    },
+    [page, search, status]
+  );
 
   const latestLoad = useRef(load);
-  useEffect(() => {
-    latestLoad.current = load;
-    mounted.current = true;
-    ++requestId.current;
-    const controller = new AbortController();
-    const timer = window.setTimeout(() => void load(controller.signal), search.trim() ? 250 : 0);
-    return () => { mounted.current = false; window.clearTimeout(timer); controller.abort(); };
-  }, [load, search]);
+  useEffect(
+    () => {
+      latestLoad.current = load;
+      mounted.current = true;
+      ++requestId.current;
+      const controller = new AbortController();
+      const timer = window.setTimeout(() => void load(controller.signal), search.trim() ? 250 : 0);
+      return () => { mounted.current = false; window.clearTimeout(timer); controller.abort(); };
+    },
+    [load, search]
+  );
 
-  useEffect(() => {
-    if (!message) return;
-    const timer = window.setTimeout(() => setMessage(null), 3500);
-    return () => clearTimeout(timer);
-  }, [message]);
+  useEffect(
+    () => {
+      if (!message)
+        return;
+      const timer = window.setTimeout(() => setMessage(null), 3500);
+      return () => clearTimeout(timer);
+    },
+    [message]
+  );
 
   const current = page;
   const filtered = requests;
@@ -94,8 +133,8 @@ export default function AdminWithdrawalRequestsPage() {
     setError(null);
 
     try {
-      const updated = await markAdminOrderWithdrawalRequestHandled(request.id);
-      setRequests((items) => items.map((item) => (item.id === updated.id ? updated : item)));
+      const updated = await markAdminOrderWithdrawalRequestHandled(request.id, responses[request.id]);
+      setRequests((items) => items.map(thread => ({ ...thread, messages: thread.messages.map(item => item.id === updated.id ? updated : item) })));
       void latestLoad.current(undefined, true);
       setMessage(`${request.orderNumber} kérését feldolgozottra állítottad.`);
     } catch (handleError) {
@@ -109,7 +148,7 @@ export default function AdminWithdrawalRequestsPage() {
     <div className="space-y-6">
       <AdminPageHeader
         title="Elállási és fogyasztói kérések"
-        description="A rendeléshez kapcsolódó elállási, panasz- és fogyasztói kérések feldolgozási listája."
+        description="A rendeléshez kapcsolódó elállási, panasz- és fogyasztói kérések rendelésenként csoportosítva. A szűrőknek megfelelő rendelés minden üzenete látható, a feldolgozott előzményekkel együtt."
       />
 
       <AdminFeedbackMessages message={message} error={error} />
@@ -120,7 +159,7 @@ export default function AdminWithdrawalRequestsPage() {
           <input
             maxLength={200}
             value={search}
-            onChange={(event) => { setSearch(event.target.value); setPage(1); }}
+            onChange={(event) => { setFilter("search", event.target.value); }}
             placeholder="Rendelésszám, név, email vagy kérés szövege"
             className="mt-1.5 w-full rounded-sm border border-site-border px-3 py-2.5"
           />
@@ -130,7 +169,7 @@ export default function AdminWithdrawalRequestsPage() {
           Állapot
           <select
             value={status}
-            onChange={(event) => { setStatus(event.target.value as RequestStatusFilter); setPage(1); }}
+            onChange={(event) => { setFilter("status", event.target.value); }}
             className="mt-1.5 w-full rounded-sm border border-site-border px-3 py-2.5"
           >
             <option value="pending">Feldolgozásra vár</option>
@@ -149,67 +188,48 @@ export default function AdminWithdrawalRequestsPage() {
         />
       ) : (
         <section className="grid gap-5">
-          {filtered.map((request) => (
-            <article key={request.id} className="rounded-sm border border-site-border bg-white p-5 shadow-sm">
-              <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                <div className="min-w-0">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <h2 className="text-xl font-bold text-site-heading">{request.orderNumber}</h2>
-                    <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${request.status === 1 ? "bg-site-danger-soft text-site-danger" : "bg-site-surface-soft text-site-green-dark"}`}>
-                      {requestStatusLabels[request.status]}
-                    </span>
-                  </div>
-                  <p className="mt-2 text-sm text-site-muted">
-                    {request.customerName} · {request.customerEmail}
-                  </p>
+          {filtered.map(thread => {
+            const order = thread.messages[0];
+            return <article key={thread.orderId} className="rounded-sm border border-site-border bg-white p-5 shadow-sm">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <h2 className="text-xl font-bold text-site-heading">{order.orderNumber}</h2>
+                  <p className="mt-2 text-sm text-site-muted">{order.customerName} · {order.customerEmail}</p>
+                  <p className="mt-2 text-sm">{getOrderStatusLabel(order.orderStatus)} · {formatOrderPrice(order.orderTotalPrice)}</p>
                 </div>
-
-                <div className="flex flex-wrap gap-3">
-                  <Link
-                    to={orderSearchUrl(request.orderNumber)}
-                    className="rounded-sm border border-site-green-dark px-4 py-2.5 text-sm font-semibold text-site-green-dark hover:bg-site-surface-soft"
-                  >
-                    Kapcsolódó rendelés
-                  </Link>
-                  {request.status === 1 && (
-                    <button
-                      type="button"
-                      onClick={() => void markHandled(request)}
-                      disabled={handlingId === request.id}
-                      className="rounded-sm bg-site-green px-4 py-2.5 text-sm font-semibold text-white hover:bg-site-green-hover disabled:cursor-wait disabled:opacity-60"
-                    >
+                <Link to={orderSearchUrl(order.orderNumber)} className="rounded-sm border border-site-green-dark px-4 py-2.5 text-sm font-semibold text-site-green-dark hover:bg-site-surface-soft">Kapcsolódó rendelés</Link>
+              </div>
+              <ol className="mt-5 space-y-4" aria-label="Rendeléshez kapcsolódó üzenetek">
+                {thread.messages.map(request => <li key={request.id} className="rounded-sm border border-site-border p-4">
+                  <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
+                    <div>
+                      <time dateTime={request.requestedAtUtc}>{DATE.format(parseApiDate(request.requestedAtUtc))}</time>
+                      <span className="ml-3 font-semibold">{requestStatusLabels[request.status]}</span>
+                    </div>
+                    {request.status === 1 && <button type="button" onClick={() => void markHandled(request)}
+                      disabled={handlingId !== null} className="rounded-sm bg-site-green px-4 py-2 text-white disabled:opacity-60">
                       {handlingId === request.id ? "Mentés..." : "Feldolgozva"}
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              <dl className="mt-5 grid gap-4 rounded-sm bg-site-surface-soft p-4 text-sm sm:grid-cols-3">
-                <div>
-                  <dt className="font-semibold text-site-heading">Rendelés állapota</dt>
-                  <dd className="mt-1 text-site-text">{getOrderStatusLabel(request.orderStatus)}</dd>
-                </div>
-                <div>
-                  <dt className="font-semibold text-site-heading">Rendelés összege</dt>
-                  <dd className="mt-1 text-site-text">{formatOrderPrice(request.orderTotalPrice)}</dd>
-                </div>
-                <div>
-                  <dt className="font-semibold text-site-heading">Beérkezett</dt>
-                  <dd className="mt-1 text-site-text">{DATE.format(new Date(request.requestedAtUtc))}</dd>
-                </div>
-              </dl>
-
-              <div className="mt-5 rounded-sm border border-site-border p-4 text-sm leading-6 text-site-text">
-                {request.reason}
-              </div>
-
-              {request.handledAtUtc && (
-                <p className="mt-3 text-xs text-site-muted">
-                  Feldolgozva: {DATE.format(new Date(request.handledAtUtc))}
-                </p>
-              )}
-            </article>
-          ))}
+                    </button>}
+                  </div>
+                  <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-site-text">{request.reason}</p>
+                  {request.status === 1 && <div className="mt-3">
+                    <label htmlFor={`response-${request.id}`} className="text-sm font-semibold">Válasz a vásárlónak (nem kötelező)</label>
+                    <p id={`response-hint-${request.id}`} className="text-xs text-site-muted">A vásárló ezt a választ látni fogja a rendelése részleteinél.</p>
+                    <textarea id={`response-${request.id}`} rows={3} maxLength={1000}
+                      disabled={handlingId !== null} value={responses[request.id] ?? ""}
+                      aria-describedby={`response-hint-${request.id} response-count-${request.id}`}
+                      onChange={event => setResponses(current => ({ ...current, [request.id]: event.target.value }))}
+                      className="mt-2 block w-full rounded-sm border border-site-border p-3 text-sm" />
+                    <p id={`response-count-${request.id}`} className="mt-1 text-right text-xs text-site-muted">{(responses[request.id] ?? "").length} / 1000</p>
+                  </div>}
+                  {request.adminResponse && <div className="mt-3 rounded-sm bg-site-surface-soft p-3 text-sm">
+                    <strong>Válasz a vásárlónak</strong><p className="mt-1 whitespace-pre-wrap">{request.adminResponse}</p>
+                  </div>}
+                  {request.handledAtUtc && <p className="mt-2 text-xs text-site-muted">Feldolgozva: {DATE.format(parseApiDate(request.handledAtUtc))}</p>}
+                </li>)}
+              </ol>
+            </article>;
+          })}
         </section>
       )}
       {!loading && requests.length > 0 && <AdminPagination page={current} totalPages={pages} onPageChange={setPage} />}

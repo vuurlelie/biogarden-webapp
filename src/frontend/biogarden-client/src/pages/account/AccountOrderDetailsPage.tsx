@@ -20,6 +20,9 @@ import { useModalFocus } from "../../shared/hooks/useModalFocus";
 import { getErrorMessage, hasErrorStatus } from "../../shared/utils/errorHandling";
 import NotFoundPage from "../public/NotFoundPage";
 
+const MAX_PENDING_ORDER_REQUESTS = 3;
+const MAX_REQUEST_LENGTH = 1000;
+
 export default function AccountOrderDetailsPage() {
   const { orderId } = useParams<{ orderId: string }>();
   const navigate = useNavigate();
@@ -37,13 +40,17 @@ export default function AccountOrderDetailsPage() {
   const [withdrawalValidationError, setWithdrawalValidationError] = useState("");
   const cancellationSuccessModalRef = useRef<HTMLElement | null>(null);
 
-  useModalFocus(cancellationSuccessModalRef, {
-    isOpen: Boolean(cancellationSuccess),
-    onClose: () => setCancellationSuccess(null),
-  });
+  useModalFocus(
+    cancellationSuccessModalRef,
+    {
+      isOpen: Boolean(cancellationSuccess),
+      onClose: () => setCancellationSuccess(null),
+    }
+  );
 
   async function handleWithdrawalRequest() {
-    if (!order) return;
+    if (!order || isRequestingWithdrawal || order.withdrawalRequests.filter(request => request.status === 1).length >= MAX_PENDING_ORDER_REQUESTS)
+      return;
     if (withdrawalReason.trim().length < 10) {
       setWithdrawalValidationError("Írd le legalább 10 karakterben a kérésedet.");
       return;
@@ -69,7 +76,8 @@ export default function AccountOrderDetailsPage() {
   }
 
   async function handleCancelOrder() {
-    if (!order) return;
+    if (!order)
+      return;
     setIsCancelling(true);
     setError("");
     try {
@@ -84,40 +92,49 @@ export default function AccountOrderDetailsPage() {
     }
   }
 
-  useEffect(() => {
-    let shouldIgnoreResult = false;
+  useEffect(
+    () => {
+      let shouldIgnoreResult = false;
 
-    if (!orderId) {
-      setNotFound(true);
-      setIsLoading(false);
-      return;
-    }
-
-    async function loadOrder() {
-      try {
-        const loadedOrder = await getOrderById(orderId!);
-        if (!shouldIgnoreResult) setOrder(loadedOrder);
-      } catch (loadError) {
-        if (shouldIgnoreResult) return;
-        if (hasErrorStatus(loadError, 401)) {
-          navigate(ROUTES.login, { replace: true });
-          return;
-        }
-        if (hasErrorStatus(loadError, 404)) {
-          setNotFound(true);
-          return;
-        }
-        setError(getErrorMessage(loadError, "A rendelés betöltése nem sikerült."));
-      } finally {
-        if (!shouldIgnoreResult) setIsLoading(false);
+      if (!orderId) {
+        setNotFound(true);
+        setIsLoading(false);
+        return;
       }
-    }
 
-    void loadOrder();
-    return () => {
-      shouldIgnoreResult = true;
-    };
-  }, [navigate, orderId]);
+      async function loadOrder() {
+        try {
+          const loadedOrder = await getOrderById(orderId!);
+          if (!shouldIgnoreResult)
+            setOrder(loadedOrder);
+        } catch (loadError) {
+          if (shouldIgnoreResult)
+            return;
+          if (hasErrorStatus(loadError, 401)) {
+            navigate(
+              ROUTES.login,
+              { replace: true }
+            );
+            return;
+          }
+          if (hasErrorStatus(loadError, 404)) {
+            setNotFound(true);
+            return;
+          }
+          setError(getErrorMessage(loadError, "A rendelés betöltése nem sikerült."));
+        } finally {
+          if (!shouldIgnoreResult)
+            setIsLoading(false);
+        }
+      }
+
+      void loadOrder();
+      return () => {
+        shouldIgnoreResult = true;
+      };
+    },
+    [navigate, orderId]
+  );
 
   if (isLoading) {
     return <div className="rounded-sm bg-site-surface-soft p-10 text-center shadow-md">Rendelés betöltése...</div>;
@@ -131,8 +148,8 @@ export default function AccountOrderDetailsPage() {
     return <div className="rounded-sm bg-site-danger-soft p-8 text-center text-site-danger shadow-md">{error || "A rendelés betöltése nem sikerült."}</div>;
   }
 
-  const latestWithdrawalRequest = order.withdrawalRequests[0] ?? null;
-  const hasPendingWithdrawalRequest = order.withdrawalRequests.some((request) => request.status === 1);
+  const pendingRequestCount = order.withdrawalRequests.filter((request) => request.status === 1).length;
+  const requestLimitReached = pendingRequestCount >= MAX_PENDING_ORDER_REQUESTS;
 
   return (
     <div className="rounded-sm border border-site-border bg-white p-6 shadow-lg sm:p-8">
@@ -246,12 +263,28 @@ export default function AccountOrderDetailsPage() {
           Ha a rendeléshez kapcsolódóan elállást, panaszt vagy egyéb fogyasztói kérést szeretnél jelezni,
           itt rögzítheted. A kérés nem automatikus lemondás, a feldolgozásáról külön egyeztetünk.
         </p>
-        {latestWithdrawalRequest && (
-          <div className="mt-4 rounded-sm bg-site-surface-soft p-4 text-sm text-site-text">
-            <strong>Folyamatban lévő / korábbi kérés:</strong>
-            <p className="mt-2">{latestWithdrawalRequest.reason}</p>
+        {order.withdrawalRequests.map(request => (
+          <div key={request.id} className={`mt-4 rounded-sm border p-4 text-sm text-site-text ${
+            request.status === 1 ? "border-amber-200 bg-amber-50" : "border-site-border bg-stone-50"
+          }`}>
+            <strong className={`flex items-center gap-2 ${request.status === 1 ? "text-amber-900" : "text-site-green-dark"}`}>
+              <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5 shrink-0">
+                {request.status === 1 ? <><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></>
+                  : <><circle cx="12" cy="12" r="9" /><path d="m8 12 3 3 5-6" /></>}
+              </svg>
+              {request.status === 1 ? "Feldolgozásra váró üzenet" : "Feldolgozott üzenet"}
+            </strong>
+            <p className="mt-2 whitespace-pre-wrap">{request.reason}</p>
+            {request.adminResponse && <div className="mt-3 border-t border-site-border pt-3">
+              <strong className="text-site-green-dark">Válaszunk</strong>
+              <p className="mt-1 whitespace-pre-wrap">{request.adminResponse}</p>
+            </div>}
           </div>
-        )}
+        ))}
+        <p className="mt-4 text-sm text-site-muted">
+          Feldolgozásra váró üzenetek: {pendingRequestCount} / {MAX_PENDING_ORDER_REQUESTS}.
+          {requestLimitReached ? " Újabb üzenetet a korábbiak feldolgozása után küldhetsz." : " További kérdést vagy kiegészítést is küldhetsz."}
+        </p>
         {withdrawalSuccess && (
           <div role="status" className="mt-4 rounded-sm bg-site-surface-soft p-3 text-sm font-semibold text-site-green-dark">
             {withdrawalSuccess}
@@ -259,35 +292,42 @@ export default function AccountOrderDetailsPage() {
         )}
         <label htmlFor="account-withdrawal-reason" className="mt-4 block text-sm font-semibold text-site-heading">
           Kérés leírása
+        </label>
           <textarea
             id="account-withdrawal-reason"
             value={withdrawalReason}
             onChange={(event) => {
               setWithdrawalReason(event.target.value);
-              if (withdrawalValidationError) setWithdrawalValidationError("");
+              if (withdrawalValidationError)
+                setWithdrawalValidationError("");
             }}
-            disabled={hasPendingWithdrawalRequest}
-            maxLength={1000}
+            disabled={requestLimitReached || isRequestingWithdrawal}
+            maxLength={MAX_REQUEST_LENGTH}
             rows={4}
             aria-invalid={Boolean(withdrawalValidationError)}
-            aria-describedby={withdrawalValidationError ? "account-withdrawal-reason-error" : undefined}
+            aria-describedby={`account-withdrawal-reason-count${withdrawalValidationError ? " account-withdrawal-reason-error" : ""}`}
             className={`mt-2 block w-full rounded-sm border bg-white px-3 py-2.5 disabled:cursor-not-allowed disabled:bg-site-surface-soft ${
               withdrawalValidationError ? "border-site-danger" : "border-site-border"
             }`}
           />
+        <div className="mt-1 flex items-baseline justify-between gap-4 text-sm font-normal text-site-muted">
           {withdrawalValidationError && (
-            <span id="account-withdrawal-reason-error" className="mt-1 block text-sm text-site-danger">
+            <span id="account-withdrawal-reason-error" className="min-w-0 flex-1 text-xs font-normal text-site-danger">
               {withdrawalValidationError}
             </span>
           )}
-        </label>
+          <span id="account-withdrawal-reason-count" className="ml-auto whitespace-nowrap tabular-nums">
+            <span aria-hidden="true">{withdrawalReason.trim().length} / {MAX_REQUEST_LENGTH}</span>
+            <span className="sr-only">{withdrawalReason.trim().length} karakter a megengedett {MAX_REQUEST_LENGTH} karakterből, a kezdő és záró szóközök nélkül.</span>
+          </span>
+        </div>
         <button
           type="button"
           onClick={() => void handleWithdrawalRequest()}
-          disabled={hasPendingWithdrawalRequest || isRequestingWithdrawal}
+          disabled={requestLimitReached || isRequestingWithdrawal}
           className="mt-4 rounded-sm bg-site-green px-5 py-2.5 font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {hasPendingWithdrawalRequest ? "Kérés feldolgozás alatt" : isRequestingWithdrawal ? "Küldés..." : "Kérés elküldése"}
+          {requestLimitReached ? "Üzenetküldési korlát elérve" : isRequestingWithdrawal ? "Küldés..." : "Kérés elküldése"}
         </button>
       </section>
 

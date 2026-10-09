@@ -21,15 +21,15 @@ public sealed class AdminStockTests : IAsyncLifetime
     public async Task BothEditPathsRejectStockBelowReservationsAndAllowTheirExactQuantity(bool inventory)
     {
         using var client = _app.Factory.CreateClient();
-        await using var db = _app.OpenDatabase();
+        await using var databaseContext = _app.OpenDatabase();
         var product = new Product { Name = "Reserved tea", Price = 1000, StockQuantity = 5, Available = true };
-        db.Products.Add(product);
-        await db.SaveChangesAsync();
+        databaseContext.Products.Add(product);
+        await databaseContext.SaveChangesAsync();
         (await client.PostAsJsonAsync("/api/cart/items", new AddCartItemDto { ProductId = product.Id, Quantity = 3 })).EnsureSuccessStatusCode();
         await Assert.ThrowsAsync<InvalidOperationException>(() => UpdateAsync(product.Id, 2, inventory));
-        Assert.Equal(5, (await db.Products.AsNoTracking().SingleAsync()).StockQuantity);
+        Assert.Equal(5, (await databaseContext.Products.AsNoTracking().SingleAsync()).StockQuantity);
         await UpdateAsync(product.Id, 3, inventory);
-        Assert.Equal(3, (await db.Products.AsNoTracking().SingleAsync()).StockQuantity);
+        Assert.Equal(3, (await databaseContext.Products.AsNoTracking().SingleAsync()).StockQuantity);
     }
 
     [SqlServerTheory]
@@ -38,17 +38,17 @@ public sealed class AdminStockTests : IAsyncLifetime
     public async Task ReservationAddedAfterStockReadCannotBeOverwritten(bool inventory)
     {
         using var client = _app.Factory.CreateClient();
-        await using var db = _app.OpenDatabase();
+        await using var databaseContext = _app.OpenDatabase();
         var product = new Product { Name = "Concurrent tea", Price = 1000, StockQuantity = 5, Available = true };
-        db.Products.Add(product);
-        await db.SaveChangesAsync();
+        databaseContext.Products.Add(product);
+        await databaseContext.SaveChangesAsync();
         // Preload the admin's tracked entity, then let a real cart mutation advance its rowversion.
         using var scope = _app.Factory.Services.CreateScope();
         await scope.ServiceProvider.GetRequiredService<Biogarden.DataAccess.Abstractions.IUnitOfWork>().ProductRepository.GetByIdAsync(product.Id);
         (await client.PostAsJsonAsync("/api/cart/items", new AddCartItemDto { ProductId = product.Id, Quantity = 3 })).EnsureSuccessStatusCode();
         await Assert.ThrowsAsync<DbUpdateConcurrencyException>(() => UpdateAsync(product.Id, 4, inventory, scope.ServiceProvider));
-        Assert.Equal(5, (await db.Products.AsNoTracking().SingleAsync()).StockQuantity);
-        Assert.Equal(3, await db.CartItems.SumAsync(x => x.Quantity));
+        Assert.Equal(5, (await databaseContext.Products.AsNoTracking().SingleAsync()).StockQuantity);
+        Assert.Equal(3, await databaseContext.CartItems.SumAsync(cartItem => cartItem.Quantity));
     }
 
     private async Task UpdateAsync(int id, int quantity, bool inventory, IServiceProvider? provider = null)

@@ -158,7 +158,8 @@ public sealed class CartSessionTests : IAsyncLifetime
         await WithCartAsync(service => service.AddItemAsync(null, "guest", new() { ProductId = productId, Quantity = 1 }));
         var results = await Task.WhenAll(
             WithCartAsync(service => service.MergeGuestCartIntoUserCartAsync(userId, "guest")),
-            WithCartAsync(service => service.MergeGuestCartIntoUserCartAsync(userId, "guest")));
+            WithCartAsync(service => service.MergeGuestCartIntoUserCartAsync(userId, "guest"))
+        );
         Assert.All(results, cart => Assert.Equal(2, cart.TotalItemCount));
         await using var database = _app.OpenDatabase();
         Assert.Equal(2, await database.CartItems.Where(item => !item.Cart!.IsCheckedOut).SumAsync(item => item.Quantity));

@@ -11,7 +11,8 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 export default function PictureGrid({ posts }: PictureGridProps) {
   const displayedPosts = [...posts].reverse().slice(0, 12);
 
-  if (displayedPosts.length === 0) return null;
+  if (displayedPosts.length === 0)
+    return null;
 
   return (
     <>

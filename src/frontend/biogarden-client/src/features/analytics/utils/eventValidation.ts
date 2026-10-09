@@ -20,10 +20,14 @@ const allowedPayloadKeys: Record<AnalyticsEventName, readonly string[]> = {
 };
 
 export function getCartValueBucket(value: number): string {
-  if (value <= 0) return "0";
-  if (value < 5_000) return "1-4999";
-  if (value < 10_000) return "5000-9999";
-  if (value < 20_000) return "10000-19999";
+  if (value <= 0)
+    return "0";
+  if (value < 5_000)
+    return "1-4999";
+  if (value < 10_000)
+    return "5000-9999";
+  if (value < 20_000)
+    return "10000-19999";
   return "20000+";
 }
 
@@ -35,7 +39,8 @@ export function sanitizeAnalyticsPayload(
   const sanitized: AnalyticsPayload = {};
 
   for (const [key, value] of Object.entries(payload)) {
-    if (!allowedKeys.has(key) || !isSafeAnalyticsValue(value)) continue;
+    if (!allowedKeys.has(key) || !isSafeAnalyticsValue(value))
+      continue;
     sanitized[key] = value;
   }
 
@@ -43,8 +48,10 @@ export function sanitizeAnalyticsPayload(
 }
 
 function isSafeAnalyticsValue(value: AnalyticsPayloadValue | undefined): value is AnalyticsPayloadValue {
-  if (value === null || typeof value === "boolean" || typeof value === "number") return true;
-  if (typeof value !== "string") return false;
+  if (value === null || typeof value === "boolean" || typeof value === "number")
+    return true;
+  if (typeof value !== "string")
+    return false;
 
   return !emailPattern.test(value) && !phonePattern.test(value);
 }

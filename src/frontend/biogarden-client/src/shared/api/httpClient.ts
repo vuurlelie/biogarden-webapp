@@ -43,10 +43,7 @@ export function buildApiUrl(path: string): string {
   return `${API_BASE_URL}${path}`;
 }
 
-export async function getApiErrorMessage(
-  response: Response,
-  fallbackMessage: string,
-): Promise<string> {
+export async function getApiErrorMessage(response: Response, fallbackMessage: string): Promise<string> {
   return (await readApiError(response, fallbackMessage)).message;
 }
 
@@ -54,16 +51,19 @@ async function readApiError(response: Response, fallbackMessage: string): Promis
   let body: ApiErrorBody = {};
   try {
     const parsed: unknown = await response.json();
-    if (parsed !== null && typeof parsed === "object") body = parsed as ApiErrorBody;
+    if (parsed !== null && typeof parsed === "object")
+      body = parsed as ApiErrorBody;
   } catch {
     // Proxy errors and empty responses need a usable fallback too.
   }
   const fieldErrors: Record<string, string[]> = {};
   if (body.errors && typeof body.errors === "object" && !Array.isArray(body.errors)) {
     for (const [key, value] of Object.entries(body.errors)) {
-      if (!Array.isArray(value)) continue;
+      if (!Array.isArray(value))
+        continue;
       const messages = value.filter((item): item is string => typeof item === "string" && item.length > 0);
-      if (messages.length) fieldErrors[key] = messages;
+      if (messages.length)
+        fieldErrors[key] = messages;
     }
   }
   const validationMessage = Object.values(fieldErrors).flat().join(" ");
@@ -95,14 +95,18 @@ export async function apiRequest(
   headers.set("X-Browser-Session", getAuthSession()?.sessionId ?? "guest");
 
 
-  if (jsonBody !== undefined) headers.set("Content-Type", "application/json");
+  if (jsonBody !== undefined)
+    headers.set("Content-Type", "application/json");
 
-  const response = await fetch(buildApiUrl(path), {
-    ...init,
-    credentials: "include",
-    body: jsonBody !== undefined ? JSON.stringify(jsonBody) : body,
-    headers,
-  });
+  const response = await fetch(
+    buildApiUrl(path),
+    {
+      ...init,
+      credentials: "include",
+      body: jsonBody !== undefined ? JSON.stringify(jsonBody) : body,
+      headers,
+    }
+  );
 
   // An old response must neither clear a newer login nor populate its screens.
   if (authSessionId && getAuthSession()?.sessionId !== authSessionId) {

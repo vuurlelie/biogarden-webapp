@@ -107,7 +107,8 @@ public sealed class GlsDeliveryPointDirectoryTests
         {
             Calls++;
             Started.TrySetResult();
-            if (Gate is not null) await Gate.Task.WaitAsync(cancellationToken);
+            if (Gate is not null)
+                await Gate.Task.WaitAsync(cancellationToken);
             return new(Fail ? HttpStatusCode.ServiceUnavailable : HttpStatusCode.OK) { Content = new StringContent(Body) };
         }
     }

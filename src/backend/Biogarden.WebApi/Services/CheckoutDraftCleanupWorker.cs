@@ -2,19 +2,20 @@ using Biogarden.BusinessLogic.Services;
 
 namespace Biogarden.WebApi.Services;
 
-public sealed class CheckoutDraftCleanupWorker(IServiceScopeFactory scopes, IConfiguration configuration,
-    ILogger<CheckoutDraftCleanupWorker> logger) : BackgroundService
+public sealed class CheckoutDraftCleanupWorker(IServiceScopeFactory scopes, IConfiguration configuration, ILogger<CheckoutDraftCleanupWorker> logger) : BackgroundService
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        if (!configuration.GetValue("CheckoutDrafts:CleanupEnabled", true)) return;
+        if (!configuration.GetValue("CheckoutDrafts:CleanupEnabled", true))
+            return;
         while (!stoppingToken.IsCancellationRequested)
         {
             try
             {
                 using var scope = scopes.CreateScope();
                 var count = await scope.ServiceProvider.GetRequiredService<CheckoutDraftService>().PurgeExpiredAsync(stoppingToken);
-                if (count > 0) logger.LogInformation("Removed personal data from {Count} expired checkout drafts.", count);
+                if (count > 0)
+                    logger.LogInformation("Removed personal data from {Count} expired checkout drafts.", count);
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested) { break; }
             catch (Exception exception)

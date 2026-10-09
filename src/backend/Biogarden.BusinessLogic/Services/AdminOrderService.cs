@@ -16,11 +16,7 @@ public sealed class AdminOrderService : IAdminOrderService
     private readonly IEmailService _emailService;
     private readonly IEmailTemplateService _emailTemplateService;
 
-    public AdminOrderService(
-        IAppDbContext databaseContext,
-        IUnitOfWork unitOfWork,
-        IEmailService emailService,
-        IEmailTemplateService emailTemplateService)
+    public AdminOrderService(IAppDbContext databaseContext, IUnitOfWork unitOfWork, IEmailService emailService, IEmailTemplateService emailTemplateService)
     {
         _databaseContext = databaseContext;
         _unitOfWork = unitOfWork;
@@ -32,9 +28,12 @@ public sealed class AdminOrderService : IAdminOrderService
     {
         var query = _databaseContext.Orders.AsNoTracking();
         var search = filter.Search?.Trim();
-        if (!string.IsNullOrEmpty(search)) query = query.Where(x => x.OrderNumber.Contains(search) || x.CustomerName.Contains(search) || x.CustomerEmail.Contains(search));
-        if (filter.Status.HasValue) query = query.Where(x => x.Status == filter.Status);
-        if (filter.Fulfillment.HasValue) query = query.Where(x => x.FulfillmentMethod == filter.Fulfillment);
+        if (!string.IsNullOrEmpty(search))
+            query = query.Where(candidateOrder => candidateOrder.OrderNumber.Contains(search) || candidateOrder.CustomerName.Contains(search) || candidateOrder.CustomerEmail.Contains(search));
+        if (filter.Status.HasValue)
+            query = query.Where(candidateOrder => candidateOrder.Status == filter.Status);
+        if (filter.Fulfillment.HasValue)
+            query = query.Where(candidateOrder => candidateOrder.FulfillmentMethod == filter.Fulfillment);
         var count = await query.CountAsync(cancellationToken);
         var page = AdminPaging.Page(filter, count);
         var orders = await query
@@ -48,25 +47,33 @@ public sealed class AdminOrderService : IAdminOrderService
 
     public async Task<OrderDto?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
     {
-        var order = await _databaseContext.Orders.AsNoTracking().Include(x => x.Items).Include(x => x.WithdrawalRequests)
-            .AsSplitQuery().SingleOrDefaultAsync(x => x.Id == id, cancellationToken);
+        var order = await _databaseContext.Orders.AsNoTracking().Include(candidateOrder => candidateOrder.Items).Include(candidateOrder => candidateOrder.WithdrawalRequests)
+            .AsSplitQuery().SingleOrDefaultAsync(candidateOrder => candidateOrder.Id == id, cancellationToken);
         return order?.ToDto();
     }
 
-    public async Task<PagedResultDto<AdminOrderWithdrawalRequestDto>> GetWithdrawalRequestsAsync(AdminWithdrawalListQuery filter, CancellationToken cancellationToken = default)
+    public async Task<PagedResultDto<AdminOrderRequestThreadDto>> GetWithdrawalRequestsAsync(AdminWithdrawalListQuery filter, CancellationToken cancellationToken = default)
     {
         var query = _databaseContext.OrderWithdrawalRequests.AsNoTracking();
         var search = filter.Search?.Trim();
-        if (!string.IsNullOrEmpty(search)) query = query.Where(x => x.CustomerName.Contains(search) || x.CustomerEmail.Contains(search) || x.Reason.Contains(search) || (x.Order != null && x.Order.OrderNumber.Contains(search)));
-        if (filter.Status.HasValue) query = query.Where(x => x.Status == filter.Status);
-        var count = await query.CountAsync(cancellationToken);
+        if (!string.IsNullOrEmpty(search))
+            query = query.Where(withdrawalRequest => withdrawalRequest.CustomerName.Contains(search) || withdrawalRequest.CustomerEmail.Contains(search) || withdrawalRequest.Reason.Contains(search) || (withdrawalRequest.Order != null && withdrawalRequest.Order.OrderNumber.Contains(search)));
+        if (filter.Status.HasValue)
+            query = query.Where(withdrawalRequest => withdrawalRequest.Status == filter.Status);
+        var groups = query.GroupBy(request => request.OrderId).Select(group => new
+        {
+            OrderId = group.Key,
+            Latest = group.Max(request => request.RequestedAtUtc)
+        });
+        var count = await groups.CountAsync(cancellationToken);
         var page = AdminPaging.Page(filter, count);
-        var items = await query
-            .Include(request => request.Order)
-            .OrderBy(request => request.Status)
-            .ThenByDescending(request => request.RequestedAtUtc)
-            .ThenBy(request => request.Id)
+        var orderIds = await groups.OrderByDescending(group => group.Latest).ThenBy(group => group.OrderId)
             .Skip((page - 1) * filter.NormalizedPageSize).Take(filter.NormalizedPageSize)
+            .Select(group => group.OrderId).ToListAsync(cancellationToken);
+        // Filters select conversations; include their complete history for context.
+        var messages = await _databaseContext.OrderWithdrawalRequests.AsNoTracking()
+            .Where(request => orderIds.Contains(request.OrderId))
+            .OrderBy(request => request.RequestedAtUtc).ThenBy(request => request.Id)
             .Select(request => new AdminOrderWithdrawalRequestDto
             {
                 Id = request.Id,
@@ -79,9 +86,16 @@ public sealed class AdminOrderService : IAdminOrderService
                 Reason = request.Reason,
                 Status = request.Status,
                 RequestedAtUtc = request.RequestedAtUtc,
+                AdminResponse = request.AdminResponse,
                 HandledAtUtc = request.HandledAtUtc
             })
             .ToListAsync(cancellationToken);
+        var byOrder = messages.ToLookup(message => message.OrderId);
+        var items = orderIds.Select(id => new AdminOrderRequestThreadDto
+        {
+            OrderId = id,
+            Messages = byOrder[id].ToList()
+        }).ToList();
         return new(items, page, filter.NormalizedPageSize, count);
     }
 
@@ -101,7 +115,8 @@ public sealed class AdminOrderService : IAdminOrderService
             throw new InvalidOperationException("Lemondáskor nem rögzíthető új fizetés.");
         if (nextPayment != order.PaymentStatus)
         {
-            if (actorId is null || actorId == Guid.Empty) throw new UnauthorizedAccessException("A módosító adminisztrátor azonosítója szükséges.");
+            if (actorId is null || actorId == Guid.Empty)
+                throw new UnauthorizedAccessException("A módosító adminisztrátor azonosítója szükséges.");
             var reason = changes.PaymentCorrectionReason?.Trim();
             if (string.IsNullOrWhiteSpace(reason) || reason.Length > 500)
                 throw new ArgumentException("A fizetési módosítás 1–500 karakteres indoklása kötelező.");
@@ -133,7 +148,8 @@ public sealed class AdminOrderService : IAdminOrderService
                 foreach (var item in order.Items)
                 {
                     var product = await _unitOfWork.ProductRepository.GetByIdAsync(item.ProductId, cancellationToken);
-                    if (product is not null) product.StockQuantity += item.Quantity;
+                    if (product is not null)
+                        product.StockQuantity += item.Quantity;
                 }
                 order.StockCommitted = false;
             }
@@ -150,22 +166,23 @@ public sealed class AdminOrderService : IAdminOrderService
                     ?? throw new InvalidOperationException("A rendelés egyik terméke már nem található.");
                 await StockUpdatePolicy.ValidateAsync(_unitOfWork, product, product.StockQuantity - item.Quantity, cancellationToken);
                 product.StockQuantity -= item.Quantity;
-                if (product.StockQuantity < 0) throw new InvalidOperationException($"Nincs elegendő készlet: {item.ProductName}.");
+                if (product.StockQuantity < 0)
+                    throw new InvalidOperationException($"Nincs elegendő készlet: {item.ProductName}.");
             }
             order.StockCommitted = true;
         }
 
         if (order.Status == OrderStatus.Pending && changes.Status >= OrderStatus.Confirmed && changes.Status != OrderStatus.Cancelled)
             order.ConfirmedAtUtc = DateTime.UtcNow;
+        if (order.Status != OrderStatus.Completed && changes.Status == OrderStatus.Completed)
+            order.CompletedAtUtc = DateTime.UtcNow;
         order.Status = changes.Status;
         order.PaymentStatus = nextPayment;
         var updatedOrder = order.ToDto();
 
         if (originalStatus != updatedOrder.Status)
         {
-            var message = _emailTemplateService.BuildOrderStatusChangedMessage(
-                updatedOrder.CustomerEmail,
-                updatedOrder);
+            var message = _emailTemplateService.BuildOrderStatusChangedMessage(updatedOrder.CustomerEmail, updatedOrder);
             _unitOfWork.OrderEmailRepository.Add(new Biogarden.DataAccess.Entities.OrderEmail
             {
                 Id = Guid.NewGuid(),
@@ -185,19 +202,23 @@ public sealed class AdminOrderService : IAdminOrderService
         return order.ToDto();
     }
 
-    public async Task<AdminOrderWithdrawalRequestDto> MarkWithdrawalRequestHandledAsync(
-        int requestId,
-        CancellationToken cancellationToken = default)
+    public async Task<AdminOrderWithdrawalRequestDto> MarkWithdrawalRequestHandledAsync(int requestId, CancellationToken cancellationToken = default, string? adminResponse = null)
     {
+        adminResponse = string.IsNullOrWhiteSpace(adminResponse) ? null : adminResponse.Trim();
+        if (adminResponse?.Length > 1000)
+            throw new ArgumentException("A válasz legfeljebb 1000 karakter lehet.");
         var request = await _databaseContext.OrderWithdrawalRequests
             .Include(item => item.Order)
             .SingleOrDefaultAsync(item => item.Id == requestId, cancellationToken)
             ?? throw new KeyNotFoundException("Withdrawal request not found.");
 
+        if (request.Status == OrderWithdrawalRequestStatus.Handled && request.AdminResponse != adminResponse)
+            throw new InvalidOperationException("A kérést már feldolgozták. Frissítsd az oldalt a mentett válasz megtekintéséhez.");
         if (request.Status != OrderWithdrawalRequestStatus.Handled)
         {
             request.Status = OrderWithdrawalRequestStatus.Handled;
             request.HandledAtUtc = DateTime.UtcNow;
+            request.AdminResponse = adminResponse;
             await _unitOfWork.SaveChangesAsync(cancellationToken);
         }
 
@@ -213,6 +234,7 @@ public sealed class AdminOrderService : IAdminOrderService
             Reason = request.Reason,
             Status = request.Status,
             RequestedAtUtc = request.RequestedAtUtc,
+            AdminResponse = request.AdminResponse,
             HandledAtUtc = request.HandledAtUtc
         };
     }

@@ -107,7 +107,8 @@ public sealed class ManagedImageTests : IDisposable
         Directory.CreateDirectory(_root);
         using var factory = CreateFactory();
         using var client = factory.CreateClient();
-        if (role is not null) client.DefaultRequestHeaders.Add("Test-Role", role);
+        if (role is not null)
+            client.DefaultRequestHeaders.Add("Test-Role", role);
         using var content = Multipart(ImageBytes(MagickFormat.Png), "photo.png", "image/png");
         Assert.Equal(status, (await client.PostAsync($"/api/admin/{category}/image", content)).StatusCode);
         Assert.Empty(Directory.GetFiles(_root, "*", SearchOption.AllDirectories));
@@ -189,8 +190,7 @@ public sealed class ManagedImageTests : IDisposable
         try
         {
             await entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
-            await Assert.ThrowsAsync<InvalidOperationException>(() => storage.SaveAsync(
-                Form(ImageBytes(MagickFormat.Png), "second.png", "image/png"), ImageCategory.Products, default));
+            await Assert.ThrowsAsync<InvalidOperationException>(() => storage.SaveAsync(Form(ImageBytes(MagickFormat.Png), "second.png", "image/png"), ImageCategory.Products, default));
         }
         finally { cancellation.Cancel(); }
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => first);
@@ -218,10 +218,10 @@ public sealed class ManagedImageTests : IDisposable
     }
 
     private Microsoft.AspNetCore.Mvc.Testing.WebApplicationFactory<Program> CreateFactory()
-        => new BiogardenWebApiFactory().WithWebHostBuilder(builder =>
+        => new BiogardenWebApiFactory().WithWebHostBuilder(webHostBuilder =>
         {
-            builder.UseWebRoot(_root);
-            builder.ConfigureTestServices(services => services.AddAuthentication(options =>
+            webHostBuilder.UseWebRoot(_root);
+            webHostBuilder.ConfigureTestServices(services => services.AddAuthentication(options =>
             {
                 options.DefaultAuthenticateScheme = "ImageTest";
                 options.DefaultChallengeScheme = "ImageTest";
@@ -261,7 +261,7 @@ public sealed class ManagedImageTests : IDisposable
         using (var compressed = new System.IO.Compression.ZLibStream(pixels, System.IO.Compression.CompressionLevel.SmallestSize, true))
         {
             var row = new byte[width + 1];
-            for (var i = 0; i < height; i++) compressed.Write(row);
+            for (var index = 0; index < height; index++) compressed.Write(row);
         }
         Chunk("IDAT", pixels.ToArray());
         Chunk("IEND", []);
@@ -287,7 +287,8 @@ public sealed class ManagedImageTests : IDisposable
 
     public void Dispose()
     {
-        if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true);
+        if (Directory.Exists(_root))
+            Directory.Delete(_root, recursive: true);
     }
     private sealed record ImageResponse(string Path);
     private sealed class WaitingStream(TaskCompletionSource entered) : MemoryStream
@@ -326,7 +327,8 @@ public sealed class ManagedImageTests : IDisposable
         protected override Task<AuthenticateResult> HandleAuthenticateAsync()
         {
             var role = Request.Headers["Test-Role"].ToString();
-            if (string.IsNullOrEmpty(role)) return Task.FromResult(AuthenticateResult.NoResult());
+            if (string.IsNullOrEmpty(role))
+                return Task.FromResult(AuthenticateResult.NoResult());
             var identity = new ClaimsIdentity([new Claim(ClaimTypes.NameIdentifier, Guid.NewGuid().ToString()), new Claim(ClaimTypes.Role, role)], Scheme.Name);
             return Task.FromResult(AuthenticateResult.Success(new AuthenticationTicket(new ClaimsPrincipal(identity), Scheme.Name)));
         }

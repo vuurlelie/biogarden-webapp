@@ -12,17 +12,11 @@ public class OrderItemConfiguration : IEntityTypeConfiguration<OrderItem>
             "OrderItems",
             tableBuilder =>
             {
-                tableBuilder.HasCheckConstraint(
-                    "CK_OrderItems_Quantity_Positive",
-                    "[Quantity] > 0");
+                tableBuilder.HasCheckConstraint("CK_OrderItems_Quantity_Positive", "[Quantity] > 0");
 
-                tableBuilder.HasCheckConstraint(
-                    "CK_OrderItems_UnitPrice_NonNegative",
-                    "[UnitPrice] >= 0");
+                tableBuilder.HasCheckConstraint("CK_OrderItems_UnitPrice_NonNegative", "[UnitPrice] >= 0");
 
-                tableBuilder.HasCheckConstraint(
-                    "CK_OrderItems_LineTotal_NonNegative",
-                    "[LineTotal] >= 0");
+                tableBuilder.HasCheckConstraint("CK_OrderItems_LineTotal_NonNegative", "[LineTotal] >= 0");
             });
 
         orderItemBuilder.HasKey(orderItem => orderItem.Id);

@@ -1,3 +1,4 @@
+import type { PagedResult } from "../../../shared/types/pagination";
 import {
   clearAuthSession,
   getAuthSession,
@@ -79,7 +80,10 @@ export async function getCheckoutOrder(orderId: string, signal?: AbortSignal): P
 }
 const toOrdersError = (message: string, status: number) => new OrdersApiError(message, status);
 
-async function ordersRequest(path = "", init: Partial<ApiRequestOptions> = {}): Promise<Response> {
+async function ordersRequest(
+  path = "",
+  init: Partial<ApiRequestOptions> = {}
+): Promise<Response> {
   const auth = getAuthSession();
 
   if (!auth) {
@@ -95,9 +99,14 @@ async function ordersRequest(path = "", init: Partial<ApiRequestOptions> = {}): 
   });
 }
 
-export async function getOrders(): Promise<Order[]> {
-  const response = await ordersRequest();
-  return response.json() as Promise<Order[]>;
+export async function getOrders(query: { view?: string; page?: number; search?: string; year?: string; pageSize?: number } = {}): Promise<PagedResult<Order>> {
+  const params = new URLSearchParams({ view: query.view ?? "recent", page: String(query.page ?? 1), pageSize: String(query.pageSize ?? 10) });
+  if (query.search?.trim())
+    params.set("search", query.search.trim());
+  if (query.year)
+    params.set("year", query.year);
+  const response = await ordersRequest(`?${params}`);
+  return response.json() as Promise<PagedResult<Order>>;
 }
 
 export async function getOrderById(orderId: string): Promise<Order> {
@@ -126,16 +135,19 @@ export async function requestPublicOrderWithdrawal(request: {
   customerEmail: string;
   reason: string;
 }) {
-  const response = await apiRequest("/api/orders/withdrawal-requests", {
-    fallbackMessage: ORDERS_FALLBACK_MESSAGE,
-    method: "POST",
-    jsonBody: {
-      orderNumber: request.orderNumber.trim(),
-      customerEmail: request.customerEmail.trim(),
-      reason: request.reason.trim(),
-    },
-    toError: toOrdersError,
-  });
+  const response = await apiRequest(
+    "/api/orders/withdrawal-requests",
+    {
+      fallbackMessage: ORDERS_FALLBACK_MESSAGE,
+      method: "POST",
+      jsonBody: {
+        orderNumber: request.orderNumber.trim(),
+        customerEmail: request.customerEmail.trim(),
+        reason: request.reason.trim(),
+      },
+      toError: toOrdersError,
+    }
+  );
 
   return response.json() as Promise<Order["withdrawalRequests"][number]>;
 }
@@ -143,15 +155,18 @@ export async function requestPublicOrderWithdrawal(request: {
 export async function createOrder(order: CreateOrderRequest): Promise<Order> {
   const auth = getAuthSession();
 
-  const response = await apiRequest("/api/orders", {
-    authSessionId: auth?.sessionId,
-    fallbackMessage: ORDERS_FALLBACK_MESSAGE,
-    method: "POST",
-    credentials: "include",
-    jsonBody: order,
-    onUnauthorized: clearAuthSession,
-    toError: toOrdersError,
-  });
+  const response = await apiRequest(
+    "/api/orders",
+    {
+      authSessionId: auth?.sessionId,
+      fallbackMessage: ORDERS_FALLBACK_MESSAGE,
+      method: "POST",
+      credentials: "include",
+      jsonBody: order,
+      onUnauthorized: clearAuthSession,
+      toError: toOrdersError,
+    }
+  );
 
   return response.json() as Promise<Order>;
 }
@@ -171,10 +186,7 @@ export async function createSumUpCheckout(orderId: string): Promise<SumUpCheckou
   return response.json() as Promise<SumUpCheckout>;
 }
 
-export async function getPublicOrderPaymentStatus(
-  orderId: string,
-  sumUpCheckoutReference: string,
-): Promise<PublicOrderPaymentStatus> {
+export async function getPublicOrderPaymentStatus(orderId: string, sumUpCheckoutReference: string): Promise<PublicOrderPaymentStatus> {
   const params = new URLSearchParams({ sumUpCheckoutReference });
   const response = await apiRequest(
     `/api/orders/${encodeURIComponent(orderId)}/payment-status?${params.toString()}`,

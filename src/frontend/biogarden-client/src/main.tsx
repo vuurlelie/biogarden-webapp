@@ -7,7 +7,8 @@ import { AnalyticsProvider } from "./features/analytics/context/AnalyticsContext
 import { refreshAuthSession, startAuthSessionSync } from "./features/auth/utils/authStorage";
 
 const stopAuthSync = startAuthSessionSync();
-if (import.meta.hot) import.meta.hot.dispose(stopAuthSync);
+if (import.meta.hot)
+  import.meta.hot.dispose(stopAuthSync);
 
 const root = ReactDOM.createRoot(document.getElementById("root")!);
 async function start() {

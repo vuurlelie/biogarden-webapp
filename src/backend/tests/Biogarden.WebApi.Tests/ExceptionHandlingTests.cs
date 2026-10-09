@@ -38,23 +38,25 @@ public sealed class ExceptionHandlingTests
         using var body = new MemoryStream();
         context.Response.Body = body;
         var alerts = new RecordingAlerts();
-        var middleware = new ExceptionHandlingMiddleware(_ => Task.FromException(exception),
-            NullLogger<ExceptionHandlingMiddleware>.Instance);
+        var middleware = new ExceptionHandlingMiddleware(_ => Task.FromException(exception), NullLogger<ExceptionHandlingMiddleware>.Instance);
 
         await middleware.Invoke(context, alerts);
 
         Assert.Equal(expectedStatus, context.Response.StatusCode);
         body.Position = 0;
-        var response = await JsonSerializer.DeserializeAsync<ApiErrorResponse>(body,
-            new JsonSerializerOptions(JsonSerializerDefaults.Web));
+        var response = await JsonSerializer.DeserializeAsync<ApiErrorResponse>(body, new JsonSerializerOptions(JsonSerializerDefaults.Web));
         Assert.NotNull(response);
         Assert.Equal("test-trace", response.TraceId);
         Assert.Equal(expectedStatus, response.Status);
         Assert.DoesNotContain(internalDetail, response.Detail);
-        if (failure is "validation" or "business-conflict" or "payment-recovery") Assert.Equal(exception.Message, response.Detail);
-        else Assert.False(string.IsNullOrWhiteSpace(response.Detail));
-        if (expectedStatus == 500) Assert.Same(exception, Assert.Single(alerts.Items).Exception);
-        else Assert.Empty(alerts.Items);
+        if (failure is "validation" or "business-conflict" or "payment-recovery")
+            Assert.Equal(exception.Message, response.Detail);
+        else
+            Assert.False(string.IsNullOrWhiteSpace(response.Detail));
+        if (expectedStatus == 500)
+            Assert.Same(exception, Assert.Single(alerts.Items).Exception);
+        else
+            Assert.Empty(alerts.Items);
     }
 
     private sealed class RecordingAlerts : IErrorAlertService

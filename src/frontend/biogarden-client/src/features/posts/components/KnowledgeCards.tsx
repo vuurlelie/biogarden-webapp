@@ -1,3 +1,4 @@
+import { SITE_TIME_ZONE, parseApiDate } from "../../../shared/utils/dateTime";
 import { managedImage } from "../../../shared/utils/managedImage";
 import { NavLink } from "react-router";
 import type { Post } from "../types/post.types";
@@ -70,10 +71,13 @@ export default function KnowledgeCards({ posts }: KnowledgeCardsProps) {
                       Volf Gábor
                     </span>
                     , Közzététel:{" "}
-                    {new Date(post.publishedAt).toLocaleString("hu-HU", {
-                      dateStyle: "short",
-                      timeStyle: "short",
-                    })}
+                    {parseApiDate(post.publishedAt).toLocaleString(
+                      "hu-HU",
+                      { timeZone: SITE_TIME_ZONE,
+                        dateStyle: "short",
+                        timeStyle: "short",
+                      }
+                    )}
                   </div>
 
                   <div className="pb-5 text-justify text-site-text">

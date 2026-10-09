@@ -14,5 +14,6 @@ public sealed class AdminOrderWithdrawalRequestDto
     public string Reason { get; init; } = string.Empty;
     public OrderWithdrawalRequestStatus Status { get; init; }
     public DateTime RequestedAtUtc { get; init; }
+    public string? AdminResponse { get; init; }
     public DateTime? HandledAtUtc { get; init; }
 }

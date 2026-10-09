@@ -5,8 +5,10 @@ export const GLS_WIDGET_TIMEOUT_MS = 20_000;
 let pending: Promise<void> | undefined;
 
 export function loadGlsWidget(): Promise<void> {
-  if (customElements.get(GLS_WIDGET_TAG)) return Promise.resolve();
-  if (pending) return pending;
+  if (customElements.get(GLS_WIDGET_TAG))
+    return Promise.resolve();
+  if (pending)
+    return pending;
   pending = new Promise<void>((resolve, reject) => {
     const script = document.createElement("script");
     script.src = GLS_WIDGET_URL;

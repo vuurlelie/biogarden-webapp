@@ -4,14 +4,20 @@ using Microsoft.Extensions.Logging;
 
 namespace Biogarden.BusinessLogic.Services;
 
-public sealed class NotificationEmailDispatcher(INotificationEmailRepository repository, IEmailService sender, NotificationMessageFactory messages,
-    TimeProvider timeProvider, ILogger<NotificationEmailDispatcher> logger)
+public sealed class NotificationEmailDispatcher(
+    INotificationEmailRepository repository,
+    IEmailService sender,
+    NotificationMessageFactory messages,
+    TimeProvider timeProvider,
+    ILogger<NotificationEmailDispatcher> logger
+)
 {
     public async Task<bool> DispatchNextAsync(CancellationToken token)
     {
         await repository.ExpireAsync(timeProvider.GetUtcNow().UtcDateTime, token);
         var email = await repository.TryClaimAsync(timeProvider.GetUtcNow().UtcDateTime, token);
-        if (email is null) return false;
+        if (email is null)
+            return false;
         try
         {
             using var timeout = CancellationTokenSource.CreateLinkedTokenSource(token);

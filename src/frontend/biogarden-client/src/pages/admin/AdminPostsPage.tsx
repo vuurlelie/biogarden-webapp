@@ -1,3 +1,4 @@
+import { SITE_TIME_ZONE, parseApiDate } from "../../shared/utils/dateTime";
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
 import {
   deleteAdminPost,
@@ -24,13 +25,16 @@ function imageUrl(path: string): string {
 }
 
 function formatDate(value: string): string {
-  return new Intl.DateTimeFormat("hu-HU", {
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(new Date(value));
+  return new Intl.DateTimeFormat(
+    "hu-HU",
+    { timeZone: SITE_TIME_ZONE,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+    }
+  ).format(parseApiDate(value));
 }
 
 function excerpt(article: string): string {
@@ -55,56 +59,73 @@ export default function AdminPostsPage() {
   const [deleting, setDeleting] = useState(false);
   const latestLoadId = useRef(0);
 
-  const loadPosts = useCallback(async () => {
-    const loadId = latestLoadId.current + 1;
-    latestLoadId.current = loadId;
-    const isStaleLoad = () => latestLoadId.current !== loadId;
+  const loadPosts = useCallback(
+    async () => {
+      const loadId = latestLoadId.current + 1;
+      latestLoadId.current = loadId;
+      const isStaleLoad = () => latestLoadId.current !== loadId;
 
-    setLoading(true);
-    setError(null);
+      setLoading(true);
+      setError(null);
 
-    try {
-      const result = await getAdminPostPage(
-        {
-          page,
-          pageSize: PAGE_SIZE,
-          search,
-          category,
-          status,
-        },
-      );
-      if (isStaleLoad()) return;
+      try {
+        const result = await getAdminPostPage(
+          {
+            page,
+            pageSize: PAGE_SIZE,
+            search,
+            category,
+            status,
+          },
+        );
+        if (isStaleLoad())
+          return;
 
-      setPosts(result.items);
-      setTotalCount(result.totalCount);
-      setTotalPages(result.totalPages);
-    } catch (loadError) {
-      if (isStaleLoad()) return;
+        setPosts(result.items);
+        setTotalCount(result.totalCount);
+        setTotalPages(result.totalPages);
+      } catch (loadError) {
+        if (isStaleLoad())
+          return;
 
-      setError(getErrorMessage(loadError, "A bejegyzések betöltése nem sikerült."));
-    } finally {
-      if (!isStaleLoad()) setLoading(false);
-    }
-  }, [category, page, search, status]);
+        setError(getErrorMessage(loadError, "A bejegyzések betöltése nem sikerült."));
+      } finally {
+        if (!isStaleLoad())
+          setLoading(false);
+      }
+    },
+    [category, page, search, status]
+  );
 
-  useEffect(() => {
-    void loadPosts();
-  }, [loadPosts]);
+  useEffect(
+    () => {
+      void loadPosts();
+    },
+    [loadPosts]
+  );
 
-  useEffect(() => {
-    if (!message) return;
-    const timeout = window.setTimeout(() => setMessage(null), 4000);
-    return () => window.clearTimeout(timeout);
-  }, [message]);
+  useEffect(
+    () => {
+      if (!message)
+        return;
+      const timeout = window.setTimeout(() => setMessage(null), 4000);
+      return () => window.clearTimeout(timeout);
+    },
+    [message]
+  );
 
-  useEffect(() => {
-    if (page > totalPages) {
-      setPage(totalPages);
-    }
-  }, [page, totalPages]);
+  useEffect(
+    () => {
+      if (page > totalPages) {
+        setPage(totalPages);
+      }
+    },
+    [page, totalPages]
+  );
 
   async function confirmDelete() {
-    if (!deletingPost) return;
+    if (!deletingPost)
+      return;
 
     setDeleting(true);
     setError(null);

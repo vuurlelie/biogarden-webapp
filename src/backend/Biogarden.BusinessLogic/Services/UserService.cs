@@ -18,11 +18,7 @@ public class UserService : IUserService
     private readonly IAppDbContext _databaseContext;
     private readonly IAccountLifecycleOperations _lifecycle;
 
-    public UserService(
-        UserManager<ApplicationUser> userManager,
-        IUnitOfWork unitOfWork,
-        IAppDbContext databaseContext,
-        IAccountLifecycleOperations lifecycle)
+    public UserService(UserManager<ApplicationUser> userManager, IUnitOfWork unitOfWork, IAppDbContext databaseContext, IAccountLifecycleOperations lifecycle)
     {
         _userManager = userManager;
         _unitOfWork = unitOfWork;
@@ -52,9 +48,7 @@ public class UserService : IUserService
         };
     }
 
-    public async Task UpdateProfileAsync(
-        Guid userId,
-        UpdateUserProfileDto dto)
+    public async Task UpdateProfileAsync(Guid userId, UpdateUserProfileDto updateUserProfile)
     {
         var user = await _userManager.FindByIdAsync(userId.ToString());
 
@@ -64,48 +58,48 @@ public class UserService : IUserService
                 $"User with id {userId} was not found.");
         }
 
-        if (!Enum.IsDefined(dto.CustomerType))
+        if (!Enum.IsDefined(updateUserProfile.CustomerType))
         {
             throw new ArgumentException("Érvénytelen vásárlói típus.");
         }
 
-        var companyName = NormalizeOptional(dto.CompanyName);
-        var taxNumber = NormalizeOptional(dto.TaxNumber);
+        var companyName = NormalizeOptional(updateUserProfile.CompanyName);
+        var taxNumber = NormalizeOptional(updateUserProfile.TaxNumber);
 
         if (taxNumber is not null && !IsValidTaxNumber(taxNumber))
         {
             throw new ArgumentException("Az adószám formátuma hibás. Példa: 12345678-1-12.");
         }
 
-        if (dto.CustomerType == CustomerType.Private)
+        if (updateUserProfile.CustomerType == CustomerType.Private)
         {
-            dto.PrintedInvoiceRequested = false;
+            updateUserProfile.PrintedInvoiceRequested = false;
             user.BillingAddressId = null;
         }
 
-        user.CustomerType = dto.CustomerType;
-        user.FirstName = NormalizeOptional(dto.FirstName);
-        user.LastName = NormalizeOptional(dto.LastName);
-        user.PhoneNumber = NormalizeOptional(dto.PhoneNumber);
+        user.CustomerType = updateUserProfile.CustomerType;
+        user.FirstName = NormalizeOptional(updateUserProfile.FirstName);
+        user.LastName = NormalizeOptional(updateUserProfile.LastName);
+        user.PhoneNumber = NormalizeOptional(updateUserProfile.PhoneNumber);
         user.CompanyName = companyName;
         user.TaxNumber = taxNumber;
-        user.PrintedInvoiceRequested = dto.PrintedInvoiceRequested;
+        user.PrintedInvoiceRequested = updateUserProfile.PrintedInvoiceRequested;
 
         var result = await _userManager.UpdateAsync(user);
 
         if (!result.Succeeded)
         {
             throw new InvalidOperationException(
-                string.Join(", ", result.Errors.Select(e => e.Description)));
+                string.Join(", ", result.Errors.Select(identityError => identityError.Description)));
         }
     }
 
     public async Task<UserAddressesDto?> GetAddressesAsync(Guid userId)
     {
         var user = await _userManager.Users
-            .Include(u => u.ShippingAddress)
-            .Include(u => u.BillingAddress)
-            .FirstOrDefaultAsync(u => u.Id == userId);
+            .Include(candidateUser => candidateUser.ShippingAddress)
+            .Include(candidateUser => candidateUser.BillingAddress)
+            .FirstOrDefaultAsync(candidateUser => candidateUser.Id == userId);
 
         if (user is null)
         {
@@ -119,14 +113,12 @@ public class UserService : IUserService
         };
     }
 
-    public async Task UpdateAddressesAsync(
-        Guid userId,
-        UpdateUserAddressesDto dto)
+    public async Task UpdateAddressesAsync(Guid userId, UpdateUserAddressesDto updateUserAddresses)
     {
         var user = await _userManager.Users
-            .Include(u => u.ShippingAddress)
-            .Include(u => u.BillingAddress)
-            .FirstOrDefaultAsync(u => u.Id == userId);
+            .Include(candidateUser => candidateUser.ShippingAddress)
+            .Include(candidateUser => candidateUser.BillingAddress)
+            .FirstOrDefaultAsync(candidateUser => candidateUser.Id == userId);
 
         if (user is null)
         {
@@ -137,16 +129,14 @@ public class UserService : IUserService
         var previousShippingAddressId = user.ShippingAddressId;
         Address? shippingAddress = null;
 
-        if (dto.ShippingAddress is null)
+        if (updateUserAddresses.ShippingAddress is null)
         {
             user.ShippingAddressId = null;
         }
         else
         {
-            ValidateAddress(dto.ShippingAddress);
-            shippingAddress = await UpsertAddressAsync(
-                user.ShippingAddress,
-                dto.ShippingAddress);
+            ValidateAddress(updateUserAddresses.ShippingAddress);
+            shippingAddress = await UpsertAddressAsync(user.ShippingAddress, updateUserAddresses.ShippingAddress);
 
             await _unitOfWork.SaveChangesAsync();
             user.ShippingAddressId = shippingAddress.Id;
@@ -156,26 +146,24 @@ public class UserService : IUserService
         {
             user.BillingAddressId = null;
         }
-        else if (dto.UseShippingAsBilling)
+        else if (updateUserAddresses.UseShippingAsBilling)
         {
             user.BillingAddressId = shippingAddress?.Id;
         }
         else
         {
-            if (dto.BillingAddress is null)
+            if (updateUserAddresses.BillingAddress is null)
             {
                 user.BillingAddressId = null;
             }
             else
             {
-                ValidateAddress(dto.BillingAddress);
+                ValidateAddress(updateUserAddresses.BillingAddress);
 
                 var existingBillingAddress = user.BillingAddressId == previousShippingAddressId
                     ? null
                     : user.BillingAddress;
-                var billingAddress = await UpsertAddressAsync(
-                    existingBillingAddress,
-                    dto.BillingAddress);
+                var billingAddress = await UpsertAddressAsync(existingBillingAddress, updateUserAddresses.BillingAddress);
 
                 await _unitOfWork.SaveChangesAsync();
                 user.BillingAddressId = billingAddress.Id;
@@ -187,17 +175,14 @@ public class UserService : IUserService
         if (!result.Succeeded)
         {
             throw new InvalidOperationException(
-                string.Join(", ", result.Errors.Select(e => e.Description)));
+                string.Join(", ", result.Errors.Select(identityError => identityError.Description)));
         }
     }
 
     public Task<AccountLifecycleResultDto> RequestAccountLifecycleAsync(Guid userId, AccountLifecycleRequestDto request, CancellationToken cancellationToken = default)
         => NotificationTransaction.RunAsync(_databaseContext, () => RequestAccountLifecycleAsyncCore(userId, request, cancellationToken), cancellationToken);
 
-    private async Task<AccountLifecycleResultDto> RequestAccountLifecycleAsyncCore(
-        Guid userId,
-        AccountLifecycleRequestDto request,
-        CancellationToken cancellationToken = default)
+    private async Task<AccountLifecycleResultDto> RequestAccountLifecycleAsyncCore(Guid userId, AccountLifecycleRequestDto request, CancellationToken cancellationToken = default)
     {
         var user = await _userManager.Users
             .Include(item => item.ShippingAddress)
@@ -223,7 +208,8 @@ public class UserService : IUserService
                 activeOrderCount > 0
                     ? "A fiókodat deaktiváltuk. A folyamatban lévő rendelésedet továbbra is teljesítjük, de a fiókba már nem lehet bejelentkezni."
                     : "A fiókodat deaktiváltuk. A fiókba már nem lehet bejelentkezni, de kérésre újraaktiválható.",
-                cancellationToken);
+                cancellationToken
+            );
 
             return new AccountLifecycleResultDto
             {
@@ -268,7 +254,8 @@ public class UserService : IUserService
             request.Type,
             NormalizeOptional(request.Reason),
             "A fiók mentett személyes adatait anonimizáltuk. A korábbi rendelésekhez tartozó, kötelezően megőrzendő számlázási és rendelési adatok változatlanul megmaradnak.",
-            cancellationToken);
+            cancellationToken
+        );
 
         return new AccountLifecycleResultDto
         {
@@ -300,9 +287,7 @@ public class UserService : IUserService
         }
     }
 
-    private async Task<Address> UpsertAddressAsync(
-        Address? existingAddress,
-        AddressCreateDto changes)
+    private async Task<Address> UpsertAddressAsync(Address? existingAddress, AddressCreateDto changes)
     {
         if (existingAddress is null)
         {
@@ -357,9 +342,7 @@ public class UserService : IUserService
 
     private static bool IsValidTaxNumber(string taxNumber)
     {
-        return System.Text.RegularExpressions.Regex.IsMatch(
-            taxNumber,
-            @"^\d{8}(-\d-\d{2})?$");
+        return System.Text.RegularExpressions.Regex.IsMatch(taxNumber, @"^\d{8}(-\d-\d{2})?$");
     }
 
     private static readonly OrderStatus[] ActiveOrderStatuses =
@@ -369,19 +352,10 @@ public class UserService : IUserService
         OrderStatus.Shipped
     ];
 
-    private async Task AddPendingLifecycleRequestAsync(
-        Guid userId,
-        AccountLifecycleRequestType type,
-        string? reason,
-        string message,
-        CancellationToken cancellationToken)
+    private async Task AddPendingLifecycleRequestAsync(Guid userId, AccountLifecycleRequestType type, string? reason, string message, CancellationToken cancellationToken)
     {
         var existing = await _databaseContext.AccountLifecycleRequests
-            .FirstOrDefaultAsync(
-                request => request.UserId == userId
-                    && request.Type == type
-                    && request.Status == AccountLifecycleRequestStatus.Pending,
-                cancellationToken);
+            .FirstOrDefaultAsync(request => request.UserId == userId && request.Type == type && request.Status == AccountLifecycleRequestStatus.Pending, cancellationToken);
 
         if (existing is not null)
         {
@@ -402,12 +376,7 @@ public class UserService : IUserService
         await _databaseContext.SaveChangesAsync(cancellationToken);
     }
 
-    private async Task AddCompletedLifecycleRequestAsync(
-        Guid userId,
-        AccountLifecycleRequestType type,
-        string? reason,
-        string message,
-        CancellationToken cancellationToken)
+    private async Task AddCompletedLifecycleRequestAsync(Guid userId, AccountLifecycleRequestType type, string? reason, string message, CancellationToken cancellationToken)
     {
         _databaseContext.AccountLifecycleRequests.Add(new AccountLifecycleRequest
         {
