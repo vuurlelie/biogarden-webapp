@@ -9,6 +9,6 @@ public interface IAdminOrderService
     Task<PagedResultDto<OrderDto>> GetPageAsync(AdminOrderListQuery query, CancellationToken cancellationToken = default);
     Task<PagedResultDto<AdminOrderRequestThreadDto>> GetWithdrawalRequestsAsync(AdminWithdrawalListQuery query, CancellationToken cancellationToken = default);
     Task<OrderDto> UpdateAsync(Guid orderId, AdminOrderUpdateDto changes, CancellationToken cancellationToken = default, Guid? actorId = null);
-    Task<AdminOrderWithdrawalRequestDto> MarkWithdrawalRequestHandledAsync(int requestId, CancellationToken cancellationToken = default);
+    Task<AdminOrderWithdrawalRequestDto> MarkWithdrawalRequestHandledAsync(int requestId, CancellationToken cancellationToken = default, string? adminResponse = null);
     Task<OrderDto?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
 }

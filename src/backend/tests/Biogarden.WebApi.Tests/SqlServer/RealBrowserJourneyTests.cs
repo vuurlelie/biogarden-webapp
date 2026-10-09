@@ -31,10 +31,10 @@ public sealed class RealBrowserJourneyTests : IAsyncLifetime
     public async Task CheckoutSurvivesLostResponseAndCancellationRestoresStock(string browserProject)
     {
         using var certificate = new BrowserCertificate();
-        await using var factory = _app.Factory.WithWebHostBuilder(builder => builder.UseSetting("urls", "https://localhost:5097").ConfigureTestServices(services =>
+        await using var factory = _app.Factory.WithWebHostBuilder(builder => builder.ConfigureTestServices(services =>
             services.Configure<CorsOptions>(options => options.AddPolicy("FrontendDev", policy =>
                 policy.WithOrigins("https://localhost:4174").AllowAnyHeader().AllowAnyMethod().AllowCredentials()))));
-        factory.UseKestrel(options => options.ListenLocalhost(5097, listen => listen.UseHttps(certificate.Value)));
+        factory.UseKestrel(options => options.Listen(IPAddress.Loopback, 0, listen => listen.UseHttps(certificate.Value)));
         using var client = factory.CreateClient();
         var product = new Product { Name = "Real journey tea", Available = true, DeliveryAvailable = true, Price = 900m, StockQuantity = 10 };
         var expiredCart = new Cart { Id = Guid.NewGuid(), SessionId = Guid.NewGuid().ToString(), ExpiresAtUtc = DateTime.UtcNow.AddMinutes(-1) };
@@ -77,7 +77,8 @@ public sealed class RealBrowserJourneyTests : IAsyncLifetime
         start.ArgumentList.Add("test");
         start.ArgumentList.Add("--config=playwright.real.config.ts");
         start.ArgumentList.Add($"--project={browserProject}");
-        start.Environment["E2E_API_URL"] = client.BaseAddress!.ToString().TrimEnd('/');
+        // Keep API and Vite on the same browser site for SameSite session cookies.
+        start.Environment["E2E_API_URL"] = new UriBuilder(client.BaseAddress!) { Host = "localhost" }.Uri.ToString().TrimEnd('/');
         start.Environment["E2E_BROWSER_PROJECT"] = browserProject;
         start.Environment["E2E_TLS_CERT"] = certificate.CertificatePath;
         start.Environment["E2E_TLS_KEY"] = certificate.KeyPath;

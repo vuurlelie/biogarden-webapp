@@ -14,8 +14,10 @@ public sealed class OrderWithdrawalRequestConfiguration : IEntityTypeConfigurati
         requestBuilder.Property(request => request.CustomerName).HasMaxLength(200).IsRequired();
         requestBuilder.Property(request => request.CustomerEmail).HasMaxLength(256).IsRequired();
         requestBuilder.Property(request => request.Reason).HasMaxLength(1000).IsRequired();
+        requestBuilder.Property(request => request.AdminResponse).HasMaxLength(1000);
         requestBuilder.Property(request => request.Status)
             .HasConversion<byte>()
+            .IsConcurrencyToken()
             .HasDefaultValue(OrderWithdrawalRequestStatus.Pending)
             .HasSentinel(OrderWithdrawalRequestStatus.Pending)
             .IsRequired();

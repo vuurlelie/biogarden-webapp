@@ -1,3 +1,4 @@
+import { POST_IMAGE_ASPECT_CLASS } from "../../../shared/constants/imageLayout";
 import { budapestDateTimeInput, budapestInputToUtc } from "../../../shared/utils/dateTime";
 import { normalizeImage, MAX_IMAGE_UPLOAD_BYTES } from "../../../shared/utils/normalizeImage";
 import { useEffect, useRef, useState, type FormEvent } from "react";
@@ -333,14 +334,15 @@ export default function AdminPostFormModal({ post, onClose, onSaved }: Props) {
             <aside className="space-y-4">
               <div className="overflow-hidden rounded-sm border border-site-border bg-site-surface-soft">
                 {previewUrl && !previewFailed ? (
-                  <img src={previewUrl} alt="Bejegyzés képe" className="aspect-[4/3] w-full object-cover" />
+                  <img src={previewUrl} alt="Bejegyzés képe" className={`${POST_IMAGE_ASPECT_CLASS} w-full object-cover`} />
                 ) : (
-                  <div className="grid aspect-[4/3] place-items-center px-4 text-center text-sm text-site-muted">
+                  <div className={`grid ${POST_IMAGE_ASPECT_CLASS} place-items-center px-4 text-center text-sm text-site-muted`}>
                     Nincs kiválasztott kép
                   </div>
                 )}
               </div>
 
+              <p className="text-xs text-site-muted">A bejegyzésben látható képkivágás előnézete.</p>
               <label className="block text-sm font-semibold">
                 Kép
                 <input

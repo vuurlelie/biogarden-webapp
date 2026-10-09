@@ -76,12 +76,14 @@ test("handling the last request on a page uses the server's adjusted page", asyn
       page: current, pageSize: 12, totalCount: handled ? 12 : 13, totalPages: handled ? 1 : 2 } });
   });
   await page.route(`${apiBaseUrl}/api/admin/orders/withdrawal-requests/2/handled`, route => {
+    expect(route.request().postDataJSON().adminResponse).toBe("Egyeztettünk a vásárlóval.");
     handled = true;
     return route.fulfill({ json: { ...withdrawal, id: 2, status: 2, orderNumber: "Request 2" } });
   });
   await page.goto("/admin/elallasi-keresek");
   await page.getByRole("button", { name: "Következő", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Request 2", exact: true })).toBeVisible();
+  await page.getByLabel("Válasz a vásárlónak (nem kötelező)").fill("Egyeztettünk a vásárlóval.");
   await page.getByRole("button", { name: "Feldolgozva", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Request 1", exact: true })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Request 2", exact: true })).toHaveCount(0);
@@ -99,6 +101,7 @@ test("handling the last request on a page uses the server's adjusted page", asyn
     items: [{ orderId: withdrawal.orderId, messages: messages() }], page: 1, pageSize: 12, totalCount: 1, totalPages: 1,
   } }));
   await page.route(`${apiBaseUrl}/api/admin/orders/withdrawal-requests/2/handled`, route => {
+    expect(route.request().postDataJSON().adminResponse).toBeUndefined();
     handled = true;
     return route.fulfill({ json: messages()[1] });
   });
@@ -110,4 +113,28 @@ test("handling the last request on a page uses the server's adjusted page", asyn
   await conversation.getByRole("listitem").filter({ hasText: "Customer follow-up" }).getByRole("button", { name: "Feldolgozva", exact: true }).click();
   await expect(conversation.getByRole("button", { name: "Feldolgozva", exact: true })).toHaveCount(1);
   await expect(conversation.getByRole("listitem")).toHaveCount(3);
+});
+
+
+test("order links to its consumer requests including handled messages", async ({ page }) => {
+  await page.route(url => url.pathname === "/api/admin/orders", route => route.fulfill({ json: {
+    items: [{ ...successfulOrder, withdrawalRequests: [{ ...withdrawal, status: 2 }] }],
+    page: 1, pageSize: 12, totalCount: 1, totalPages: 1,
+  } }));
+  let query: URLSearchParams | undefined;
+  await page.route(url => url.pathname === "/api/admin/orders/withdrawal-requests", route => {
+    query = new URL(route.request().url()).searchParams;
+    return route.fulfill({ json: {
+      items: [{ orderId: successfulOrder.id, messages: [{ ...withdrawal, orderNumber: successfulOrder.orderNumber, status: 2 }] }],
+      page: 1, pageSize: 12, totalCount: 1, totalPages: 1,
+    } });
+  });
+  await page.goto("/admin/rendelesek");
+  await page.getByRole("button", { name: "Részletek", exact: true }).click();
+  await page.getByRole("link", { name: `Kérések megnyitása – ${successfulOrder.orderNumber}` }).click();
+  await expect(page.getByLabel("Keresés", { exact: true })).toHaveValue(successfulOrder.orderNumber);
+  await expect(page.getByRole("combobox", { name: /^Állapot/ })).toHaveValue("all");
+  await expect(page.getByText("Test request", { exact: true })).toBeVisible();
+  expect(query?.get("search")).toBe(successfulOrder.orderNumber);
+  expect(query?.get("status")).toBeNull();
 });

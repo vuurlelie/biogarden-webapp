@@ -52,8 +52,9 @@ public sealed class AdminOrdersController : ControllerBase
     [HttpPut("withdrawal-requests/{requestId:int}/handled")]
     public async Task<ActionResult<AdminOrderWithdrawalRequestDto>> MarkWithdrawalRequestHandled(
         int requestId,
-        CancellationToken token)
+        CancellationToken token,
+        [FromBody(EmptyBodyBehavior = Microsoft.AspNetCore.Mvc.ModelBinding.EmptyBodyBehavior.Allow)] HandleOrderRequestDto? body = null)
     {
-        return Ok(await _service.MarkWithdrawalRequestHandledAsync(requestId, token));
+        return Ok(await _service.MarkWithdrawalRequestHandledAsync(requestId, token, body?.AdminResponse));
     }
 }

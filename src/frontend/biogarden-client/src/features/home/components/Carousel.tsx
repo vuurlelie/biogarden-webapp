@@ -16,6 +16,7 @@ export default function Carousel({
   const [paused, setPaused] = useState(false);
   const focusRef = useRef(false);
   const hoverRef = useRef(false);
+  const explicitResumeRef = useRef(false);
 
   const previous = useCallback(() => {
     setCurrent((current) => (current === 0 ? slides.length - 1 : current - 1));
@@ -30,7 +31,7 @@ export default function Carousel({
       return;
 
     const id = setInterval(() => {
-      if (!hoverRef.current && !focusRef.current && !window.matchMedia("(prefers-reduced-motion: reduce)").matches) next();
+      if ((explicitResumeRef.current || (!hoverRef.current && !focusRef.current)) && !window.matchMedia("(prefers-reduced-motion: reduce)").matches) next();
     }, Math.max(2000, interval));
     return () => clearInterval(id);
   }, [auto, paused, next, interval, slides.length]);
@@ -57,13 +58,16 @@ export default function Carousel({
     <div
       className="relative overflow-hidden w-full" 
       onMouseEnter={() => (hoverRef.current = true)}
-      onMouseLeave={() => (hoverRef.current = false)}
+      onMouseLeave={() => { hoverRef.current = false; explicitResumeRef.current = false; }}
       onTouchStart={onTouchStart}
       onTouchEnd={onTouchEnd}
       role="region"
       aria-label="Kertészeti képek"
-      onFocusCapture={() => { focusRef.current = true; }}
-      onBlurCapture={event => { if (!event.currentTarget.contains(event.relatedTarget)) focusRef.current = false; }}
+      onFocusCapture={event => {
+        focusRef.current = true;
+        if (!(event.target as HTMLElement).closest("[data-carousel-playback]")) explicitResumeRef.current = false;
+      }}
+      onBlurCapture={event => { if (!event.currentTarget.contains(event.relatedTarget)) { focusRef.current = false; explicitResumeRef.current = false; } }}
       onKeyDown={event => {
         if (event.key === "ArrowLeft") { event.preventDefault(); previous(); }
         if (event.key === "ArrowRight") { event.preventDefault(); next(); }
@@ -114,12 +118,9 @@ export default function Carousel({
         </button>
       </div>
 
-      {auto && <button type="button" onClick={() => {
-        if (paused) {
-          // Explicit Play takes precedence over the hover/focus that activated this button.
-          hoverRef.current = false;
-          focusRef.current = false;
-        }
+      {auto && <button type="button" data-carousel-playback onClick={() => {
+        // Play takes precedence while its activating pointer/focus remains here.
+        explicitResumeRef.current = paused;
         setPaused(!paused);
       }}
         aria-label={playbackLabel}

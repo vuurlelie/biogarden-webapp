@@ -1,7 +1,7 @@
 import { SITE_TIME_ZONE, parseApiDate } from "../../shared/utils/dateTime";
 import AdminPagination from "../../shared/components/admin/AdminPagination";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Link } from "react-router";
+import { Link, useSearchParams } from "react-router";
 import {
   getAdminOrderWithdrawalRequests,
   markAdminOrderWithdrawalRequestHandled,
@@ -42,9 +42,20 @@ export default function AdminWithdrawalRequestsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
-  const [status, setStatus] = useState<RequestStatusFilter>("pending");
-  const [search, setSearch] = useState("");
+  const [params, setParams] = useSearchParams();
+  const status: RequestStatusFilter = params.get("status") === "all" ? "all"
+    : params.get("status") === "handled" ? "handled" : "pending";
+  const search = params.get("search") ?? "";
+  function setFilter(key: string, value: string) {
+    setParams(current => {
+      const next = new URLSearchParams(current);
+      if (value) next.set(key, value); else next.delete(key);
+      return next;
+    }, { replace: true });
+    setPage(1);
+  }
   const [page, setPage] = useState(1);
+  const [responses, setResponses] = useState<Record<number, string>>({});
   const [handlingId, setHandlingId] = useState<number | null>(null);
 
   const [pages, setTotalPages] = useState(1);
@@ -96,7 +107,7 @@ export default function AdminWithdrawalRequestsPage() {
     setError(null);
 
     try {
-      const updated = await markAdminOrderWithdrawalRequestHandled(request.id);
+      const updated = await markAdminOrderWithdrawalRequestHandled(request.id, responses[request.id]);
       setRequests((items) => items.map(thread => ({ ...thread, messages: thread.messages.map(item => item.id === updated.id ? updated : item) })));
       void latestLoad.current(undefined, true);
       setMessage(`${request.orderNumber} kérését feldolgozottra állítottad.`);
@@ -122,7 +133,7 @@ export default function AdminWithdrawalRequestsPage() {
           <input
             maxLength={200}
             value={search}
-            onChange={(event) => { setSearch(event.target.value); setPage(1); }}
+            onChange={(event) => { setFilter("search", event.target.value); }}
             placeholder="Rendelésszám, név, email vagy kérés szövege"
             className="mt-1.5 w-full rounded-sm border border-site-border px-3 py-2.5"
           />
@@ -132,7 +143,7 @@ export default function AdminWithdrawalRequestsPage() {
           Állapot
           <select
             value={status}
-            onChange={(event) => { setStatus(event.target.value as RequestStatusFilter); setPage(1); }}
+            onChange={(event) => { setFilter("status", event.target.value); }}
             className="mt-1.5 w-full rounded-sm border border-site-border px-3 py-2.5"
           >
             <option value="pending">Feldolgozásra vár</option>
@@ -175,6 +186,19 @@ export default function AdminWithdrawalRequestsPage() {
                     </button>}
                   </div>
                   <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-site-text">{request.reason}</p>
+                  {request.status === 1 && <div className="mt-3">
+                    <label htmlFor={`response-${request.id}`} className="text-sm font-semibold">Válasz a vásárlónak (nem kötelező)</label>
+                    <p id={`response-hint-${request.id}`} className="text-xs text-site-muted">A vásárló ezt a választ látni fogja a rendelése részleteinél.</p>
+                    <textarea id={`response-${request.id}`} rows={3} maxLength={1000}
+                      disabled={handlingId !== null} value={responses[request.id] ?? ""}
+                      aria-describedby={`response-hint-${request.id} response-count-${request.id}`}
+                      onChange={event => setResponses(current => ({ ...current, [request.id]: event.target.value }))}
+                      className="mt-2 block w-full rounded-sm border border-site-border p-3 text-sm" />
+                    <p id={`response-count-${request.id}`} className="mt-1 text-right text-xs text-site-muted">{(responses[request.id] ?? "").length} / 1000</p>
+                  </div>}
+                  {request.adminResponse && <div className="mt-3 rounded-sm bg-site-surface-soft p-3 text-sm">
+                    <strong>Válasz a vásárlónak</strong><p className="mt-1 whitespace-pre-wrap">{request.adminResponse}</p>
+                  </div>}
                   {request.handledAtUtc && <p className="mt-2 text-xs text-site-muted">Feldolgozva: {DATE.format(parseApiDate(request.handledAtUtc))}</p>}
                 </li>)}
               </ol>

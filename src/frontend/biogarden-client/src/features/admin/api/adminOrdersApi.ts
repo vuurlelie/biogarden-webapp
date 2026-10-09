@@ -15,6 +15,7 @@ export type AdminOrderWithdrawalRequest = {
   status: 1 | 2;
   requestedAtUtc: string;
   handledAtUtc: string | null;
+  adminResponse?: string | null;
 };
 
 export type AdminOrderRequestThread = { orderId: string; messages: AdminOrderWithdrawalRequest[] };
@@ -49,9 +50,10 @@ export async function getAdminOrderWithdrawalRequests(query: AdminListQuery, sig
   return response.json() as Promise<PagedResult<AdminOrderRequestThread>>;
 }
 
-export async function markAdminOrderWithdrawalRequestHandled(id: number): Promise<AdminOrderWithdrawalRequest> {
+export async function markAdminOrderWithdrawalRequestHandled(id: number, adminResponse?: string): Promise<AdminOrderWithdrawalRequest> {
   const response = await adminRequest(`/orders/withdrawal-requests/${id}/handled`, {
     method: "PUT",
+    jsonBody: { adminResponse },
     fallbackMessage: "A kérés feldolgozottra állítása nem sikerült.",
   });
   return response.json() as Promise<AdminOrderWithdrawalRequest>;

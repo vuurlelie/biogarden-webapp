@@ -1,5 +1,6 @@
+import { ROUTES } from "../../shared/constants/routes";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
-import { useSearchParams } from "react-router";
+import { Link, useSearchParams } from "react-router";
 import { OrderPurchaseSummary } from "../../features/account/components/OrderPurchaseSummary";
 import { FULFILLMENT_LABELS } from "../../features/checkout/constants/fulfillment";
 import type {
@@ -247,7 +248,14 @@ function OrderCard({
 
           {order.withdrawalRequests.length > 0 && (
             <section className="rounded-sm border border-site-green/30 bg-site-surface-soft p-4">
-              <h3 className="font-bold text-site-heading">Elállási vagy fogyasztói kérések</h3>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h3 className="font-bold text-site-heading">Elállási vagy fogyasztói kérések</h3>
+                <Link to={`${ROUTES.adminWithdrawalRequests}?search=${encodeURIComponent(order.orderNumber)}&status=all`}
+                  aria-label={`Kérések megnyitása – ${order.orderNumber}`}
+                  className="font-semibold text-site-green-dark underline hover:text-site-green">
+                  Kérések megnyitása →
+                </Link>
+              </div>
               <div className="mt-3 space-y-3">
                 {order.withdrawalRequests.map((request) => (
                   <article key={request.id} className="rounded-sm bg-white p-3 text-sm text-site-text">

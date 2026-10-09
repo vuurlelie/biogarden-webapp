@@ -85,6 +85,7 @@ public sealed class AdminOrderService : IAdminOrderService
                 Reason = request.Reason,
                 Status = request.Status,
                 RequestedAtUtc = request.RequestedAtUtc,
+                AdminResponse = request.AdminResponse,
                 HandledAtUtc = request.HandledAtUtc
             })
             .ToListAsync(cancellationToken);
@@ -200,17 +201,22 @@ public sealed class AdminOrderService : IAdminOrderService
 
     public async Task<AdminOrderWithdrawalRequestDto> MarkWithdrawalRequestHandledAsync(
         int requestId,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default, string? adminResponse = null)
     {
+        adminResponse = string.IsNullOrWhiteSpace(adminResponse) ? null : adminResponse.Trim();
+        if (adminResponse?.Length > 1000) throw new ArgumentException("A válasz legfeljebb 1000 karakter lehet.");
         var request = await _databaseContext.OrderWithdrawalRequests
             .Include(item => item.Order)
             .SingleOrDefaultAsync(item => item.Id == requestId, cancellationToken)
             ?? throw new KeyNotFoundException("Withdrawal request not found.");
 
+        if (request.Status == OrderWithdrawalRequestStatus.Handled && request.AdminResponse != adminResponse)
+            throw new InvalidOperationException("A kérést már feldolgozták. Frissítsd az oldalt a mentett válasz megtekintéséhez.");
         if (request.Status != OrderWithdrawalRequestStatus.Handled)
         {
             request.Status = OrderWithdrawalRequestStatus.Handled;
             request.HandledAtUtc = DateTime.UtcNow;
+            request.AdminResponse = adminResponse;
             await _unitOfWork.SaveChangesAsync(cancellationToken);
         }
 
@@ -226,6 +232,7 @@ public sealed class AdminOrderService : IAdminOrderService
             Reason = request.Reason,
             Status = request.Status,
             RequestedAtUtc = request.RequestedAtUtc,
+            AdminResponse = request.AdminResponse,
             HandledAtUtc = request.HandledAtUtc
         };
     }

@@ -250,9 +250,21 @@ export default function AccountOrderDetailsPage() {
           itt rögzítheted. A kérés nem automatikus lemondás, a feldolgozásáról külön egyeztetünk.
         </p>
         {order.withdrawalRequests.map(request => (
-          <div key={request.id} className="mt-4 rounded-sm bg-site-surface-soft p-4 text-sm text-site-text">
-            <strong>{request.status === 1 ? "Feldolgozásra váró üzenet" : "Feldolgozott üzenet"}</strong>
+          <div key={request.id} className={`mt-4 rounded-sm border p-4 text-sm text-site-text ${
+            request.status === 1 ? "border-amber-200 bg-amber-50" : "border-site-border bg-stone-50"
+          }`}>
+            <strong className={`flex items-center gap-2 ${request.status === 1 ? "text-amber-900" : "text-site-green-dark"}`}>
+              <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5 shrink-0">
+                {request.status === 1 ? <><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></>
+                  : <><circle cx="12" cy="12" r="9" /><path d="m8 12 3 3 5-6" /></>}
+              </svg>
+              {request.status === 1 ? "Feldolgozásra váró üzenet" : "Feldolgozott üzenet"}
+            </strong>
             <p className="mt-2 whitespace-pre-wrap">{request.reason}</p>
+            {request.adminResponse && <div className="mt-3 border-t border-site-border pt-3">
+              <strong className="text-site-green-dark">Válaszunk</strong>
+              <p className="mt-1 whitespace-pre-wrap">{request.adminResponse}</p>
+            </div>}
           </div>
         ))}
         <p className="mt-4 text-sm text-site-muted">

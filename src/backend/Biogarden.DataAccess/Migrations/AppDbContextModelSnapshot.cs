@@ -837,6 +837,10 @@ namespace Biogarden.DataAccess.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<string>("AdminResponse")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
                     b.Property<string>("CustomerEmail")
                         .IsRequired()
                         .HasMaxLength(256)
@@ -864,6 +868,7 @@ namespace Biogarden.DataAccess.Migrations
                         .HasDefaultValueSql("SYSUTCDATETIME()");
 
                     b.Property<byte>("Status")
+                        .IsConcurrencyToken()
                         .ValueGeneratedOnAdd()
                         .HasColumnType("tinyint")
                         .HasDefaultValue((byte)1);

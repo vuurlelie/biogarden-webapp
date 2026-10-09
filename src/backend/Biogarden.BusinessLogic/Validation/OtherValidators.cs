@@ -98,3 +98,11 @@ public sealed class AdminAccountLifecycleDecisionDtoValidator : AbstractValidato
         RuleFor(x => x.AdminNote).MaximumLength(1000).WithMessage("Legfeljebb 1000 karakter adható meg.");
     }
 }
+
+public sealed class HandleOrderRequestDtoValidator : AbstractValidator<HandleOrderRequestDto>
+{
+    public HandleOrderRequestDtoValidator()
+    {
+        RuleFor(x => x.AdminResponse).MaximumLength(1000).WithMessage("A válasz legfeljebb 1000 karakter lehet.");
+    }
+}

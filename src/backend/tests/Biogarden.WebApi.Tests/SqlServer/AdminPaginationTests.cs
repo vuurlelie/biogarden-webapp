@@ -135,7 +135,13 @@ public sealed class AdminPaginationTests : IAsyncLifetime
         var last = await ReadPage<AdminOrderRequestThreadDto>(client, "/api/admin/orders/withdrawal-requests?status=1&page=2");
         var request = Assert.Single(Assert.Single(last.Items).Messages);
         Assert.Equal(13, last.TotalCount);
-        (await client.PutAsync($"/api/admin/orders/withdrawal-requests/{request.Id}/handled", null)).EnsureSuccessStatusCode();
+        var handleUrl = $"/api/admin/orders/withdrawal-requests/{request.Id}/handled";
+        Assert.Equal(HttpStatusCode.BadRequest, (await client.PutAsJsonAsync(handleUrl, new { adminResponse = new string('x', 1001) })).StatusCode);
+        (await client.PutAsJsonAsync(handleUrl, new { adminResponse = "  A kérésedet teljesítettük.  " })).EnsureSuccessStatusCode();
+        var orderDetails = await client.GetFromJsonAsync<OrderDto>($"/api/admin/orders/{request.OrderId}");
+        Assert.Equal("A kérésedet teljesítettük.", orderDetails!.WithdrawalRequests.Single(x => x.Id == request.Id).AdminResponse);
+        Assert.Equal(HttpStatusCode.Conflict, (await client.PutAsJsonAsync(handleUrl, new { adminResponse = "Másik válasz" })).StatusCode);
+        (await client.PutAsJsonAsync(handleUrl, new { adminResponse = "A kérésedet teljesítettük." })).EnsureSuccessStatusCode();
         var adjusted = await ReadPage<AdminOrderRequestThreadDto>(client, "/api/admin/orders/withdrawal-requests?status=1&page=2");
         Assert.Equal(1, adjusted.Page);
         Assert.Equal(12, adjusted.TotalCount);
