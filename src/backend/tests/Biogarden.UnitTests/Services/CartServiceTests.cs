@@ -288,6 +288,74 @@ public sealed class CartServiceTests
         _unitOfWork.Verify(unitOfWork => unitOfWork.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
     }
 
+    [Fact]
+    public async Task CheckoutReportsDeletedAndUnavailableProductsWithoutSaving()
+    {
+        var userId = Guid.NewGuid();
+        var cart = CreateCart(userId, productId: 1, quantity: 1);
+        cart.Items.Add(new CartItem { Id = Guid.NewGuid(), CartId = cart.Id, ProductId = 2, Quantity = 1 });
+        _carts.Setup(repository => repository.GetActiveByUserIdAsync(userId, It.IsAny<CancellationToken>())).ReturnsAsync(cart);
+        _products.Setup(repository => repository.GetByIdAsync(1, It.IsAny<CancellationToken>())).ReturnsAsync((Product?)null);
+        _products.Setup(repository => repository.GetByIdAsync(2, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Product { Id = 2, Name = "Unavailable product", Available = false, StockQuantity = 10 });
+
+        var result = await _service.ValidateCartForCheckoutAsync(userId, null);
+
+        Assert.False(result.IsValid);
+        Assert.Equal(2, result.Issues.Count);
+        Assert.Contains(result.Issues, issue => issue.ProductId == 1 && issue.Message == "A termék már nem létezik.");
+        Assert.Contains(result.Issues, issue => issue.ProductId == 2 && issue.Message == "A termék jelenleg nem elérhető.");
+        _unitOfWork.Verify(unitOfWork => unitOfWork.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task EmptyCartCannotBeCheckedOut()
+    {
+        var userId = Guid.NewGuid();
+        _carts.Setup(repository => repository.GetActiveByUserIdAsync(userId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Cart { Id = Guid.NewGuid(), UserId = userId });
+
+        var result = await _service.ValidateCartForCheckoutAsync(userId, null);
+
+        Assert.False(result.IsValid);
+        Assert.Equal("A kosár üres.", Assert.Single(result.Issues).Message);
+        _unitOfWork.Verify(unitOfWork => unitOfWork.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task ZeroQuantityRemovesTheItemAndRefreshesTheReservation()
+    {
+        var userId = Guid.NewGuid();
+        var cart = CreateCart(userId, productId: 1, quantity: 2);
+        var itemId = Assert.Single(cart.Items).Id;
+        _carts.Setup(repository => repository.GetActiveByUserIdAsync(userId, It.IsAny<CancellationToken>())).ReturnsAsync(cart);
+        _carts.Setup(repository => repository.GetByIdWithItemsAsync(cart.Id, It.IsAny<CancellationToken>())).ReturnsAsync(cart);
+        _unitOfWork.Setup(unitOfWork => unitOfWork.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
+
+        var result = await _service.UpdateItemQuantityAsync(userId, null, itemId, new UpdateCartItemQuantityDto { Quantity = 0 });
+
+        Assert.Empty(cart.Items);
+        Assert.Empty(result.Items);
+        Assert.Equal(_timeProvider.GetUtcNow().UtcDateTime.AddMinutes(30), result.ExpiresAtUtc);
+        _products.VerifyNoOtherCalls();
+        _unitOfWork.Verify(unitOfWork => unitOfWork.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task UnknownCartItemCannotBeChangedOrRemoved()
+    {
+        var userId = Guid.NewGuid();
+        var cart = CreateCart(userId, productId: 1, quantity: 2);
+        _carts.Setup(repository => repository.GetActiveByUserIdAsync(userId, It.IsAny<CancellationToken>())).ReturnsAsync(cart);
+        var otherItemId = Guid.NewGuid();
+
+        await Assert.ThrowsAsync<KeyNotFoundException>(() => _service.UpdateItemQuantityAsync(userId, null, otherItemId, new UpdateCartItemQuantityDto { Quantity = 3 }));
+        await Assert.ThrowsAsync<KeyNotFoundException>(() => _service.RemoveItemAsync(userId, null, otherItemId));
+
+        Assert.Equal(2, Assert.Single(cart.Items).Quantity);
+        _unitOfWork.Verify(unitOfWork => unitOfWork.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
+    }
+
     private static Cart CreateCart(Guid userId, int productId, int quantity)
     {
         var cart = new Cart { Id = Guid.NewGuid(), UserId = userId };

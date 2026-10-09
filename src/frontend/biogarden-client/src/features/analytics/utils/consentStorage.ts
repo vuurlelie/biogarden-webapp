@@ -35,6 +35,14 @@ export function loadStoredConsent(): StoredConsentPreferences | null {
 
 export function saveStoredConsent(preferences: ConsentPreferences): StoredConsentPreferences {
   const stored = createStoredConsent(preferences);
-  window.localStorage.setItem(CONSENT_STORAGE_KEY, JSON.stringify(stored));
+  try {
+    window.localStorage.setItem(CONSENT_STORAGE_KEY, JSON.stringify(stored));
+  } catch {
+    // Apply the choice in memory even when browser storage is unavailable/full.
+    // Remove an older grant if possible so a failed withdrawal is not restored.
+    try {
+      window.localStorage.removeItem(CONSENT_STORAGE_KEY);
+    } catch { /* Unavailable storage will be treated as no choice on the next load. */ }
+  }
   return stored;
 }

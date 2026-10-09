@@ -82,8 +82,14 @@ public sealed class ProductRepository : IProductRepository
         };
 
         var totalCount = await query.CountAsync(cancellationToken);
+        var offset = ((long)page - 1) * pageSize;
+        if (offset >= totalCount)
+        {
+            return new PagedResult<Product>([], page, pageSize, totalCount);
+        }
+
         var items = await query
-            .Skip((page - 1) * pageSize)
+            .Skip((int)offset)
             .Take(pageSize)
             .ToListAsync(cancellationToken);
 

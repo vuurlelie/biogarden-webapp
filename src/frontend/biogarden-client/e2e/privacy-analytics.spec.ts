@@ -74,6 +74,44 @@ test("contact analytics event does not include submitted personal data", async (
   expect(serializedEvent).not.toContain("Analitika teszt");
 });
 
+test("privacy choice dismisses the banner when browser storage is blocked", async ({ page }) => {
+  await mockEmptyCartApi(page);
+  await page.addInitScript(() => {
+    Object.defineProperty(window, "localStorage", {
+      get() { throw new DOMException("Storage blocked", "SecurityError"); },
+    });
+  });
+  const errors: string[] = [];
+  page.on("pageerror", error => errors.push(error.message));
+
+  await page.goto("/");
+  await page.getByRole("button", { name: "Csak szükséges", exact: true }).click();
+
+  await expect(page.getByRole("region", { name: "Adatvédelmi beállítások" })).not.toBeVisible();
+  await expect(capturedEvents(page)).resolves.toHaveLength(0);
+  expect(errors).toEqual([]);
+});
+
+test("failed consent persistence does not restore an older analytics grant", async ({ page }) => {
+  await mockEmptyCartApi(page);
+  await page.goto("/");
+  await page.getByRole("button", { name: "Analitika engedélyezése" }).click();
+  await waitForCapturedEvent(page, "page_view");
+  await page.evaluate(() => {
+    Storage.prototype.setItem = () => { throw new DOMException("Storage full", "QuotaExceededError"); };
+  });
+
+  await page.getByRole("button", { name: "Adatvédelmi beállítások", exact: true }).click();
+  await page.getByLabel("Anonim látogatottsági analitika").uncheck();
+  await page.getByRole("button", { name: "Mentés", exact: true }).click();
+
+  await expect(page.getByRole("region", { name: "Adatvédelmi beállítások" })).not.toBeVisible();
+  await expect(page.evaluate(() => localStorage.getItem("biogarden_privacy_consent"))).resolves.toBeNull();
+  await page.reload();
+  await expect(page.getByRole("region", { name: "Adatvédelmi beállítások" })).toBeVisible();
+  await expect(capturedEvents(page)).resolves.toHaveLength(0);
+});
+
 async function captureAnalyticsEvents(page: Page) {
   await page.addInitScript(() => {
     const analyticsWindow = window as typeof window & {

@@ -6,6 +6,7 @@ namespace Biogarden.DataAccess.Repositories;
 
 public class OrderRepository : IOrderRepository
 {
+    private static readonly TimeZoneInfo BudapestTimeZone = TimeZoneInfo.FindSystemTimeZoneById("Europe/Budapest");
     private readonly IAppDbContext _context;
 
     public OrderRepository(IAppDbContext context)
@@ -105,8 +106,11 @@ public class OrderRepository : IOrderRepository
             query = query.Where(order => order.OrderNumber.Contains(search.Trim()));
         if (year.HasValue)
         {
-            var start = new DateTime(year.Value, 1, 1, 0, 0, 0, DateTimeKind.Utc);
-            var end = start.AddYears(1);
+            // Match the Budapest calendar year shown on customer order cards.
+            // Convert the bounds once so SQL can still filter the UTC column directly.
+            var localStart = new DateTime(year.Value, 1, 1, 0, 0, 0, DateTimeKind.Unspecified);
+            var start = TimeZoneInfo.ConvertTimeToUtc(localStart, BudapestTimeZone);
+            var end = TimeZoneInfo.ConvertTimeToUtc(localStart.AddYears(1), BudapestTimeZone);
             query = query.Where(order => order.CreatedAtUtc >= start && order.CreatedAtUtc < end);
         }
         var count = await query.CountAsync(cancellationToken);

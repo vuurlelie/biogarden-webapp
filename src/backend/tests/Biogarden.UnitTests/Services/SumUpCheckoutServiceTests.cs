@@ -121,6 +121,49 @@ public sealed class SumUpCheckoutServiceTests
         _checkoutClient.VerifyAll();
     }
 
+    [Fact]
+    public async Task EmptyOrderCannotStartProviderCheckout()
+    {
+        var order = CreateOrder();
+        order.Items.Clear();
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => CreateService(new SumUpOptions { Enabled = true }).CreateCheckoutAsync(order));
+
+        _checkoutClient.VerifyNoOtherCalls();
+    }
+
+    [Fact]
+    public async Task MissingHostedUrlIsRejectedInsteadOfReturningAnUnusableCheckout()
+    {
+        _checkoutClient.Setup(client => client.CreateAsync(It.IsAny<SumUpCreateCheckoutRequest>(), It.IsAny<string>(), It.IsAny<Uri>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new SumUpCheckoutResult("checkout-without-url", "PENDING", ""));
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => CreateService(new SumUpOptions { Enabled = true }).CreateCheckoutAsync(CreateOrder()));
+
+        _checkoutClient.VerifyAll();
+    }
+
+    [Fact]
+    public async Task DisabledProviderCannotBeQueriedForStatusOrRecovery()
+    {
+        var service = CreateService(new SumUpOptions { Enabled = false });
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => service.GetCheckoutAsync("checkout-id"));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => service.FindCheckoutsAsync("reference"));
+
+        _checkoutClient.VerifyNoOtherCalls();
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("  ")]
+    public async Task EmptyCheckoutIdIsRejectedBeforeProviderAccess(string checkoutId)
+    {
+        await Assert.ThrowsAsync<ArgumentException>(() => CreateService(new SumUpOptions { Enabled = true }).GetCheckoutAsync(checkoutId));
+
+        _checkoutClient.VerifyNoOtherCalls();
+    }
+
     private SumUpCheckoutService CreateService(SumUpOptions options)
     {
         return new SumUpCheckoutService(Options.Create(options), _checkoutClient.Object);

@@ -214,6 +214,88 @@ public sealed class AdminPaginationTests : IAsyncLifetime
             Assert.Equal(HttpStatusCode.BadRequest, (await owner.GetAsync($"/api/orders?{query}")).StatusCode);
     }
 
+    [SqlServerFact]
+    public async Task CustomerOrderYearFilterUsesBudapestMidnightBoundaries()
+    {
+        using var owner = await Client(false);
+        await using var databaseContext = _app.OpenDatabase();
+        var userId = await databaseContext.Users.Select(user => user.Id).SingleAsync();
+        // Midnight in Budapest is 23:00 UTC on the preceding day in January.
+        var startUtc = new DateTime(2025, 12, 31, 23, 0, 0, DateTimeKind.Utc);
+        var endUtc = new DateTime(2026, 12, 31, 23, 0, 0, DateTimeKind.Utc);
+        var orders = new[]
+        {
+            NewOrder(1, startUtc.AddSeconds(-1)),
+            NewOrder(2, startUtc),
+            NewOrder(3, endUtc.AddSeconds(-1)),
+            NewOrder(4, endUtc)
+        };
+        foreach (var order in orders)
+        {
+            order.UserId = userId;
+        }
+        databaseContext.Orders.AddRange(orders);
+        await databaseContext.SaveChangesAsync();
+
+        var filtered = await ReadPage<OrderDto>(owner, "/api/orders?view=all&year=2026");
+
+        Assert.Equal(2, filtered.TotalCount);
+        Assert.Equal(new[] { orders[2].Id, orders[1].Id }, filtered.Items.Select(order => order.Id));
+        var previousYear = await ReadPage<OrderDto>(owner, "/api/orders?view=all&year=2025");
+        var nextYear = await ReadPage<OrderDto>(owner, "/api/orders?view=all&year=2027");
+        Assert.Equal(orders[0].Id, Assert.Single(previousYear.Items).Id);
+        Assert.Equal(orders[3].Id, Assert.Single(nextYear.Items).Id);
+    }
+
+    [SqlServerTheory]
+    [InlineData(1, 1)]
+    [InlineData(7, 2)]
+    public async Task DashboardCountsTodayFromBudapestMidnight(int month, int utcOffsetHours)
+    {
+        await using var databaseContext = _app.OpenDatabase();
+        var midnightUtc = new DateTime(2026, month, 1, 0, 0, 0, DateTimeKind.Utc).AddHours(-utcOffsetHours);
+        databaseContext.Orders.AddRange(NewOrder(1, midnightUtc.AddSeconds(-1)), NewOrder(2, midnightUtc));
+        await databaseContext.SaveChangesAsync();
+        using var scope = _app.Factory.Services.CreateScope();
+        var users = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+        var clock = new DashboardClock(new DateTimeOffset(midnightUtc.AddMinutes(30)));
+        var service = new Biogarden.BusinessLogic.Services.AdminDashboardService(databaseContext, users, clock);
+
+        var dashboard = await service.GetAsync();
+
+        Assert.Equal(1, dashboard.TodayOrderCount);
+        Assert.Equal(2, dashboard.RecentOrders.Count);
+    }
+
+    [SqlServerFact]
+    public async Task CataloguePagesBeyondTheEndRemainEmptyWithoutIntegerOverflow()
+    {
+        await using var databaseContext = _app.OpenDatabase();
+        databaseContext.Products.Add(new Product { Name = "Pagination product", Price = 100, Available = true, StockQuantity = 5 });
+        databaseContext.Posts.Add(new Post { Title = "Pagination post", Article = "A published article for the paging test.", PublishedAt = DateTime.UtcNow });
+        await databaseContext.SaveChangesAsync();
+        using var client = _app.Factory.CreateClient();
+
+        foreach (var path in new[] { "/api/products", "/api/posts" })
+        {
+            var first = await ReadPage<System.Text.Json.JsonElement>(client, path);
+            Assert.Single(first.Items);
+            foreach (var page in new[] { 2, int.MaxValue, 1_073_741_825 })
+            {
+                // 1,073,741,824 * 60 wraps to zero with 32-bit arithmetic.
+                var beyondEnd = await ReadPage<System.Text.Json.JsonElement>(client, $"{path}?page={page}&pageSize=60");
+                Assert.Empty(beyondEnd.Items);
+                Assert.Equal(1, beyondEnd.TotalCount);
+                Assert.Equal(page, beyondEnd.Page);
+            }
+        }
+    }
+
+    private sealed class DashboardClock(DateTimeOffset now) : TimeProvider
+    {
+        public override DateTimeOffset GetUtcNow() => now;
+    }
+
     private static Order NewOrder(int number, DateTime timestamp) => new()
     {
         Id = Guid.NewGuid(),

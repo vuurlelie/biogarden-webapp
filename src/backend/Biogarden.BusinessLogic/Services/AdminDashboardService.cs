@@ -12,20 +12,24 @@ public sealed class AdminDashboardService : IAdminDashboardService
 {
     private const int LowStockThreshold = 5;
     private const int RecentActivityDays = 7;
+    private static readonly TimeZoneInfo BudapestTimeZone = TimeZoneInfo.FindSystemTimeZoneById("Europe/Budapest");
 
     private readonly IAppDbContext _databaseContext;
     private readonly UserManager<ApplicationUser> _userManager;
+    private readonly TimeProvider _timeProvider;
 
-    public AdminDashboardService(IAppDbContext databaseContext, UserManager<ApplicationUser> userManager)
+    public AdminDashboardService(IAppDbContext databaseContext, UserManager<ApplicationUser> userManager, TimeProvider timeProvider)
     {
         _databaseContext = databaseContext;
         _userManager = userManager;
+        _timeProvider = timeProvider;
     }
 
     public async Task<AdminDashboardDto> GetAsync(CancellationToken cancellationToken = default)
     {
-        var todayUtc = DateTime.UtcNow.Date;
-        var recentActivityFromUtc = todayUtc.AddDays(-RecentActivityDays);
+        var todayBudapest = TimeZoneInfo.ConvertTimeFromUtc(_timeProvider.GetUtcNow().UtcDateTime, BudapestTimeZone).Date;
+        var todayUtc = TimeZoneInfo.ConvertTimeToUtc(todayBudapest, BudapestTimeZone);
+        var recentActivityFromUtc = TimeZoneInfo.ConvertTimeToUtc(todayBudapest.AddDays(-RecentActivityDays), BudapestTimeZone);
 
         var activeProducts = _databaseContext.Products
             .Where(product => product.RecordStatus == RecordStatus.Active);

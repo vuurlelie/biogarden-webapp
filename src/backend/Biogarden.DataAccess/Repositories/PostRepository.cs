@@ -95,8 +95,14 @@ public sealed class PostRepository : IPostRepository
         };
 
         var totalCount = await query.CountAsync(cancellationToken);
+        var offset = ((long)page - 1) * pageSize;
+        if (offset >= totalCount)
+        {
+            return new PagedResult<Post>([], page, pageSize, totalCount);
+        }
+
         var items = await query
-            .Skip((page - 1) * pageSize)
+            .Skip((int)offset)
             .Take(pageSize)
             .ToListAsync(cancellationToken);
 
