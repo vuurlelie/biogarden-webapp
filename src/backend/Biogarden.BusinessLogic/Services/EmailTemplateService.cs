@@ -558,7 +558,12 @@ public sealed class EmailTemplateService : IEmailTemplateService
             yield return ("GLS átvételi pont", $"{order.GlsDeliveryPointName} ({order.GlsDeliveryPointId}) – {order.GlsDeliveryPointCountryCode} {order.DeliveryPostalCode} {order.DeliveryCity}, {order.GlsDeliveryPointAddress}");
     }
 
-    private static string FormatPurchaseDetails(OrderDto order) => string.Join(Environment.NewLine, PurchaseRows(order).Select(row => $"{row.Item1}: {row.Item2}"));
+    private static string FormatPurchaseDetails(OrderDto order)
+    {
+        var details = string.Join(Environment.NewLine, PurchaseRows(order).Select(row => $"{row.Item1}: {row.Item2}"));
+        var mapUrl = GlsMapUrl(order);
+        return mapUrl is null ? details : $"{details}{Environment.NewLine}GLS pont a térképen: {mapUrl}";
+    }
 
     private static string BuildOrderConfirmationHtmlSummary(OrderDto order)
     {
@@ -616,10 +621,10 @@ public sealed class EmailTemplateService : IEmailTemplateService
             Environment.NewLine,
             new[]
             {
-                BuildHtmlSection("Rendelés összefoglaló", BuildHtmlDetailsTable(orderSummaryRows.Concat(PurchaseRows(order)).ToArray())),
+                BuildHtmlSection("Rendelés összefoglaló", BuildHtmlDetailsTable(orderSummaryRows.Concat(PurchaseRows(order)).ToArray(), GlsMapUrl(order))),
                 BuildHtmlSection("Megadott adataid", BuildHtmlDetailsTable(customerRows)),
                 BuildHtmlSection(order.CustomerType == CustomerType.Private ? "Bizonylat" : "Számlázási adatok", BuildHtmlDetailsTable(documentRows)),
-                BuildHtmlSection(order.FulfillmentMethod == FulfillmentMethod.PersonalPickup ? "Átvételi adatok" : "Szállítási adatok", BuildHtmlDetailsTable(fulfillmentRows)),
+                BuildHtmlSection(order.FulfillmentMethod == FulfillmentMethod.PersonalPickup ? "Átvételi adatok" : "Szállítási adatok", BuildHtmlDetailsTable(fulfillmentRows, GlsMapUrl(order))),
                 BuildHtmlSection("Termékek", BuildHtmlOrderItemsTable(order))
             });
     }
@@ -662,10 +667,10 @@ public sealed class EmailTemplateService : IEmailTemplateService
             Environment.NewLine,
             new[]
             {
-                BuildHtmlSection("Rendelés összefoglaló", BuildHtmlDetailsTable(orderSummaryRows.Concat(PurchaseRows(order)).ToArray())),
+                BuildHtmlSection("Rendelés összefoglaló", BuildHtmlDetailsTable(orderSummaryRows.Concat(PurchaseRows(order)).ToArray(), GlsMapUrl(order))),
                 BuildHtmlSection("Vevő adatai", BuildHtmlDetailsTable(customerRows)),
                 BuildHtmlSection("Kiállítandó bizonylat", BuildHtmlDetailsTable(documentRows)),
-                BuildHtmlSection("Átvételi adatok", BuildHtmlDetailsTable(new[] { ("Átvétel", FormatDeliveryDetails(order)) })),
+                BuildHtmlSection("Átvételi adatok", BuildHtmlDetailsTable(new[] { ("Átvétel", FormatDeliveryDetails(order)) }, GlsMapUrl(order))),
                 BuildHtmlSection("Termékek", BuildHtmlOrderItemsTable(order))
             });
     }
@@ -681,7 +686,7 @@ public sealed class EmailTemplateService : IEmailTemplateService
                 ("Átvétel módja", FormatFulfillmentMethod(order.FulfillmentMethod)),
                 ("Végösszeg", FormatPrice(order.TotalPrice)),
                 .. PurchaseRows(order)
-            ])
+            ], GlsMapUrl(order))
         );
 
     private static string BuildContactBusinessHtmlSummary(ContactMessageRequestDto request) =>
@@ -764,7 +769,24 @@ public sealed class EmailTemplateService : IEmailTemplateService
         </table>
         """;
 
-    private static string BuildHtmlDetailsTable(IEnumerable<(string Label, string Value)> rows)
+    private static string? GlsMapUrl(OrderDto order)
+    {
+        if (string.IsNullOrWhiteSpace(order.GlsDeliveryPointId))
+            return null;
+
+        var address = $"{order.DeliveryPostalCode} {order.DeliveryCity}, {order.GlsDeliveryPointAddress}, {order.GlsDeliveryPointCountryCode}";
+        return "https://www.google.com/maps/search/?api=1&query=" + Uri.EscapeDataString(address);
+    }
+
+    private static string DetailValueHtml(string label, string value, string? glsMapUrl)
+    {
+        var text = HtmlEncode(value);
+        return glsMapUrl is not null && label is "GLS átvételi pont" or "Szállítási cím" or "Átvétel"
+            ? $"<a href=\"{HtmlAttributeEncode(glsMapUrl)}\" style=\"color:#557018;text-decoration:underline;\">{text}</a>"
+            : text;
+    }
+
+    private static string BuildHtmlDetailsTable(IEnumerable<(string Label, string Value)> rows, string? glsMapUrl = null)
     {
         var htmlRows = string.Join(
             Environment.NewLine,
@@ -772,7 +794,7 @@ public sealed class EmailTemplateService : IEmailTemplateService
                 $"""
                 <tr>
                   <td style="width:38%;padding:10px 12px;border-bottom:1px solid #d9dfd1;color:#65705f;font-size:14px;line-height:1.45;font-weight:700;vertical-align:top;"><span class="email-data-text" style="color:#65705f;text-decoration:none;">{HtmlEncode(row.Label)}</span></td>
-                  <td style="padding:10px 12px;border-bottom:1px solid #d9dfd1;color:#263124;font-size:14px;line-height:1.45;vertical-align:top;"><span class="email-data-text" style="color:#263124;text-decoration:none;">{HtmlEncode(row.Value)}</span></td>
+                  <td style="padding:10px 12px;border-bottom:1px solid #d9dfd1;color:#263124;font-size:14px;line-height:1.45;vertical-align:top;"><span class="email-data-text" style="color:#263124;text-decoration:none;">{DetailValueHtml(row.Label, row.Value, glsMapUrl)}</span></td>
                 </tr>
                 """));
 

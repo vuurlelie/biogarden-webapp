@@ -291,6 +291,27 @@ public sealed class AdminPaginationTests : IAsyncLifetime
         }
     }
 
+    [SqlServerFact]
+    public async Task DashboardIncludesPendingRequestsOlderThanSevenDays()
+    {
+        await using var databaseContext = _app.OpenDatabase();
+        var now = new DateTime(2026, 10, 14, 12, 0, 0, DateTimeKind.Utc);
+        var order = NewOrder(1, now.AddDays(-30));
+        databaseContext.Orders.Add(order);
+        databaseContext.OrderWithdrawalRequests.AddRange(
+            new OrderWithdrawalRequest { Order = order, CustomerName = "Old pending", CustomerEmail = "uat@example.com", Reason = "Test", RequestedAtUtc = now.AddDays(-20) },
+            new OrderWithdrawalRequest { Order = order, CustomerName = "Recent pending", CustomerEmail = "uat@example.com", Reason = "Test", RequestedAtUtc = now.AddDays(-1) });
+        await databaseContext.SaveChangesAsync();
+        using var scope = _app.Factory.Services.CreateScope();
+        var users = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+        var service = new Biogarden.BusinessLogic.Services.AdminDashboardService(databaseContext, users, new DashboardClock(new DateTimeOffset(now)));
+
+        var dashboard = await service.GetAsync();
+
+        Assert.Equal(2, dashboard.PendingWithdrawalRequestCount);
+        Assert.Equal(new[] { "Recent pending", "Old pending" }, dashboard.PendingWithdrawalRequests.Select(request => request.CustomerName));
+    }
+
     private sealed class DashboardClock(DateTimeOffset now) : TimeProvider
     {
         public override DateTimeOffset GetUtcNow() => now;

@@ -351,7 +351,9 @@ export default function ProductDetailsPage() {
               <div>
                 <dt className="font-bold text-site-heading">Elérhetőség</dt>
                 <dd className={isAvailable ? "text-site-green-dark" : "text-site-danger"}>
-                  {isAvailable ? "Jelenleg elérhető" : "Jelenleg nem elérhető"}
+                  {isAvailable
+                    ? availableToAdd > 0 ? "Jelenleg elérhető" : "Jelenleg nincs szabad készlet"
+                    : "Jelenleg nem elérhető"}
                 </dd>
               </div>
               <div>

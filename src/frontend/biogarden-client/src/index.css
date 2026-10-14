@@ -30,6 +30,18 @@ body {
   color: var(--color-site-text);
 }
 
+/* Keep editable text readable before focus on phones. Small input text can
+   trigger browser focus zoom which remains after the keyboard is dismissed.
+   Do not restrict the viewport scale: deliberate pinch zoom stays available. */
+@media (max-width: 767px), (pointer: coarse) {
+  input:not([type="checkbox"], [type="radio"], [type="range"], [type="color"], [type="button"], [type="submit"], [type="reset"], [type="hidden"]),
+  select,
+  textarea,
+  [contenteditable="true"] {
+    font-size: max(1rem, 16px);
+  }
+}
+
 button:not(:disabled),
 [role="button"]:not(:disabled) {
   cursor: pointer;
