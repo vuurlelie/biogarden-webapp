@@ -10,6 +10,7 @@ import AdminLayout from "../layouts/AdminLayout";
 import ProtectedRoute from "./ProtectedRoute";
 import AdminRoute from "./AdminRoute";
 import GuestOnlyRoute from "./GuestOnlyRoute";
+import RouteErrorPage from "./RouteErrorPage";
 
 const HomePage = lazy(() => import("../../pages/public/HomePage"));
 const AboutPage = lazy(() => import("../../pages/public/AboutPage"));
@@ -59,6 +60,7 @@ function routeElement(page: ReactNode) {
 export const router = createBrowserRouter([
   {
     path: ROUTES.home,
+    errorElement: <RouteErrorPage />,
     element: <MainLayout />,
     children: [
       { index: true, element: routeElement(<HomePage />) },
@@ -89,6 +91,7 @@ export const router = createBrowserRouter([
 
   {
     element: <ProtectedRoute />,
+    errorElement: <RouteErrorPage />,
     children: [
       {
         path: ROUTES.account,
@@ -107,6 +110,7 @@ export const router = createBrowserRouter([
 
   {
     path: ROUTES.admin,
+    errorElement: <RouteErrorPage />,
     element: <><RouteMetadata /><AdminRoute /></>,
     children: [
       {
@@ -126,6 +130,7 @@ export const router = createBrowserRouter([
 
   {
     path: ROUTES.adminLogin,
+    errorElement: <RouteErrorPage />,
     element: routeElement(<AdminLoginPage />),
   },
 

@@ -453,6 +453,39 @@ public sealed class EmailTemplateServiceTests
         }
     }
 
+    [Theory]
+    [InlineData(FulfillmentMethod.ParcelLocker)]
+    [InlineData(FulfillmentMethod.ParcelShop)]
+    public void GlsEmailLinksKeepAccentedAddressInOneEncodedMapsQuery(FulfillmentMethod method)
+    {
+        var order = CreateOrderDto();
+        order.FulfillmentMethod = method;
+        order.GlsDeliveryPointId = "HU-UAT";
+        order.GlsDeliveryPointName = "GLS <Teszt> & automata";
+        order.GlsDeliveryPointCountryCode = "HU";
+        order.DeliveryPostalCode = "2112";
+        order.DeliveryCity = "Veresegyház";
+        order.GlsDeliveryPointAddress = "Szőlő utca 12. & tér";
+        var address = "2112 Veresegyház, Szőlő utca 12. & tér, HU";
+        var url = "https://www.google.com/maps/search/?api=1&query=" + Uri.EscapeDataString(address);
+        var service = CreateOrderTemplateService();
+        foreach (var message in new[] {
+            service.BuildOrderConfirmationMessage("uat@example.com", order),
+            service.BuildOrderBusinessNotificationMessage("uat@example.com", order),
+            service.BuildOrderStatusChangedMessage("uat@example.com", order) })
+        {
+            var links = System.Text.RegularExpressions.Regex.Matches(message.HtmlBody!, "<a href=\"([^\"]+)\"[^>]*>(.*?)</a>");
+            var mapLinks = links.Cast<System.Text.RegularExpressions.Match>()
+                .Where(match => WebUtility.HtmlDecode(match.Groups[1].Value).StartsWith("https://www.google.com/maps/search/"))
+                .ToList();
+            Assert.NotEmpty(mapLinks);
+            Assert.All(mapLinks, link => Assert.Equal(url, WebUtility.HtmlDecode(link.Groups[1].Value)));
+            Assert.Contains(mapLinks, link => WebUtility.HtmlDecode(link.Groups[2].Value).Contains("Veresegyház"));
+            Assert.Contains(url, message.PlainTextBody);
+            Assert.DoesNotContain("GLS <Teszt>", message.HtmlBody);
+        }
+    }
+
     [Fact]
     public void LegacyOrderEmailDoesNotInventHistoricalFeesOrPaymentMethod()
     {

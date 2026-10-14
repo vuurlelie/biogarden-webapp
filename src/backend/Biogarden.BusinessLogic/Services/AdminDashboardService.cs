@@ -41,8 +41,6 @@ public sealed class AdminDashboardService : IAdminDashboardService
             .CountAsync(product => product.StockQuantity <= LowStockThreshold, cancellationToken);
         var pendingOrderCount = await _databaseContext.Orders
             .CountAsync(order => order.Status == OrderStatus.Pending, cancellationToken);
-        var pendingWithdrawalRequestCount = await _databaseContext.OrderWithdrawalRequests
-            .CountAsync(request => request.Status == OrderWithdrawalRequestStatus.Pending, cancellationToken);
         var todayOrderCount = await _databaseContext.Orders
             .CountAsync(order => order.CreatedAtUtc >= todayUtc, cancellationToken);
         var publishedPostCount = await _databaseContext.Posts
@@ -87,7 +85,6 @@ public sealed class AdminDashboardService : IAdminDashboardService
             .AsNoTracking()
             .Include(request => request.Order)
             .Where(request => request.Status == OrderWithdrawalRequestStatus.Pending)
-            .Where(request => request.RequestedAtUtc >= recentActivityFromUtc)
             .OrderByDescending(request => request.RequestedAtUtc)
             .Select(request => new AdminWithdrawalRequestPreviewDto
             {
@@ -105,7 +102,7 @@ public sealed class AdminDashboardService : IAdminDashboardService
             AvailableProductCount = availableProductCount,
             LowStockProductCount = lowStockProductCount,
             PendingOrderCount = pendingOrderCount,
-            PendingWithdrawalRequestCount = pendingWithdrawalRequestCount,
+            PendingWithdrawalRequestCount = pendingWithdrawalRequests.Count,
             TodayOrderCount = todayOrderCount,
             UserCount = userCount,
             PublishedPostCount = publishedPostCount,
