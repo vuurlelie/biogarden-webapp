@@ -1,4 +1,5 @@
-import { defineConfig, loadEnv } from "vite";
+import { resolveBuildEnvironment } from "./scripts/build-environment.mjs";
+import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 
@@ -10,20 +11,17 @@ const securityHeaders = {
   "Permissions-Policy": "camera=(), microphone=(), geolocation=(self), payment=()",
 };
 
-const PRODUCTION_API_BASE_URL = "https://vuurlelie169-001-site1.jtempurl.com";
-
 export default defineConfig(({ mode }) => {
-  const env = { ...loadEnv(mode, process.cwd(), "VITE_"), ...process.env };
+  const env = resolveBuildEnvironment(mode);
   const indexingEnabled = env.VITE_INDEXING_ENABLED === "true";
-  const apiBaseUrl = mode === "production"
-    ? process.env.VITE_API_BASE_URL ?? PRODUCTION_API_BASE_URL
-    : loadEnv(mode, process.cwd(), "VITE_").VITE_API_BASE_URL;
+
 
   return {
     server: { headers: securityHeaders },
     preview: { headers: securityHeaders },
     define: {
-      "import.meta.env.VITE_API_BASE_URL": JSON.stringify(apiBaseUrl),
+      "import.meta.env.VITE_API_BASE_URL": JSON.stringify(env.VITE_API_BASE_URL),
+      "import.meta.env.VITE_SITE_URL": JSON.stringify(env.VITE_SITE_URL),
     },
     plugins: [react(), tailwindcss(), {
       name: "indexing-policy",

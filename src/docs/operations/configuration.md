@@ -10,7 +10,7 @@ Use this together with:
 
 ## Current UAT addresses and overrides
 
-The current UAT frontend is **https://raczkrisztina.dev** and its API is **https://api.raczkrisztina.dev**. The former `biogarden` subdomain is not the current preview address. `bakonykincse.hu` in business branding and SEO fallback values is not proof of a production launch.
+The current UAT frontend is **https://raczkrisztina.dev** and its API is **https://api.raczkrisztina.dev**. The former `biogarden` subdomain is not the current preview address. `bakonykincse.hu` in business branding  is not proof of a production launch.
 
 Use these non-secret values for this UAT deployment:
 
@@ -26,11 +26,13 @@ Use these non-secret values for this UAT deployment:
 | Frontend build | `VITE_SITE_URL` | `https://raczkrisztina.dev` |
 | Frontend build | `VITE_INDEXING_ENABLED` | `false` |
 
-The tracked `appsettings.json` still includes localhost and the former UAT origin. Configuration arrays merge by index: setting only index 0 does not remove index 1. With that file unchanged, override both indices as above, and remove obsolete host indices 2 and higher unless explicitly required. Remove the scalar `Frontend__AllowedOrigins` setting: the current configuration reader prefers the array when present. Do not add a trailing slash to origins. Review the effective allowlist after deployment.
+The tracked `appsettings.json` includes localhost and the current UAT origin. Configuration arrays merge by index: setting only index 0 does not remove index 1. With that file unchanged, override both indices as above, and remove obsolete host indices 2 and higher unless explicitly required. Remove the scalar `Frontend__AllowedOrigins` setting: the current configuration reader prefers the array when present. Do not add a trailing slash to origins. Review the effective allowlist after deployment.
 
 Keep database, JWT, SMTP and provider credentials in the host's private settings; a domain change does not require replacing them. Do not copy the local database connection into hosted settings. Preserve enabled-method, pricing, worker and Data Protection settings. If SumUp is enabled, use `https://raczkrisztina.dev/rendeles-sikeres?sumup_checkout_reference={CHECKOUT_REFERENCE}` and `https://api.raczkrisztina.dev/api/sumup/checkout-status` for its redirect and return URLs; changing domains does not authorize enabling real payments.
 
-For the current implementation, supply `VITE_API_BASE_URL` through the **shell/build environment**: `vite.config.ts` ignores the dotenv API value in production mode and otherwise falls back to the old temporary host. An ignored `.env.production.local` alone is therefore insufficient for the API URL. This is an open final-polish finding, not intended behavior. Supply `VITE_SITE_URL` and `VITE_INDEXING_ENABLED` consistently too, then run `npm ci` and `npm run build` from `src/frontend/biogarden-client`. Check for conflicting values in `.env.local` or the shell, and inspect the emitted bundle before upload. Publish the **complete contents of `dist`**, including generated HTML, `assets` and `web.config`; missing hashed image files cause 404s. Host environment changes do not rewrite an already built frontend. Verify the actual deployed logo, static images, canonical URLs, CORS and login using the deployment runbook.
+Vite and SEO generation use the same merged environment: shell values override `.env.production.local` and other Vite dotenv files. Without overrides, production builds deliberately target the UAT frontend/API above and keep indexing disabled. Local builds default to localhost. Origins must be HTTP(S), without credentials, a path, query or fragment; a trailing slash is normalized, and non-loopback origins require HTTPS. For an approved production launch, explicitly set both origins and the indexing policy before rebuilding.
+
+Supply the frontend values through the build environment or an ignored `.env.production.local`, then run `npm ci` and `npm run build` from `src/frontend/biogarden-client`. Inspect the emitted bundle before upload. Publish the **complete contents of `dist`**, including generated HTML, `assets` and `web.config`; missing hashed image files cause 404s. Host environment changes do not rewrite an already built frontend. Verify the actual deployed logo, static images, canonical URLs, CORS and login using the deployment runbook.
 
 ## Local Development
 

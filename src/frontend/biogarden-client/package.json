@@ -8,7 +8,7 @@
     "typecheck": "tsc -b",
     "build": "tsc -b && vite build && npm run generate:seo",
     "generate:seo": "node scripts/generate-seo-files.mjs",
-    "verify:seo": "node scripts/verify-seo-files.mjs && node --test scripts/seo-generation.test.mjs",
+    "verify:seo": "node scripts/verify-seo-files.mjs && node --test scripts/seo-generation.test.mjs scripts/build-environment.test.mjs",
     "lint": "eslint .",
     "preview": "vite preview",
     "test:e2e": "playwright test"
