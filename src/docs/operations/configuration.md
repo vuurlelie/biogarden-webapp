@@ -8,6 +8,30 @@ Use this together with:
 - [Backup and recovery](backup-recovery.md)
 - [Monitoring](monitoring.md)
 
+## Current UAT addresses and overrides
+
+The current UAT frontend is **https://raczkrisztina.dev** and its API is **https://api.raczkrisztina.dev**. The former `biogarden` subdomain is not the current preview address. `bakonykincse.hu` in business branding and SEO fallback values is not proof of a production launch.
+
+Use these non-secret values for this UAT deployment:
+
+| Location | Setting | UAT value |
+| --- | --- | --- |
+| API host | `ASPNETCORE_ENVIRONMENT` | `Production` (hosted runtime behavior; the business release remains UAT) |
+| API host | `AuthEmail__ClientBaseUrl` | `https://raczkrisztina.dev` |
+| API host | `EmailBranding__WebsiteUrl` | `https://raczkrisztina.dev` |
+| API host | `EmailBranding__LogoUrl` | `https://api.raczkrisztina.dev/email-assets/logo.png` |
+| API host | `Frontend__AllowedOrigins__0` | `https://raczkrisztina.dev` |
+| API host | `Frontend__AllowedOrigins__1` | `https://raczkrisztina.dev` (overrides the second committed array entry; the application deduplicates it) |
+| Frontend build | `VITE_API_BASE_URL` | `https://api.raczkrisztina.dev` |
+| Frontend build | `VITE_SITE_URL` | `https://raczkrisztina.dev` |
+| Frontend build | `VITE_INDEXING_ENABLED` | `false` |
+
+The tracked `appsettings.json` still includes localhost and the former UAT origin. Configuration arrays merge by index: setting only index 0 does not remove index 1. With that file unchanged, override both indices as above, and remove obsolete host indices 2 and higher unless explicitly required. Remove the scalar `Frontend__AllowedOrigins` setting: the current configuration reader prefers the array when present. Do not add a trailing slash to origins. Review the effective allowlist after deployment.
+
+Keep database, JWT, SMTP and provider credentials in the host's private settings; a domain change does not require replacing them. Do not copy the local database connection into hosted settings. Preserve enabled-method, pricing, worker and Data Protection settings. If SumUp is enabled, use `https://raczkrisztina.dev/rendeles-sikeres?sumup_checkout_reference={CHECKOUT_REFERENCE}` and `https://api.raczkrisztina.dev/api/sumup/checkout-status` for its redirect and return URLs; changing domains does not authorize enabling real payments.
+
+For the current implementation, supply `VITE_API_BASE_URL` through the **shell/build environment**: `vite.config.ts` ignores the dotenv API value in production mode and otherwise falls back to the old temporary host. An ignored `.env.production.local` alone is therefore insufficient for the API URL. This is an open final-polish finding, not intended behavior. Supply `VITE_SITE_URL` and `VITE_INDEXING_ENABLED` consistently too, then run `npm ci` and `npm run build` from `src/frontend/biogarden-client`. Check for conflicting values in `.env.local` or the shell, and inspect the emitted bundle before upload. Publish the **complete contents of `dist`**, including generated HTML, `assets` and `web.config`; missing hashed image files cause 404s. Host environment changes do not rewrite an already built frontend. Verify the actual deployed logo, static images, canonical URLs, CORS and login using the deployment runbook.
+
 ## Local Development
 
 The [developer guide](../developer-guide.md#backend-setup) owns runtime secret setup and the separate migration configuration instructions. Optional local SMTP and SumUp settings can also use user secrets.
@@ -79,11 +103,7 @@ Browsers that block third-party cookies can still prevent guest-cart persistence
 
 After deploying, check in a signed-out browser that adding two different products, opening the cart and reloading preserves both items. Inspect the API cookie's storage and any browser blocking reason if every operation creates a new cart. API tests verify cookie attributes and SQL-backed session continuity; they do not reproduce every browser's third-party-cookie policy.
 
-Set the frontend API base URL outside source control:
-
-```bash
-VITE_API_BASE_URL=https://your-api-domain.example
-```
+Set the frontend API origin outside source control (without `/api` or a trailing slash). The [UAT values above](#current-uat-addresses-and-overrides) specify the current deployment; use the intended origin when preparing another environment.
 
 The frontend has a browser Content Security Policy in `index.html`. When production domains are final, update the policy so `connect-src` and `img-src` allow only the real API/static asset origins and no unnecessary local origins remain.
 
@@ -98,19 +118,19 @@ local browser tests do not prove that the hosting provider permits the IIS setti
 
 `CartCleanup` controls bounded physical deletion of old, unsubmitted carts. Defaults, validated ranges, hosting behavior and verification are maintained in [expired cart maintenance](cart-maintenance.md).
 
-## Authentication Sessions
+## Account authorization and revocation
 
 Checkout draft cleanup is enabled by default through `CheckoutDrafts:CleanupEnabled`. Keep it enabled on hosted environments and verify worker availability; see [checkout draft retention](checkout-drafts.md#retention-and-cleanup) for limits and operational checks.
 
-JWTs include the Identity security stamp. Every authenticated token is checked against the current account state, security stamp, and roles in SQL Server. Deleted, deactivated, anonymized, unconfirmed, or locked-out accounts cannot use an existing token. Password reset and account-security changes invalidate earlier sessions; reactivation requires a new login. A valid customer session accessing an admin endpoint receives 403; an invalid session accessing a protected endpoint receives 401.
+Browser sessions and supported explicit JWT bearer tokens include the Identity security stamp. Each authenticated request is checked against the current account state, security stamp, and roles in SQL Server. Deleted, deactivated, anonymized, unconfirmed, or locked-out accounts cannot use an existing token. Password reset and account-security changes invalidate earlier sessions; reactivation requires a new login. A valid customer session accessing an admin endpoint receives 403; an invalid session accessing a protected endpoint receives 401.
 
-Deploying the session-revocation change requires **no database migration**, but tokens issued before this change have no stamp and are invalidated. Tell UAT users to sign in again. Deploy the API and frontend from the same release. This design adds account/role reads per authenticated request and requires database availability; it does not cache revoked authorization.
+The earlier security-stamp validation change alone required no migration. The current browser-session implementation **does require `AddBrowserSessions`** when upgrading a database that lacks it; follow the [deployment runbook](deployment-runbook.md). Tell UAT users to sign in again after authentication upgrades and deploy the API and frontend from the same release. This design adds account/role reads per authenticated request and requires database availability; it does not cache revoked authorization.
 
 Account lifecycle and admin account mutations use a SQL Server session application lock (`Biogarden.AccountSecurity`) and recheck authorization after acquiring it. This prevents overlapping API requests from removing the last active administrator across multiple API instances. A dedicated unpooled connection owns the lock and releases it on disposal; a five-second acquisition timeout produces a recoverable conflict. Verify `sys.sp_getapplock` is available to the deployed database user. Direct database edits and future background account-management jobs must preserve the same invariant; the HTTP filter does not guard arbitrary external SQL operations.
 
 Revocation prevents subsequent protected requests. It does not cancel arbitrary requests that have already passed authorization. Account-security mutations have the additional serialized recheck described above. Normal logout clears the browser session and its other tabs; it is not a server-side revoke-all operation for a separately copied bearer token.
 
-The frontend synchronizes login/logout across tabs, clears expired sessions on a timer or window focus, removes account-specific screens and checkout drafts after session changes, and ignores old-session responses. A 401 for an older token cannot log out a newer login. Unrelated guest 401 responses and authenticated 403 responses do not clear the current session.
+The frontend synchronizes login/logout across tabs, clears expired sessions on a timer or window focus, removes account-specific screens and checkout drafts after session changes, and ignores old-session responses. A 401 associated with an older browser session cannot log out a newer login. Unrelated guest 401 responses and authenticated 403 responses do not clear the current session.
 
 After deployment, verify an active login, a customer denied admin access, admin demotion, deactivation/reactivation, password reset, two-tab logout, and session expiry. The SQL integration tests cover real JWT/Identity revocation and concurrent administrator changes; browser tests cover local session transitions with mocked API responses.
 

@@ -1,6 +1,6 @@
 # Order confirmation email delivery
 
-New orders and their customer/business confirmation emails are saved in one database transaction. An SMTP outage cannot turn a committed order into a failed checkout response. Each recipient has a separate `OrderEmails` row, uniquely identified by order and message kind. Retrying checkout returns the existing order without creating more email rows.
+New orders and their customer/business confirmation emails are saved in one database transaction. An SMTP outage cannot turn a committed order into a failed checkout response. Each recipient has a separate `OrderEmails` row, uniquely identified by order, message kind and event ID. Creation confirmations use the empty event ID. Retrying checkout returns the existing order without creating more email rows.
 
 ## Deployment
 
@@ -36,6 +36,6 @@ Investigate an increasing backlog or repeated attempts: verify SMTP configuratio
 
 With test recipients, confirm that an order succeeds while SMTP is unavailable, both notification rows remain queued, and restoring SMTP allows both messages to be sent. Retry the original checkout request and verify that neither the order nor its email rows are duplicated. Restart the API with a pending message and verify recovery after any lease expires.
 
-The queue covers order-creation confirmations, admin order-status changes, and both withdrawal-request notifications. Status and withdrawal messages carry an event ID, allowing multiple legitimate events on one order. Creation messages retain the empty event ID for checkout deduplication. State/request changes and their queue rows commit atomically. Account verification and password reset retain their existing delivery paths.
+The queue covers order-creation confirmations, admin order-status changes, and both withdrawal-request notifications. Status and withdrawal messages carry an event ID, allowing multiple legitimate events on one order. Creation messages retain the empty event ID for checkout deduplication. State/request changes and their queue rows commit atomically. Account verification, password reset, lifecycle notices and contact messages use the separate durable `NotificationEmails` queue; see [notification recovery](notification-recovery.md).
 
 Apply `AddOrderEmailEventIdentity` before running this version of the worker. Existing creation messages retain their identities; this migration does not resend completed messages or backfill historical notifications. Verify status updates and withdrawal requests while SMTP is unavailable, then restore SMTP and confirm queued delivery.

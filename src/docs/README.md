@@ -2,6 +2,14 @@
 
 Biogarden is in **User Acceptance Testing (UAT)**. Client feedback and outstanding business decisions are pending. Repository tests and historical audit results do not establish acceptance of a deployed release.
 
+## Current environment
+
+Documentation review: **2026-11-06**, against repository configuration, controllers, dependency manifests and CI definitions. This is not a new hosted smoke test or client acceptance record.
+
+- UAT website: https://raczkrisztina.dev
+- UAT API: https://api.raczkrisztina.dev
+- Exact host overrides and frontend build values: [current UAT configuration](operations/configuration.md#current-uat-addresses-and-overrides).
+
 ## Choose a guide
 
 | Purpose | Document | Maintained here |
@@ -29,7 +37,7 @@ Biogarden is in **User Acceptance Testing (UAT)**. Client feedback and outstandi
 
 ## Current guidance and historical evidence
 
-The [July 2026 quality report](code-quality-readiness.md) is a historical milestone record. Its test counts and dependency results apply only to that recorded run. Use the current PR's CI results and a UAT record identifying the deployed commit for new decisions.
+The [July 2026 quality report](code-quality-readiness.md) and dated October UAT/regression reports are historical milestone records; their deployed asset names, observations and outstanding checks describe those runs, not the current release. Their test counts and dependency results apply only to the recorded runs. Use the current PR's CI results and a UAT record identifying the deployed commit for new decisions.
 
 The tracked documentation is intended for public repository readers. Keep completed client feedback, personal data, credentials, and private approval evidence in the agreed private tracker; the UAT document provides blank templates. Local audit/work notes that are not tracked are not part of this documentation set.
 

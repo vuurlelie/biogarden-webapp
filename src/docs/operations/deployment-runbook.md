@@ -130,6 +130,8 @@ Record the actual SmarterASP.NET/IIS package upload, stop/start, and traffic con
 
 ## Post-Deployment Smoke Checks
 
+For the current UAT origins and build/host values, use [current UAT configuration](configuration.md#current-uat-addresses-and-overrides). The public frontend is `https://raczkrisztina.dev`; the API is `https://api.raczkrisztina.dev`.
+
 For order-reliability releases, apply `AddOrderConcurrencyToken` and `AddOrderEmailEventIdentity` before starting the new API. Conflicting order writes return HTTP 409: reload the current state before retrying. A retried verified payment for a cancelled order must remain cancelled and enter refund reconciliation, without reserving stock again. Monitor failed payment events and reprocess them with fresh state; `RefundPending` records work required and does not perform a provider refund.
 
 For releases containing `AddNotificationEmails`, apply it before starting the matching API/frontend. Verify contact and account notification delivery using [notification recovery](notification-recovery.md), including the worker and SMTP settings.

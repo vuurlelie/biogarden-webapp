@@ -4,7 +4,9 @@ A full-stack e-commerce and content platform built for **Bakony Kincse Biokerté
 
 > **Project status: User Acceptance Testing (UAT).** The application is under client review. Client feedback and outstanding business decisions are pending; production launch is subject to their resolution and final acceptance.
 
-**[View the UAT preview](https://biogarden.raczkrisztina.dev/)** — Client review environment; content and functionality may change during UAT.
+**[View the UAT preview](https://raczkrisztina.dev/)** — Client review environment; content and functionality may change during UAT.
+
+API origin: `https://api.raczkrisztina.dev`. See [UAT configuration](src/docs/operations/configuration.md#current-uat-addresses-and-overrides) for matching host and frontend build settings.
 
 ## Business context
 
@@ -39,7 +41,7 @@ Payment and email availability depend on environment configuration. Integration 
 | --- | --- |
 | Frontend | React 19, TypeScript, Vite, React Router, Tailwind CSS, Tiptap |
 | Backend | C#, ASP.NET Core Web API, .NET 10 |
-| Data and authentication | SQL Server, Entity Framework Core, ASP.NET Core Identity, JWT |
+| Data and authentication | SQL Server, Entity Framework Core, ASP.NET Core Identity, server-side browser cookie sessions; explicit JWT bearer support |
 | Integrations | SumUp, SMTP email |
 | Verification and CI | Backend unit/API tests, Playwright, ESLint, TypeScript checks, GitHub Actions |
 

@@ -23,7 +23,7 @@ These are proposed targets, not verified hosting capabilities or client commitme
 
 Database backup must include:
 
-- users and roles,
+- users, roles and browser-session records,
 - products and inventory,
 - carts and orders,
 - payment provider event records,
@@ -40,6 +40,8 @@ File backup must include:
 - post images,
 - email assets if managed outside the repository,
 - any future uploaded documents.
+
+Preserve the private Data Protection key ring configured by `BrowserSessions__DataProtectionKeyPath` separately from public uploads and deployment packages, with restricted access and encrypted backups. On Windows, recovery also depends on the API identity/profile used by DPAPI; copying the key files alone does not guarantee decryption. Losing usable keys invalidates browser sessions and existing Identity confirmation/reset tokens. See [browser authentication sessions](configuration.md#browser-authentication-sessions). Never restore production keys into a test environment.
 
 Do not rely only on source control. Source control does not contain customer data, orders, or uploaded production files.
 
