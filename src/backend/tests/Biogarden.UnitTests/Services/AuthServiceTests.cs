@@ -1,15 +1,11 @@
-using System.Collections;
-using System.Linq.Expressions;
 using Biogarden.BusinessLogic.Abstractions;
 using Biogarden.BusinessLogic.DTOs.Addresses;
 using Biogarden.BusinessLogic.DTOs.Auth;
 using Biogarden.BusinessLogic.Models.Email;
-using Biogarden.BusinessLogic.Options;
 using Biogarden.BusinessLogic.Services;
 using Biogarden.DataAccess.Entities;
 using Biogarden.DataAccess.Enums;
 using Microsoft.AspNetCore.Identity;
-using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Moq;
@@ -29,22 +25,16 @@ public sealed class AuthServiceTests
         var userStore = new Mock<IUserStore<ApplicationUser>>(MockBehavior.Strict);
         _userManager = CreateUserManagerMock(userStore.Object);
 
-        _userManager
-            .SetupGet(manager => manager.Users)
-            .Returns(CreateAsyncQueryable(Array.Empty<ApplicationUser>()));
+        // Registration must never enumerate the account backlog. Cleanup has its own worker.
+        _userManager.SetupGet(manager => manager.Users)
+            .Throws(new InvalidOperationException("Registration attempted account cleanup."));
 
         _service = new AuthService(
             _userManager.Object,
             _tokenService.Object,
             _emailService.Object,
             _emailTemplateService.Object,
-            Options.Create(new AuthEmailOptions
-            {
-                ClientBaseUrl = "https://bakonykincse.hu",
-                ConfirmEmailPath = "/email-megerosites",
-                ResetPasswordPath = "/jelszo-visszaallitas",
-                UnconfirmedAccountRetentionDays = 14
-            }), Mock.Of<Biogarden.DataAccess.Abstractions.IAppDbContext>());
+            Mock.Of<Biogarden.DataAccess.Abstractions.IAppDbContext>());
     }
 
     [Fact]
@@ -411,11 +401,6 @@ public sealed class AuthServiceTests
         Assert.True(result.Succeeded);
     }
 
-    private static IQueryable<TEntity> CreateAsyncQueryable<TEntity>(IEnumerable<TEntity> entities)
-    {
-        return new TestAsyncEnumerable<TEntity>(entities);
-    }
-
     private static Mock<UserManager<ApplicationUser>> CreateUserManagerMock(
         IUserStore<ApplicationUser> userStore) =>
         new(
@@ -430,102 +415,4 @@ public sealed class AuthServiceTests
             Mock.Of<IServiceProvider>(provider => provider.GetService(typeof(System.Diagnostics.Metrics.IMeterFactory)) == null, MockBehavior.Strict),
             NullLogger<UserManager<ApplicationUser>>.Instance);
 
-    private sealed class TestAsyncQueryProvider<TEntity> : IAsyncQueryProvider
-    {
-        private readonly IQueryProvider _inner;
-
-        public TestAsyncQueryProvider(IQueryProvider inner)
-        {
-            _inner = inner;
-        }
-
-        public IQueryable CreateQuery(Expression expression)
-        {
-            return new TestAsyncEnumerable<TEntity>(expression);
-        }
-
-        public IQueryable<TElement> CreateQuery<TElement>(Expression expression)
-        {
-            return new TestAsyncEnumerable<TElement>(expression);
-        }
-
-        public object? Execute(Expression expression)
-        {
-            return _inner.Execute(expression);
-        }
-
-        public TResult Execute<TResult>(Expression expression)
-        {
-            return _inner.Execute<TResult>(expression);
-        }
-
-        public TResult ExecuteAsync<TResult>(Expression expression, CancellationToken cancellationToken = default)
-        {
-            var expectedResultType = typeof(TResult).GetGenericArguments()[0];
-            var executionResult = typeof(IQueryProvider)
-                .GetMethod(nameof(IQueryProvider.Execute), 1, [typeof(Expression)])
-                ?? throw new InvalidOperationException("IQueryProvider.Execute method was not found.");
-            var typedExecutionResult = executionResult
-                .MakeGenericMethod(expectedResultType)
-                .Invoke(this, [expression]);
-
-            var fromResultMethod = typeof(Task)
-                .GetMethod(nameof(Task.FromResult))
-                ?? throw new InvalidOperationException("Task.FromResult method was not found.");
-
-            var taskResult = fromResultMethod
-                .MakeGenericMethod(expectedResultType)
-                .Invoke(null, [typedExecutionResult])
-                ?? throw new InvalidOperationException("Task.FromResult invocation returned null.");
-
-            return (TResult)taskResult;
-        }
-    }
-
-    private sealed class TestAsyncEnumerable<TEntity> :
-        EnumerableQuery<TEntity>,
-        IAsyncEnumerable<TEntity>,
-        IQueryable<TEntity>
-    {
-        public TestAsyncEnumerable(IEnumerable<TEntity> enumerable)
-            : base(enumerable)
-        {
-        }
-
-        public TestAsyncEnumerable(Expression expression)
-            : base(expression)
-        {
-        }
-
-        public IAsyncEnumerator<TEntity> GetAsyncEnumerator(
-            CancellationToken cancellationToken = default)
-        {
-            return new TestAsyncEnumerator<TEntity>(this.AsEnumerable().GetEnumerator());
-        }
-
-        IQueryProvider IQueryable.Provider => new TestAsyncQueryProvider<TEntity>(this);
-    }
-
-    private sealed class TestAsyncEnumerator<TEntity> : IAsyncEnumerator<TEntity>
-    {
-        private readonly IEnumerator<TEntity> _inner;
-
-        public TestAsyncEnumerator(IEnumerator<TEntity> inner)
-        {
-            _inner = inner;
-        }
-
-        public TEntity Current => _inner.Current;
-
-        public ValueTask DisposeAsync()
-        {
-            _inner.Dispose();
-            return ValueTask.CompletedTask;
-        }
-
-        public ValueTask<bool> MoveNextAsync()
-        {
-            return ValueTask.FromResult(_inner.MoveNext());
-        }
-    }
 }

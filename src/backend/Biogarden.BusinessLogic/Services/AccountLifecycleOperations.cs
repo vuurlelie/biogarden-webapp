@@ -150,21 +150,8 @@ public sealed class AccountLifecycleOperations(
         => new[] { user.ShippingAddressId, user.BillingAddressId }
             .OfType<int>().Distinct().ToArray();
 
-    private async Task DeleteUnreferencedAddressesAsync(int[] addressIds, CancellationToken cancellationToken)
-    {
-        if (addressIds.Length == 0)
-            return;
-
-        // Run after Identity has persisted the detached/deleted user, inside the caller's
-        // transaction. Historical order addresses and other accounts' addresses must survive.
-        var addresses = await databaseContext.Addresses
-            .Where(address => addressIds.Contains(address.Id)
-                && !userManager.Users.Any(user => user.ShippingAddressId == address.Id || user.BillingAddressId == address.Id)
-                && !databaseContext.Orders.Any(order => order.AddressId == address.Id))
-            .ToListAsync(cancellationToken);
-        databaseContext.Addresses.RemoveRange(addresses);
-        await databaseContext.SaveChangesAsync(cancellationToken);
-    }
+    private Task DeleteUnreferencedAddressesAsync(int[] addressIds, CancellationToken cancellationToken)
+        => SavedAddressCleanup.DeleteUnreferencedAsync(databaseContext, userManager.Users, addressIds, cancellationToken);
 
     private static async Task UpdateIdentityUserAsync(UserManager<ApplicationUser> userManager, ApplicationUser user)
     {

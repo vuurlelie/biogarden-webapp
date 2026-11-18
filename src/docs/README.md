@@ -27,6 +27,8 @@ Documentation review: **2026-11-06**, against repository configuration, controll
 | Operate queued order notifications | [Order email delivery](operations/order-email-delivery.md) | Retry semantics, queue monitoring, worker availability |
 | Operate contact and account notifications | [Notification recovery](operations/notification-recovery.md) | Durable acceptance, retry/expiry, account links and hosted SMTP evidence |
 | Recover interrupted online payments | [Payment recovery](operations/payment-recovery.md) | Attempts, callbacks, browser recovery and operator reconciliation |
+| Maintain expired registrations | [Account maintenance](operations/account-maintenance.md) | Bounded cleanup, retained references, failure retries and schedule |
+| Maintain frontend dependencies | [Dependency security](dependency-security.md) | Scoped overrides and unresolved upstream advisories |
 | Maintain expired carts | [Expired cart maintenance](operations/cart-maintenance.md) | Retention, bounded cleanup, scheduling and operational checks |
 | Operate private checkout drafts | [Checkout drafts](operations/checkout-drafts.md) | Ownership, expiry, cleanup, conflicts and order recovery |
 | Configure checkout pricing and GLS | [Checkout pricing and GLS](operations/checkout-pricing.md) | Provisional fees, COD policy, destination selection, compatibility and verification |

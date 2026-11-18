@@ -219,6 +219,7 @@ public static class ServiceCollectionExtensions
         services.AddValidatedOptions<ErrorAlertOptions>(configuration, ErrorAlertOptions.SectionName, options => options.ValidateForStartup());
         services.AddValidatedOptions<SumUpOptions>(configuration, SumUpOptions.SectionName, options => options.ValidateForStartup());
         services.AddValidatedOptions<CheckoutPricingOptions>(configuration, CheckoutPricingOptions.SectionName, options => options.ValidateForStartup());
+        services.AddValidatedOptions<UnconfirmedAccountCleanupOptions>(configuration, UnconfirmedAccountCleanupOptions.SectionName, options => options.ValidateForStartup());
         services.AddValidatedOptions<CartCleanupOptions>(configuration, CartCleanupOptions.SectionName, options => options.ValidateForStartup());
         services.AddValidatedOptions<GlsOptions>(configuration, GlsOptions.SectionName, options => options.ValidateForStartup());
 
@@ -365,6 +366,8 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IProductService, ProductService>();
         services.AddScoped<IAddressService, AddressService>();
         services.AddScoped<IAuthService, AuthService>();
+        services.AddScoped<UnconfirmedAccountCleanupService>();
+        services.AddHostedService<Biogarden.WebApi.Services.UnconfirmedAccountCleanupWorker>();
         services.AddScoped<IAccountLifecycleOperations, AccountLifecycleOperations>();
         services.AddScoped<IUserService, UserService>();
         services.AddScoped<ITokenService, JwtTokenService>();
