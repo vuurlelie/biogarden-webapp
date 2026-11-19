@@ -9,7 +9,8 @@ Biogarden is a full-stack webshop and content site for Bakony Kincse Biokertesze
 - Frontend: React, TypeScript, Vite, Tailwind-style utility classes, Playwright E2E tests.
 - Backend: ASP.NET Core WebApi on .NET 10, Entity Framework Core, ASP.NET Identity, SQL Server.
 - Payments: SumUp checkout integration; availability depends on the environment configuration.
-- Email: configurable SMTP/preview delivery, with a durable queue for order-creation confirmations.
+- Authentication: server-side browser sessions in an HttpOnly cookie, backed by ASP.NET Core Identity; explicit JWT bearer support remains for internal/test consumers.
+- Email: configurable SMTP/preview delivery, with separate durable queues for order confirmations/status/withdrawal events and contact/account notifications.
 - Operations: monitoring, backup, deployment, abuse protection, and configuration docs live under `docs/operations`.
 
 ## Repository Layout
@@ -74,7 +75,9 @@ npm.cmd --prefix frontend/biogarden-client ci
 npm.cmd --prefix frontend/biogarden-client run dev
 ```
 
-Set `VITE_API_BASE_URL` outside source control so the frontend points to the API. On Linux/macOS or CI, use `npm` instead of `npm.cmd`.
+Set `VITE_API_BASE_URL=http://localhost:5097` in an ignored `frontend/biogarden-client/.env.local` file for the default local API. Use the API origin without `/api` or a trailing slash: feature clients supply the route path. Set `VITE_SITE_URL=http://localhost:5173` for local canonical URLs. Restart Vite after changing these values. On Linux/macOS or CI, use `npm` instead of `npm.cmd`.
+
+For a hosted UAT build, follow the [current UAT addresses and overrides](operations/configuration.md#current-uat-addresses-and-overrides). Vite values are embedded at build time; do not reuse a local build for deployment.
 
 ## Verification and configuration
 

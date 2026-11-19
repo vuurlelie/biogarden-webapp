@@ -1,9 +1,8 @@
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
-import { loadEnv } from "vite";
-const environment = { ...loadEnv(process.env.MODE ?? "production", process.cwd(), ""), ...process.env };
-
-const siteUrl = (environment.VITE_SITE_URL ?? "https://bakonykincse.hu").replace(/\/$/, "");
+import { resolveBuildEnvironment } from "./build-environment.mjs";
+const environment = resolveBuildEnvironment(process.env.MODE ?? "production");
+const siteUrl = environment.VITE_SITE_URL;
 const sitemap = await readFile(resolve("dist", "sitemap.xml"), "utf8");
 const robots = await readFile(resolve("dist", "robots.txt"), "utf8");
 

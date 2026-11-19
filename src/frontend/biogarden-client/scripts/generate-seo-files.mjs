@@ -1,13 +1,10 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
-import { loadEnv } from "vite";
+import { resolveBuildEnvironment } from "./build-environment.mjs";
 
-const mode = process.env.MODE ?? "production";
-const viteEnv = loadEnv(mode, process.cwd(), "");
-const environment = { ...viteEnv, ...process.env };
-
-const siteUrl = (environment.VITE_SITE_URL ?? "https://bakonykincse.hu").replace(/\/$/, "");
-const apiBaseUrl = environment.VITE_API_BASE_URL?.replace(/\/$/, "");
+const environment = resolveBuildEnvironment(process.env.MODE ?? "production");
+const siteUrl = environment.VITE_SITE_URL;
+const apiBaseUrl = environment.VITE_API_BASE_URL;
 const requirePostPreviews = environment.VITE_REQUIRE_SEO_POSTS === "true";
 const outputDirectory = resolve("dist");
 const siteName = "Bakony Kincse Biokertészet";

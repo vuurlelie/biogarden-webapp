@@ -12,7 +12,11 @@ Responses distinguish resource creation, successful commands and deferred work. 
 | Upload a product/post image | `201 Created`, image `Location` and the existing `{ path }` body |
 | Account lifecycle request awaiting later processing | `202 Accepted`, result describing pending status |
 | Completed account lifecycle action | `200 OK`, result describing completion |
-| Confirm/reset credentials, resend confirmation, request password recovery, send a contact message | `204 No Content` |
+| Confirm email or reset password | `204 No Content` |
+| Resend confirmation or request password recovery | `202 Accepted`, no response body |
+| Send a contact message | `202 Accepted`, `{ submissionId }` after durable queue persistence |
+| Browser login / session lookup | `200 OK` with session information; lookup returns `204` when no valid session exists |
+| Browser logout | `204 No Content` |
 | Update/delete without a response representation | `204 No Content` |
 | Read data or return updated cart/order/admin state | `200 OK`, response DTO |
 | Create or reuse a SumUp checkout | `200 OK`, checkout DTO |

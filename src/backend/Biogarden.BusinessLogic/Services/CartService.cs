@@ -95,7 +95,7 @@ public class CartService : ICartService
         var targetQuantity =
             existingCartItem is null
                 ? addCartItemDto.Quantity
-                : existingCartItem.Quantity + addCartItemDto.Quantity;
+                : AddQuantities(existingCartItem.Quantity, addCartItemDto.Quantity);
 
         await EnsureEnoughStockAsync(productId: product.Id, requestedQuantity: targetQuantity, cartId: cart.Id, cancellationToken);
 
@@ -244,7 +244,7 @@ public class CartService : ICartService
             var mergedQuantity =
                 existingUserCartItem is null
                     ? guestCartItem.Quantity
-                    : existingUserCartItem.Quantity + guestCartItem.Quantity;
+                    : AddQuantities(existingUserCartItem.Quantity, guestCartItem.Quantity);
 
             await EnsureEnoughStockAsync(productId: guestCartItem.ProductId, requestedQuantity: mergedQuantity, cartId: userCart.Id, cancellationToken, reservations: reservations);
 
@@ -449,8 +449,19 @@ public class CartService : ICartService
         return cart.ToDto(reservedQuantitiesByProductId);
     }
 
+    private static int AddQuantities(int current, int additional)
+    {
+        var total = (long)current + additional;
+        if (current <= 0 || additional <= 0 || total > int.MaxValue)
+            throw new ArgumentException("A kért mennyiség túl nagy vagy érvénytelen.");
+        return (int)total;
+    }
+
     private async Task EnsureEnoughStockAsync(int productId, int requestedQuantity, Guid cartId, CancellationToken cancellationToken, IReadOnlyDictionary<int, int>? reservations = null)
     {
+        if (requestedQuantity <= 0)
+            throw new ArgumentException("A mennyiségnek pozitívnak kell lennie.");
+
         var product = await _unitOfWork.ProductRepository.GetByIdAsync(productId, cancellationToken);
 
         if (product is null)

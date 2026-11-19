@@ -28,6 +28,7 @@ try
 catch (Exception exception)
 {
     Log.Fatal(exception, "Application terminated unexpectedly.");
+    throw;
 }
 finally
 {

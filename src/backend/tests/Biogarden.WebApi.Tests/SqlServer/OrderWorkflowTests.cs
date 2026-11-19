@@ -95,6 +95,43 @@ public sealed class OrderWorkflowTests : IAsyncLifetime
         Assert.Equal(HttpStatusCode.NotFound, unauthorizedRetry.StatusCode);
     }
 
+    [SqlServerTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task NewCheckoutAfterPreviousOrder_DoesNotRecoverPreviousSubmission(bool failPersistence)
+    {
+        var productId = await SeedProductAsync();
+        using var client = _app.Factory.CreateClient();
+        await AddToCartAsync(client, productId);
+        var firstRequest = await Request().WithQuoteAsync(client);
+        using var first = await client.PostAsJsonAsync("/api/orders", firstRequest);
+        Assert.Equal(HttpStatusCode.Created, first.StatusCode);
+        var firstOrder = (await first.Content.ReadFromJsonAsync<OrderDto>())!;
+
+        await AddToCartAsync(client, productId);
+        var secondRequest = await Request().WithQuoteAsync(client);
+        Assert.NotEqual(firstRequest.IdempotencyKey, secondRequest.IdempotencyKey);
+        if (failPersistence)
+            _app.QueueFailure.Enabled = true;
+        else
+        {
+            await using var database = _app.OpenDatabase();
+            var cart = await database.Carts.SingleAsync(candidate => !candidate.IsCheckedOut);
+            cart.ExpiresAtUtc = DateTime.UtcNow.AddDays(-1);
+            await database.SaveChangesAsync();
+        }
+
+        using var second = await client.PostAsJsonAsync("/api/orders", secondRequest);
+        Assert.Equal(HttpStatusCode.Conflict, second.StatusCode);
+        using var retry = await client.PostAsJsonAsync("/api/orders", firstRequest);
+        Assert.Equal(HttpStatusCode.OK, retry.StatusCode);
+        Assert.Equal(firstOrder.Id, (await retry.Content.ReadFromJsonAsync<OrderDto>())!.Id);
+        await using var check = _app.OpenDatabase();
+        Assert.Equal(1, await check.Orders.CountAsync());
+        Assert.Equal(2, await check.OrderEmails.CountAsync());
+        Assert.Equal(2, (await check.Products.SingleAsync()).StockQuantity);
+    }
+
     [SqlServerFact]
     public async Task CartMutation_DistinguishesInvalidInputMissingProductAndStockConflict()
     {

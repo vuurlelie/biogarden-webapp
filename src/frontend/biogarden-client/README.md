@@ -17,4 +17,6 @@ Use the [developer guide](../../docs/developer-guide.md#frontend-setup) for inst
 
 ## Build notes
 
-The build generates SEO files. Inspect generation warnings when article data is unavailable and keep generated output out of commits. Browser tests use mocked API responses; deployed behaviour is recorded separately through the [UAT checklist](../../docs/uat-checklist.md).
+The build generates SEO files. Inspect generation warnings when article data is unavailable and keep generated output out of commits. The default `e2e` suite uses mocked API responses. The separate `e2e-real` suite is launched by the .NET `RealBrowser` tests against an actual API and disposable SQL database; see [verification](../../docs/verification.md#real-browser-to-database-journey). Deployed behaviour is recorded separately through the [UAT checklist](../../docs/uat-checklist.md).
+
+The current UAT site is https://raczkrisztina.dev with API https://api.raczkrisztina.dev. Use the [UAT build settings](../../docs/operations/configuration.md#current-uat-addresses-and-overrides), including `VITE_SITE_URL` and disabled indexing, and publish the entire `dist` output.

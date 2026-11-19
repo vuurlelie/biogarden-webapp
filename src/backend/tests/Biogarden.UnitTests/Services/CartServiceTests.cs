@@ -26,6 +26,43 @@ public sealed class CartServiceTests
         _service = new CartService(_unitOfWork.Object, _timeProvider);
     }
 
+    [Theory]
+    [InlineData(1, int.MaxValue)]
+    [InlineData(int.MaxValue, 1)]
+    public async Task AddItemAsync_WhenQuantityOverflows_RejectsWithoutChangingReservation(int current, int additional)
+    {
+        var userId = Guid.NewGuid();
+        var cart = CreateCart(userId, 1, current);
+        var expiry = cart.ExpiresAtUtc;
+        _carts.Setup(repository => repository.GetActiveByUserIdAsync(userId, It.IsAny<CancellationToken>())).ReturnsAsync(cart);
+        _products.Setup(repository => repository.GetByIdAsync(1, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Product { Id = 1, Name = "Test", Available = true, StockQuantity = int.MaxValue });
+        await Assert.ThrowsAsync<ArgumentException>(() => _service.AddItemAsync(userId, null,
+            new AddCartItemDto { ProductId = 1, Quantity = additional }));
+        Assert.Equal(current, cart.Items.Single().Quantity);
+        Assert.Equal(expiry, cart.ExpiresAtUtc);
+        _products.Verify(repository => repository.GuardStockReservation(It.IsAny<Product>()), Times.Never);
+        _unitOfWork.Verify(repository => repository.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task Merge_WhenQuantityOverflows_PreservesBothCarts()
+    {
+        var userId = Guid.NewGuid();
+        var userCart = CreateCart(userId, 1, 1);
+        var guestCart = CreateCart(Guid.NewGuid(), 1, int.MaxValue);
+        guestCart.UserId = null;
+        guestCart.SessionId = "guest";
+        _carts.Setup(repository => repository.GetActiveByUserIdAsync(userId, It.IsAny<CancellationToken>())).ReturnsAsync(userCart);
+        _carts.Setup(repository => repository.GetActiveBySessionIdAsync("guest", It.IsAny<CancellationToken>())).ReturnsAsync(guestCart);
+        await Assert.ThrowsAsync<ArgumentException>(() => _service.MergeGuestCartIntoUserCartAsync(userId, "guest"));
+        Assert.Equal(1, userCart.Items.Single().Quantity);
+        Assert.Equal(int.MaxValue, guestCart.Items.Single().Quantity);
+        Assert.False(guestCart.IsCheckedOut);
+        _products.Verify(repository => repository.GuardStockReservation(It.IsAny<Product>()), Times.Never);
+        _unitOfWork.Verify(repository => repository.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
+    }
+
     [Fact]
     public async Task AddItemAsync_WithNonPositiveQuantity_ThrowsBeforeRepositoryAccess()
     {

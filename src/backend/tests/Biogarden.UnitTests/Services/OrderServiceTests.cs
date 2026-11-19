@@ -433,7 +433,7 @@ public sealed class OrderServiceTests
     }
 
     [Fact]
-    public async Task CreateOrderFromCartAsync_WhenGuestCartAlreadyCheckedOut_ReturnsExistingOrder()
+    public async Task CreateOrderFromCartAsync_WhenNewSubmissionHasNoActiveCart_DoesNotReturnPreviousOrder()
     {
         const string sessionId = "guest-session";
         var cart = new Cart
@@ -454,27 +454,14 @@ public sealed class OrderServiceTests
         _carts
             .Setup(cartRepository => cartRepository.GetActiveBySessionIdAsync(sessionId, It.IsAny<CancellationToken>()))
             .ReturnsAsync((Cart?)null);
-        _carts
-            .Setup(cartRepository => cartRepository.GetLatestCheckedOutBySessionIdAsync(sessionId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(cart);
         _orders
             .Setup(orderRepository => orderRepository.GetByCartIdWithItemsAsync(cart.Id, It.IsAny<CancellationToken>()))
             .ReturnsAsync(order);
 
-        var resultOutcome = await _service.CreateOrderFromCartAsync(null, sessionId, new PlaceOrderDto
-        {
-            IdempotencyKey = IdempotencyKey,
-            CustomerName = "Teszt Elek",
-            CustomerEmail = "guest@example.com",
-            CustomerPhone = "+361234567",
-            AcceptedTermsVersion = LegalDocumentVersions.CurrentTermsVersion,
-            AcceptedPrivacyPolicyVersion = LegalDocumentVersions.CurrentPrivacyPolicyVersion,
-            FulfillmentMethod = FulfillmentMethod.PersonalPickup
-        });
-        var result = resultOutcome.Order;
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _service.CreateOrderFromCartAsync(null, sessionId, new PlaceOrderDto { IdempotencyKey = IdempotencyKey }));
+        _orders.Verify(repository => repository.GetByCartIdWithItemsAsync(cart.Id, It.IsAny<CancellationToken>()), Times.Never);
 
-        Assert.Equal(order.Id, result.Id);
-        Assert.Equal("guest@example.com", result.CustomerEmail);
         _orders.Verify(orderRepository => orderRepository.AddAsync(It.IsAny<Order>(), It.IsAny<CancellationToken>()), Times.Never);
         _unitOfWork.Verify(unitOfWork => unitOfWork.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
         _emailService.Verify(emailService => emailService.SendAsync(It.IsAny<EmailMessage>(), It.IsAny<CancellationToken>()), Times.Never);
@@ -570,8 +557,10 @@ public sealed class OrderServiceTests
         _orders.Verify(orderRepository => orderRepository.AddAsync(It.IsAny<Order>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
-    [Fact]
-    public async Task CreateOrderFromCartAsync_WhenStockChangesDuringSave_ThrowsBeforeSendingEmails()
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task CreateOrderFromCartAsync_WhenSaveFails_DoesNotRecoverUnrelatedOrder(bool concurrencyFailure)
     {
         const string sessionId = "guest-session";
         var product = new Product { Id = 4, Name = "Bazsalikom", Available = true, StockQuantity = 1, Price = 900 };
@@ -588,7 +577,7 @@ public sealed class OrderServiceTests
         _products.Setup(productRepository => productRepository.GetByIdAsync(product.Id, It.IsAny<CancellationToken>())).ReturnsAsync(product);
         _orders.Setup(orderRepository => orderRepository.AddAsync(It.IsAny<Order>(), It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
         _unitOfWork.Setup(unitOfWork => unitOfWork.SaveChangesAsync(It.IsAny<CancellationToken>()))
-            .ThrowsAsync(new DbUpdateConcurrencyException());
+            .ThrowsAsync(concurrencyFailure ? new DbUpdateConcurrencyException() : new DbUpdateException());
 
         var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
             _service.CreateOrderFromCartAsync(null, sessionId, new PlaceOrderDto
@@ -608,7 +597,7 @@ public sealed class OrderServiceTests
                 FulfillmentMethod = FulfillmentMethod.PersonalPickup
             }));
 
-        Assert.Contains("készlet", exception.Message);
+        Assert.Contains(concurrencyFailure ? "készlet" : "mentése", exception.Message);
         _emailTemplateService.Verify(emailTemplateService => emailTemplateService.BuildOrderConfirmationMessage(It.IsAny<string>(), It.IsAny<OrderDto>()), Times.Never);
         _emailService.Verify(emailService => emailService.SendAsync(It.IsAny<EmailMessage>(), It.IsAny<CancellationToken>()), Times.Never);
     }

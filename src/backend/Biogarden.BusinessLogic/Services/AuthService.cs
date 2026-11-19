@@ -3,13 +3,11 @@ using Biogarden.BusinessLogic.Abstractions;
 using Biogarden.BusinessLogic.DTOs.Auth;
 using Biogarden.BusinessLogic.DTOs.Addresses;
 using Biogarden.BusinessLogic.Mappers;
-using Biogarden.BusinessLogic.Options;
 using Biogarden.DataAccess.Entities;
 using Biogarden.DataAccess.Enums;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Options;
 
 namespace Biogarden.BusinessLogic.Services;
 
@@ -20,14 +18,12 @@ public class AuthService : IAuthService
     private readonly ITokenService _tokenService;
     private readonly IAccountNotificationQueue _notifications;
     private readonly IEmailTemplateService _emailTemplateService;
-    private readonly AuthEmailOptions _authEmailOptions;
 
     public AuthService(
         UserManager<ApplicationUser> userManager,
         ITokenService tokenService,
         IAccountNotificationQueue notifications,
         IEmailTemplateService emailTemplateService,
-        IOptions<AuthEmailOptions> authEmailOptions,
         IAppDbContext databaseContext
     )
     {
@@ -36,7 +32,6 @@ public class AuthService : IAuthService
         _notifications = notifications;
         _databaseContext = databaseContext;
         _emailTemplateService = emailTemplateService;
-        _authEmailOptions = authEmailOptions.Value;
     }
 
     public async Task<AuthOperationResultDto> RegisterAsync(RegisterRequestDto registerRequestDto)
@@ -57,8 +52,6 @@ public class AuthService : IAuthService
 
     private async Task<AuthOperationResultDto> RegisterAsyncCore(RegisterRequestDto registerRequestDto)
     {
-        await DeleteExpiredUnconfirmedUsersAsync();
-
         if (registerRequestDto.Password != registerRequestDto.ConfirmPassword)
         {
             return AuthOperationResultDto.Failure("A jelszavak nem egyeznek.");
@@ -345,27 +338,6 @@ public class AuthService : IAuthService
 
     private Task QueueEmailConfirmationAsync(ApplicationUser user)
         => _notifications.QueueAuthenticationAsync(user, AccountNotificationQueue.Confirmation);
-
-    private async Task DeleteExpiredUnconfirmedUsersAsync()
-    {
-        var retentionDays = Math.Max(1, _authEmailOptions.UnconfirmedAccountRetentionDays);
-
-        var createdBefore = DateTime.UtcNow.AddDays(-retentionDays);
-
-        var expiredUsers = await _userManager.Users
-            .Where(user =>
-                !user.EmailConfirmed
-                && user.CreatedAt < createdBefore
-                && user.RecordStatus == RecordStatus.Active
-                && user.DeactivatedAtUtc == null
-                && user.AnonymizedAtUtc == null)
-            .ToListAsync();
-
-        foreach (var expiredUser in expiredUsers)
-        {
-            await _userManager.DeleteAsync(expiredUser);
-        }
-    }
 
     private static string? NormalizeOptional(string? value)
     {

@@ -1,6 +1,6 @@
 # Checkout drafts
 
-Checkout saves incomplete contact, billing and delivery fields in the API database. The frontend keeps the editable form in memory and sends changes after 800 ms without typing. It no longer writes personal checkout fields to `localStorage` or `sessionStorage`; startup removes drafts saved by older frontend versions. Payment/delivery selections, checkout step and legal acceptance are not restored. Saved account addresses remain separate from an unfinished order.
+Checkout saves incomplete contact, billing and delivery fields in the API database. The frontend keeps the editable form in memory and sends changes after 800 ms without typing. It no longer writes personal checkout fields to `localStorage` or `sessionStorage`; startup removes drafts saved by older frontend versions. The fulfillment method and selected GLS point ID are saved; restoring a GLS selection resolves it again through the API and can return a delivery-point error. Payment selection, checkout step and legal acceptance are not restored. Saved account addresses remain separate from an unfinished order.
 
 ## Ownership and conflicts
 

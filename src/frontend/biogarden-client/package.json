@@ -8,7 +8,7 @@
     "typecheck": "tsc -b",
     "build": "tsc -b && vite build && npm run generate:seo",
     "generate:seo": "node scripts/generate-seo-files.mjs",
-    "verify:seo": "node scripts/verify-seo-files.mjs && node --test scripts/seo-generation.test.mjs",
+    "verify:seo": "node scripts/verify-seo-files.mjs && node --test scripts/seo-generation.test.mjs scripts/build-environment.test.mjs",
     "lint": "eslint .",
     "preview": "vite preview",
     "test:e2e": "playwright test"
@@ -42,11 +42,12 @@
     "globals": "^16.5.0",
     "tailwindcss": "^4.2.2",
     "typescript": "~5.9.3",
-    "typescript-eslint": "^8.48.0",
-    "vite": "^7.3.1"
+    "typescript-eslint": "^8.72.2",
+    "vite": "^7.3.8"
   },
   "overrides": {
-    "brace-expansion": "5.0.12",
-    "minimatch": "10.2.6"
+    "@typescript-eslint/typescript-estree": {
+      "minimatch": "11.0.1"
+    }
   }
 }

@@ -35,6 +35,7 @@ public sealed class BiogardenWebApiFactory : WebApplicationFactory<Program>
                 ["OrderEmailOutbox:Enabled"] = "false",
                 ["NotificationEmailOutbox:Enabled"] = "false",
                 ["CartCleanup:Enabled"] = "false",
+                ["UnconfirmedAccountCleanup:Enabled"] = "false",
                 ["CheckoutDrafts:CleanupEnabled"] = "false"
             });
         });

@@ -12,7 +12,6 @@ Use `dotnet restore backend/Biogarden.sln --locked-mode` and `npm ci` for an exi
 
 For an intentional dependency change, update the project/central package declaration, run an ordinary restore once, review every affected lockfile (including transitive project dependencies), then run locked restore again. For npm, use an intentional `npm install` update and review both manifest and lock. Commit these changes together. Do not commit unexpected IDE-generated lock changes without comparing them to the branch's declarations.
 
-Investigation of the earlier validation change (`966c89a`) shows a legitimate dependency-graph change: FluentValidation moved into BusinessLogic and FluentValidation.AspNetCore was removed. Dependent test-project locks consequently changed too. The historical uncommitted files are not available, so their exact cause cannot be established from history alone. On the current merged tree, SDK 10.0.401 and npm 11.6.0 restore the committed graph without lockfile changes; no package upgrade is needed for this work.
 
 From the repository's `src` directory:
 
@@ -98,7 +97,7 @@ Finish with `git diff --check` and review `git status --short` from `src` for un
 
 ## Real browser-to-database journey
 
-The opt-in `RealBrowser` category launches the actual API through [WebApplicationFactory with Kestrel](https://learn.microsoft.com/en-us/dotnet/api/microsoft.aspnetcore.mvc.testing.webapplicationfactory-1.usekestrel?view=aspnetcore-10.0), seeds a disposable SQL database, and starts Playwright/Vite. Install frontend dependencies and Playwright Chromium/Firefox first (`npx playwright install chromium firefox`). Node must be on PATH. The test owns HTTPS API port 5097 and HTTPS frontend port 4174; keep both free. Each Chromium desktop, Firefox desktop and Chromium mobile case gets a fresh database. A one-hour self-signed certificate is created for the run and removed afterwards; certificate trust is bypassed only inside the test, without changing the machine trust store.
+The opt-in `RealBrowser` category launches the actual API through [WebApplicationFactory with Kestrel](https://learn.microsoft.com/en-us/dotnet/api/microsoft.aspnetcore.mvc.testing.webapplicationfactory-1.usekestrel?view=aspnetcore-10.0), seeds a disposable SQL database, and starts Playwright/Vite. Install frontend dependencies and Playwright Chromium/Firefox first (`npx playwright install chromium firefox`). Node must be on PATH. The API binds an ephemeral loopback HTTPS port; the test passes its actual address to Playwright/Vite. The HTTPS frontend uses port 4174; keep it free. Each Chromium desktop, Firefox desktop and Chromium mobile case gets a fresh database. A one-hour self-signed certificate is created for the run and removed afterwards; certificate trust is bypassed only inside the test, without changing the machine trust store.
 
 From `src` in PowerShell:
 
@@ -116,7 +115,7 @@ Run this through the .NET test, not by pointing Playwright at a hosted API. The 
 
 The checkout journey uses two isolated browser contexts, adds a guest item, signs in through the real login endpoint and merges it with an existing user cart. It completes a pickup order, intentionally drops the response **after the real API has committed**, recovers the saved order, and cancels through the account screen. SQL assertions check one order, the authoritative total, merged quantity, exactly one pair of queued confirmations, and restored stock. No checkout response is fabricated. The same run verifies actual HTTPS cookie flags, guest-session separation, checkout modal focus/Escape behaviour, and a mobile viewport. A second scenario starts with an expired SQL cart, verifies it is replaced and cannot be checked out, checks rejection of an unavailable product, and proves draft/deleted article URLs do not render their content while a published article does.
 
-These are loopback, same-site browser tests. They do not reproduce SmarterASP's different-domain deployment, third-party-cookie blocking, proxy TLS termination, Safari/iOS, a real card charge or SMTP delivery. Those remain explicit hosted checks in the deployment runbook. Failure traces contain only synthetic test data and can be uploaded by CI; do not reuse real customer data in this harness.
+These are loopback, same-site browser tests. They do not reproduce the hosted frontend/API subdomains (same-site HTTPS, but different origins), third-party-cookie blocking, proxy TLS termination, Safari/iOS, a real card charge or SMTP delivery. Those remain explicit hosted checks in the deployment runbook. Failure traces contain only synthetic test data and can be uploaded by CI; do not reuse real customer data in this harness.
 
 ## What these checks establish
 
