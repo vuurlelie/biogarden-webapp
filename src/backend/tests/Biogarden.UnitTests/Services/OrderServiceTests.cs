@@ -454,16 +454,12 @@ public sealed class OrderServiceTests
         _carts
             .Setup(cartRepository => cartRepository.GetActiveBySessionIdAsync(sessionId, It.IsAny<CancellationToken>()))
             .ReturnsAsync((Cart?)null);
-        _carts
-            .Setup(cartRepository => cartRepository.GetLatestCheckedOutBySessionIdAsync(sessionId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(cart);
         _orders
             .Setup(orderRepository => orderRepository.GetByCartIdWithItemsAsync(cart.Id, It.IsAny<CancellationToken>()))
             .ReturnsAsync(order);
 
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
             _service.CreateOrderFromCartAsync(null, sessionId, new PlaceOrderDto { IdempotencyKey = IdempotencyKey }));
-        _carts.Verify(repository => repository.GetLatestCheckedOutBySessionIdAsync(sessionId, It.IsAny<CancellationToken>()), Times.Never);
         _orders.Verify(repository => repository.GetByCartIdWithItemsAsync(cart.Id, It.IsAny<CancellationToken>()), Times.Never);
 
         _orders.Verify(orderRepository => orderRepository.AddAsync(It.IsAny<Order>(), It.IsAny<CancellationToken>()), Times.Never);
@@ -602,7 +598,6 @@ public sealed class OrderServiceTests
             }));
 
         Assert.Contains(concurrencyFailure ? "készlet" : "mentése", exception.Message);
-        _carts.Verify(repository => repository.GetLatestCheckedOutBySessionIdAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
         _emailTemplateService.Verify(emailTemplateService => emailTemplateService.BuildOrderConfirmationMessage(It.IsAny<string>(), It.IsAny<OrderDto>()), Times.Never);
         _emailService.Verify(emailService => emailService.SendAsync(It.IsAny<EmailMessage>(), It.IsAny<CancellationToken>()), Times.Never);
     }

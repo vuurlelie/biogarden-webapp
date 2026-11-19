@@ -7,8 +7,6 @@ public interface ICartRepository
     Task<IAsyncDisposable> AcquireOwnerLockAsync(Guid? userId, string? sessionId, CancellationToken cancellationToken = default);
     Task<Cart?> GetActiveByUserIdAsync(Guid userId, CancellationToken cancellationToken = default);
     Task<Cart?> GetActiveBySessionIdAsync(string sessionId, CancellationToken cancellationToken = default);
-    Task<Cart?> GetLatestCheckedOutByUserIdAsync(Guid userId, CancellationToken cancellationToken = default);
-    Task<Cart?> GetLatestCheckedOutBySessionIdAsync(string sessionId, CancellationToken cancellationToken = default);
     Task<Cart?> GetByIdWithItemsAsync(Guid cartId, CancellationToken cancellationToken = default);
 
     Task AddAsync(Cart cart, CancellationToken cancellationToken = default);
